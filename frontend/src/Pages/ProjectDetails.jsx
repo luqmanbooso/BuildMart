@@ -139,7 +139,7 @@ const ProjectDetails = () => {
            <span className="bg-green-200 text-green-800 px-2 py-1 rounded mb-2 block">✓ Plumbing</span>
            <h3 className="font-semibold">I Need a Construction Estimate</h3>
            <p className="text-sm">Mr.S.S.Perera</p>
-           <p className="text-sm">Area: Colombo</p>
+           <p className="text-sm">Area:Colombo</p>
            <p className="text-sm">Budget: 20million - 40million</p>
            <p className="text-xs text-gray-500">Auction starts in: 14.9.2022 10:00:00 GMT+8</p>
            <Link to="/bid-form" className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 mt-2 inline-block">
