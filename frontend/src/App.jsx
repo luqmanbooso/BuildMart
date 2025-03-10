@@ -7,6 +7,8 @@ import { Route, Routes } from 'react-router-dom'
 import Home from './Pages/Home'
 import NoPage from './Pages/NoPage'
 import ProjectDetails from './Pages/ProjectDetails'
+import Login from './Pages/login'
+
 
 function App() {
   const [count, setCount] = useState(0)
@@ -17,8 +19,10 @@ function App() {
         <Route path='/' element={<Home/>} />
         <Route path='/bid-form' element={<BidForm/>} />
         <Route path="/project-details" element={<ProjectDetails />} />
+        <Route path="/login" element={<Login />} />
         {/* Fallback route */}
         <Route path="*" element={<NoPage />} />
+        
       </Routes>
     </>
   )
