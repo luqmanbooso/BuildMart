@@ -8,7 +8,7 @@ import Home from './Pages/Home'
 import NoPage from './Pages/NoPage'
 import ProjectDetails from './Pages/ProjectDetails'
 import Login from './Pages/login'
-
+import Shop from './Pages/shop'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -20,6 +20,7 @@ function App() {
         <Route path='/bid-form' element={<BidForm/>} />
         <Route path="/project-details" element={<ProjectDetails />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/Shop" element={<Shop />} />
         {/* Fallback route */}
         <Route path="*" element={<NoPage />} />
         
