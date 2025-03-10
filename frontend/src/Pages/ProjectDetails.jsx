@@ -13,7 +13,7 @@ const ProjectDetails = () => {
 
   // Mock Bids Data
   const bids = [
-    { bidder: "d**********3", bidAmount: 3000, bidTime: "15/02/2025 03:28:59" },
+    { bidder: "d**********3", bidAmount: 3200, bidTime: "15/02/2025 03:28:59" },
     { bidder: "d**********3", bidAmount: 3500, bidTime: "16/02/2025 02:49:13" },
     { bidder: "d**********3", bidAmount: 4000, bidTime: "15/02/2025 11:10:39" },
     { bidder: "d**********3", bidAmount: 3000, bidTime: "14/02/2025 03:03:04" },
