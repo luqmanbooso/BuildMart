@@ -1,26 +1,58 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useNavigate, useParams } from "react-router-dom";
 
 const BidForm = () => {
+  const navigate = useNavigate();
+  const { projectId } = useParams();
+  const [loading, setLoading] = useState(false);
+  const [submissionError, setSubmissionError] = useState(null);
+  const [projectDetails, setProjectDetails] = useState(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
+    trigger,
   } = useForm();
 
-  const onSubmit = (data) => {
-    console.log("Bid Submitted:", data);
-    alert("Bid Submitted Successfully!");
-  };
-
   // Estimated Budget (Read-only)
-  const estimatedBudget = "RS:3000 - RS:8000";
+  const estimatedBudget = projectDetails?.budget || "RS:3000 - RS:8000";
 
   // Auction End Time (Set to a specific date/time in the future)
-  const auctionEndTime = new Date("2025-03-16T08:05:33 GMT+08:00").getTime();
+  const auctionEndTime = projectDetails?.endTime
+    ? new Date(projectDetails.endTime).getTime()
+    : new Date("2025-03-16T08:05:33 GMT+08:00").getTime();
 
   // State for the Timer
   const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
+
+  // Fetch project details if projectId is available
+  useEffect(() => {
+    const fetchProjectDetails = async () => {
+      if (!projectId) return;
+
+      try {
+        const response = await fetch(`/api/projects/${projectId}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch project details");
+        }
+        const data = await response.json();
+        setProjectDetails(data);
+
+        // Pre-fill project name if available
+        if (data.title) {
+          setValue("projectName", data.title);
+        }
+      } catch (error) {
+        console.error("Error fetching project details:", error);
+      }
+    };
+
+    fetchProjectDetails();
+  }, [projectId, setValue]);
 
   // Calculate Time Left Function
   function calculateTimeLeft() {
@@ -65,10 +97,114 @@ const BidForm = () => {
   const now = new Date();
   const bidTime = now.toLocaleString();
 
+  // Handle back to project details
+  const handleBackToProject = () => {
+    navigate(`/project-details`);
+  };
+
+  // Enhanced onSubmit function with API integration
+  const onSubmit = async (data) => {
+    if (timeLeft.timeUp) {
+      setSubmissionError("Auction has ended. You can no longer submit bids.");
+      return;
+    }
+
+    setLoading(true);
+    setSubmissionError(null);
+
+    try {
+      // Format bid data for submission
+      const bidData = {
+        projectId: projectId || "default-project",
+        bidAmount: parseFloat(data.yourBid),
+        timelineInDays: parseInt(data.timeline),
+        qualifications: `Experience: ${data.experience} years. ${data.additionalDetails || ""}`,
+        contractorName: data.contractorName,
+        bidTime: bidTime,
+        submittedAt: new Date().toISOString(),
+      };
+
+      // Submit bid to API
+      const response = await fetch("/api/bids", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(bidData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to submit bid");
+      }
+
+      const responseData = await response.json();
+      alert("Bid Submitted Successfully!");
+
+      // Navigate to bid details page or dashboard
+      if (responseData.bidId) {
+        navigate(`/bids/${responseData.bidId}`);
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      console.error("Error submitting bid:", error);
+      setSubmissionError(error.message || "Failed to submit bid. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Confirmation Modal Handlers
+  const handleConfirmation = (data) => {
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmSubmit = () => {
+    setShowConfirmation(false);
+    handleSubmit(onSubmit)();
+  };
+
   return (
     <div className="max-w-md mx-auto mt-10 p-4 border rounded shadow-md">
+      {/* Back Button */}
+      <div className="mb-4">
+        <button
+          onClick={handleBackToProject}
+          className="text-blue-500 hover:text-blue-700 flex items-center"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5 mr-1"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+          Back to Project Details
+        </button>
+      </div>
+
       <h2 className="text-lg font-bold mb-4">Bid Submission Form</h2>
 
+      {/* Display Project Details */}
+      {projectDetails && (
+        <div className="mb-4">
+          <h3 className="font-bold">Project Details</h3>
+          <p>{projectDetails.description}</p>
+          <p>Budget: {projectDetails.budget}</p>
+          <p>Deadline: {new Date(projectDetails.endTime).toLocaleString()}</p>
+        </div>
+      )}
+
+      {/* Timer */}
       {timeLeft.timeUp ? (
         <p className="text-red-500">Auction has ended!</p>
       ) : (
@@ -91,7 +227,15 @@ const BidForm = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      {/* Submission Error */}
+      {submissionError && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+          {submissionError}
+        </div>
+      )}
+
+      {/* Form */}
+      <form onSubmit={handleSubmit(handleConfirmation)}>
         {/* Project Name */}
         <div className="mb-4">
           <label htmlFor="projectName" className="block font-medium mb-1">
@@ -101,6 +245,7 @@ const BidForm = () => {
             id="projectName"
             {...register("projectName", { required: "Project name is required" })}
             className="w-full p-2 border rounded"
+            readOnly={!!projectDetails?.title}
           />
           {errors.projectName && (
             <p className="text-red-500 text-sm">{errors.projectName.message}</p>
@@ -146,11 +291,44 @@ const BidForm = () => {
             {...register("yourBid", {
               required: "Your bid is required",
               min: { value: 1, message: "Bid must be greater than 0" },
+              validate: {
+                withinRange: (value) => {
+                  if (projectDetails?.minBid && value < projectDetails.minBid) {
+                    return `Bid must be at least ${projectDetails.minBid}`;
+                  }
+                  if (projectDetails?.maxBid && value > projectDetails.maxBid) {
+                    return `Bid must not exceed ${projectDetails.maxBid}`;
+                  }
+                  return true;
+                },
+              },
             })}
-            className="w-full p-2 border rounded"
+            className={`w-full p-2 border rounded ${errors.yourBid ? "border-red-500" : ""}`}
+            onBlur={() => trigger("yourBid")}
           />
           {errors.yourBid && (
             <p className="text-red-500 text-sm">{errors.yourBid.message}</p>
+          )}
+        </div>
+
+        {/* Timeline (Days) */}
+        <div className="mb-4">
+          <label htmlFor="timeline" className="block font-medium mb-1">
+            Timeline (Days):
+          </label>
+          <input
+            id="timeline"
+            type="number"
+            {...register("timeline", {
+              required: "Timeline is required",
+              min: { value: 1, message: "Timeline must be at least 1 day" },
+              max: { value: 365, message: "Timeline must not exceed 1 year" },
+            })}
+            className={`w-full p-2 border rounded ${errors.timeline ? "border-red-500" : ""}`}
+            onBlur={() => trigger("timeline")}
+          />
+          {errors.timeline && (
+            <p className="text-red-500 text-sm">{errors.timeline.message}</p>
           )}
         </div>
 
@@ -178,19 +356,73 @@ const BidForm = () => {
             {...register("experience", {
               required: "Experience is required",
               min: { value: 1, message: "Experience must be at least 1 year" },
+              max: { value: 100, message: "Please enter a realistic experience value" },
             })}
-            className="w-full p-2 border rounded"
+            className={`w-full p-2 border rounded ${errors.experience ? "border-red-500" : ""}`}
+            onBlur={() => trigger("experience")}
           />
           {errors.experience && (
             <p className="text-red-500 text-sm">{errors.experience.message}</p>
           )}
         </div>
 
-        {/* Submit Button */}
-        <button type="submit" className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600" disabled={timeLeft.timeUp}>
-          Submit Bid
-        </button>
+        {/* Additional Details/Qualifications */}
+        <div className="mb-4">
+          <label htmlFor="additionalDetails" className="block font-medium mb-1">
+            Additional Details/Qualifications:
+          </label>
+          <textarea
+            id="additionalDetails"
+            {...register("additionalDetails")}
+            className="w-full p-2 border rounded"
+            rows="3"
+            placeholder="Describe your relevant skills, past projects, or any additional information"
+          />
+        </div>
+
+        {/* Form Buttons */}
+        <div className="flex justify-between">
+          <button
+            type="button"
+            onClick={handleBackToProject}
+            className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+          >
+            Back to Project
+          </button>
+
+          <button
+            type="submit"
+            className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={timeLeft.timeUp || loading}
+          >
+            {loading ? "Submitting..." : "Submit Bid"}
+          </button>
+        </div>
       </form>
+
+      {/* Confirmation Modal */}
+      {showConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded shadow-md">
+            <h3 className="font-bold mb-4">Confirm Bid Submission</h3>
+            <p>Are you sure you want to submit this bid?</p>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowConfirmation(false)}
+                className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 mr-2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSubmit}
+                className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
