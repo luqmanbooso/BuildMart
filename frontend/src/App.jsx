@@ -13,6 +13,7 @@ import Shop from './Pages/shop'
 import Payment from './components/Payment'
 import ShippingTracking from './Pages/ShippingTracking'
 import AuctionsPage from './Pages/AuctionsPage'
+import ContractorProfile from './Pages/ContractorPage'
 
 function App() {
   const sampleData = {
@@ -42,7 +43,7 @@ function App() {
         <Route path='/auctions' element={<AuctionsPage />} />
         {/* Fallback route */}
         <Route path="*" element={<NoPage />} />
-        
+        <Route path="/contractor-profile" element={<ContractorProfile />} />
       </Routes>
     </>
   )
