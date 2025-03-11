@@ -8,6 +8,7 @@ import Home from './Pages/Home'
 import NoPage from './Pages/NoPage'
 import ProjectDetails from './Pages/ProjectDetails'
 import Login from './Pages/login'
+import SignUp from './Pages/Signup'
 import Shop from './Pages/shop'
 import Payment from './components/Payment'
 
@@ -27,6 +28,7 @@ function App() {
         <Route path='/bid-form' element={<BidForm/>} />
         <Route path="/project-details" element={<ProjectDetails />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
         <Route path="/Shop" element={<Shop />} />
         <Route path="/payment" element={<Payment />} />
         {/* Fallback route */}
