@@ -23,6 +23,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/Shop" element={<Shop />} />
+        <Route path="/payment" element={<Payment />} />
         {/* Fallback route */}
         <Route path="*" element={<NoPage />} />
         
