@@ -9,6 +9,7 @@ import NoPage from './Pages/NoPage'
 import ProjectDetails from './Pages/ProjectDetails'
 import Login from './Pages/login'
 import Shop from './Pages/shop'
+import Payment from './components/Payment'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -21,6 +22,7 @@ function App() {
         <Route path="/project-details" element={<ProjectDetails />} />
         <Route path="/login" element={<Login />} />
         <Route path="/Shop" element={<Shop />} />
+        <Route path="/payment" element={<Payment />} />
         {/* Fallback route */}
         <Route path="*" element={<NoPage />} />
         
