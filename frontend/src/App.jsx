@@ -10,9 +10,16 @@ import ProjectDetails from './Pages/ProjectDetails'
 import Login from './Pages/login'
 import Shop from './Pages/shop'
 import Payment from './components/Payment'
+import ShippingTracking from './Pages/ShippingTracking'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const sampleData = {
+    shipmentId: "123456",
+    shipmentStatus: "Out for Delivery",
+    deliveryProgress: 75, // Progress percentage (e.g., 75%)
+    estimatedDelivery: "Friday, October 27, 2023",
+  };
+
 
   return (
     <>
@@ -23,6 +30,13 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/Shop" element={<Shop />} />
         <Route path="/payment" element={<Payment />} />
+        <Route path="/shippingtracking" element={<ShippingTracking
+          shipmentId={sampleData.shipmentId}
+          shipmentStatus={sampleData.shipmentStatus}
+          deliveryProgress={sampleData.deliveryProgress}
+          estimatedDelivery={sampleData.estimatedDelivery}
+        />} />
+       
         {/* Fallback route */}
         <Route path="*" element={<NoPage />} />
         
