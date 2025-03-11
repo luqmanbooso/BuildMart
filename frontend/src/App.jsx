@@ -10,7 +10,6 @@ import ProjectDetails from './Pages/ProjectDetails'
 import Login from './Pages/login'
 import Shop from './Pages/shop'
 import Payment from './components/Payment'
-import ShippingTracking from './Pages/ShippingTracking'
 
 function App() {
   const sampleData = {
@@ -30,13 +29,6 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/Shop" element={<Shop />} />
         <Route path="/payment" element={<Payment />} />
-        <Route path="/shippingtracking" element={<ShippingTracking
-          shipmentId={sampleData.shipmentId}
-          shipmentStatus={sampleData.shipmentStatus}
-          deliveryProgress={sampleData.deliveryProgress}
-          estimatedDelivery={sampleData.estimatedDelivery}
-        />} />
-       
         {/* Fallback route */}
         <Route path="*" element={<NoPage />} />
         
