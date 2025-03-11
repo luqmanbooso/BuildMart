@@ -12,6 +12,7 @@ import SignUp from './Pages/Signup'
 import Shop from './Pages/shop'
 import Payment from './components/Payment'
 import ShippingTracking from './Pages/ShippingTracking'
+import AuctionsPage from './Pages/AuctionsPage'
 
 function App() {
   const sampleData = {
@@ -38,6 +39,7 @@ function App() {
           deliveryProgress={sampleData.deliveryProgress}
           estimatedDelivery={sampleData.estimatedDelivery}
         />  } />
+        <Route path='/auctions' element={<AuctionsPage />} />
         {/* Fallback route */}
         <Route path="*" element={<NoPage />} />
         
