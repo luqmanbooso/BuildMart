@@ -190,7 +190,7 @@ const Home = () => {
           <a href="#" className="text-gray-800 hover:text-blue-500">
             About Us
           </a>
-          <a href="#" className="text-gray-800 hover:text-blue-500">
+          <a href="/contact" className="text-gray-800 hover:text-blue-500">
             Contact Us
           </a>
           <button className="bg-gray-100 text-gray-800 p-2 rounded-full hover:bg-gray-200 transition">
