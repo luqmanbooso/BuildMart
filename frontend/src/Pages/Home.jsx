@@ -187,7 +187,7 @@ const Home = () => {
           <a href="/Shop" className="text-gray-800 hover:text-blue-500">
             Shop
           </a>
-          <a href="#" className="text-gray-800 hover:text-blue-500">
+          <a href="/about" className="text-gray-800 hover:text-blue-500">
             About Us
           </a>
           <a href="/contact" className="text-gray-800 hover:text-blue-500">

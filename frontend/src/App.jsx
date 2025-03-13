@@ -14,6 +14,8 @@ import ShippingTracking from './Pages/ShippingTracking'
 import AuctionsPage from './Pages/AuctionsPage'
 import ContractorProfile from './Pages/ContractorPage'
 import Contact from './Pages/Contact'
+import About from './Pages/About'
+import Admindashboard from './Pages/Admindashboard'
 import ClientContractorAgreement from './Pages/ClientContractorAgreement'
 
 function App() {
@@ -69,6 +71,8 @@ function App() {
         <Route path='/auctions' element={<AuctionsPage />} />
         {/* Fallback route */}
         <Route path="/contact" element={<Contact />} />
+        <Route path="/admindashboard" element={<Admindashboard />} />
+        <Route path="/about" element={<About />} />
         <Route path="*" element={<NoPage />} />
         <Route path="/contractor-profile" element={<ContractorProfile />} />
       </Routes>
