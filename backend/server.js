@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/bids', bidRoutes);
-
+app.use('/auth', require('./routes/auth'));
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('Connected to MongoDB'))

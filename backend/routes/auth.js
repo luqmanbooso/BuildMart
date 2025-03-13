@@ -8,7 +8,7 @@ const router = express.Router();
 // Multer setup for file upload
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
-
+  
 // POST request to register a new user
 router.post('/signup', upload.single('profilePic'), async (req, res) => {
   const { username, email, password, role } = req.body;
