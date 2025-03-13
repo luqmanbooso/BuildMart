@@ -2,52 +2,71 @@ import React, { useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa"; // For password visibility toggle
 import { motion } from "framer-motion"; // For animations
 import logo from '../assets/images/buildmart_logo1.png'; 
+import axios from 'axios'; // Importing Axios for API requests
 
 const SignUp = () => {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
-  const [selectedRole, setSelectedRole] = useState("Client");
-  const [profilePic, setProfilePic] = useState(null);
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [selectedRole, setSelectedRole] = useState("Client"); // Default role is 'Client'
+  const [profilePic, setProfilePic] = useState(null); // State to hold the profile picture
+  const [username, setUsername] = useState(""); // State for username
+  const [email, setEmail] = useState(""); // State for email
+  const [password, setPassword] = useState(""); // State for password
+  const [confirmPassword, setConfirmPassword] = useState(""); // State for confirm password
+  const [errorMessage, setErrorMessage] = useState(""); // State to handle error messages
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      alert("Passwords do not match");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("username", username);
-    formData.append("email", email);
-    formData.append("password", password);
-    formData.append("role", selectedRole);
-    if (profilePic) formData.append("profilePic", profilePic);
-
-    try {
-      const response = await fetch("http://localhost:5000/api/auth/signup", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        alert("User registered successfully");
-      } else {
-        alert(data.message);
-      }
-    } catch (error) {
-      alert("Error registering user");
-    }
-  };
-
+  // Handle file input change (profile picture upload)
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setProfilePic(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePic(reader.result); // Set the uploaded image as the profile picture
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match");
+      return;
+    }
+
+    // Create a FormData object to handle file upload
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('email', email);
+    formData.append('password', password);
+    formData.append('role', selectedRole);
+    if (profilePic) {
+      formData.append('profilePic', profilePic);
+    }
+
+    try {
+      // Make the POST request to the backend
+      const response = await axios.post('http://localhost:5000/api/auth/signup', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      // Handle successful signup
+      console.log('User signed up successfully:', response.data);
+      alert('Signup successful!');
+
+      // Optionally, reset form fields after successful submission
+      setUsername('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setProfilePic(null);
+      setSelectedRole('Client');
+    } catch (error) {
+      // Handle error
+      console.error('Error during signup:', error.response ? error.response.data : error.message);
+      alert('Signup failed! Please try again.');
     }
   };
 
@@ -72,6 +91,10 @@ const SignUp = () => {
               Sign Up
             </motion.h1>
             <form onSubmit={handleSubmit}>
+              {errorMessage && (
+                <div className="text-red-500 mb-4">{errorMessage}</div>
+              )}
+
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -83,10 +106,10 @@ const SignUp = () => {
                 </label>
                 <input
                   type="text"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
-                  placeholder="Enter username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
+                  placeholder="Enter username"
                   required
                 />
               </motion.div>
@@ -104,14 +127,14 @@ const SignUp = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedRole("Client")}
-                    className={`w-1/2 py-2 rounded-lg text-center ${selectedRole === "Client" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}
+                    className={`px-6 py-3 rounded-lg ${selectedRole === "Client" ? "bg-blue-600 text-white" : "bg-white text-blue-600 border border-blue-600"}`}
                   >
                     Client
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedRole("Service Provider")}
-                    className={`w-1/2 py-2 rounded-lg text-center ${selectedRole === "Service Provider" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}
+                    className={`px-6 py-3 rounded-lg ${selectedRole === "Service Provider" ? "bg-blue-600 text-white" : "bg-white text-blue-600 border border-blue-600"}`}
                   >
                     Service Provider
                   </button>
@@ -129,10 +152,10 @@ const SignUp = () => {
                 </label>
                 <input
                   type="email"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
-                  placeholder="Enter email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
+                  placeholder="Enter email address"
                   required
                 />
               </motion.div>
@@ -149,10 +172,10 @@ const SignUp = () => {
                 <div className="relative">
                   <input
                     type={passwordVisible ? "text" : "password"}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
-                    placeholder="Enter password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
+                    placeholder="Enter password"
                     required
                   />
                   <button
@@ -177,10 +200,10 @@ const SignUp = () => {
                 <div className="relative">
                   <input
                     type={confirmPasswordVisible ? "text" : "password"}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
-                    placeholder="Confirm password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
+                    placeholder="Confirm password"
                     required
                   />
                   <button
@@ -203,21 +226,6 @@ const SignUp = () => {
                 Register
               </motion.button>
             </form>
-
-            {/* Already Have an Account Link */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 1.6 }}
-              className="mt-6 text-center"
-            >
-              <p className="text-sm text-gray-600">
-                Already have an account?{" "}
-                <a href="/login" className="text-blue-500 hover:underline">
-                  Sign In
-                </a>
-              </p>
-            </motion.div>
           </div>
 
           {/* Right Side - Profile Image Upload */}
@@ -230,7 +238,7 @@ const SignUp = () => {
             >
               {/* Display Profile Picture if available */}
               {profilePic ? (
-                <img src={URL.createObjectURL(profilePic)} alt="Profile" className="w-16 h-16 rounded-full" />
+                <img src={profilePic} alt="Profile" className="w-16 h-16 rounded-full" />
               ) : (
                 <div className="w-16 h-16 bg-gray-300 rounded-full flex justify-center items-center text-xl text-white">
                   +
@@ -252,7 +260,7 @@ const SignUp = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="mt-20"
+              className="mt-26"
             >
               <img
                 src={logo} 

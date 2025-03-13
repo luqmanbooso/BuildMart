@@ -1,64 +1,56 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 const multer = require('multer');
-
+const User = require('../models/User');
 const router = express.Router();
 
-// Multer setup for profile picture upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + file.originalname);
-  }
-});
+// Multer setup for file upload
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Sign Up Route
+// POST request to register a new user
 router.post('/signup', upload.single('profilePic'), async (req, res) => {
   const { username, email, password, role } = req.body;
+  const profilePic = req.file ? req.file.buffer.toString('base64') : null;
+
   try {
-    const userExists = await User.findOne({ email });
+    // Check if the user already exists
+    const userExists = await User.findOne({ $or: [{ email }, { username }] });
     if (userExists) {
-      return res.status(400).json({ message: 'Email already exists' });
+      return res.status(400).json({ message: 'User already exists' });
     }
 
+    // Hash the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create a new user
     const newUser = new User({
       username,
       email,
-      password,
+      password: hashedPassword,
       role,
-      profilePic: req.file ? req.file.path : null
+      profilePic,
     });
 
     await newUser.save();
-    res.status(201).json({ message: 'User created successfully' });
-  } catch (err) {
-    res.status(500).json({ message: 'Error signing up' });
-  }
-});
 
-// Login Route
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: newUser._id, username: newUser.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.status(200).json({ token });
-  } catch (err) {
-    res.status(500).json({ message: 'Error logging in' });
+    res.status(201).json({
+      message: 'User created successfully',
+      token,
+      user: { username, email, role, profilePic },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
