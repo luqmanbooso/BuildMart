@@ -13,6 +13,7 @@ import Payment from './components/Payment'
 import ShippingTracking from './Pages/ShippingTracking'
 import AuctionsPage from './Pages/AuctionsPage'
 import ContractorProfile from './Pages/ContractorPage'
+import Contact from './Pages/Contact'
 import ClientContractorAgreement from './Pages/ClientContractorAgreement'
 
 function App() {
@@ -67,6 +68,7 @@ function App() {
         <Route path='/aggreement' element={<ClientContractorAgreement />} />
         <Route path='/auctions' element={<AuctionsPage />} />
         {/* Fallback route */}
+        <Route path="/contact" element={<Contact />} />
         <Route path="*" element={<NoPage />} />
         <Route path="/contractor-profile" element={<ContractorProfile />} />
       </Routes>
