@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 
-const BidForm = () => {
+const BidForm = ({ sampleData }) => {
   const navigate = useNavigate();
   const { projectId } = useParams();
   const [loading, setLoading] = useState(false);
@@ -19,20 +19,43 @@ const BidForm = () => {
   } = useForm();
 
   // Estimated Budget (Read-only)
-  const estimatedBudget = projectDetails?.budget || "RS:3000 - RS:8000";
+  const estimatedBudget = projectDetails?.budget || sampleData?.budget || "RS:3000 - RS:8000";
+  
+  // Project Title
+  const projectTitle = projectDetails?.title || sampleData?.title || "";
 
   // Auction End Time (Set to a specific date/time in the future)
-  const auctionEndTime = projectDetails?.endTime
-    ? new Date(projectDetails.endTime).getTime()
-    : new Date("2025-03-16T08:05:33 GMT+08:00").getTime();
+  const auctionEndTime = projectDetails?.endTime 
+    ? new Date(projectDetails.endTime).getTime() 
+    : sampleData?.endTime 
+      ? new Date(sampleData.endTime).getTime()
+      : new Date("2025-03-16T08:05:33 GMT+08:00").getTime();
 
   // State for the Timer
-  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    timeUp: false
+  });
 
   // Fetch project details if projectId is available
   useEffect(() => {
     const fetchProjectDetails = async () => {
-      if (!projectId) return;
+      if (!projectId) {
+        // If no projectId but we have sampleData, use it
+        if (sampleData) {
+          setProjectDetails(sampleData);
+          if (sampleData.title) {
+            setValue("projectName", sampleData.title);
+          }
+          if (sampleData.contractorName) {
+            setValue("contractorName", sampleData.contractorName);
+          }
+        }
+        return;
+      }
 
       try {
         const response = await fetch(`/api/projects/${projectId}`);
@@ -52,7 +75,7 @@ const BidForm = () => {
     };
 
     fetchProjectDetails();
-  }, [projectId, setValue]);
+  }, [projectId, setValue, sampleData]);
 
   // Calculate Time Left Function
   function calculateTimeLeft() {
@@ -85,13 +108,23 @@ const BidForm = () => {
 
   // UseEffect to Update the Timer Every Second
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setTimeLeft(calculateTimeLeft());
+    // Calculate initial time left
+    setTimeLeft(calculateTimeLeft());
+    
+    // Set up the timer
+    const timer = setInterval(() => {
+      const newTimeLeft = calculateTimeLeft();
+      setTimeLeft(newTimeLeft);
+      
+      // If time is up, clear the interval
+      if (newTimeLeft.timeUp) {
+        clearInterval(timer);
+      }
     }, 1000);
 
-    // Clear Timeout if the Component Unmounts
-    return () => clearTimeout(timer);
-  });
+    // Clear interval if the component unmounts
+    return () => clearInterval(timer);
+  }, [auctionEndTime]); // Add auctionEndTime as a dependency
 
   // Date and Time
   const now = new Date();
@@ -108,46 +141,41 @@ const BidForm = () => {
       setSubmissionError("Auction has ended. You can no longer submit bids.");
       return;
     }
-
+  
     setLoading(true);
     setSubmissionError(null);
-
+  
     try {
-      // Format bid data for submission
+      // Format bid data according to your backend's expected structure
       const bidData = {
-        projectId: projectId || "default-project",
-        bidAmount: parseFloat(data.yourBid),
-        timelineInDays: parseInt(data.timeline),
-        qualifications: `Experience: ${data.experience} years. ${data.additionalDetails || ""}`,
         contractorName: data.contractorName,
-        bidTime: bidTime,
-        submittedAt: new Date().toISOString(),
+        price: parseFloat(data.yourBid),         // Changed from bidAmount to price to match backend
+        timeline: String(parseInt(data.timeline)),       // This matches your backend
+        qualifications: `Experience: ${data.experience} years. ${data.additionalDetails || ""}`
       };
-
-      // Submit bid to API
-      const response = await fetch("/api/bids", {
+  
+      // Submit bid to API - update URL to match your backend route
+      const response = await fetch("http://localhost:5000/bids/submit", {  // Changed from /api/bids to /bids/submit
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          // Only include Authorization if you're implementing authentication
+          // Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify(bidData),
       });
-
+  
+      console.log(response);
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to submit bid");
+        throw new Error(errorData.error || "Failed to submit bid");
       }
-
+  
       const responseData = await response.json();
       alert("Bid Submitted Successfully!");
-
-      // Navigate to bid details page or dashboard
-      if (responseData.bidId) {
-        navigate(`/bids/${responseData.bidId}`);
-      } else {
-        navigate("/dashboard");
-      }
+  
+      // Navigate to appropriate page after submission
+      navigate("/project-details");
     } catch (error) {
       console.error("Error submitting bid:", error);
       setSubmissionError(error.message || "Failed to submit bid. Please try again.");
@@ -155,7 +183,7 @@ const BidForm = () => {
       setLoading(false);
     }
   };
-
+  
   // Confirmation Modal Handlers
   const handleConfirmation = (data) => {
     setShowConfirmation(true);
@@ -195,12 +223,12 @@ const BidForm = () => {
       <h2 className="text-lg font-bold mb-4">Bid Submission Form</h2>
 
       {/* Display Project Details */}
-      {projectDetails && (
+      {(projectDetails || sampleData) && (
         <div className="mb-4">
           <h3 className="font-bold">Project Details</h3>
-          <p>{projectDetails.description}</p>
-          <p>Budget: {projectDetails.budget}</p>
-          <p>Deadline: {new Date(projectDetails.endTime).toLocaleString()}</p>
+          <p>{projectDetails?.description || sampleData?.description}</p>
+          <p>Budget: {projectDetails?.budget || sampleData?.budget}</p>
+          <p>Deadline: {new Date(auctionEndTime).toLocaleString()}</p>
         </div>
       )}
 
@@ -239,13 +267,14 @@ const BidForm = () => {
         {/* Project Name */}
         <div className="mb-4">
           <label htmlFor="projectName" className="block font-medium mb-1">
-            Project Name:
+            Project Name: {projectTitle}
           </label>
           <input
             id="projectName"
             {...register("projectName", { required: "Project name is required" })}
             className="w-full p-2 border rounded"
-            readOnly={!!projectDetails?.title}
+            readOnly={!!projectTitle}
+            defaultValue={projectTitle}
           />
           {errors.projectName && (
             <p className="text-red-500 text-sm">{errors.projectName.message}</p>
@@ -261,6 +290,7 @@ const BidForm = () => {
             id="contractorName"
             {...register("contractorName", { required: "Contractor name is required" })}
             className="w-full p-2 border rounded"
+            defaultValue={sampleData?.contractorName || ""}
           />
           {errors.contractorName && (
             <p className="text-red-500 text-sm">{errors.contractorName.message}</p>
@@ -305,6 +335,7 @@ const BidForm = () => {
             })}
             className={`w-full p-2 border rounded ${errors.yourBid ? "border-red-500" : ""}`}
             onBlur={() => trigger("yourBid")}
+            defaultValue={sampleData?.yourBid || ""}
           />
           {errors.yourBid && (
             <p className="text-red-500 text-sm">{errors.yourBid.message}</p>
@@ -326,6 +357,7 @@ const BidForm = () => {
             })}
             className={`w-full p-2 border rounded ${errors.timeline ? "border-red-500" : ""}`}
             onBlur={() => trigger("timeline")}
+            defaultValue={sampleData?.timeline || ""}
           />
           {errors.timeline && (
             <p className="text-red-500 text-sm">{errors.timeline.message}</p>
@@ -360,6 +392,7 @@ const BidForm = () => {
             })}
             className={`w-full p-2 border rounded ${errors.experience ? "border-red-500" : ""}`}
             onBlur={() => trigger("experience")}
+            defaultValue={sampleData?.experience || ""}
           />
           {errors.experience && (
             <p className="text-red-500 text-sm">{errors.experience.message}</p>
@@ -377,6 +410,7 @@ const BidForm = () => {
             className="w-full p-2 border rounded"
             rows="3"
             placeholder="Describe your relevant skills, past projects, or any additional information"
+            defaultValue={sampleData?.additionalDetails || ""}
           />
         </div>
 

@@ -13,6 +13,7 @@ import Payment from './components/Payment'
 import ShippingTracking from './Pages/ShippingTracking'
 import AuctionsPage from './Pages/AuctionsPage'
 import ContractorProfile from './Pages/ContractorPage'
+import ClientContractorAgreement from './Pages/ClientContractorAgreement'
 
 function App() {
   const sampleData = {
@@ -22,12 +23,36 @@ function App() {
     estimatedDelivery: "Friday, October 27, 2023",
   };
 
+  const samplebid = {
+    id: '123',
+    title: 'Residential Kitchen Renovation',
+    description: 'Complete renovation of a 200 sq ft kitchen including cabinets, countertops, and electrical work',
+    budget: 'RS:3000 - RS:8000',
+    minBid: 3000,
+    maxBid: 8000,
+    endTime: '2025-03-16T08:05:33 GMT+08:00',
+    bids: []
+  }
+
+  const sampleProjectData = {
+    title: "Office Renovation",
+    description: "Complete renovation of the main office space including new flooring, lighting, and furniture.",
+    budget: "RS:5000 - RS:10000",
+    endTime: "2025-03-20T08:00:00",
+    contractorName: "ABC Construction",
+    yourBid: 7500,
+    timeline: 30,
+    experience: 5,
+    additionalDetails: "Specialized in modern office renovations with 5+ years of experience working on similar projects."
+  };
 
   return (
     <>
       <Routes>
         <Route path='/' element={<Home/>} />
-        <Route path='/bid-form' element={<BidForm/>} />
+        <Route path='/bid-form' element={<BidForm
+        sampleData={sampleProjectData}
+        />} />
         <Route path="/project-details" element={<ProjectDetails />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
@@ -39,6 +64,7 @@ function App() {
           deliveryProgress={sampleData.deliveryProgress}
           estimatedDelivery={sampleData.estimatedDelivery}
         />  } />
+        <Route path='/aggreement' element={<ClientContractorAgreement />} />
         <Route path='/auctions' element={<AuctionsPage />} />
         {/* Fallback route */}
         <Route path="*" element={<NoPage />} />
