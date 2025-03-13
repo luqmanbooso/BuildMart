@@ -1,9 +1,9 @@
 const express = require('express');
-const Bid = require('../models/Bid');
+const Bid = require('../models/bidModel');
 
 const router = express.Router();
 
-//  1. Submit a new bid
+//  1. Submit a new bids
 router.post('/submit', async (req, res) => {
   try {
     const { contractorName, price, timeline, qualifications } = req.body;
