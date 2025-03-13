@@ -6,18 +6,48 @@ import logo from '../assets/images/buildmart_logo1.png';
 const SignUp = () => {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
-  const [selectedRole, setSelectedRole] = useState("Client"); // Default role is 'Client'
-  const [profilePic, setProfilePic] = useState(null); // State to hold the profile picture
+  const [selectedRole, setSelectedRole] = useState("Client");
+  const [profilePic, setProfilePic] = useState(null);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Handle file input change (profile picture upload)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("username", username);
+    formData.append("email", email);
+    formData.append("password", password);
+    formData.append("role", selectedRole);
+    if (profilePic) formData.append("profilePic", profilePic);
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/signup", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        alert("User registered successfully");
+      } else {
+        alert(data.message);
+      }
+    } catch (error) {
+      alert("Error registering user");
+    }
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePic(reader.result); // Set the uploaded image as the profile picture
-      };
-      reader.readAsDataURL(file);
+      setProfilePic(file);
     }
   };
 
@@ -41,7 +71,7 @@ const SignUp = () => {
             >
               Sign Up
             </motion.h1>
-            <form>
+            <form onSubmit={handleSubmit}>
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -55,6 +85,9 @@ const SignUp = () => {
                   type="text"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
                   placeholder="Enter username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
                 />
               </motion.div>
 
@@ -98,6 +131,9 @@ const SignUp = () => {
                   type="email"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
                   placeholder="Enter email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
               </motion.div>
 
@@ -115,6 +151,9 @@ const SignUp = () => {
                     type={passwordVisible ? "text" : "password"}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
                     placeholder="Enter password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                   <button
                     type="button"
@@ -140,6 +179,9 @@ const SignUp = () => {
                     type={confirmPasswordVisible ? "text" : "password"}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
                     placeholder="Confirm password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
                   />
                   <button
                     type="button"
@@ -188,7 +230,7 @@ const SignUp = () => {
             >
               {/* Display Profile Picture if available */}
               {profilePic ? (
-                <img src={profilePic} alt="Profile" className="w-16 h-16 rounded-full" />
+                <img src={URL.createObjectURL(profilePic)} alt="Profile" className="w-16 h-16 rounded-full" />
               ) : (
                 <div className="w-16 h-16 bg-gray-300 rounded-full flex justify-center items-center text-xl text-white">
                   +
