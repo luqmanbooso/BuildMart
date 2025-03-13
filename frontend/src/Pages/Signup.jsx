@@ -1,23 +1,28 @@
 import React, { useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa"; // For password visibility toggle
 import { motion } from "framer-motion"; // For animations
+import logo from '../assets/images/buildmart_logo1.png'; 
 
 const SignUp = () => {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
+  const [selectedRole, setSelectedRole] = useState("Client"); // Default role is 'Client'
+  const [profilePic, setProfilePic] = useState(null); // State to hold the profile picture
+
+  // Handle file input change (profile picture upload)
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePic(reader.result); // Set the uploaded image as the profile picture
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-r from-indigo-600 to-blue-700">
-      {/* Top Bar */}
-      <motion.div
-        initial={{ opacity: 0, y: -50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="bg-blue-800 text-white p-4 text-center text-3xl font-bold tracking-wide shadow-lg"
-      >
-        Sign Up
-      </motion.div>
-
+    <div className="min-h-screen flex flex-col bg-gradient-to-r from-[#002855] to-[#0057B7]">
       {/* Main Content */}
       <div className="flex flex-1 justify-center items-center p-8">
         <motion.div
@@ -44,7 +49,7 @@ const SignUp = () => {
                 className="mb-6"
               >
                 <label className="block text-sm font-medium text-gray-600 mb-2">
-                  Username
+                  User Name
                 </label>
                 <input
                   type="text"
@@ -60,6 +65,33 @@ const SignUp = () => {
                 className="mb-6"
               >
                 <label className="block text-sm font-medium text-gray-600 mb-2">
+                  Register as
+                </label>
+                <div className="flex items-center space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole("Client")}
+                    className={`w-1/2 py-2 rounded-lg text-center ${selectedRole === "Client" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}
+                  >
+                    Client
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole("Service Provider")}
+                    className={`w-1/2 py-2 rounded-lg text-center ${selectedRole === "Service Provider" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}
+                  >
+                    Service Provider
+                  </button>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.8 }}
+                className="mb-6"
+              >
+                <label className="block text-sm font-medium text-gray-600 mb-2">
                   Email Address
                 </label>
                 <input
@@ -72,7 +104,7 @@ const SignUp = () => {
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 0.8 }}
+                transition={{ duration: 0.5, delay: 1 }}
                 className="mb-6"
               >
                 <label className="block text-sm font-medium text-gray-600 mb-2">
@@ -97,7 +129,7 @@ const SignUp = () => {
               <motion.div
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 1 }}
+                transition={{ duration: 0.5, delay: 1.2 }}
                 className="mb-6"
               >
                 <label className="block text-sm font-medium text-gray-600 mb-2">
@@ -122,70 +154,70 @@ const SignUp = () => {
               <motion.button
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 1.2 }}
+                transition={{ duration: 0.5, delay: 1.4 }}
                 type="submit"
-                className="w-full bg-blue-600 text-white py-3 rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-xl"
+                className="w-full bg-[#002855] text-white py-3 rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-xl"
               >
-                Sign Up
+                Register
               </motion.button>
             </form>
+
+            {/* Already Have an Account Link */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 1.6 }}
+              className="mt-6 text-center"
+            >
+              <p className="text-sm text-gray-600">
+                Already have an account?{" "}
+                <a href="/login" className="text-blue-500 hover:underline">
+                  Sign In
+                </a>
+              </p>
+            </motion.div>
           </div>
 
-          {/* Right Side - Graphic Banner */}
-          <div className="hidden md:flex w-1/2 bg-gradient-to-r from-blue-700 to-blue-900 text-white p-12 flex-col justify-center space-y-6">
-            <motion.h1
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-5xl font-bold mb-6"
-            >
-              ONLINE AUCTION
-            </motion.h1>
-            <motion.h2
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="text-2xl font-semibold mb-6"
-            >
-              BID NOW
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.6 }}
-              className="text-lg mb-8"
-            >
-              Your all-in-one platform for finding top-rated construction and aesthetics. Compare
-              bids, connect with professionals, and ensure secure payments with our escrow system.
-              Build smarter, faster, and hassle-free!
-            </motion.p>
+          {/* Right Side - Profile Image Upload */}
+          <div className="hidden md:flex w-1/2 text-white p-12 flex-col justify-center items-center">
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.8 }}
-              className="space-x-4"
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="relative w-24 h-24 bg-blue-950 rounded-full flex justify-center items-center"
             >
-              <a href="#" className="text-white hover:underline transition-all duration-300">
-                About Us
-              </a>
-              <a href="#" className="text-white hover:underline transition-all duration-300">
-                Register to bid
-              </a>
-              <a href="#" className="text-white hover:underline transition-all duration-300">
-                Terms & Conditions
-              </a>
-              <a href="#" className="text-white hover:underline transition-all duration-300">
-                Privacy Policy
-              </a>
+              {/* Display Profile Picture if available */}
+              {profilePic ? (
+                <img src={profilePic} alt="Profile" className="w-16 h-16 rounded-full" />
+              ) : (
+                <div className="w-16 h-16 bg-gray-300 rounded-full flex justify-center items-center text-xl text-white">
+                  +
+                </div>
+              )}
+              <label className="absolute bottom-0 right-0 bg-blue-600 rounded-full p-2 cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <img src="https://img.icons8.com/ios/50/000000/upload.png" alt="Upload" width={"20px"} />
+              </label>
             </motion.div>
-            <motion.p
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 1 }}
-              className="mt-8 text-sm"
+
+            {/* Logo below Profile Picture */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="mt-20"
             >
-              © 2025 BuildMart. All rights reserved.
-            </motion.p>
+              <img
+                src={logo} 
+                alt="Site Logo"
+                className="w-82 h-auto" 
+              />
+            </motion.div>
           </div>
         </motion.div>
       </div>
