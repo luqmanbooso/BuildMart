@@ -48,9 +48,11 @@ const SignUp = () => {
 
     try {
       // Make the POST request to the backend
-      const response = await axios.post('http://localhost:5000/api/auth/signup', formData, {
+      const response = await axios.post('http://localhost:5000/auth/signup', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
+            // console.log(response)
 
       // Handle successful signup
       console.log('User signed up successfully:', response.data);
