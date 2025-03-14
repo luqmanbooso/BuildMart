@@ -1,79 +1,70 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { toast } from "react-toastify";
 
-const ProjectDetails = ({ 
-
-
-  projectData = {
-    projectTitle: "Fix a Leaking Water Sink",
-    projectDescription: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-    projectType: "Plumbing",
-    estimatedBudget: "RS:3000 - RS:8000",
-    auctionEndTime: "16.4.2025 08:05:33 GMT+8",
-    bids: [
-      { bidder: "d**********3", bidAmount: 3000, bidTime: "15/02/2025 03:28:59" },
-      { bidder: "d**********3", bidAmount: 3500, bidTime: "16/02/2025 02:49:13" },
-      { bidder: "d**********3", bidAmount: 4000, bidTime: "15/02/2025 11:10:39" },
-      { bidder: "d**********3", bidAmount: 3000, bidTime: "14/02/2025 03:03:04" },
-    ],  
-    otherAuctions: [
-      {
-        id: 1,
-        title: "I Need a Construction Estimate",
-        type: "Construction",
-        owner: "Mr.S.S.Perera",
-        area: "Colombo",
-        budget: "20million - 40million",
-        auctionTime: "14.9.2022 10:00:00 GMT+8",
-        status: "ends"
-      },
-      {
-        id: 2,
-        title: "I Need a Construction Estimate",
-        type: "Plumbing",
-        owner: "Mr.S.S.Perera",
-        area: "Colombo",
-        budget: "20million - 40million",
-        auctionTime: "14.9.2022 10:00:00 GMT+8",
-        status: "starts"
-      },
-      {
-        id: 3,
-        title: "I Need a Construction Estimate",
-        type: "Electrical",
-        owner: "Mr.S.S.Perera",
-        area: "Colombo",
-        budget: "20million - 40million",
-        auctionTime: "8.8.2022 10:00:00 GMT+8",
-        status: "ends"
-      },
-      {
-        id: 4,
-        title: "I Need a Landscape Design",
-        type: "Electrical",
-        owner: "Mr.S.S.Perera",
-        area: "Colombo",
-        budget: "20million - 40million",
-        auctionTime: "14.8.2022 10:00:00 GMT+8",
-        status: "ends"
-      }
-    ]
-  }
-}) => {
+const ProjectDetails = ({ projectId, projectData }) => {
+  // Initialize with default values if projectData is not provided
   const {
-    projectTitle,
-    projectDescription,
-    projectType,
-    estimatedBudget,
-    auctionEndTime,
-    bids,
-    otherAuctions
-  } = projectData;
+    // project details sample data for now
+    projectTitle = "Fix a Leaking Water Sink",
+    projectDescription = "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
+    projectType = "Plumbing",
+    estimatedBudget = "RS:3000 - RS:8000",
+    auctionEndTime = "16.4.2025 08:05:33 GMT+8",
+    otherAuctions = []
+  } = projectData || {};
 
   const navigate = useNavigate();
-
+  const [bids, setBids] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
   const [bidAmount, setBidAmount] = useState("");
+
+  // Fetch bids from the backend
+  useEffect(() => {
+    const fetchBids = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('http://localhost:5000/bids/');
+        
+        // Format the bids data for display
+        const formattedBids = response.data.map(bid => ({
+          bidder: hideContractorName(bid.contractorName),
+          bidAmount: bid.price,
+          bidTime: new Date(bid.createdAt).toLocaleString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          }).replace(',', '')
+        }));
+        
+        setBids(formattedBids);
+        toast.success("Bids loaded successfully");
+      } catch (error) {
+        console.error("Error fetching bids:", error);
+        toast.error("Failed to load bids");
+        // If API fails, use sample data
+        setBids(projectData?.bids || []);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBids();
+  }, [projectData]);
+
+  // Function to hide contractor name for privacy
+  const hideContractorName = (name) => {
+    if (!name) return "";
+    const firstChar = name.charAt(0);
+    const lastChar = name.charAt(name.length - 1);
+    const middleStars = "*".repeat(Math.min(name.length - 2, 10));
+    return `${firstChar}${middleStars}${lastChar}`;
+  };
 
   function parseCustomDateString(dateString) {
     const [datePart, timePart] = dateString.split(' ');
@@ -82,8 +73,7 @@ const ProjectDetails = ({
     return new Date(year, month - 1, day, hour, minute, second);
   }
 
- function calculateTimeLeft() {
-
+  function calculateTimeLeft() {
     const now = new Date().getTime();
     const endTime = parseCustomDateString(auctionEndTime).getTime();
     const difference = endTime - now;
@@ -119,14 +109,10 @@ const ProjectDetails = ({
     }, 1000);
   
     return () => clearInterval(timer);
-  }, []);
+  }, [auctionEndTime]);
 
   const handleToBid = () => {
-    navigate(`/bid-form`);
-  };
-
-  const handleBidChange = (e) => {
-    setBidAmount(e.target.value);
+    navigate('/bid-form');
   };
 
   return (
@@ -174,12 +160,12 @@ const ProjectDetails = ({
         {/* Your Bid */}
         <div className="mb-6">
           <div className="flex items-center">
-            
             <button 
               onClick={handleToBid}
               className="bg-blue-900 text-white px-6 py-2 hover:bg-blue-800 transition duration-200"
+              disabled={timeLeft.timeUp}
             >
-              Bid Now
+              {timeLeft.timeUp ? "Auction Ended" : "Bid Now"}
             </button>
           </div>
         </div>
@@ -187,24 +173,30 @@ const ProjectDetails = ({
         {/* Bids */}
         <div className="mb-12">
           <h3 className="text-lg font-medium mb-3">Bids</h3>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-gray-300">
-                <th className="py-3 text-left">Bidder</th>
-                <th className="py-3 text-left">Bid Amount</th>
-                <th className="py-3 text-left">Bid Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bids.map((bid, index) => (
-                <tr key={index} className="border-b border-gray-200">
-                  <td className="py-3">{bid.bidder}</td>
-                  <td className="py-3">{bid.bidAmount}</td>
-                  <td className="py-3">{bid.bidTime}</td>
+          {loading ? (
+            <p>Loading bids...</p>
+          ) : bids.length > 0 ? (
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-gray-300">
+                  <th className="py-3 text-left">Bidder</th>
+                  <th className="py-3 text-left">Bid Amount</th>
+                  <th className="py-3 text-left">Bid Time</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {bids.map((bid, index) => (
+                  <tr key={index} className="border-b border-gray-200">
+                    <td className="py-3">{bid.bidder}</td>
+                    <td className="py-3">{bid.bidAmount}</td>
+                    <td className="py-3">{bid.bidTime}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p>No bids yet. Be the first to bid!</p>
+          )}
         </div>
 
         {/* Other Auctions */}
@@ -224,7 +216,7 @@ const ProjectDetails = ({
                   auction {auction.status} in: {auction.auctionTime}
                 </p>
                 <button 
-                  onClick={handleToBid}
+                  onClick={() => navigate(`/bid-form/${auction.id}`)}
                   className="bg-blue-900 text-white px-4 py-1 text-sm hover:bg-blue-800 transition duration-200"
                 >
                   Bid now
