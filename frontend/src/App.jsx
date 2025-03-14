@@ -17,6 +17,8 @@ import Contact from './Pages/Contact'
 import About from './Pages/About'
 import Admindashboard from './Pages/Admindashboard'
 import ClientContractorAgreement from './Pages/ClientContractorAgreement'
+import PaymentDashboard from './Pages/PaymentDashboard'
+
 
 function App() {
   const sampleData = {
@@ -73,6 +75,7 @@ function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/admindashboard" element={<Admindashboard />} />
         <Route path="/about" element={<About />} />
+        <Route path="/paymentdashboard" element={<PaymentDashboard />} />
         <Route path="*" element={<NoPage />} />
         <Route path="/contractor-profile" element={<ContractorProfile />} />
       </Routes>
