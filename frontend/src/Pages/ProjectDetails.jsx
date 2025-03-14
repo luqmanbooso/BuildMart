@@ -11,7 +11,7 @@ const ProjectDetails = ({ projectId, projectData }) => {
     projectDescription = "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
     projectType = "Plumbing",
     estimatedBudget = "RS:3000 - RS:8000",
-    auctionEndTime = "16.4.2025 08:05:33 GMT+8",
+    auctionEndTime = "24.3.2025 08:05:33 GMT+8",
     otherAuctions = []
   } = projectData || {};
 
