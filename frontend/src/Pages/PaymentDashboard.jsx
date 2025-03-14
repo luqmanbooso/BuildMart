@@ -5,19 +5,19 @@ function PaymentDashboard() {
   const [activeTab, setActiveTab] = useState('service-providers');
 
   const serviceProviderPayments = [
-    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'visa', cardNumber: '4242', date: 'Mar 23, 2022, 13:00 PM' },
-    { id: '06c1774-7f3d-46dd...90a8', status: 'Pending', amount: 'Rs. 1500.00', method: 'mastercard', cardNumber: '2332', date: 'Mar 23, 2022, 13:00 PM' },
-    { id: '06c1774-7f3d-46dd...90a8', status: 'Declined', amount: 'Rs. 1500.00', method: 'mastercard', cardNumber: '2332', date: 'Mar 23, 2022, 13:00 PM' },
-    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'mastercard', cardNumber: '2332', date: 'Mar 23, 2022, 13:00 PM' },
-    { id: '06c1774-7f3d-46dd...90a8', status: 'Create', amount: 'Rs. 1500.00', method: 'mastercard', cardNumber: '2332', date: 'Mar 23, 2022, 13:00 PM' }
+    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'visa', cardNumber: '4242', date: 'Mar 23, 2022, 13:00 PM', providerName: 'John Construction' },
+    { id: '06c1774-7f3d-46dd...90a8', status: 'Pending', amount: 'Rs. 1500.00', method: 'mastercard', cardNumber: '2332', date: 'Mar 23, 2022, 13:00 PM', providerName: 'Elite Plumbing Services' },
+    { id: '06c1774-7f3d-46dd...90a8', status: 'Declined', amount: 'Rs. 1500.00', method: 'mastercard', cardNumber: '2332', date: 'Mar 23, 2022, 13:00 PM', providerName: 'Supreme Electrical' },
+    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'mastercard', cardNumber: '2332', date: 'Mar 23, 2022, 13:00 PM', providerName: 'Perfect Interiors' },
+    { id: '06c1774-7f3d-46dd...90a8', status: 'Create', amount: 'Rs. 1500.00', method: 'mastercard', cardNumber: '2332', date: 'Mar 23, 2022, 13:00 PM', providerName: 'Quality Painting Co.' }
   ];
 
   const itemsPayments = [
-    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'visa', cardNumber: '4242', date: 'Mar 23, 2022, 13:00 PM' },
-    { id: '06c1774-7f3d-46dd...90a8', status: 'Pending', amount: 'Rs. 1500.00', method: 'mastercard', cardNumber: '2332', date: 'Mar 23, 2022, 13:00 PM' },
-    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'visa', cardNumber: '4242', date: 'Mar 23, 2022, 13:00 PM' },
-    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'visa', cardNumber: '4242', date: 'Mar 23, 2022, 13:00 PM' },
-    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'visa', cardNumber: '4242', date: 'Mar 23, 2022, 13:00 PM' }
+    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'visa', cardNumber: '4242', date: 'Mar 23, 2022, 13:00 PM', itemName: 'Cement Bags (50kg)' },
+    { id: '06c1774-7f3d-46dd...90a8', status: 'Pending', amount: 'Rs. 1500.00', method: 'mastercard', cardNumber: '2332', date: 'Mar 23, 2022, 13:00 PM', itemName: 'Steel Rods (Bundle)' },
+    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'visa', cardNumber: '4242', date: 'Mar 23, 2022, 13:00 PM', itemName: 'Plumbing Fixtures' },
+    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'visa', cardNumber: '4242', date: 'Mar 23, 2022, 13:00 PM', itemName: 'Electrical Wiring (100m)' },
+    { id: '06c1774-7f3d-46dd...90a8', status: 'Succeeded', amount: 'Rs. 1500.00', method: 'visa', cardNumber: '4242', date: 'Mar 23, 2022, 13:00 PM', itemName: 'Paint (20L Bucket)' }
   ];
 
   const getStatusBadge = (status) => {
@@ -64,6 +64,9 @@ function PaymentDashboard() {
               Payment ID
             </th>
             <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase">
+              {activeTab === 'service-providers' ? 'Provider Name' : 'Item Name'}
+            </th>
+            <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase">
               Status
             </th>
             <th className="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase">
@@ -88,6 +91,9 @@ function PaymentDashboard() {
               </td>
               <td className="px-2 py-3 whitespace-nowrap text-sm text-gray-500">
                 {payment.id}
+              </td>
+              <td className="px-2 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                {activeTab === 'service-providers' ? payment.providerName : payment.itemName}
               </td>
               <td className="px-2 py-3 whitespace-nowrap">
                 {getStatusBadge(payment.status)}
@@ -202,18 +208,18 @@ function PaymentDashboard() {
           <div className="space-y-8">
             {/* Tabs */}
             <div className="flex space-x-4">
-            <button 
-  className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'service-providers' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
-  onClick={() => setActiveTab('service-providers')}
->
-  Service Providers
-</button>
-<button 
-  className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'items' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
-  onClick={() => setActiveTab('items')}
->
-  Items
-</button>
+              <button 
+                className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'service-providers' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('service-providers')}
+              >
+                Service Providers
+              </button>
+              <button 
+                className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === 'items' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('items')}
+              >
+                Items
+              </button>
             </div>
 
             {/* Content */}
