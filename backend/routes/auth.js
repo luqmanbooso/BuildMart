@@ -65,4 +65,44 @@ router.post('/signup', upload.single('profilePic'), async (req, res) => {
   }
 });
 
+// POST request to login a user
+router.post('/login', async (req, res) => {
+  const { emailUsername, password } = req.body;
+
+  try {
+    // Find user by email or username
+    const user = await User.findOne({
+      $or: [{ email: emailUsername }, { username: emailUsername }],
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid credentials.' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '1h', // Token expires in 1 hour
+    });
+
+    // Send response with token and user data (excluding password)
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
 module.exports = router;

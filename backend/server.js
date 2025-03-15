@@ -3,6 +3,8 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const bidRoutes = require('./routes/bids');
+const authRoutes = require('./routes/auth');
+const protectedRoutes = require('./routes/protected');
 const app = express();
 
 // Middleware
@@ -10,7 +12,8 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/bids', bidRoutes);
-app.use('/auth', require('./routes/auth'));
+app.use('/auth', authRoutes);
+app.use('/protected', protectedRoutes);
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('Connected to MongoDB'))

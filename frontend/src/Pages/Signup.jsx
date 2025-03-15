@@ -3,6 +3,7 @@ import { FaEye, FaEyeSlash } from "react-icons/fa"; // For password visibility t
 import { motion } from "framer-motion"; // For animations
 import logo from '../assets/images/buildmart_logo1.png'; 
 import axios from 'axios'; // Importing Axios for API requests
+import { useNavigate } from "react-router-dom";
 
 const SignUp = () => {
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -26,6 +27,9 @@ const SignUp = () => {
       reader.readAsDataURL(file);
     }
   };
+
+  const navigate = useNavigate();
+
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -57,6 +61,8 @@ const SignUp = () => {
       // Handle successful signup
       console.log('User signed up successfully:', response.data);
       alert('Signup successful!');
+
+      navigate('/login');
 
       // Optionally, reset form fields after successful submission
       setUsername('');
