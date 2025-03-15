@@ -42,6 +42,46 @@ const ProjectsPage = () => {
     }
   ]);
 
+  // Sample notifications
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      message: "Your bid for Office Interior Design has been accepted!",
+      time: "2 hours ago",
+      read: false
+    },
+    {
+      id: 2,
+      message: "New message from project owner regarding Home Renovation Project",
+      time: "Yesterday",
+      read: false
+    },
+    {
+      id: 3,
+      message: "Reminder: Deadline for Kitchen Remodeling is approaching",
+      time: "2 days ago",
+      read: true
+    }
+  ]);
+  
+  // Show/hide notifications dropdown
+  const [showNotifications, setShowNotifications] = useState(false);
+  
+  // Toggle notifications dropdown
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+  };
+  
+  // Mark notification as read
+  const markAsRead = (id) => {
+    setNotifications(notifications.map(notification => 
+      notification.id === id ? { ...notification, read: true } : notification
+    ));
+  };
+
+  // Count unread notifications
+  const unreadCount = notifications.filter(notification => !notification.read).length;
+
   // Track active tab
   const [activeTab, setActiveTab] = useState('ongoingWork');
 
@@ -119,6 +159,56 @@ const ProjectsPage = () => {
             <a href="#" className="text-gray-700 hover:text-blue-800">Contact Us</a>
           </nav>
           <div className="flex items-center space-x-4">
+            <div className="relative">
+              <button 
+                className="p-2 rounded-full bg-gray-100 text-gray-600 focus:outline-none"
+                onClick={toggleNotifications}
+              >
+                🔔
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              
+              {/* Notifications Dropdown */}
+              {showNotifications && (
+                <motion.div 
+                  className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="p-3 border-b border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-800">Notifications</h3>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500">
+                        No notifications
+                      </div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div 
+                          key={notification.id}
+                          className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${!notification.read ? 'bg-blue-50' : ''}`}
+                          onClick={() => markAsRead(notification.id)}
+                        >
+                          <p className="text-sm text-gray-800">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="p-2 text-center border-t border-gray-200">
+                    <button className="text-sm text-blue-600 hover:text-blue-800">
+                      Mark all as read
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
             <button className="p-2 rounded-full bg-gray-100 text-gray-600">
               🔍
             </button>

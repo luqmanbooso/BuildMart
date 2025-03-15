@@ -20,7 +20,12 @@ import ClientContractorAgreement from './Pages/ClientContractorAgreement'
 import PaymentDashboard from './Pages/PaymentDashboard'
 import ProjectsPage from './Pages/MyProjects'
 import UserProfile from './Pages/UserProfile'
+<<<<<<< HEAD
 import ActiveJob from './Pages/ActiveJob'
+=======
+import BiddingHistory from './components/BiddingHistory'
+import ContractorEarnings from './Pages/ContractorEarnings'
+>>>>>>> fd0ed7cfed13b8609ffa29e2087b00de96038afd
 
 
 function App() {
@@ -83,7 +88,12 @@ function App() {
         <Route path="*" element={<NoPage />} />
         <Route path="/contractor-profile" element={<ContractorProfile />} />
         <Route path="/userprofile" element={<UserProfile />} />
+<<<<<<< HEAD
         <Route path="/activejob" element={<ActiveJob />} />
+=======
+        <Route path="/bidhistory" element={<BiddingHistory />} />
+        <Route path='/earnings' element={<ContractorEarnings />} />
+>>>>>>> fd0ed7cfed13b8609ffa29e2087b00de96038afd
       </Routes>
     </>
   )
