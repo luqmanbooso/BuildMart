@@ -1,16 +1,34 @@
-// Home.jsx
-import React from "react";
-import { FaSearch, FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
+import React, { useEffect, useState } from "react";
+import { FaSearch, FaFacebook, FaTwitter, FaInstagram, FaUserCircle } from "react-icons/fa";
 import heroBg from "../assets/images/hero-bg.jpg";
 import person_tablet from "../assets/images/person-tablet.jpg";
 import constructor_icon from "../assets/images/constructor-icon.jpg";
-import construction_tools from "../assets/images/cement.png"; 
+import construction_tools from "../assets/images/cement.png";
 import blueprint_bg from "../assets/images/blueprint-bg.jpg";
-import logo from "../assets/images/buildmart_logo1.png"; 
-import logo_white from "../assets/images/builmart_logo_white.png"; 
-import { Link } from 'react-router-dom';
+import logo from "../assets/images/buildmart_logo1.png";
+import logo_white from "../assets/images/builmart_logo_white.png";
+import { Link, useNavigate } from "react-router-dom";
 
 const Home = () => {
+  const [user, setUser] = useState(null); // State to store user data
+  const navigate = useNavigate();
+
+  // Check if user is logged in on component mount
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem("user") || JSON.parse(sessionStorage.getItem("user")));
+    if (userData) {
+      setUser(userData);
+    }
+  }, []);
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    sessionStorage.removeItem("user");
+    setUser(null);
+    navigate("/login");
+  };
+
   const features = [
     {
       title: "Find the Best Professionals for Your Project",
@@ -196,10 +214,34 @@ const Home = () => {
           <button className="bg-gray-100 text-gray-800 p-2 rounded-full hover:bg-gray-200 transition">
             <FaSearch />
           </button>
-          <a href="/login">
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition">
-            Sign In
-          </button></a>
+          {user ? (
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                {user.profilePic ? (
+                  <img
+                    src={user.profilePic}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full"
+                  />
+                ) : (
+                  <FaUserCircle className="w-8 h-8 text-gray-600" />
+                )}
+                <span className="text-gray-800">Hello, {user.username}</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <Link to="/login">
+              <button className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition">
+                Sign In
+              </button>
+            </Link>
+          )}
         </div>
       </nav>
 
