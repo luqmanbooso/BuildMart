@@ -14,7 +14,7 @@
     "@fortawesome/react-fontawesome": "^0.2.2",
     "@tailwindcss/vite": "^4.0.12",
     "axios": "^1.8.3",
-    "framer-motion": "^12.4.10",
+    "framer-motion": "^12.5.0",
     "html2canvas": "^1.4.1",
     "html2canvas-pro": "^1.5.8",
     "jspdf": "^3.0.0",
