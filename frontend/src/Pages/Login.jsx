@@ -36,16 +36,10 @@ const Login = () => {
         password
       });
       
-      // If we reach here, login was successful
-      const userData = response.data;
-      
-      // Save user data to localStorage if "Remember me" is checked
-      if (rememberMe) {
-        localStorage.setItem('user', JSON.stringify(userData));
-      } else {
-        // Or use sessionStorage if not remembering
-        sessionStorage.setItem('user', JSON.stringify(userData));
-      }
+      const token = response.data.token;
+
+    // Store token in localStorage or sessionStorage
+    localStorage.setItem('token', token);
       
       // Redirect to dashboard or home
       navigate('/');

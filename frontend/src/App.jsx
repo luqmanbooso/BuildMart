@@ -1,5 +1,4 @@
 import { useState } from 'react'
-
 import './App.css'
 import BidForm from './components/BidForm'
 import { Route, Routes } from 'react-router-dom'

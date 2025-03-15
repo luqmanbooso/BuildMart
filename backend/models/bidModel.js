@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const bidSchema = new mongoose.Schema({
-  contractorName: { type: String, required: true },
+  contractorName: { type: String, required: true, unique: true },
   price: { type: Number, required: true },
   timeline: { type: String, required: true },
   qualifications: { type: String, required: true },
@@ -11,3 +11,5 @@ const bidSchema = new mongoose.Schema({
 
 const Bid = mongoose.model('Bid', bidSchema);
 module.exports = Bid;
+
+// schema-> data define , schema-> model(table)

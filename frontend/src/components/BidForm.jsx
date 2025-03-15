@@ -385,10 +385,22 @@ const BidForm = ({ sampleData }) => {
           <input
             id="timeline"
             type="number"
+            inputMode="numeric"
+            maxLength="3"
+            onKeyPress={(e) => {
+              const charCode = e.which ? e.which : e.keyCode;
+              if (charCode < 48 || charCode > 57) {
+                e.preventDefault();
+              }
+            }}
+            onInput={(e) => {
+              e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 3);
+            }}
             {...register("timeline", {
               required: "Timeline is required",
               min: { value: 1, message: "Timeline must be at least 1 day" },
               max: { value: 365, message: "Timeline must not exceed 1 year" },
+              pattern: { value: /^[0-9]+$/, message: "Please enter numbers only" }
             })}
             className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${errors.timeline ? "border-red-500" : "border-gray-300"}`}
             onBlur={() => trigger("timeline")}
@@ -425,10 +437,22 @@ const BidForm = ({ sampleData }) => {
           <input
             id="experience"
             type="number"
+            inputMode="numeric" 
+            maxLength="2"
+            onKeyPress={(e) => {
+              const charCode = e.which ? e.which : e.keyCode;
+              if (charCode < 48 || charCode > 57) {
+                e.preventDefault();
+              }
+            }}
+            onInput={(e) => {
+              e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
+            }}
             {...register("experience", {
               required: "Experience is required",
               min: { value: 1, message: "Experience must be at least 1 year" },
-              max: { value: 100, message: "Please enter a realistic experience value" },
+              max: { value: 99, message: "Please enter a realistic experience value" },
+              pattern: { value: /^[0-9]+$/, message: "Please enter numbers only" }
             })}
             className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${errors.experience ? "border-red-500" : "border-gray-300"}`}
             onBlur={() => trigger("experience")}

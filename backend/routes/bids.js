@@ -3,6 +3,8 @@ const Bid = require('../models/bidModel');
 
 const router = express.Router();
 
+// http://localhost:5000/bids/submit
+
 //  1. Submit a new bids
 router.post('/submit', async (req, res) => {
   try {
@@ -43,3 +45,6 @@ router.put('/:bidId/status', async (req, res) => {
 });
 
 module.exports = router;
+
+
+// data handling -> get,post,put,delete

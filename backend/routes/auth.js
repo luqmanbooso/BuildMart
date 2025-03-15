@@ -68,29 +68,27 @@ router.post('/signup', upload.single('profilePic'), async (req, res) => {
 // POST request to login a user
 router.post('/login', async (req, res) => {
   const { emailUsername, password } = req.body;
-
   try {
     // Find user by email or username
     const user = await User.findOne({
       $or: [{ email: emailUsername }, { username: emailUsername }],
     });
-
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
-
     // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
-
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
-
-    // Generate JWT token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '1h', // Token expires in 1 hour
-    });
-
+    
+    // Generate JWT token with userId and username (matching signup route)
+    const token = jwt.sign(
+      { userId: user._id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    
     // Send response with token and user data (excluding password)
     res.json({
       token,
@@ -98,6 +96,8 @@ router.post('/login', async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        role: user.role,
+        profilePic: user.profilePic
       },
     });
   } catch (error) {

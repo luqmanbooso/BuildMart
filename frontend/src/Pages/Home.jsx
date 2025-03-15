@@ -15,6 +15,7 @@ import blueprint_bg from "../assets/images/blueprint-bg.jpg";
 import logo from "../assets/images/buildmart_logo1.png";
 import logo_white from "../assets/images/builmart_logo_white.png";
 import { Link, useNavigate } from "react-router-dom";
+import { jwtDecode } from 'jwt-decode';
 
 // Enhanced component for animated section headings
 const SectionHeading = ({ title, accent, description, align = "center" }) => (
@@ -66,16 +67,38 @@ const Home = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Check if user is logged in on component mount
-  useEffect(() => {
-    const userData = localStorage.getItem("user") ? 
-      JSON.parse(localStorage.getItem("user")) : 
-      sessionStorage.getItem("user") ? JSON.parse(sessionStorage.getItem("user")) : null;
+
+  // In your Home component
+// Check if user is logged in on component mount
+useEffect(() => {
+  // Get token from localStorage or sessionStorage
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  
+  // console.log(token);
+
+  if (token) {
+    try {
+      // Decode the token to get user data
+      const decoded = jwtDecode(token);
       
-    if (userData) {
+      // Create a user object from the decoded token
+      const userData = {
+        _id: decoded.userId,
+        username: decoded.username,
+        email: decoded.email, // if available in token
+        role: decoded.role, // if available in token
+        // Add other fields as needed
+      };
+      
+      // Set the user state
       setUser(userData);
+      
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      // Handle invalid token (e.g., by redirecting to login)
     }
-  }, []);
+  }
+}, []);
 
   // Auto-rotate hero slides
   useEffect(() => {
@@ -85,13 +108,22 @@ const Home = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Handle logout
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    sessionStorage.removeItem("user");
-    setUser(null);
-    navigate("/login");
-  };
+// Handle logout
+const handleLogout = () => {
+  // Remove user data
+  localStorage.removeItem("user");
+  sessionStorage.removeItem("user");
+  
+  // Remove token
+  localStorage.removeItem("token");
+  sessionStorage.removeItem("token");
+  
+  // Reset user state
+  setUser(null);
+  
+  // Redirect to login page
+  navigate("/login");
+};
 
   const features = [
     {
