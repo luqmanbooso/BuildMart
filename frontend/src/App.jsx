@@ -85,7 +85,7 @@ function App() {
         <Route path="/contractor-profile" element={<ContractorProfile />} />
         <Route path="/userprofile" element={<UserProfile />} />
         <Route path="/bidhistory" element={<BiddingHistory />} />
-        <Route path='/earnings' element={<ContractorEarnings />} />
+        <Route path='/contractor-earnings' element={<ContractorEarnings />} />
       </Routes>
     </>
   )
