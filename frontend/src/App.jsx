@@ -19,6 +19,7 @@ import Admindashboard from './Pages/Admindashboard'
 import ClientContractorAgreement from './Pages/ClientContractorAgreement'
 import PaymentDashboard from './Pages/PaymentDashboard'
 import ProjectsPage from './Pages/MyProjects'
+import UserProfile from './Pages/UserProfile'
 
 
 function App() {
@@ -80,6 +81,7 @@ function App() {
         <Route path="/paymentdashboard" element={<PaymentDashboard />} />
         <Route path="*" element={<NoPage />} />
         <Route path="/contractor-profile" element={<ContractorProfile />} />
+        <Route path="/userprofile" element={<UserProfile />} />
       </Routes>
     </>
   )
