@@ -18,6 +18,7 @@ import About from './Pages/About'
 import Admindashboard from './Pages/Admindashboard'
 import ClientContractorAgreement from './Pages/ClientContractorAgreement'
 import PaymentDashboard from './Pages/PaymentDashboard'
+import ProjectsPage from './Pages/MyProjects'
 
 
 function App() {
@@ -58,6 +59,7 @@ function App() {
         <Route path='/bid-form' element={<BidForm
         sampleData={sampleProjectData}
         />} />
+        <Route path="/myprojects" element={<ProjectsPage />} /> 
         <Route path="/project-details" element={<ProjectDetails />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
