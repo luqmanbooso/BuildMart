@@ -197,6 +197,18 @@ const Home = () => {
       bids: 5,
       image: blueprint_bg,
     },
+    {
+      type: "Construction",
+      category: "Electrical",
+      title: "Complete Rewiring Project",
+      name: "Mr.S.S.Perera",
+      area: "Colombo",
+      budget: "20million - 40million",
+      endDate: "6.6.2022 10:00:00 GMT+8",
+      active: true,
+      bids: 9,
+      image: heroBg,
+    },
   ];
 
   const professionals = [
@@ -711,18 +723,7 @@ const Home = () => {
                   alt="Professional with tablet"
                   className="rounded-xl shadow-2xl relative z-10"
                 />
-                <div className="absolute -bottom-6 -right-6 bg-blue-500 rounded-lg p-4 shadow-lg">
-                  <div className="flex items-center">
-                    <div className="bg-white rounded-full p-2 mr-3">
-                      <FaStar className="text-yellow-500" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm">Trusted by</p>
-                      <p className="font-bold text-2xl">10,000+</p>
-                      <p className="text-xs opacity-75">happy customers</p>
-                    </div>
-                  </div>
-                </div>
+                
               </motion.div>
             </div>
             

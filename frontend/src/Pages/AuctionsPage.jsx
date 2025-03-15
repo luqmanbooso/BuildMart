@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 const AuctionCard = ({ auction }) => {
   const handleClick = () => {
-    window.location.href = `/project-details`;
+    window.location.href = '/project-details';
   };
 
   return (
