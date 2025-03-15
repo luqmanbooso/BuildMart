@@ -42,6 +42,7 @@ const UserProfilePage = () => {
     area: '',
     budget: '',
     description: '',
+    biddingStartTime: new Date().toISOString().substr(0, 16), // Format: YYYY-MM-DDThh:mm
     milestones: [
       { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
     ]
@@ -106,6 +107,7 @@ const UserProfilePage = () => {
       budget: `LKR : ${newJob.budget}`,
       status: 'Pending',
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      biddingStartTime: newJob.biddingStartTime,
       bids: 0,
       milestones: newJob.milestones
     };
@@ -122,6 +124,7 @@ const UserProfilePage = () => {
       area: '',
       budget: '',
       description: '',
+      biddingStartTime: new Date().toISOString().substr(0, 16),
       milestones: [
         { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
       ]
@@ -559,8 +562,16 @@ const UserProfilePage = () => {
                                   </div>
                                 </div>
 
-                                {/* Empty div for grid alignment */}
-                                <div></div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700">Bidding Start Time</label>
+                                  <input
+                                    type="datetime-local"
+                                    value={newJob.biddingStartTime}
+                                    onChange={(e) => setNewJob({ ...newJob, biddingStartTime: e.target.value })}
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                  />
+                                </div>
 
                                 {/* Milestone section */}
                                 <div className="col-span-2">
@@ -669,13 +680,6 @@ const UserProfilePage = () => {
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="bg-gray-800 text-gray-200 py-6">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <p>&copy; 2025 BuildMart. All rights reserved.</p>
-        </div>
-      </footer>
     </div>
   );
 };
