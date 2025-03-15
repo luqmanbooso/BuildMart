@@ -22,6 +22,7 @@ import ProjectsPage from './Pages/MyProjects'
 import UserProfile from './Pages/UserProfile'
 import ActiveJob from './Pages/ActiveJob'
 import OngoingJobs from './Pages/Ongoingworks'
+import BiddingHistoryPage from './components/BiddingHistory'
 
 
 function App() {
@@ -68,6 +69,7 @@ function App() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/Shop" element={<Shop />} />
         <Route path="/payment" element={<Payment />} />
+        <Route path='/bidhistory' element={<BiddingHistoryPage />} />
         <Route path="/shippingtracking" element={<ShippingTracking
           shipmentId={sampleData.shipmentId}
           shipmentStatus={sampleData.shipmentStatus}
