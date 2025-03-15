@@ -21,6 +21,7 @@ import PaymentDashboard from './Pages/PaymentDashboard'
 import ProjectsPage from './Pages/MyProjects'
 import UserProfile from './Pages/UserProfile'
 import ActiveJob from './Pages/ActiveJob'
+import OngoingJobs from './Pages/Ongoingworks'
 
 
 function App() {
@@ -84,6 +85,7 @@ function App() {
         <Route path="/contractor-profile" element={<ContractorProfile />} />
         <Route path="/userprofile" element={<UserProfile />} />
         <Route path="/activejob" element={<ActiveJob />} />
+        <Route path="/ongoingjobs" element={<OngoingJobs />} />
       </Routes>
     </>
   )
