@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FaUserCircle, FaEdit, FaTrashAlt, FaPlusCircle } from 'react-icons/fa';
+import { motion } from 'framer-motion';
 
 const ContractorProfile = () => {
   const [personalInfo, setPersonalInfo] = useState({
@@ -11,6 +12,46 @@ const ContractorProfile = () => {
     address: 'P.O. BOX 1, KOTTAWA, Pannipitiya',
     phone: '+94 71 8902897'
   });
+
+  // Add notification state
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      message: "New project matching your skills has been posted",
+      time: "15 minutes ago",
+      read: false
+    },
+    {
+      id: 2,
+      message: "Your bid for Office Renovation has been accepted",
+      time: "3 hours ago",
+      read: false
+    },
+    {
+      id: 3,
+      message: "Payment for Modern Villa project has been released",
+      time: "2 days ago",
+      read: true
+    }
+  ]);
+  
+  // Show/hide notifications dropdown
+  const [showNotifications, setShowNotifications] = useState(false);
+  
+  // Toggle notifications dropdown
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+  };
+  
+  // Mark notification as read
+  const markAsRead = (id) => {
+    setNotifications(notifications.map(notification => 
+      notification.id === id ? { ...notification, read: true } : notification
+    ));
+  };
+
+  // Count unread notifications
+  const unreadCount = notifications.filter(notification => !notification.read).length;
 
   const [qualifications, setQualifications] = useState([
     { id: 1, type: 'Certification', name: 'Licensed Contractor', issuer: 'National Construction Authority', year: '2020', expiry: '2025' },
@@ -65,6 +106,62 @@ const ContractorProfile = () => {
             <a href="#" className="text-gray-700 hover:text-gray-900">Contact Us</a>
           </nav>
           <div className="flex items-center space-x-4">
+            {/* Add notification button */}
+            <div className="relative">
+              <button 
+                className="p-2 rounded-full bg-gray-100 text-gray-600 focus:outline-none"
+                onClick={toggleNotifications}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              
+              {/* Notifications Dropdown */}
+              {showNotifications && (
+                <motion.div 
+                  className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="p-3 border-b border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-800">Notifications</h3>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500">
+                        No notifications
+                      </div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div 
+                          key={notification.id}
+                          className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${!notification.read ? 'bg-blue-50' : ''}`}
+                          onClick={() => markAsRead(notification.id)}
+                        >
+                          <p className="text-sm text-gray-800">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="p-2 text-center border-t border-gray-200">
+                    <button 
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                      onClick={() => setNotifications(notifications.map(n => ({...n, read: true})))}
+                    >
+                      Mark all as read
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
             <button className="p-2 rounded-full bg-gray-100">
               <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
