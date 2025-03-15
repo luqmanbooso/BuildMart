@@ -85,7 +85,6 @@ function App() {
         <Route path="/contractor-profile" element={<ContractorProfile />} />
         <Route path="/userprofile" element={<UserProfile />} />
         <Route path="/activejob" element={<ActiveJob />} />
-        <Route path="/ongoingjobs" element={<OngoingJobs />} />
       </Routes>
     </>
   )
