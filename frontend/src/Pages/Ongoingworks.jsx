@@ -1,11 +1,3 @@
-
-import React from 'react'
-
-const Ongoingworks = () => {
-  return (
-    <div>Ongoingworks</div>
-  )
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/images/buildmart_logo1.png';
