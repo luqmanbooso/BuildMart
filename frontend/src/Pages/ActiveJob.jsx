@@ -46,44 +46,50 @@ const ActiveJob = () => {
           {
             id: 'bid1',
             contractor: {
-              id: 'c1',
-              name: 'Premium Renovations Ltd',
+              id: 'cont1',
+              name: 'Premium Renovations',
               rating: 4.8,
-              completedProjects: 42
+              completedProjects: 42,
+              profileImage: null
             },
-            amount: '345,000',
+            amount: '340,000',
             proposedTimeline: 28,
-            message: 'Our team specializes in high-end kitchen renovations. We can start immediately and guarantee quality workmanship.',
-            createdAt: '2025-03-10T08:15:00',
-            status: 'pending'
+            message: 'Our team specializes in modern kitchen designs with over 10 years of experience. We can complete this project with high-quality workmanship and attention to detail.',
+            createdAt: '2025-03-03T14:25:00',
+            status: 'pending',
+            attachments: []
           },
           {
             id: 'bid2',
             contractor: {
-              id: 'c2',
-              name: 'Modern Interiors',
-              rating: 4.5,
-              completedProjects: 31
+              id: 'cont2',
+              name: 'Elite Home Solutions',
+              rating: 4.9,
+              completedProjects: 56,
+              profileImage: null
             },
-            amount: '320,000',
-            proposedTimeline: 35,
-            message: 'We offer competitive pricing and have completed over 30 similar projects. We include a 2-year warranty on all work.',
-            createdAt: '2025-03-11T14:22:00',
-            status: 'pending'
+            amount: '365,000',
+            proposedTimeline: 25,
+            message: 'We offer premium kitchen renovation services with a 2-year warranty on all work. Our team can source high-quality materials at wholesale prices if needed.',
+            createdAt: '2025-03-04T09:15:00',
+            status: 'pending',
+            attachments: []
           },
           {
             id: 'bid3',
             contractor: {
-              id: 'c3',
-              name: 'City Builders Co.',
+              id: 'cont3',
+              name: 'Budget Builders',
               rating: 4.2,
-              completedProjects: 27
+              completedProjects: 37,
+              profileImage: null
             },
-            amount: '330,000',
-            proposedTimeline: 25,
-            message: 'We have the fastest turnaround time and can source premium materials at wholesale prices. References available upon request.',
-            createdAt: '2025-03-12T11:05:00',
-            status: 'pending'
+            amount: '310,000',
+            proposedTimeline: 35,
+            message: 'We can complete your kitchen renovation at a competitive price. While we may take a few extra days, our focus is on quality within budget.',
+            createdAt: '2025-03-05T11:30:00',
+            status: 'pending',
+            attachments: []
           }
         ];
 
@@ -431,12 +437,9 @@ const ActiveJob = () => {
                       className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select Category</option>
-                      <option value="Plumbing">Plumbing</option>
-                      <option value="Electrical">Electrical</option>
-                      <option value="Carpentry">Carpentry</option>
-                      <option value="Masonry">Masonry</option>
-                      <option value="Painting">Painting</option>
-                      <option value="Roofing">Roofing</option>
+                      <option value="Residential">Residential</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Industrial">Industrial</option>
                       <option value="Renovation">Renovation</option>
                       <option value="Infrastructure">Infrastructure</option>
                     </select>
