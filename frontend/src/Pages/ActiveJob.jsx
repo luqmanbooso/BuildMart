@@ -1,109 +1,98 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
 import logo from '../assets/images/buildmart_logo1.png';
 
 const ActiveJob = () => {
-  const { jobId = '01' } = useParams();
+  const { jobId = "sample-project-id" } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   
-  // Sample job data
+  // State variables for job data
   const [job, setJob] = useState(null);
   const [editedJob, setEditedJob] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   
-  // Sample bids
+  // State variable for bids
   const [bids, setBids] = useState([]);
+
+  const sampleJobData = {
+    id: "sample-project-id",
+    title: 'Renovate Kitchen with Modern Design',
+    description: 'Complete kitchen renovation including new countertops, cabinets, flooring, and appliances. The space is approximately 15x12 feet. Looking for a contractor with experience in modern kitchen designs. Materials will be provided by the homeowner.',
+    budget: '350,000',
+    timeline: 30,
+    location: 'Colombo 5, Sri Lanka',
+    category: 'Renovation',
+    createdAt: '2025-03-01T10:30:00',
+    auctionStarted: true,
+    milestones: [
+      { id: 1, name: 'Initial Payment', amount: '100,000', description: 'Payment upon signing contract' },
+      { id: 2, name: 'Demolition Complete', amount: '75,000', description: 'When old kitchen is removed' },
+      { id: 3, name: 'Cabinet Installation', amount: '100,000', description: 'When new cabinets are installed' },
+      { id: 4, name: 'Final Payment', amount: '75,000', description: 'Upon project completion and inspection' }
+    ]
+  };
 
   // Fetch job details and bids when component mounts
   useEffect(() => {
-    // Simulate API call with timeout
-    const timer = setTimeout(() => {
+    const fetchJobAndBids = async () => {
       try {
-        // Sample job data
-        const sampleJob = {
-          id: jobId,
-          title: 'Renovate Kitchen with Modern Design',
-          description: 'Complete kitchen renovation including new countertops, cabinets, flooring, and appliances. The space is approximately 15x12 feet. Looking for a contractor with experience in modern kitchen designs. Materials will be provided by the homeowner.',
-          budget: '350,000',
-          timeline: 30,
-          location: 'Colombo 5, Sri Lanka',
-          category: 'Renovation',
-          createdAt: '2025-03-01T10:30:00',
-          auctionStarted: true,
-          milestones: [
-            { id: 1, name: 'Initial Payment', amount: '100,000', description: 'Payment upon signing contract' },
-            { id: 2, name: 'Demolition Complete', amount: '75,000', description: 'When old kitchen is removed' },
-            { id: 3, name: 'Cabinet Installation', amount: '100,000', description: 'When new cabinets are installed' },
-            { id: 4, name: 'Final Payment', amount: '75,000', description: 'Upon project completion and inspection' }
-          ]
-        };
-        
-        // Sample bids data
-        const sampleBids = [
-          {
-            id: 'bid1',
-            contractor: {
-              id: 'cont1',
-              name: 'Premium Renovations',
-              rating: 4.8,
-              completedProjects: 42,
-              profileImage: null
-            },
-            amount: '340,000',
-            proposedTimeline: 28,
-            message: 'Our team specializes in modern kitchen designs with over 10 years of experience. We can complete this project with high-quality workmanship and attention to detail.',
-            createdAt: '2025-03-03T14:25:00',
-            status: 'pending',
-            attachments: []
-          },
-          {
-            id: 'bid2',
-            contractor: {
-              id: 'cont2',
-              name: 'Elite Home Solutions',
-              rating: 4.9,
-              completedProjects: 56,
-              profileImage: null
-            },
-            amount: '365,000',
-            proposedTimeline: 25,
-            message: 'We offer premium kitchen renovation services with a 2-year warranty on all work. Our team can source high-quality materials at wholesale prices if needed.',
-            createdAt: '2025-03-04T09:15:00',
-            status: 'pending',
-            attachments: []
-          },
-          {
-            id: 'bid3',
-            contractor: {
-              id: 'cont3',
-              name: 'Budget Builders',
-              rating: 4.2,
-              completedProjects: 37,
-              profileImage: null
-            },
-            amount: '310,000',
-            proposedTimeline: 35,
-            message: 'We can complete your kitchen renovation at a competitive price. While we may take a few extra days, our focus is on quality within budget.',
-            createdAt: '2025-03-05T11:30:00',
-            status: 'pending',
-            attachments: []
-          }
-        ];
+        // Fetch job details
+        setJob(sampleJobData);
+    setEditedJob(sampleJobData);
 
-        setJob(sampleJob);
-        setEditedJob(sampleJob);
-        setBids(sampleBids);
+        // Fetch bids for this job
+        const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
+        
+        console.log(bidsResponse.data);
+
+        const formattedBids = bidsResponse.data.map(bid => {
+          console.log('Bid from backend:', bid);  // Log bid data to debug
+        
+          return {
+            ...bid,
+            // Format the amount as 'LKR' using `price` from the backend
+            formattedAmount: `LKR ${parseFloat(bid?.price).toLocaleString()}`,  // Use `price` instead of `amount`
+        
+            // Ensure we have a default message if the contractor qualifications are missing
+            message: bid.qualifications || 'No additional details provided by the contractor.',  // Use `qualifications` for message
+        
+            // Format the contractor details directly as there is no nested `contractor` object
+            contractor: {
+              name: bid.contractorName || 'Unknown Contractor',  // Use `contractorName` directly
+              profileImage: 'default-profile-image-url.jpg',  // Use a default profile image as placeholder
+              completedProjects: bid.completedProjects || 0,  // Use `completedProjects` directly
+              rating: bid.rating || 0,  // Use `rating` directly
+            },
+        
+            // Status can be either 'pending', 'accepted', or 'rejected'
+            status: bid.status || 'pending',  // Ensure 'pending' is default if status is missing
+        
+            // Format the date to a readable format (optional)
+            createdAt: new Date(bid.createdAt).toLocaleDateString(),  // Convert createdAt to a human-readable date
+            
+            // Include the timeline (days)
+            timeline: bid.timeline,  // Use `timeline` from the backend
+          };
+        });
+        
+        // Log the formatted bids to ensure it's correctly formatted
+        console.log('Formatted Bids:', formattedBids);
+        
+        // Set formatted bids data
+        setBids(formattedBids);
+
         setLoading(false);
       } catch (err) {
         setError('Failed to load job details.');
         setLoading(false);
       }
-    }, 1000); // Simulate 1-second loading time
-    
-    return () => clearTimeout(timer);
+    };
+
+    fetchJobAndBids();
   }, [jobId]);
 
   // Handle form input changes
@@ -119,7 +108,7 @@ const ActiveJob = () => {
   const handleSaveChanges = async () => {
     try {
       setLoading(true);
-      
+
       // Simulate API call with timeout
       setTimeout(() => {
         setJob(editedJob);
@@ -158,12 +147,12 @@ const ActiveJob = () => {
   const handleAcceptBid = async (bidId) => {
     try {
       setLoading(true);
-      
+
       // Simulate API call with timeout
       setTimeout(() => {
-        const updatedBids = bids.map(bid => 
-          bid.id === bidId 
-            ? { ...bid, status: 'accepted' } 
+        const updatedBids = bids.map(bid =>
+          bid.id === bidId
+            ? { ...bid, status: 'accepted' }
             : { ...bid, status: bid.status === 'accepted' ? 'pending' : bid.status }
         );
         setBids(updatedBids);
@@ -201,7 +190,7 @@ const ActiveJob = () => {
             <div className="ml-3">
               <h3 className="text-lg font-medium text-red-800">Error</h3>
               <p className="text-red-700 mt-1">{error}</p>
-              <button 
+              <button
                 className="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700"
                 onClick={() => navigate('/dashboard')}
               >
@@ -224,12 +213,12 @@ const ActiveJob = () => {
               <img src={logo} alt="BuildMart Logo" className="h-15" />
             </div>
           </div>
-          
+
           <nav className="hidden lg:flex space-x-8">
             {['Home', 'Auction', 'Projects', 'About Us', 'Contact Us'].map((item) => (
-              <a 
-                key={item} 
-                href="#" 
+              <a
+                key={item}
+                href="#"
                 className="font-medium relative group text-gray-600 hover:text-gray-900 transition-colors duration-300"
               >
                 {item}
@@ -237,10 +226,10 @@ const ActiveJob = () => {
               </a>
             ))}
           </nav>
-          
+
           <div className="flex items-center space-x-4">
             <div className="relative">
-              <button 
+              <button
                 className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors duration-300"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -249,13 +238,13 @@ const ActiveJob = () => {
                 <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
             </div>
-            
+
             <button className="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-300">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
-            
+
             <button className="hidden md:flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl">
               <span>Account</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -290,7 +279,7 @@ const ActiveJob = () => {
           </nav>
         </div>
       </div>
-      
+
       <div className="max-w-6xl mx-auto my-8 px-4">
         {/* Success message */}
         {successMessage && (
@@ -307,7 +296,7 @@ const ActiveJob = () => {
             </div>
           </div>
         )}
-        
+
         {/* Error message */}
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
@@ -319,12 +308,12 @@ const ActiveJob = () => {
               </div>
               <div className="ml-3 flex justify-between w-full">
                 <p className="text-red-700">{error}</p>
-                <button 
+                <button
                   onClick={() => setError(null)}
                   className="text-red-700 hover:text-red-900"
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6m2 12L6 6" />
                   </svg>
                 </button>
               </div>
@@ -341,7 +330,7 @@ const ActiveJob = () => {
             </h1>
             <div className="flex space-x-2">
               {!isEditing && (
-                <button 
+                <button
                   onClick={() => setIsEditing(true)}
                   className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center transition-colors"
                 >
@@ -352,7 +341,7 @@ const ActiveJob = () => {
                 </button>
               )}
               {!job?.auctionStarted && (
-                <button 
+                <button
                   onClick={handleStartAuction}
                   disabled={loading}
                   className={`px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg flex items-center transition-colors ${
@@ -490,7 +479,7 @@ const ActiveJob = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
                       <div className="bg-blue-50 p-4 rounded-lg">
                         <p className="text-xs text-blue-500 uppercase font-semibold">Timeline</p>
-                        <p className="text-lg font-medium">{job?.timeline} days</p>
+                        <p className="text-lg font-medium">{bids?.timeline} days</p>
                       </div>
                       <div className="bg-blue-50 p-4 rounded-lg">
                         <p className="text-xs text-blue-500 uppercase font-semibold">Location</p>
@@ -548,7 +537,7 @@ const ActiveJob = () => {
                         job?.auctionStarted 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-yellow-100 text-yellow-800'
-                      }`}>
+                      }`}> 
                         <span className={`w-2 h-2 mr-2 rounded-full ${
                           job?.auctionStarted ? 'bg-green-600' : 'bg-yellow-500'
                         }`}></span>
@@ -616,10 +605,10 @@ const ActiveJob = () => {
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">LKR {bid.amount}</div>
+                                  <div className="text-sm font-medium text-gray-900">LKR {parseFloat(bid.price).toLocaleString()}</div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-500">{bid.proposedTimeline} days</div>
+                                  <div className="text-sm text-gray-500">{bid.timeline} days</div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="text-sm text-gray-500">
@@ -633,17 +622,12 @@ const ActiveJob = () => {
                                       : bid.status === 'pending' 
                                         ? 'bg-yellow-100 text-yellow-800' 
                                         : 'bg-gray-100 text-gray-800'
-                                    }`}
-                                  >
-                                    {bid.status?.charAt(0).toUpperCase() + bid.status?.slice(1)}
-                                  </span>
+                                    }`}>{bid.status}</span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                   {bid.status === 'pending' && (
                                     <button 
-                                      className={`inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none ${
-                                        loading ? 'opacity-50 cursor-not-allowed' : ''
-                                      }`}
+                                      className={`inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                                       onClick={() => handleAcceptBid(bid.id)}
                                       disabled={loading}
                                     >
@@ -681,16 +665,16 @@ const ActiveJob = () => {
 
           {/* Card footer */}
           <div className="px-6 py-4 bg-gray-50 flex justify-between items-center">
-            <button 
-              onClick={() => navigate('/dashboard')}
+            <button
+              onClick={() => setIsEditing(false)}
               className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors"
             >
               <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              Back to Dashboard
+              Back to Active Jobs
             </button>
-            
+
             {job?.auctionStarted && (
               <span className="text-sm text-gray-500">
                 {bids.length} {bids.length === 1 ? 'bid' : 'bids'} received
