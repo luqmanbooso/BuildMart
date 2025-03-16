@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { FaFacebookF, FaTwitter, FaInstagram, FaPhone, FaAt, FaComments } from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaFacebookF, FaTwitter, FaInstagram, FaPhone, FaMapMarkerAlt, FaAt, FaComments, FaPaperPlane, FaTimes } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
 import logo from '../assets/images/buildmart_logo1.png';
 
 const ContactUs = () => {
@@ -10,9 +12,21 @@ const ContactUs = () => {
     description: '',
   });
 
-  const [chatOpen, setChatOpen] = useState(false);  // Chatbot modal open/close state
-  const [messages, setMessages] = useState([]);  // Chatbot message state
-  const [input, setInput] = useState('');  // Input state for the chatbot
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    { sender: 'bot', message: "Hello! I'm BuildMart AI assistant. How can I help you today?" }
+  ]);
+  const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const chatEndRef = useRef(null);
+
+  // Auto-scroll chat to bottom on new messages
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -22,191 +36,446 @@ const ContactUs = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle form submission logic here
-    console.log('Form submission:', formData);
+    
+    try {
+      // Here you would typically send the form data to your backend
+      // await axios.post('http://localhost:5000/api/contact', formData);
+      
+      // Show success message
+      setFormSubmitted(true);
+      
+      // Reset form after 3 seconds
+      setTimeout(() => {
+        setFormData({
+          username: '',
+          email: '',
+          description: '',
+        });
+        setFormSubmitted(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+    }
   };
 
-  const handleChatToggle = () => setChatOpen(!chatOpen);  // Toggle the chat modal
+  const handleChatToggle = () => setChatOpen(!chatOpen);
+  
   const handleInputChange = (e) => setInput(e.target.value);
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (input.trim() === '') return;
+    if (input.trim() === '' || isSending) return;
 
-    // User's message
     const userMessage = input.trim();
-    setMessages([...messages, { sender: 'user', message: userMessage }]);
-
-    // Simulate bot reply
-    setTimeout(() => {
-      setMessages(prevMessages => [
-        ...prevMessages,
-        { sender: 'bot', message: `You said: ${userMessage}` }
-      ]);
-    }, 1000);
-
+    setMessages(prev => [...prev, { sender: 'user', message: userMessage }]);
     setInput('');
+    setIsSending(true);
+
+    try {
+      // Send request to Python backend
+      const response = await axios.post('http://localhost:5000/api/chatbot', {
+        message: userMessage
+      });
+      
+      // Add bot response to chat
+      setTimeout(() => {
+        setMessages(prev => [...prev, { 
+          sender: 'bot', 
+          message: response.data.response || "I'm sorry, I couldn't process that request."
+        }]);
+        setIsSending(false);
+      }, 600);
+    } catch (error) {
+      console.error('Error getting chatbot response:', error);
+      
+      // Fallback response if API fails
+      setTimeout(() => {
+        setMessages(prev => [...prev, { 
+          sender: 'bot', 
+          message: "I'm sorry, I'm having trouble connecting to my brain right now. Please try again later."
+        }]);
+        setIsSending(false);
+      }, 600);
+    }
   };
 
   return (
-    <div className="flex flex-col min-h-screen font-sans bg-gray-100">
+    <div className="flex flex-col min-h-screen font-sans bg-gray-50">
       {/* Navigation Bar */}
-      <nav className="bg-white py-4 px-6 shadow-md">
+      <nav className="bg-white py-4 px-6 shadow-md sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <Link to="/" className="flex items-center">
             <img src={logo} alt="BuildMart" className="h-12 transition-transform transform hover:scale-105" />
           </Link>
           <div className="hidden md:flex space-x-8">
-            <Link to="/" className="text-gray-700 hover:text-blue-900 transition">Home</Link>
-            <Link to="/auction" className="text-gray-700 hover:text-blue-900 transition">Auction</Link>
-            <Link to="/about-us" className="text-gray-700 hover:text-blue-900 transition">About Us</Link>
-            <Link to="/contact-us" className="text-blue-900 font-medium hover:text-blue-600 transition">Contact Us</Link>
+            <Link to="/" className="text-gray-700 hover:text-blue-600 transition duration-300 px-2 py-1 rounded-md hover:bg-blue-50">Home</Link>
+            <Link to="/auction" className="text-gray-700 hover:text-blue-600 transition duration-300 px-2 py-1 rounded-md hover:bg-blue-50">Auction</Link>
+            <Link to="/about-us" className="text-gray-700 hover:text-blue-600 transition duration-300 px-2 py-1 rounded-md hover:bg-blue-50">About Us</Link>
+            <Link to="/contact-us" className="text-blue-600 font-medium px-2 py-1 bg-blue-50 rounded-md">Contact Us</Link>
           </div>
         </div>
       </nav>
 
       {/* Header with Gradient Background */}
-      <div className="bg-gradient-to-r from-indigo-500 via-blue-700 to-blue-900 py-20 text-center">
-        <h1 className="text-5xl sm:text-6xl text-white font-bold tracking-tight leading-tight">
-          Get in Touch with Us
-        </h1>
-        <p className="text-lg text-white mt-4 max-w-xl mx-auto">
-          We are here to assist you with your needs. Drop us a message, and we'll get back to you as soon as possible.
-        </p>
-      </div>
+      <motion.div 
+        className="bg-gradient-to-r from-blue-700 via-indigo-600 to-purple-700 py-20 text-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+      >
+        <motion.h1 
+          className="text-5xl sm:text-6xl text-white font-bold tracking-tight leading-tight"
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+        >
+          Get in Touch
+        </motion.h1>
+        <motion.p 
+          className="text-lg text-white mt-4 max-w-xl mx-auto"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+        >
+          We're here to help with any questions about our platform, services, or how we can assist your construction projects.
+        </motion.p>
+      </motion.div>
 
-      {/* Contact Form Section */}
-      <div className="flex-grow bg-white py-16">
-        <div className="container mx-auto px-6">
-          <div className="max-w-lg mx-auto bg-white rounded-lg shadow-xl p-8 space-y-8">
-            <h2 className="text-3xl font-semibold text-gray-800 text-center">Contact Us</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="relative">
-                <label htmlFor="username" className="text-lg font-medium text-gray-700">Your Name</label>
-                <input
-                  type="text"
-                  id="username"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  className="w-full p-4 mt-2 border-b border-gray-300 focus:outline-none focus:border-blue-900 bg-gray-50 shadow-sm rounded-md"
-                  required
-                />
+      {/* Main Content */}
+      <div className="flex-grow py-16 px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Contact Information */}
+            <motion.div 
+              className="md:col-span-1"
+              initial={{ x: -50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="bg-white rounded-xl shadow-lg p-8 h-full">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">Contact Information</h2>
+                
+                <div className="space-y-6">
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 p-3 rounded-full">
+                      <FaPhone className="text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="font-medium text-gray-900">Phone</h3>
+                      <p className="text-gray-600 mt-1">+94 773 456 7890</p>
+                      <p className="text-gray-600">Mon-Fri, 9am-6pm</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 p-3 rounded-full">
+                      <FaAt className="text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="font-medium text-gray-900">Email</h3>
+                      <p className="text-gray-600 mt-1">support@buildmart.lk</p>
+                      <p className="text-gray-600">We respond within 24 hours</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 p-3 rounded-full">
+                      <FaMapMarkerAlt className="text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="font-medium text-gray-900">Office</h3>
+                      <p className="text-gray-600 mt-1">42 Galle Road, Colombo 03</p>
+                      <p className="text-gray-600">Sri Lanka</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-8">
+                  <h3 className="font-medium text-gray-900 mb-3">Follow Us</h3>
+                  <div className="flex space-x-4">
+                    <a 
+                      href="https://facebook.com" 
+                      className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors duration-300"
+                      aria-label="Facebook"
+                    >
+                      <FaFacebookF />
+                    </a>
+                    <a 
+                      href="https://twitter.com" 
+                      className="bg-blue-400 text-white p-2 rounded-full hover:bg-blue-500 transition-colors duration-300"
+                      aria-label="Twitter"
+                    >
+                      <FaTwitter />
+                    </a>
+                    <a 
+                      href="https://instagram.com" 
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-2 rounded-full hover:from-purple-600 hover:to-pink-600 transition-colors duration-300"
+                      aria-label="Instagram"
+                    >
+                      <FaInstagram />
+                    </a>
+                  </div>
+                </div>
               </div>
-
-              <div className="relative">
-                <label htmlFor="email" className="text-lg font-medium text-gray-700">Email Address</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full p-4 mt-2 border-b border-gray-300 focus:outline-none focus:border-blue-900 bg-gray-50 shadow-sm rounded-md"
-                  required
-                />
+            </motion.div>
+            
+            {/* Contact Form */}
+            <motion.div 
+              className="md:col-span-2"
+              initial={{ x: 50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <div className="bg-white rounded-xl shadow-lg p-8">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">Send Message</h2>
+                
+                {formSubmitted ? (
+                  <motion.div 
+                    className="bg-green-50 border border-green-200 rounded-lg p-6 text-center"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4 }}
+                  >
+                    <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                      <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-green-800 mb-2">Message sent successfully!</h3>
+                    <p className="text-green-700">Thank you for contacting us. We'll get back to you soon.</p>
+                  </motion.div>
+                ) : (
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="relative">
+                        <label htmlFor="username" className="text-sm font-medium text-gray-700 block mb-2">Your Name</label>
+                        <input
+                          type="text"
+                          id="username"
+                          name="username"
+                          value={formData.username}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm"
+                          required
+                          placeholder="John Doe"
+                        />
+                      </div>
+                      
+                      <div className="relative">
+                        <label htmlFor="email" className="text-sm font-medium text-gray-700 block mb-2">Email Address</label>
+                        <input
+                          type="email"
+                          id="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm"
+                          required
+                          placeholder="john@example.com"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="relative">
+                      <label htmlFor="description" className="text-sm font-medium text-gray-700 block mb-2">Your Message</label>
+                      <textarea
+                        id="description"
+                        name="description"
+                        value={formData.description}
+                        onChange={handleChange}
+                        rows="6"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm resize-none"
+                        required
+                        placeholder="How can we help you?"
+                      ></textarea>
+                    </div>
+                    
+                    <div className="flex justify-end">
+                      <motion.button
+                        type="submit"
+                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all duration-300"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <span className="flex items-center">
+                          Send Message
+                          <FaPaperPlane className="ml-2" />
+                        </span>
+                      </motion.button>
+                    </div>
+                  </form>
+                )}
               </div>
-
-              <div className="relative">
-                <label htmlFor="description" className="text-lg font-medium text-gray-700">Your Message</label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows="5"
-                  className="w-full p-4 mt-2 border-b border-gray-300 focus:outline-none focus:border-blue-900 bg-gray-50 shadow-sm rounded-md resize-none"
-                  required
-                ></textarea>
-              </div>
-
-              <div className="flex justify-center">
-                <button
-                  type="submit"
-                  className="w-full px-8 py-3 bg-blue-900 text-white font-semibold rounded-lg transform hover:scale-105 transition"
-                >
-                  Send Message
-                </button>
-              </div>
-            </form>
+            </motion.div>
           </div>
         </div>
+      </div>
+
+      {/* Map Section */}
+      <div className="w-full h-96 bg-gray-200 relative">
+        <iframe
+          className="w-full h-full"
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63371.82624954921!2d79.82118336632216!3d6.921922517948811!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ae253d10f7a7003%3A0x320b2e4d32d3838d!2sColombo!5e0!3m2!1sen!2slk!4v1689842276536!5m2!1sen!2slk"
+          style={{ border: 0 }}
+          allowFullScreen=""
+          loading="lazy"
+          title="BuildMart Office Location"
+        ></iframe>
       </div>
 
       {/* Chatbot Button */}
-      <button
+      <motion.button
         onClick={handleChatToggle}
-        className="fixed bottom-8 right-8 bg-blue-600 text-white p-4 rounded-full shadow-lg"
+        className="fixed bottom-8 right-8 bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 rounded-full shadow-xl z-50"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 1, duration: 0.3 }}
       >
-        <FaComments size={24} />
-      </button>
+        {chatOpen ? <FaTimes size={24} /> : <FaComments size={24} />}
+      </motion.button>
 
       {/* Chatbot Modal */}
-      {chatOpen && (
-        <div className="fixed bottom-16 right-8 w-80 bg-white shadow-xl rounded-lg p-4 z-50">
-          <div className="h-80 overflow-y-auto mb-4">
-            {messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`mb-3 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}
-              >
-                <div
-                  className={`inline-block p-3 rounded-lg ${
-                    msg.sender === 'user' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {msg.message}
+      <AnimatePresence>
+        {chatOpen && (
+          <motion.div 
+            className="fixed bottom-24 right-8 w-80 md:w-96 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden border border-gray-200"
+            initial={{ opacity: 0, y: 20, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.8 }}
+            transition={{ duration: 0.3 }}
+          >
+            {/* Chat Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-4 text-white">
+              <div className="flex items-center">
+                <div className="p-2 bg-white/20 rounded-full">
+                  <FaComments className="text-white" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="font-medium">BuildMart AI Assistant</h3>
+                  <p className="text-xs text-blue-100">Online | Typically replies instantly</p>
                 </div>
               </div>
-            ))}
-          </div>
-
-          <form onSubmit={handleSendMessage} className="flex">
-            <input
-              type="text"
-              value={input}
-              onChange={handleInputChange}
-              className="w-full border rounded-l-md p-3"
-              placeholder="Ask me anything..."
-            />
-            <button
-              type="submit"
-              className="bg-blue-900 text-white px-4 rounded-r-md"
-            >
-              Send
-            </button>
-          </form>
-        </div>
-      )}
+            </div>
+            
+            {/* Chat Messages */}
+            <div className="h-80 overflow-y-auto p-4 bg-gray-50">
+              {messages.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`mb-4 flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-3/4 p-3 rounded-2xl ${
+                      msg.sender === 'user' 
+                        ? 'bg-blue-600 text-white rounded-tr-none' 
+                        : 'bg-white text-gray-800 rounded-tl-none shadow-md'
+                    }`}
+                  >
+                    {msg.message}
+                  </div>
+                </div>
+              ))}
+              
+              {isSending && (
+                <div className="flex justify-start mb-4">
+                  <div className="bg-white text-gray-800 p-3 rounded-2xl rounded-tl-none shadow-md flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "600ms" }}></div>
+                  </div>
+                </div>
+              )}
+              
+              <div ref={chatEndRef} />
+            </div>
+            
+            {/* Chat Input */}
+            <form onSubmit={handleSendMessage} className="border-t border-gray-200">
+              <div className="flex p-2">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={handleInputChange}
+                  className="flex-1 px-4 py-2 bg-gray-100 rounded-l-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Type your message..."
+                />
+                <motion.button
+                  type="submit"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 rounded-r-full"
+                  whileTap={{ scale: 0.95 }}
+                  disabled={isSending}
+                >
+                  <FaPaperPlane />
+                </motion.button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Footer */}
-      <footer className="bg-blue-900 text-white py-10">
+      <footer className="bg-gradient-to-r from-gray-900 to-blue-900 text-white py-12">
         <div className="container mx-auto px-6">
-          <div className="flex justify-between">
-            <div className="w-1/3">
-              <img src="/buildmart-logo-white.png" alt="BuildMart" className="h-12" />
-              <p className="mt-4 text-sm text-gray-300">
-                Your trusted platform for top-rated contractors and architects. Compare, connect, and build smarter!
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+              <img src={logo} alt="BuildMart" className="h-10 mb-4" />
+              <p className="mt-2 text-sm text-blue-200 max-w-md">
+                BuildMart connects contractors with clients for construction projects. Find qualified professionals or post your project for bidding.
               </p>
+              <div className="mt-6 flex space-x-4">
+                <a href="https://facebook.com" className="text-blue-200 hover:text-white transition-colors">
+                  <FaFacebookF size={18} />
+                </a>
+                <a href="https://twitter.com" className="text-blue-200 hover:text-white transition-colors">
+                  <FaTwitter size={18} />
+                </a>
+                <a href="https://instagram.com" className="text-blue-200 hover:text-white transition-colors">
+                  <FaInstagram size={18} />
+                </a>
+              </div>
             </div>
-            <div className="w-1/3 text-center">
-              <h3 className="text-lg font-medium mb-4">Quick Links</h3>
+            
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
               <ul className="space-y-2">
-                <li><Link to="/about-us" className="hover:underline">About Us</Link></li>
-                <li><Link to="/signup" className="hover:underline">Register to bid</Link></li>
-                <li><Link to="/terms" className="hover:underline">Terms & Conditions</Link></li>
-                <li><Link to="/privacy" className="hover:underline">Privacy Policy</Link></li>
+                <li><Link to="/about-us" className="text-blue-200 hover:text-white transition-colors">About Us</Link></li>
+                <li><Link to="/auction" className="text-blue-200 hover:text-white transition-colors">Browse Projects</Link></li>
+                <li><Link to="/signup" className="text-blue-200 hover:text-white transition-colors">Register as Contractor</Link></li>
+                <li><Link to="/terms" className="text-blue-200 hover:text-white transition-colors">Terms & Conditions</Link></li>
+                <li><Link to="/privacy" className="text-blue-200 hover:text-white transition-colors">Privacy Policy</Link></li>
               </ul>
             </div>
-            <div className="w-1/3 text-center">
-              <h3 className="text-lg font-medium mb-4">Follow Us</h3>
-              <div className="flex justify-center space-x-4">
-                <a href="https://facebook.com" className="text-white hover:text-blue-300"><FaFacebookF size={20} /></a>
-                <a href="https://twitter.com" className="text-white hover:text-blue-300"><FaTwitter size={20} /></a>
-                <a href="https://instagram.com" className="text-white hover:text-blue-300"><FaInstagram size={20} /></a>
-              </div>
+            
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Newsletter</h3>
+              <p className="text-blue-200 mb-4">Subscribe to our newsletter for updates and tips</p>
+              <form className="flex">
+                <input 
+                  type="email" 
+                  placeholder="Your email" 
+                  className="px-4 py-2 rounded-l-md w-full focus:outline-none text-gray-900"
+                />
+                <button 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-r-md transition-colors duration-300"
+                >
+                  <FaPaperPlane />
+                </button>
+              </form>
+            </div>
+          </div>
+          
+          <div className="border-t border-blue-800 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center">
+            <p className="text-sm text-blue-300">
+              &copy; {new Date().getFullYear()} BuildMart. All rights reserved.
+            </p>
+            <div className="mt-4 md:mt-0">
+              <Link to="/terms" className="text-sm text-blue-300 hover:text-white mx-3 transition-colors">Terms</Link>
+              <Link to="/privacy" className="text-sm text-blue-300 hover:text-white mx-3 transition-colors">Privacy</Link>
+              <Link to="/cookies" className="text-sm text-blue-300 hover:text-white mx-3 transition-colors">Cookies</Link>
             </div>
           </div>
         </div>
