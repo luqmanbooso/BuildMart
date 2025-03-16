@@ -4,15 +4,27 @@ const router = express.Router();
 
 // POST: Create a new job
 router.post('/', async (req, res) => {
-  const { userid, title, category, area, budget, biddingStartTime, milestones } = req.body;
+  const { 
+    userid, 
+    title, 
+    category, 
+    area,
+    description,
+    budget, 
+    biddingStartTime, 
+    biddingEndTime, // Added bidding end time
+    milestones 
+  } = req.body;
 
   const newJob = new Job({
     userid,
     title,
     category,
     area,
+    description,
     budget,
     biddingStartTime,
+    biddingEndTime, // Added bidding end time
     milestones,
   });
 
@@ -86,6 +98,40 @@ router.get('/:id', async (req, res) => {
     res.status(200).json(job);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching job details' });
+  }
+});
+
+// Add a new endpoint to update auction status
+router.put('/:id/auction-status', async (req, res) => {
+  const { status } = req.body;
+  
+  if (!['Active', 'Pending', 'Closed'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status value' });
+  }
+  
+  try {
+    const job = await Job.findById(req.params.id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // If starting auction now, update bidding start time
+    if (status === 'Active' && job.status !== 'Active') {
+      job.biddingStartTime = new Date();
+    }
+    
+    // If stopping auction early, update bidding end time to now
+    if (status === 'Closed' && job.status === 'Active') {
+      job.biddingEndTime = new Date();
+    }
+    
+    job.status = status;
+    await job.save();
+    
+    res.status(200).json({ message: 'Auction status updated successfully', job });
+  } catch (err) {
+    res.status(500).json({ error: 'Error updating auction status' });
   }
 });
 

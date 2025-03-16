@@ -27,6 +27,7 @@ const UserProfilePage = () => {
     budget: '',
     description: '',
     biddingStartTime: new Date().toISOString().substr(0, 16),
+    biddingEndTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 7 days later
     milestones: [
       { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
     ]
@@ -153,6 +154,13 @@ const UserProfilePage = () => {
       const decoded = jwtDecode(token);
       const userId = decoded.userId;
       
+      // Validate form
+      if (!newJob.title || !newJob.category || !newJob.area || !newJob.budget || 
+        !newJob.biddingStartTime || !newJob.biddingEndTime) {
+        alert('Please fill all required fields including bidding start and end times.');
+        return;
+      }
+      
       // Format the job data for API submission
       const jobData = {
         userid: userId, // Add the user ID from the token
@@ -162,6 +170,7 @@ const UserProfilePage = () => {
         budget: newJob.budget,
         description: newJob.description, // Make sure description is included
         biddingStartTime: newJob.biddingStartTime,
+        biddingEndTime: newJob.biddingEndTime, // Added bidding end time
         milestones: newJob.milestones.map(milestone => ({
           name: milestone.name,
           amount: milestone.amount,
@@ -209,6 +218,7 @@ const UserProfilePage = () => {
         budget: '',
         description: '',
         biddingStartTime: new Date().toISOString().substr(0, 16),
+        biddingEndTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 7 days later
         milestones: [
           { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
         ]
@@ -646,6 +656,23 @@ const UserProfilePage = () => {
                                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                     required
                                   />
+                                </div>
+
+                                <div className="col-span-3">
+                                  <label htmlFor="biddingEndTime" className="block text-sm font-medium text-gray-700">
+                                    Bidding End Time <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="datetime-local"
+                                    id="biddingEndTime"
+                                    name="biddingEndTime"
+                                    value={newJob.biddingEndTime}
+                                    onChange={(e) => setNewJob({...newJob, biddingEndTime: e.target.value})}
+                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                    min={newJob.biddingStartTime} // Ensure end time is after start time
+                                    required
+                                  />
+                                  <p className="mt-1 text-xs text-gray-500">When should the bidding period end for this project?</p>
                                 </div>
 
                                 {/* Milestones */}

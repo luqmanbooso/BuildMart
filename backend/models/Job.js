@@ -11,11 +11,12 @@ const jobSchema = new mongoose.Schema({
   title: String,  
   category: String,
   area: String,
-  description: String, // Add description field
+  description: String,
   budget: String,
-  status: { type: String, default: 'Pending' },
+  status: { type: String, default: 'Pending' }, // 'Pending', 'Active', 'Closed'
   date: { type: Date, default: Date.now },
   biddingStartTime: { type: Date, required: true },
+  biddingEndTime: { type: Date, required: true }, // Added bidding end time field
   bids: { type: Number, default: 0 },
   milestones: [milestoneSchema],
 });

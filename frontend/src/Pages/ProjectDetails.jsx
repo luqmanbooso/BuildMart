@@ -420,7 +420,9 @@ const ProjectDetails = () => {
                               <span className="text-xs uppercase">sec</span>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-600">Auction ends: {job?.biddingEndTime}</p>
+                          <p className="text-sm text-gray-600">
+                            Auction ends: {job?.biddingEndTime ? new Date(job.biddingEndTime).toLocaleString() : 'Not specified'}
+                          </p>
                         </div>
                       )}
                     </div>
