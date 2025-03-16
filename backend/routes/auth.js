@@ -2,12 +2,12 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
-const User = require('../models/User');
 const router = express.Router();
 // Multer setup for file upload
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
-  
+const User = require('../models/User');
+
 // POST request to register a new user
 router.post('/signup', upload.single('profilePic'), async (req, res) => {
   const { username, email, password, role } = req.body;
@@ -104,5 +104,35 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ error: 'Server error. Please try again.' });
   }
 });
+
+
+
+// GET request to fetch user data by userId
+router.get('/user/:userId', async (req, res) => {
+  try {
+    // Find the user by the userId passed in the URL parameter
+    const user = await User.findById(req.params.userId);
+
+    // If user is not found, return an error
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Return the user data (excluding password for security)
+    res.json({
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        profilePic: user.profilePic
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
 
 module.exports = router;
