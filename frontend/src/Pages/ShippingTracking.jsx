@@ -1,5 +1,5 @@
 import React from "react";
-import { FaTruck, FaCheckCircle, FaCalendarAlt } from "react-icons/fa"; // Import icons from react-icons
+import { FaTruck, FaCheckCircle, FaCalendarAlt } from "react-icons/fa";
 
 const ShippingTracking = ({ shipmentId, shipmentStatus, deliveryProgress, estimatedDelivery }) => {
   return (
