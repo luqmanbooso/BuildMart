@@ -1,9 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import logo from '../assets/images/buildmart_logo1.png';
+import { jwtDecode } from 'jwt-decode';
 
 const UserProfilePage = () => {
+
+useEffect(() => {
+  // Get token from localStorage or sessionStorage
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  
+  // console.log(token);
+
+
+  // console.log(token);
+
+  if (token) {
+    try {
+      // Decode the token to get user data
+      const decoded = jwtDecode(token);
+      
+      // Create a user object from the decoded token
+      const userData = {
+        _id: decoded.userId,
+        username: decoded.username,
+        email: decoded.email, // if available in token
+        role: decoded.role, // if available in token
+        // Add other fields as needed
+      };
+      
+      console.log(userData.email);
+      console.log(userData.username);
+      // Set the user state
+      setUser(prevUser => ({
+        ...prevUser,
+        name: userData.username || prevUser.name,
+        email: userData.email || prevUser.email,
+      }));
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      // Handle invalid token (e.g., by redirecting to login)
+    }
+  }
+}, []);
   const [user, setUser] = useState({
-    name: 'Mr.Saman Perera',
+    name: `Saman Perera`,
     email: 'samanperera@gmail.com',
     memberSince: 'January 2023',
     completedProjects: 12,
@@ -47,20 +86,6 @@ const UserProfilePage = () => {
       { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
     ]
   });
-
-  // Close modal when Escape key is pressed
-  useEffect(() => {
-    const handleEsc = (event) => {
-      if (event.keyCode === 27) {
-        setShowAddJobForm(false);
-      }
-    };
-    window.addEventListener('keydown', handleEsc);
-
-    return () => {
-      window.removeEventListener('keydown', handleEsc);
-    };
-  }, []);
 
   const handleAddJob = () => {
     setShowAddJobForm(true);

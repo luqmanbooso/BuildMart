@@ -467,7 +467,7 @@ const handleLogout = () => {
                       <p className="font-medium text-gray-800">{user.email}</p>
                     </div>
                     
-                    {['Profile', 'Dashboard', 'Settings'].map((item, index) => (
+                    {['userprofile', 'Dashboard', 'Settings'].map((item, index) => (
                       <Link 
                         key={index}
                         to={`/${item.toLowerCase()}`}
