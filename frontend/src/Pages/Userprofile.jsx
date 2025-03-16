@@ -1,75 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Add this import
 import logo from '../assets/images/buildmart_logo1.png';
 import { jwtDecode } from 'jwt-decode';
+import axios from 'axios';
 
 const UserProfilePage = () => {
-
-useEffect(() => {
-  // Get token from localStorage or sessionStorage
-  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const navigate = useNavigate(); // Add this hook
   
-  // console.log(token);
-
-
-  // console.log(token);
-
-  if (token) {
-    try {
-      // Decode the token to get user data
-      const decoded = jwtDecode(token);
-      
-      // Create a user object from the decoded token
-      const userData = {
-        _id: decoded.userId,
-        username: decoded.username,
-        email: decoded.email, // if available in token
-        role: decoded.role, // if available in token
-        // Add other fields as needed
-      };
-      
-      console.log(userData.email);
-      console.log(userData.username);
-      // Set the user state
-      setUser(prevUser => ({
-        ...prevUser,
-        name: userData.username || prevUser.name,
-        email: userData.email || prevUser.email,
-      }));
-    } catch (error) {
-      console.error("Error decoding token:", error);
-      // Handle invalid token (e.g., by redirecting to login)
-    }
-  }
-}, []);
   const [user, setUser] = useState({
-    name: `Saman Perera`,
-    email: 'samanperera@gmail.com',
+    name: '',
+    email: '',
     memberSince: 'January 2023',
     completedProjects: 12,
     ongoingProjects: 3,
     rating: 4.8,
-    requests: [
-      {
-        id: '01',
-        title: 'Fix a Leaking Water Sink',
-        category: 'Plumbing',
-        area: 'Colombo',
-        budget: 'LKR : 5000-8000',
-        status: 'Active',
-        date: '12 Mar 2025',
-        bids: 4
-      },
-      {
-        id: '02',
-        title: 'Kitchen Cabinet Installation',
-        category: 'Carpentry',
-        area: 'Kandy',
-        budget: 'LKR : 15000-25000',
-        status: 'Pending',
-        date: '10 Mar 2025',
-        bids: 2
-      }
-    ]
+    requests: []
   });
 
   const [activeTab, setActiveTab] = useState('requirements');
@@ -81,17 +26,95 @@ useEffect(() => {
     area: '',
     budget: '',
     description: '',
-    biddingStartTime: new Date().toISOString().substr(0, 16), // Format: YYYY-MM-DDThh:mm
+    biddingStartTime: new Date().toISOString().substr(0, 16),
     milestones: [
       { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
     ]
   });
 
+  useEffect(() => {
+    // Get token from localStorage or sessionStorage
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    // Fetch user info from token
+    if (token) {
+      try {
+        // Decode the token to get user data
+        const decoded = jwtDecode(token);
+
+        // Create a user object from the decoded token
+        const userData = {
+          _id: decoded.userId,
+          username: decoded.username,
+          email: decoded.email, 
+          role: decoded.role,
+        };
+
+        // Set the user state from the decoded data
+        setUser(prevUser => ({
+          ...prevUser,
+          name: userData.username || prevUser.name,
+          email: userData.email || prevUser.email,
+        }));
+        
+        // Fetch jobs from API
+        fetchJobs();
+      } catch (error) {
+        console.error('Error decoding token:', error);
+      }
+    }
+  }, []);
+
+  // Function to fetch jobs
+  const fetchJobs = async () => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      // Decode token to get userId
+      const decoded = jwtDecode(token);
+      const userId = decoded.userId;
+      
+      // Include userId as query parameter
+      const response = await axios.get(`http://localhost:5000/api/jobs?userid=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}` 
+        }
+      });
+      
+      if (response.status !== 200) {
+        throw new Error('Failed to fetch jobs');
+      }
+      
+      const jobs = response.data;
+      
+      // Format jobs for display
+      const formattedJobs = jobs.map(job => ({
+        id: job._id,
+        title: job.title,
+        category: job.category,
+        area: job.area,
+        budget: `LKR : ${job.budget}`,
+        status: job.status,
+        date: new Date(job.date).toLocaleDateString('en-GB', { 
+          day: '2-digit', month: 'short', year: 'numeric' 
+        }),
+        bids: job.bids
+      }));
+      
+      // Update user state with fetched jobs
+      setUser(prevUser => ({
+        ...prevUser,
+        requests: formattedJobs
+      }));
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+    }
+  };
+
   const handleAddJob = () => {
     setShowAddJobForm(true);
   };
 
-  // Function to add a new milestone
   const addMilestone = () => {
     const newId = newJob.milestones.length + 1;
     setNewJob({
@@ -103,7 +126,6 @@ useEffect(() => {
     });
   };
 
-  // Function to remove a milestone
   const removeMilestone = (id) => {
     setNewJob({
       ...newJob,
@@ -111,7 +133,6 @@ useEffect(() => {
     });
   };
 
-  // Function to update milestone data
   const updateMilestone = (id, field, value) => {
     setNewJob({
       ...newJob,
@@ -121,42 +142,91 @@ useEffect(() => {
     });
   };
 
-  // Modified form submission to handle milestones
-  const handleSubmitJob = (e) => {
+  const handleSubmitJob = async (e) => {
     e.preventDefault();
-    const newJobRequest = {
-      id: (user.requests.length + 1).toString().padStart(2, '0'),
-      title: newJob.title,
-      category: newJob.category,
-      area: newJob.area,
-      budget: `LKR : ${newJob.budget}`,
-      status: 'Pending',
-      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      biddingStartTime: newJob.biddingStartTime,
-      bids: 0,
-      milestones: newJob.milestones
-    };
     
-    setUser({
-      ...user,
-      requests: [...user.requests, newJobRequest]
-    });
-    
-    setShowAddJobForm(false);
-    setNewJob({
-      title: '',
-      category: '',
-      area: '',
-      budget: '',
-      description: '',
-      biddingStartTime: new Date().toISOString().substr(0, 16),
-      milestones: [
-        { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
-      ]
-    });
+    try {
+      // Get the token from storage
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      // Decode token to get userId
+      const decoded = jwtDecode(token);
+      const userId = decoded.userId;
+      
+      // Format the job data for API submission
+      const jobData = {
+        userid: userId, // Add the user ID from the token
+        title: newJob.title,
+        category: newJob.category,
+        area: newJob.area,
+        budget: newJob.budget,
+        description: newJob.description, // Make sure description is included
+        biddingStartTime: newJob.biddingStartTime,
+        milestones: newJob.milestones.map(milestone => ({
+          name: milestone.name,
+          amount: milestone.amount,
+          description: milestone.description
+        }))
+      };
+      
+      // Make the API request using axios with the full URL
+      const response = await axios.post('http://localhost:5000/api/jobs', jobData, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Extract data from axios response
+      const data = response.data;
+      
+      // Update UI with the new job from API response
+      const newJobRequest = {
+        id: data.job._id || (user.requests.length + 1).toString().padStart(2, '0'),
+        title: data.job.title,
+        category: data.job.category,
+        area: data.job.area,
+        budget: `LKR : ${data.job.budget}`,
+        status: data.job.status || 'Pending',
+        date: new Date(data.job.date).toLocaleDateString('en-GB', { 
+          day: '2-digit', month: 'short', year: 'numeric' 
+        }),
+        bids: data.job.bids || 0
+      };
+      
+      // Update local state with the new job
+      setUser({
+        ...user,
+        requests: [...user.requests, newJobRequest]
+      });
+      
+      // Reset form and close modal
+      setShowAddJobForm(false);
+      setNewJob({
+        title: '',
+        category: '',
+        area: '',
+        budget: '',
+        description: '',
+        biddingStartTime: new Date().toISOString().substr(0, 16),
+        milestones: [
+          { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
+        ]
+      });
+      
+      // Show success message
+      alert('Job created successfully!');
+      
+    } catch (error) {
+      console.error('Error creating job:', error.response ? error.response.data : error.message);
+      alert(`Failed to create job: ${error.response ? error.response.data.error : error.message}`);
+    }
   };
 
-  // Sample data for the new tabs
+  const handleJobClick = (jobId) => {
+    navigate(`/job/${jobId}`); // Navigate to the ActiveJob page with the job ID
+  };
+
   const ongoingWorks = [
     { id: '01', title: 'Kitchen Renovation', contractor: 'ABC Contractors', progress: '65%', startDate: '15 Jan 2025', dueDate: '15 Apr 2025' },
     { id: '02', title: 'Bathroom Plumbing', contractor: 'Best Plumbers Ltd', progress: '40%', startDate: '1 Mar 2025', dueDate: '15 Mar 2025' }
@@ -175,40 +245,28 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-800">
-      {/* Modern Header with Glass Effect */}
+      {/* Header */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-lg shadow-lg py-4 px-6">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="">
-              <img src={logo} alt="BuildMart Logo" className="h-15" />
-            </div>
+            <img src={logo} alt="BuildMart Logo" className="h-15" />
           </div>
-          
           <nav className="hidden lg:flex space-x-8">
             {['Home', 'Auction', 'Projects', 'About Us', 'Contact Us'].map((item) => (
-              <a 
-                key={item} 
-                href="#" 
-                className="font-medium relative group text-gray-600 hover:text-gray-900 transition-colors duration-300"
-              >
+              <a key={item} href="#" className="font-medium relative group text-gray-600 hover:text-gray-900 transition-colors duration-300">
                 {item}
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 group-hover:w-full transition-all duration-300"></span>
               </a>
             ))}
           </nav>
-          
           <div className="flex items-center space-x-4">
             <div className="relative">
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors duration-300"
-              >
+              <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors duration-300">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
                 <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
-              
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl ring-1 ring-black ring-opacity-5 p-2">
                   <div className="p-3">
@@ -229,13 +287,11 @@ useEffect(() => {
                 </div>
               )}
             </div>
-            
             <button className="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-300">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
-            
             <button className="hidden md:flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl">
               <span>Account</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -246,14 +302,9 @@ useEffect(() => {
         </div>
       </header>
 
-      {/* Hero Section with Stylish Background */}
+      {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-r from-blue-800 via-blue-600 to-indigo-800">
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-900 to-indigo-900 opacity-70"></div>
-          <div className="absolute inset-0 bg-[url('https://via.placeholder.com/1920x300')] bg-cover bg-center mix-blend-overlay"></div>
-          <div className="absolute inset-y-0 right-0 w-1/3 bg-gradient-to-l from-blue-500/30 to-transparent"></div>
-        </div>
-        
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-900 to-indigo-900 opacity-70"></div>
         <div className="relative max-w-7xl mx-auto px-6 py-16">
           <h1 className="text-5xl font-bold text-white leading-tight">My <span className="text-blue-300">Account</span></h1>
           <p className="mt-4 text-blue-200 max-w-xl">Manage your projects, track bids, and connect with top professionals in the construction industry.</p>
@@ -264,9 +315,8 @@ useEffect(() => {
       <div className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* Left sidebar with user card */}
+            {/* Left Sidebar */}
             <div className="lg:w-1/4">
-              {/* User Profile Card */}
               <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
                 <div className="h-20 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
                 <div className="relative px-6 pb-6">
@@ -277,7 +327,6 @@ useEffect(() => {
                       </div>
                     </div>
                   </div>
-                  
                   <div className="mt-12 text-center">
                     <h2 className="text-lg font-bold text-gray-800">{user.name}</h2>
                     <p className="text-sm text-gray-500">{user.email}</p>
@@ -341,7 +390,8 @@ useEffect(() => {
                     {user.requests.map((request, index) => (
                       <div
                         key={`${request.id}-${index}`}
-                        className="p-4 rounded-lg shadow-md bg-white border border-gray-300 flex justify-between"
+                        className="p-4 rounded-lg shadow-md bg-white border border-gray-300 flex justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => handleJobClick(request.id)} // Add onClick handler
                       >
                         <div>
                           <h3 className="font-medium text-gray-800">{request.title}</h3>
@@ -483,17 +533,17 @@ useEffect(() => {
                 {showAddJobForm && (
                   <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
                     <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                      {/* Background overlay with blur effect */}
+                      {/* Background overlay */}
                       <div 
                         className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity" 
                         aria-hidden="true"
                         onClick={() => setShowAddJobForm(false)}
                       ></div>
 
-                      {/* Modal panel with modern styling */}
+                      {/* Modal Panel */}
                       <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
                         <div className="relative">
-                          {/* Header section with gradient background */}
+                          {/* Modal Header */}
                           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
                             <div className="flex justify-between items-center">
                               <h2 className="text-xl font-bold text-white">Post a New Project</h2>
@@ -507,8 +557,8 @@ useEffect(() => {
                               </button>
                             </div>
                           </div>
-                          
-                          {/* Form content */}
+
+                          {/* Modal Form */}
                           <div className="bg-white px-6 py-5 max-h-[80vh] overflow-y-auto">
                             <form onSubmit={handleSubmitJob}>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -557,7 +607,7 @@ useEffect(() => {
                                     required
                                   />
                                 </div>
-                                
+
                                 <div className="col-span-2">
                                   <label className="block text-sm font-medium text-gray-700">Description</label>
                                   <textarea
@@ -598,7 +648,7 @@ useEffect(() => {
                                   />
                                 </div>
 
-                                {/* Milestone section */}
+                                {/* Milestones */}
                                 <div className="col-span-2">
                                   <div className="border-t border-gray-200 pt-4 mt-2">
                                     <div className="flex justify-between items-center mb-3">

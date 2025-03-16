@@ -85,7 +85,7 @@ function App() {
         <Route path="*" element={<NoPage />} />
         <Route path="/contractor-profile" element={<ContractorProfile />} />
         <Route path="/userprofile" element={<UserProfile />} />
-        <Route path="/activejob" element={<ActiveJob />} />
+        <Route path="/job/:jobId" element={<ActiveJob />} />
         <Route path="/ongoingjobs" element={<OngoingJobs />} />
       </Routes>
     </>
