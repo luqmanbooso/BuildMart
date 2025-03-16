@@ -62,7 +62,7 @@ const SignUp = () => {
       console.log('User signed up successfully:', response.data);
       alert('Signup successful!');
 
-      navigate('/login');
+      navigate('/');
 
       // Optionally, reset form fields after successful submission
       setUsername('');

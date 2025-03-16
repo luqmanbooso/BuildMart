@@ -39,7 +39,12 @@ router.post('/signup', upload.single('profilePic'), async (req, res) => {
       }
       
       const token = jwt.sign(
-        { userId: newUser._id, username: newUser.username },
+        { 
+          userId: user._id, 
+          username: user.username, 
+          email: user.email,
+          role: user.role
+        },
         process.env.JWT_SECRET,
         { expiresIn: '1h' }
       );
@@ -84,7 +89,12 @@ router.post('/login', async (req, res) => {
     
     // Generate JWT token with userId and username (matching signup route)
     const token = jwt.sign(
-      { userId: user._id, username: user.username },
+      { 
+        userId: user._id, 
+        username: user.username, 
+        email: user.email,
+        role: user.role
+      },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );

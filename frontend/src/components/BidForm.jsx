@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
+import axios from "axios"; // Import axios for API requests
 
 const BidForm = ({ sampleData }) => {
   const navigate = useNavigate();
@@ -58,16 +59,11 @@ const BidForm = ({ sampleData }) => {
       }
 
       try {
-        const response = await fetch(`/api/projects/${projectId}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch project details");
-        }
-        const data = await response.json();
-        setProjectDetails(data);
-
+        const response = await axios.get(`/api/projects/${projectId}`);
+        setProjectDetails(response.data);
         // Pre-fill project name if available
-        if (data.title) {
-          setValue("projectName", data.title);
+        if (response.data.title) {
+          setValue("projectName", response.data.title);
         }
       } catch (error) {
         console.error("Error fetching project details:", error);
@@ -148,33 +144,24 @@ const BidForm = ({ sampleData }) => {
     try {
       // Format bid data according to your backend's expected structure
       const bidData = {
+        projectId: projectId || "sample-project-id", // Use projectId from route params
         contractorName: data.contractorName,
-        price: parseFloat(data.yourBid),         // Changed from bidAmount to price to match backend
-        timeline: String(parseInt(data.timeline)),       // This matches your backend
-        qualifications: `Experience: ${data.experience} years. ${data.additionalDetails || ""}`
+        contractorId: data.contractorId,  // Added contractorId field
+        price: parseFloat(data.yourBid),
+        timeline: parseInt(data.timeline),
+        qualifications: `Experience: ${data.experience} years. ${data.additionalDetails || ""}`,
+        rating: parseFloat(data.experience) / 2 || 0, // Approximate rating based on experience
+        completedProjects: 0, // Set completedProjects to default 0
       };
-  
-      // Submit bid to API - update URL to match your backend route
-      const response = await fetch("http://localhost:5000/bids/submit", {  // Changed from /api/bids to /bids/submit
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Only include Authorization if you're implementing authentication
-          // Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify(bidData),
-      });
-  
-      console.log(response);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to submit bid");
+
+      // Submit bid to API
+      const response = await axios.post("http://localhost:5000/bids/submit", bidData);
+
+      if (response.status !== 201) {
+        throw new Error(response.data.error || "Failed to submit bid");
       }
-  
-      const responseData = await response.json();
+
       alert("Bid Submitted Successfully!");
-  
-      // Navigate to appropriate page after submission
       navigate("/project-details");
     } catch (error) {
       console.error("Error submitting bid:", error);
@@ -183,7 +170,7 @@ const BidForm = ({ sampleData }) => {
       setLoading(false);
     }
   };
-  
+
   // Confirmation Modal Handlers
   const handleConfirmation = (data) => {
     setShowConfirmation(true);
@@ -324,20 +311,20 @@ const BidForm = ({ sampleData }) => {
           )}
         </div>
 
-        {/* Estimated Budget (Read-only) */}
+        {/* Contractor ID */}
         <div className="relative">
-          <label htmlFor="estimatedBudget" className="block text-sm font-medium text-gray-700 mb-1">
-            Estimated Budget
+          <label htmlFor="contractorId" className="block text-sm font-medium text-gray-700 mb-1">
+            Contractor ID
           </label>
           <input
-            id="estimatedBudget"
-            value={estimatedBudget}
-            className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-            readOnly
+            id="contractorId"
+            {...register("contractorId")}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            defaultValue={sampleData?.contractorId || ""}
           />
         </div>
 
-        {/* Your Bid (RS) */}
+        {/* Your Bid */}
         <div className="relative">
           <label htmlFor="yourBid" className="block text-sm font-medium text-gray-700 mb-1">
             Your Bid (RS)
@@ -350,17 +337,6 @@ const BidForm = ({ sampleData }) => {
               {...register("yourBid", {
                 required: "Your bid is required",
                 min: { value: 1, message: "Bid must be greater than 0" },
-                validate: {
-                  withinRange: (value) => {
-                    if (projectDetails?.minBid && value < projectDetails.minBid) {
-                      return `Bid must be at least ${projectDetails.minBid}`;
-                    }
-                    if (projectDetails?.maxBid && value > projectDetails.maxBid) {
-                      return `Bid must not exceed ${projectDetails.maxBid}`;
-                    }
-                    return true;
-                  },
-                },
               })}
               className={`w-full p-3 pl-8 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${errors.yourBid ? "border-red-500" : "border-gray-300"}`}
               onBlur={() => trigger("yourBid")}
@@ -377,7 +353,7 @@ const BidForm = ({ sampleData }) => {
           )}
         </div>
 
-        {/* Timeline (Days) */}
+        {/* Timeline */}
         <div className="relative">
           <label htmlFor="timeline" className="block text-sm font-medium text-gray-700 mb-1">
             Timeline (Days)
@@ -385,22 +361,10 @@ const BidForm = ({ sampleData }) => {
           <input
             id="timeline"
             type="number"
-            inputMode="numeric"
-            maxLength="3"
-            onKeyPress={(e) => {
-              const charCode = e.which ? e.which : e.keyCode;
-              if (charCode < 48 || charCode > 57) {
-                e.preventDefault();
-              }
-            }}
-            onInput={(e) => {
-              e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 3);
-            }}
             {...register("timeline", {
               required: "Timeline is required",
               min: { value: 1, message: "Timeline must be at least 1 day" },
               max: { value: 365, message: "Timeline must not exceed 1 year" },
-              pattern: { value: /^[0-9]+$/, message: "Please enter numbers only" }
             })}
             className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${errors.timeline ? "border-red-500" : "border-gray-300"}`}
             onBlur={() => trigger("timeline")}
@@ -416,20 +380,7 @@ const BidForm = ({ sampleData }) => {
           )}
         </div>
 
-        {/* Bid Time (Read-only) */}
-        <div className="relative">
-          <label htmlFor="bidTime" className="block text-sm font-medium text-gray-700 mb-1">
-            Bid Time
-          </label>
-          <input
-            id="bidTime"
-            value={bidTime}
-            className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
-            readOnly
-          />
-        </div>
-
-        {/* Experience (Years) */}
+        {/* Experience */}
         <div className="relative">
           <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-1">
             Experience (Years)
@@ -437,22 +388,9 @@ const BidForm = ({ sampleData }) => {
           <input
             id="experience"
             type="number"
-            inputMode="numeric" 
-            maxLength="2"
-            onKeyPress={(e) => {
-              const charCode = e.which ? e.which : e.keyCode;
-              if (charCode < 48 || charCode > 57) {
-                e.preventDefault();
-              }
-            }}
-            onInput={(e) => {
-              e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
-            }}
             {...register("experience", {
               required: "Experience is required",
               min: { value: 1, message: "Experience must be at least 1 year" },
-              max: { value: 99, message: "Please enter a realistic experience value" },
-              pattern: { value: /^[0-9]+$/, message: "Please enter numbers only" }
             })}
             className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${errors.experience ? "border-red-500" : "border-gray-300"}`}
             onBlur={() => trigger("experience")}
@@ -468,7 +406,7 @@ const BidForm = ({ sampleData }) => {
           )}
         </div>
 
-        {/* Additional Details/Qualifications */}
+        {/* Additional Details */}
         <div className="relative">
           <label htmlFor="additionalDetails" className="block text-sm font-medium text-gray-700 mb-1">
             Additional Details/Qualifications
