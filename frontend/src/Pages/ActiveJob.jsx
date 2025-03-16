@@ -41,59 +41,82 @@ const ActiveJob = () => {
   useEffect(() => {
     const fetchJobAndBids = async () => {
       try {
-        // Fetch job details
-        setJob(sampleJobData);
-    setEditedJob(sampleJobData);
-
-        // Fetch bids for this job
+        setLoading(true);
+        
+        // Get token from storage
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        // Fetch job details based on jobId
+        const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        console.log("Job data from API:", jobResponse.data);
+        
+        if (jobResponse.data) {
+          // Set job data from API response
+          const jobData = jobResponse.data;
+          
+          // Map backend job data to frontend format
+          const formattedJob = {
+            id: jobData._id,
+            title: jobData.title,
+            description: jobData.description || 'No description provided',
+            budget: jobData.budget,
+            timeline: jobData.timeline || 30,  // Default to 30 days if not specified
+            location: jobData.area,
+            category: jobData.category,
+            createdAt: jobData.date,
+            auctionStarted: jobData.status !== 'Pending',
+            milestones: jobData.milestones || []
+          };
+          
+          setJob(formattedJob);
+          setEditedJob(formattedJob);
+        } else {
+          // If job data is null or undefined, fall back to sample data
+          setJob(sampleJobData);
+          setEditedJob(sampleJobData);
+        }
+        
+        // Continue with the existing code to fetch bids
         const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
         
         console.log(bidsResponse.data);
-
+  
         const formattedBids = bidsResponse.data.map(bid => {
-          console.log('Bid from backend:', bid);  // Log bid data to debug
-        
+          console.log('Bid from backend:', bid);
+          
           return {
             ...bid,
             id: bid._id,
-            // Format the amount as 'LKR' using `price` from the backend
-            formattedAmount: `LKR ${parseFloat(bid?.price).toLocaleString()}`,  // Use `price` instead of `amount`
-        
-            // Ensure we have a default message if the contractor qualifications are missing
-            message: bid.qualifications || 'No additional details provided by the contractor.',  // Use `qualifications` for message
-        
-            // Format the contractor details directly as there is no nested `contractor` object
+            formattedAmount: `LKR ${parseFloat(bid?.price).toLocaleString()}`,
+            message: bid.qualifications || 'No additional details provided by the contractor.',
             contractor: {
-              name: bid.contractorName || 'Unknown Contractor',  // Use `contractorName` directly
-              profileImage: 'default-profile-image-url.jpg',  // Use a default profile image as placeholder
-              completedProjects: bid.completedProjects || 0,  // Use `completedProjects` directly
-              rating: bid.rating || 0,  // Use `rating` directly
+              name: bid.contractorName || 'Unknown Contractor',
+              profileImage: 'default-profile-image-url.jpg',
+              completedProjects: bid.completedProjects || 0,
+              rating: bid.rating || 0,
             },
-        
-            // Status can be either 'pending', 'accepted', or 'rejected'
-            status: bid.status || 'pending',  // Ensure 'pending' is default if status is missing
-        
-            // Format the date to a readable format (optional)
-            createdAt: new Date(bid.createdAt).toLocaleDateString(),  // Convert createdAt to a human-readable date
-            
-            // Include the timeline (days)
-            timeline: bid.timeline,  // Use `timeline` from the backend
+            status: bid.status || 'pending',
+            createdAt: new Date(bid.createdAt).toLocaleDateString(),
+            timeline: bid.timeline,
           };
         });
         
-        // Log the formatted bids to ensure it's correctly formatted
         console.log('Formatted Bids:', formattedBids);
-        
-        // Set formatted bids data
         setBids(formattedBids);
-
         setLoading(false);
+        
       } catch (err) {
-        setError('Failed to load job details.');
+        console.error('Error fetching job details:', err);
+        setError('Failed to load job details: ' + (err.response?.data?.error || err.message));
         setLoading(false);
       }
     };
-
+  
     fetchJobAndBids();
   }, [jobId]);
 
