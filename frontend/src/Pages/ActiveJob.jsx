@@ -36,6 +36,7 @@ const ActiveJob = () => {
     ]
   };
 
+  
   // Fetch job details and bids when component mounts
   useEffect(() => {
     const fetchJobAndBids = async () => {
@@ -54,6 +55,7 @@ const ActiveJob = () => {
         
           return {
             ...bid,
+            id: bid._id,
             // Format the amount as 'LKR' using `price` from the backend
             formattedAmount: `LKR ${parseFloat(bid?.price).toLocaleString()}`,  // Use `price` instead of `amount`
         
@@ -147,22 +149,35 @@ const ActiveJob = () => {
   const handleAcceptBid = async (bidId) => {
     try {
       setLoading(true);
-
-      // Simulate API call with timeout
-      setTimeout(() => {
+      setError(null);
+  
+      // Call the backend API to update the bid status
+      const response = await axios.put(`http://localhost:5000/bids/${bidId}/status`, {
+        status: 'accepted'
+      });
+  
+      console.log('API Response:', response.data);
+  
+      if (response.data && response.data.bid) {
+        // Update the local state with the accepted bid
         const updatedBids = bids.map(bid =>
-          bid.id === bidId
+          bid.id === bidId || bid._id === bidId
             ? { ...bid, status: 'accepted' }
-            : { ...bid, status: bid.status === 'accepted' ? 'pending' : bid.status }
+            : { ...bid, status: 'rejected' } // The backend sets other bids to rejected
         );
+        
         setBids(updatedBids);
         setSuccessMessage('Bid accepted successfully!');
-        setTimeout(() => setSuccessMessage(''), 3000);
-        setLoading(false);
-      }, 800);
-    } catch (err) {
-      setError('Failed to accept bid. Please try again.');
+        
+        // Optional: Refresh data from the server to ensure consistency
+        // await fetchBids();
+      }
+    } catch (error) {
+      console.error('Error accepting bid:', error);
+      setError(error.response?.data?.error || 'Failed to accept bid. Please try again.');
+    } finally {
       setLoading(false);
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
