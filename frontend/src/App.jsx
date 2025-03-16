@@ -89,6 +89,7 @@ function App() {
         <Route path="/project/:jobId" element={<ProjectDetails />} />
         <Route path="/activejobs" element={<ActiveJob />} />
 
+
         <Route path="/ongoingjobs" element={<OngoingJobs />} />
       </Routes>
     </>
