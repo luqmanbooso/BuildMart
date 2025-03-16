@@ -76,7 +76,7 @@ function App() {
           estimatedDelivery={sampleData.estimatedDelivery}
         />  } />
         <Route path='/aggreement' element={<ClientContractorAgreement />} />
-        <Route path='/auctions' element={<AuctionsPage />} />
+        <Route path='/auction' element={<AuctionsPage />} />
         {/* Fallback route */}
         <Route path="/contact" element={<Contact />} />
         <Route path="/admindashboard" element={<Admindashboard />} />
@@ -86,6 +86,7 @@ function App() {
         <Route path="/contractor-profile" element={<ContractorProfile />} />
         <Route path="/userprofile" element={<UserProfile />} />
         <Route path="/job/:jobId" element={<ActiveJob />} />
+        <Route path="/project/:jobId" element={<ProjectDetails />} />
         <Route path="/activejobs" element={<ActiveJob />} />
 
         <Route path="/ongoingjobs" element={<OngoingJobs />} />

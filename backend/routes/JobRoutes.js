@@ -24,7 +24,9 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET: Fetch all jobs or filter by userid
+// Update the GET all jobs route to include user info
+
+// GET: Fetch all jobs with user info
 router.get('/', async (req, res) => {
   try {
     const { userid } = req.query;
@@ -32,8 +34,24 @@ router.get('/', async (req, res) => {
     // If userid is provided, filter jobs by userid
     const query = userid ? { userid } : {};
     
+    // Fetch jobs
     const jobs = await Job.find(query);
-    res.status(200).json(jobs);
+    
+    // For each job, try to fetch the user info
+    const jobsWithUserInfo = await Promise.all(jobs.map(async (job) => {
+      try {
+        // Assuming you have a User model and endpoint
+        const user = await User.findOne({ _id: job.userid });
+        const jobObj = job.toObject();
+        jobObj.userName = user ? user.name : 'Unknown User';
+        return jobObj;
+      } catch (error) {
+        // If user lookup fails, just return the job
+        return job;
+      }
+    }));
+    
+    res.status(200).json(jobsWithUserInfo);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching jobs' });
   }
