@@ -3,8 +3,7 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// Updated AuctionCard component to handle potential missing data
-
+// Update the AuctionCard component
 const AuctionCard = ({ auction }) => {
   const navigate = useNavigate();
   
@@ -36,7 +35,6 @@ const AuctionCard = ({ auction }) => {
         y: -5,
         boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
       }}
-      onClick={() => navigate(`/job/${auction.id}`)}
     >
       <div className="relative">
         {/* Color bar at the top indicating status */}
@@ -46,7 +44,7 @@ const AuctionCard = ({ auction }) => {
         <div className="p-5">
           <div className="mb-4">
             <h3 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">{auction.title || 'Untitled Project'}</h3>
-            <p className="text-sm text-gray-500">Posted by {auction.contractor || 'Unknown'}</p>
+            <p className="text-sm text-gray-500">Posted by {auction.userName || auction.contractor || 'Unknown'}</p>
           </div>
           
           <div className="flex flex-wrap gap-2 mb-4">
@@ -86,12 +84,13 @@ const AuctionCard = ({ auction }) => {
           </div>
         </div>
         
-        {/* Action button */}
+        {/* Action button - Updated to navigate to ProjectDetails */}
         <div className="bg-gray-50 p-4 flex justify-end">
           <motion.button 
             className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-5 rounded-lg font-medium text-sm flex items-center transition-colors"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
+            onClick={() => navigate(`/project/${auction.id}`)}
           >
             View Details
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

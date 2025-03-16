@@ -1,62 +1,137 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom"; // Add useParams
 import axios from "axios";
 import { toast } from "react-toastify";
 import { FaHammer, FaUserCircle, FaClock, FaMoneyBillWave, FaTag, FaBell, FaTools, FaSearch } from "react-icons/fa";
 
-const ProjectDetails = ({ projectId, projectData }) => {
-  // Initialize with default values if projectData is not provided
-  const {
-    // project details sample data for now
-    projectTitle = "Fix a Leaking Water Sink",
-    projectDescription = "Looking for an experienced plumber to fix a persistently leaking water sink in our kitchen. The issue requires immediate attention as it's causing water damage to the cabinetry. Ideal contractor will have experience with similar repairs and can provide a lasting solution. Don't miss this opportunity to showcase your expertise!",
-    projectType = "Plumbing",
-    estimatedBudget = "RS:3000 - RS:8000",
-    auctionEndTime = "24.3.2025 08:05:33 GMT+8",
-    otherAuctions = []
-  } = projectData || {};
-
+const ProjectDetails = () => {
+  const { jobId } = useParams(); // Get jobId from URL params
   const navigate = useNavigate();
-  const [bids, setBids] = useState([]);
+  
   const [loading, setLoading] = useState(true);
-  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
+  const [job, setJob] = useState(null);
+  const [bids, setBids] = useState([]);
   const [bidAmount, setBidAmount] = useState("");
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    timeUp: false
+  });
 
-  // Fetch bids from the backend
+  // Fetch job details
   useEffect(() => {
-    const fetchBids = async () => {
+    const fetchJobDetails = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('http://localhost:5000/bids/');
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
-        // Format the bids data for display
-        const formattedBids = response.data.map(bid => ({
-          bidder: hideContractorName(bid.contractorName),
-          bidAmount: bid.price,
-          bidTime: new Date(bid.createdAt).toLocaleString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          }).replace(',', '')
-        }));
+        // Fetch job data
+        const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
-        setBids(formattedBids);
-        toast.success("Bids loaded successfully");
+        if (jobResponse.data) {
+          setJob(jobResponse.data);
+          
+          // Calculate end time based on bidding start time
+          if (jobResponse.data.biddingStartTime) {
+            const endDate = new Date(jobResponse.data.biddingStartTime);
+            // Assuming bidding is open for 7 days
+            endDate.setDate(endDate.getDate() + 7);
+            
+            // Set auction end time for timer
+            const formattedEndDate = `${endDate.getDate().toString().padStart(2, '0')}.${(endDate.getMonth() + 1).toString().padStart(2, '0')}.${endDate.getFullYear()} ${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}:${endDate.getSeconds().toString().padStart(2, '0')} GMT+8`;
+            
+            // Start timer
+            updateTimer(endDate);
+          }
+          
+          // Fetch bids for this job
+          fetchBids(jobId);
+        }
       } catch (error) {
-        console.error("Error fetching bids:", error);
-        toast.error("Failed to load bids");
-        // If API fails, use sample data
-        setBids(projectData?.bids || []);
+        console.error("Error fetching job details:", error);
+        toast.error("Failed to load project details");
       } finally {
         setLoading(false);
       }
     };
+    
+    if (jobId) {
+      fetchJobDetails();
+    }
+  }, [jobId]);
 
-    fetchBids();
-  }, [projectData]);
+  // Function to update timer
+  const updateTimer = (endDate) => {
+    const calculateTime = () => {
+      const now = new Date().getTime();
+      const end = new Date(endDate).getTime();
+      const difference = end - now;
+      
+      if (difference <= 0) {
+        setTimeLeft({
+          days: 0,
+          hours: 0,
+          minutes: 0, 
+          seconds: 0,
+          timeUp: true
+        });
+        return;
+      }
+      
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+      
+      setTimeLeft({
+        days,
+        hours,
+        minutes,
+        seconds,
+        timeUp: false
+      });
+    };
+    
+    // Calculate immediately
+    calculateTime();
+    
+    // Set up interval
+    const interval = setInterval(calculateTime, 1000);
+    
+    // Cleanup
+    return () => clearInterval(interval);
+  };
+
+  // Fetch bids for the job
+  const fetchBids = async (jobId) => {
+    try {
+      const response = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
+      
+      // Format the bids data for display
+      const formattedBids = response.data.map(bid => ({
+        bidder: hideContractorName(bid.contractorName),
+        bidAmount: `LKR ${bid.price}`,
+        bidTime: new Date(bid.createdAt).toLocaleString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }).replace(',', '')
+      }));
+      
+      setBids(formattedBids);
+    } catch (error) {
+      console.error("Error fetching bids:", error);
+    }
+  };
 
   // Function to hide contractor name for privacy
   const hideContractorName = (name) => {
@@ -67,55 +142,21 @@ const ProjectDetails = ({ projectId, projectData }) => {
     return `${firstChar}${middleStars}${lastChar}`;
   };
 
-  function parseCustomDateString(dateString) {
-    const [datePart, timePart] = dateString.split(' ');
-    const [day, month, year] = datePart.split('.');
-    const [hour, minute, second] = timePart.split(':');
-    return new Date(year, month - 1, day, hour, minute, second);
-  }
-
-  function calculateTimeLeft() {
-    const now = new Date().getTime();
-    const endTime = parseCustomDateString(auctionEndTime).getTime();
-    const difference = endTime - now;
-
-    if (difference <= 0) {
-      return {
-        days: 0,
-        hours: 0,
-        minutes: 0,
-        seconds: 0,
-        timeUp: true,
-      };
-    }
-
-    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-    return {
-      days,
-      hours,
-      minutes,
-      seconds,
-      timeUp: false,
-    };
-  }
-
-  // UseEffect to Update the Timer Every Second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
-    }, 1000);
-  
-    return () => clearInterval(timer);
-  }, [auctionEndTime]);
-
   const handleToBid = () => {
-    navigate('/bid-form');
+    navigate(`/bid-form/${jobId}`);
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+        <p className="mt-4 text-xl font-medium text-gray-700">Loading project details...</p>
+      </div>
+    );
+  }
+
+  // Rest of the component remains the same but uses job data instead of static values
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
@@ -181,9 +222,9 @@ const ProjectDetails = ({ projectId, projectData }) => {
               </li>
               <li className="flex items-center">
                 <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a 1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
-                <span className="ml-1 text-blue-700 font-medium">{projectTitle}</span>
+                <span className="ml-1 text-blue-700 font-medium">{job?.title}</span>
               </li>
             </ol>
           </nav>
@@ -191,11 +232,11 @@ const ProjectDetails = ({ projectId, projectData }) => {
           <div className="bg-white shadow-lg rounded-lg overflow-hidden">
             {/* Project Header */}
             <div className="bg-gradient-to-r from-blue-800 to-blue-600 p-6 text-white">
-              <h1 className="text-3xl font-bold mb-2">{projectTitle}</h1>
+              <h1 className="text-3xl font-bold mb-2">{job?.title}</h1>
               <div className="flex items-center space-x-2">
                 <FaTag className="text-blue-200" />
                 <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {projectType}
+                  {job?.category}
                 </span>
               </div>
             </div>
@@ -205,21 +246,106 @@ const ProjectDetails = ({ projectId, projectData }) => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Left column - Project details */}
                 <div className="md:col-span-2">
-                  <div className="prose max-w-none">
-                    <h2 className="text-xl font-semibold text-gray-800 mb-3">Project Description</h2>
-                    <p className="text-gray-700 mb-6">{projectDescription}</p>
+                  {/* Project Overview */}
+                  <div className="prose max-w-none mb-8">
+                    <h2 className="text-xl font-semibold text-gray-800 mb-3 flex items-center">
+                      <FaTools className="mr-2 text-blue-600" />
+                      Project Overview
+                    </h2>
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Location</p>
+                          <p className="font-medium">{job?.area || 'Not specified'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Category</p>
+                          <p className="font-medium">{job?.category || 'Not specified'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Status</p>
+                          <p className="font-medium">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              job?.status === 'Active' ? 'bg-green-100 text-green-800' : 
+                              job?.status === 'Completed' ? 'bg-blue-100 text-blue-800' : 
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {job?.status || 'Pending'}
+                            </span>
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Posted On</p>
+                          <p className="font-medium">{job?.date ? new Date(job.date).toLocaleDateString() : 'Not available'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Description</h3>
+                    <p className="text-gray-700 mb-6">{job?.description || 'No description provided'}</p>
                   </div>
 
                   {/* Budget */}
                   <div className="mb-8">
-                    <div className="flex items-center mb-2">
+                    <div className="flex items-center mb-4">
                       <FaMoneyBillWave className="text-green-600 mr-2 text-xl" />
-                      <h2 className="text-xl font-semibold text-gray-800">Budget</h2>
+                      <h2 className="text-xl font-semibold text-gray-800">Budget Details</h2>
                     </div>
-                    <p className="text-2xl text-green-600 font-medium">
-                      {estimatedBudget}
-                    </p>
+                    <div className="bg-green-50 p-5 rounded-lg border border-green-100">
+                      <p className="text-2xl text-green-600 font-medium mb-2">
+                        LKR {job?.budget}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Bidding started: {job?.biddingStartTime ? new Date(job.biddingStartTime).toLocaleString() : 'Not yet started'}
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Milestones */}
+                  {job?.milestones && job.milestones.length > 0 && (
+                    <div className="mb-8">
+                      <div className="flex items-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <h2 className="text-xl font-semibold text-gray-800">Payment Milestones</h2>
+                      </div>
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <div className="divide-y divide-gray-200">
+                          {job.milestones.map((milestone, index) => (
+                            <div key={index} className={`p-4 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center">
+                                  <div className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-800 rounded-full mr-3 font-semibold text-sm">
+                                    {index + 1}
+                                  </div>
+                                  <h3 className="font-medium text-gray-900">{milestone.name}</h3>
+                                </div>
+                                <span className="font-medium text-green-600">LKR {milestone.amount}</span>
+                              </div>
+                              <p className="ml-9 text-sm text-gray-600">{milestone.description}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Client Info */}
+                  {job?.userid && (
+                    <div className="mb-8">
+                      <div className="flex items-center mb-4">
+                        <FaUserCircle className="text-blue-600 mr-2 text-xl" />
+                        <h2 className="text-xl font-semibold text-gray-800">Client Information</h2>
+                      </div>
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        <p className="font-medium">User ID: {job.userid}</p>
+                        {job.userName && <p className="text-gray-700">Name: {job.userName}</p>}
+                        <p className="text-sm text-gray-500 mt-2">
+                          Contact the client through the BuildMart messaging system after placing your bid.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Bids Section */}
                   <div className="mt-8">
@@ -294,7 +420,9 @@ const ProjectDetails = ({ projectId, projectData }) => {
                               <span className="text-xs uppercase">sec</span>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-600">Auction ends: {auctionEndTime}</p>
+                          <p className="text-sm text-gray-600">
+                            Auction ends: {job?.biddingEndTime ? new Date(job.biddingEndTime).toLocaleString() : 'Not specified'}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -324,7 +452,7 @@ const ProjectDetails = ({ projectId, projectData }) => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Project Type:</span>
-                          <span className="font-semibold">{projectType}</span>
+                          <span className="font-semibold">{job?.category}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Status:</span>
@@ -345,7 +473,7 @@ const ProjectDetails = ({ projectId, projectData }) => {
               Similar Projects
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {otherAuctions.length > 0 ? otherAuctions.map((auction) => (
+              {job?.otherAuctions?.length > 0 ? job.otherAuctions.map((auction) => (
                 <div key={auction.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 hover:shadow-xl hover:-translate-y-1">
                   <div className="p-1 bg-gradient-to-r from-blue-600 to-blue-400"></div>
                   <div className="p-5">

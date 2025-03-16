@@ -148,25 +148,99 @@ const ActiveJob = () => {
     }
   };
 
-  // Start auction
-  const handleStartAuction = async () => {
-    try {
-      setLoading(true);
+  // Update the Start Auction function to use the API
+const handleStartAuction = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    const response = await axios.put(
+      `http://localhost:5000/api/jobs/${jobId}/auction-status`,
+      { status: 'Active' },
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+    
+    if (response.data && response.data.job) {
+      const jobData = response.data.job;
       
-      // Simulate API call with timeout
-      setTimeout(() => {
-        const updatedJob = { ...job, auctionStarted: true };
-        setJob(updatedJob);
-        setEditedJob(updatedJob);
-        setSuccessMessage('Auction started successfully!');
-        setTimeout(() => setSuccessMessage(''), 3000);
-        setLoading(false);
-      }, 800);
-    } catch (err) {
-      setError('Failed to start auction. Please try again.');
-      setLoading(false);
+      // Update local job state
+      setJob({
+        ...job,
+        status: 'Active',
+        auctionStarted: true,
+        biddingStartTime: jobData.biddingStartTime
+      });
+      
+      setEditedJob({
+        ...editedJob,
+        status: 'Active',
+        auctionStarted: true,
+        biddingStartTime: jobData.biddingStartTime
+      });
+      
+      setSuccessMessage('Auction started successfully!');
     }
-  };
+  } catch (err) {
+    console.error('Error starting auction:', err);
+    setError('Failed to start auction: ' + (err.response?.data?.error || err.message));
+  } finally {
+    setLoading(false);
+    setTimeout(() => setSuccessMessage(''), 3000);
+  }
+};
+
+// Add a Stop Auction function
+const handleStopAuction = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    const response = await axios.put(
+      `http://localhost:5000/api/jobs/${jobId}/auction-status`,
+      { status: 'Closed' },
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+    
+    if (response.data && response.data.job) {
+      const jobData = response.data.job;
+      
+      // Update local job state
+      setJob({
+        ...job,
+        status: 'Closed',
+        auctionStarted: false,
+        biddingEndTime: jobData.biddingEndTime
+      });
+      
+      setEditedJob({
+        ...editedJob,
+        status: 'Closed',
+        auctionStarted: false,
+        biddingEndTime: jobData.biddingEndTime
+      });
+      
+      setSuccessMessage('Auction closed successfully!');
+    }
+  } catch (err) {
+    console.error('Error stopping auction:', err);
+    setError('Failed to stop auction: ' + (err.response?.data?.error || err.message));
+  } finally {
+    setLoading(false);
+    setTimeout(() => setSuccessMessage(''), 3000);
+  }
+};
 
   // Accept a bid
   const handleAcceptBid = async (bidId) => {
@@ -378,6 +452,8 @@ const ActiveJob = () => {
                   Edit
                 </button>
               )}
+              
+              {/* Start Auction button */}
               {!job?.auctionStarted && (
                 <button
                   onClick={handleStartAuction}
@@ -389,7 +465,24 @@ const ActiveJob = () => {
                   <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  Start Auction
+                  Start Auction Now
+                </button>
+              )}
+              
+              {/* Stop Auction button - only show if auction is active */}
+              {job?.auctionStarted && (
+                <button
+                  onClick={handleStopAuction}
+                  disabled={loading}
+                  className={`px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center transition-colors ${
+                    loading ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  </svg>
+                  Stop Auction
                 </button>
               )}
             </div>
