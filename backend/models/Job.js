@@ -7,7 +7,8 @@ const milestoneSchema = new mongoose.Schema({
 });
 
 const jobSchema = new mongoose.Schema({
-  title: String,
+userid: String,
+  title: String,  
   category: String,
   area: String,
   budget: String,

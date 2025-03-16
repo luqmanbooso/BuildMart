@@ -15,7 +15,7 @@ app.use('/bids', bidRoutes);
 app.use('/auth', authRoutes);
 app.use('/protected', protectedRoutes);
 
-const jobRoutes = require('./routes/jobRoutes');
+const jobRoutes = require('./routes/JobRoutes');
 app.use('/api/jobs', jobRoutes);
 
 // MongoDB connection
