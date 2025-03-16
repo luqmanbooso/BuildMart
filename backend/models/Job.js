@@ -7,10 +7,11 @@ const milestoneSchema = new mongoose.Schema({
 });
 
 const jobSchema = new mongoose.Schema({
-userid: String,
+  userid: String,
   title: String,  
   category: String,
   area: String,
+  description: String, // Add description field
   budget: String,
   status: { type: String, default: 'Pending' },
   date: { type: Date, default: Date.now },

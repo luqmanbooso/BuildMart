@@ -57,6 +57,8 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Update the GET specific job route to include user information
+
 // GET: Fetch a specific job by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -66,6 +68,21 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
     
+    // If there's a userid, try to get the user name
+    if (job.userid) {
+      try {
+        const user = await User.findById(job.userid).select('name');
+        if (user) {
+          const jobData = job.toObject();
+          jobData.userName = user.name;
+          return res.status(200).json(jobData);
+        }
+      } catch (userErr) {
+        console.log('Error fetching user data:', userErr);
+      }
+    }
+    
+    // Return job without user info if user fetch fails
     res.status(200).json(job);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching job details' });

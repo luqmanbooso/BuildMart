@@ -246,21 +246,106 @@ const ProjectDetails = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Left column - Project details */}
                 <div className="md:col-span-2">
-                  <div className="prose max-w-none">
-                    <h2 className="text-xl font-semibold text-gray-800 mb-3">Project Description</h2>
+                  {/* Project Overview */}
+                  <div className="prose max-w-none mb-8">
+                    <h2 className="text-xl font-semibold text-gray-800 mb-3 flex items-center">
+                      <FaTools className="mr-2 text-blue-600" />
+                      Project Overview
+                    </h2>
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Location</p>
+                          <p className="font-medium">{job?.area || 'Not specified'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Category</p>
+                          <p className="font-medium">{job?.category || 'Not specified'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Status</p>
+                          <p className="font-medium">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              job?.status === 'Active' ? 'bg-green-100 text-green-800' : 
+                              job?.status === 'Completed' ? 'bg-blue-100 text-blue-800' : 
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {job?.status || 'Pending'}
+                            </span>
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Posted On</p>
+                          <p className="font-medium">{job?.date ? new Date(job.date).toLocaleDateString() : 'Not available'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Description</h3>
                     <p className="text-gray-700 mb-6">{job?.description || 'No description provided'}</p>
                   </div>
 
                   {/* Budget */}
                   <div className="mb-8">
-                    <div className="flex items-center mb-2">
+                    <div className="flex items-center mb-4">
                       <FaMoneyBillWave className="text-green-600 mr-2 text-xl" />
-                      <h2 className="text-xl font-semibold text-gray-800">Budget</h2>
+                      <h2 className="text-xl font-semibold text-gray-800">Budget Details</h2>
                     </div>
-                    <p className="text-2xl text-green-600 font-medium">
-                      LKR {job?.budget}
-                    </p>
+                    <div className="bg-green-50 p-5 rounded-lg border border-green-100">
+                      <p className="text-2xl text-green-600 font-medium mb-2">
+                        LKR {job?.budget}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Bidding started: {job?.biddingStartTime ? new Date(job.biddingStartTime).toLocaleString() : 'Not yet started'}
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Milestones */}
+                  {job?.milestones && job.milestones.length > 0 && (
+                    <div className="mb-8">
+                      <div className="flex items-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <h2 className="text-xl font-semibold text-gray-800">Payment Milestones</h2>
+                      </div>
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <div className="divide-y divide-gray-200">
+                          {job.milestones.map((milestone, index) => (
+                            <div key={index} className={`p-4 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center">
+                                  <div className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-800 rounded-full mr-3 font-semibold text-sm">
+                                    {index + 1}
+                                  </div>
+                                  <h3 className="font-medium text-gray-900">{milestone.name}</h3>
+                                </div>
+                                <span className="font-medium text-green-600">LKR {milestone.amount}</span>
+                              </div>
+                              <p className="ml-9 text-sm text-gray-600">{milestone.description}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Client Info */}
+                  {job?.userid && (
+                    <div className="mb-8">
+                      <div className="flex items-center mb-4">
+                        <FaUserCircle className="text-blue-600 mr-2 text-xl" />
+                        <h2 className="text-xl font-semibold text-gray-800">Client Information</h2>
+                      </div>
+                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        <p className="font-medium">User ID: {job.userid}</p>
+                        {job.userName && <p className="text-gray-700">Name: {job.userName}</p>}
+                        <p className="text-sm text-gray-500 mt-2">
+                          Contact the client through the BuildMart messaging system after placing your bid.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Bids Section */}
                   <div className="mt-8">
