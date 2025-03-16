@@ -5,6 +5,7 @@ require('dotenv').config();
 const bidRoutes = require('./routes/bids');
 const authRoutes = require('./routes/auth');
 const protectedRoutes = require('./routes/protected');
+const qualifyRoutes = require('./routes/Qualify');
 const app = express();
 
 // Middleware
@@ -14,7 +15,7 @@ app.use(express.json());
 app.use('/bids', bidRoutes);
 app.use('/auth', authRoutes);
 app.use('/protected', protectedRoutes);
-
+app.use('/qualify', qualifyRoutes);
 const jobRoutes = require('./routes/JobRoutes');
 app.use('/api/jobs', jobRoutes);
 
