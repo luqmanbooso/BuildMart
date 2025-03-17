@@ -8,13 +8,13 @@ const bidSchema = new mongoose.Schema({
     required: true 
   },
   // Basic contractor info
-  contractorName: { 
-    type: String, 
-    required: true 
-  },
   contractorId: {
+    type: String, 
+    required: true,
+  },
+  contractorname: {
     type: String,
-    required: false
+    required: true
   },
   // Bid details
   price: { 
@@ -52,23 +52,8 @@ const bidSchema = new mongoose.Schema({
   timestamps: true // Adds updatedAt field automatically
 });
 
-// Compound index to ensure one bid per contractor per project
-bidSchema.index({ contractorName: 1, projectId: 1 }, { unique: true });
+// Add this line to create a compound index that enforces one bid per project per contractor
 
 const Bid = mongoose.model('Bid', bidSchema);
+
 module.exports = Bid;
-// const mongoose = require('mongoose');
-
-// const bidSchema = new mongoose.Schema({
-//   contractorName: { type: String, required: true, unique: true },
-//   price: { type: Number, required: true },
-//   timeline: { type: String, required: true },
-//   qualifications: { type: String, required: true },
-//   status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
-//   createdAt: { type: Date, default: Date.now }
-// });
-
-// const Bid = mongoose.model('Bid', bidSchema);
-// module.exports = Bid;
-
-// // schema-> data define , schema-> model(table)

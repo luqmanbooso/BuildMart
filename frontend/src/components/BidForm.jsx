@@ -11,6 +11,7 @@ const BidForm = ({ sampleData }) => {
   const [submissionError, setSubmissionError] = useState(null);
   const [jobDetails, setJobDetails] = useState(null);
   const [contractorInfo, setContractorInfo] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
   const [qualifications, setQualifications] = useState([]);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [timeLeft, setTimeLeft] = useState({
@@ -27,71 +28,82 @@ const BidForm = ({ sampleData }) => {
     formState: { errors },
     setValue,
     trigger,
-  } = useForm();
+  } = useForm({
+    mode: "onChange", // Add real-time validation
+    defaultValues: {
+      yourBid: "",
+      timeline: "",
+      additionalDetails: ""
+    }
+  });
 
-  // Get user information from token
-  const getUserInfo = () => {
+  // 1. Get user information from token
+  useEffect(() => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (token) {
         const decoded = jwtDecode(token);
         console.log("Decoded token:", decoded);
-        return {
+        setUserInfo({
           userId: decoded.userId,
-          username: decoded.username ,
+          username: decoded.username,
           email: decoded.email,
-          experienceYears : decoded.experienceYears,
-          completedProjects : decoded.completedProjects
-        };
+          experienceYears: decoded.experienceYears,
+          completedProjects: decoded.completedProjects
+        });
+      } else {
+        setSubmissionError("Authentication required. Please log in.");
       }
     } catch (error) {
       console.error("Error decoding token:", error);
+      setSubmissionError("Authentication error. Please log in again.");
     }
-  };
+  }, []);
 
-  // Fetch job details and contractor profile
+  // 2. Fetch contractor profile based on user info
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+    if (!userInfo) return;
+    
+    const fetchContractorProfile = async () => {
       try {
-        // Get user info from token
-        const userInfo = getUserInfo();
-        console.log("User info:", userInfo);
-        if (!userInfo) {
-          setSubmissionError("Authentication required. Please log in.");
-          setLoading(false);
-          return;
-        }
+        const contractorResponse = await axios.get(`http://localhost:5000/api/contractors//${userInfo.userId}`);
+        setContractorInfo(contractorResponse.data);
+        console.log("Contractor data:", contractorResponse.data);
         
-        // Fetch contractor profile if user is logged in
-        try {
-          const contractorResponse = await axios.get(`http://localhost:5000/contractor/user/${userInfo.userId}`);
-          setContractorInfo(contractorResponse.data);
-          console.log("Contractor data:", contractorResponse.data);
-          
-          // Pre-fill contractor fields
-          setValue("contractorName", contractorResponse.data.companyName || userInfo.username);
-          setValue("contractorId", userInfo.userId);
-          setValue("experience", contractorResponse.data.experienceYears || "");
-          
-          // FIXED QUALIFICATION FETCHING
-          setTimeout(() => {
-            fetchQualifications(userInfo.userId, contractorResponse.data);
-          }, 100);
-          
-        } catch (contractorError) {
-          console.warn("Could not fetch contractor profile:", contractorError);
-          // Still set basic user info even without contractor profile
-          setValue("contractorName", userInfo.username);
-          setValue("contractorId", userInfo.userId);
-        }
+        // Pre-fill contractor fields
+        setValue("contractorName", contractorResponse.data.companyName || userInfo.username);
+        setValue("contractorId", userInfo.userId);
+        setValue("experience", contractorResponse.data.experienceYears || "");
         
-        // If we have a job ID, fetch job details
+        // Fetch qualifications
+        setTimeout(() => {
+          fetchQualifications(userInfo.userId, contractorResponse.data);
+        }, 100);
+        
+      } catch (contractorError) {
+        console.warn("Could not fetch contractor profile:", contractorError);
+        // Still set basic user info even without contractor profile
+        setValue("contractorName", userInfo.username);
+        setValue("contractorId", userInfo.userId);
+      }
+    };
+    
+    fetchContractorProfile();
+  }, [userInfo, setValue]);
+
+  // 3. Fetch job details
+  useEffect(() => {
+    if (!jobId && !sampleData) return;
+    
+    const fetchJobDetails = async () => {
+      setLoading(true);
+      
+      try {
         if (jobId) {
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           try {
-            // Fetch job data with authorization header
-            const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
+            // Try first endpoint
+            const jobResponse = await axios.get(`http://localhost:5000/jobs/${jobId}`, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }
@@ -99,51 +111,39 @@ const BidForm = ({ sampleData }) => {
             
             setJobDetails(jobResponse.data);
             console.log("Job data:", jobResponse.data);
-            
-            // Pre-fill job information
             setValue("projectName", jobResponse.data.title || "Untitled Project");
             
-            // Calculate end time based on bidding start time
-            if (jobResponse.data.biddingStartTime) {
+            // Handle timer
+            if (jobResponse.data.biddingEndTime) {
+              updateTimer(new Date(jobResponse.data.biddingEndTime));
+            } else if (jobResponse.data.biddingStartTime) {
               const endDate = new Date(jobResponse.data.biddingStartTime);
-              
-              // If bidding end time is available, use it directly
-              if (jobResponse.data.biddingEndTime) {
-                const directEndDate = new Date(jobResponse.data.biddingEndTime);
-                updateTimer(directEndDate);
-              } else {
-                // Otherwise assume bidding is open for 7 days
-                endDate.setDate(endDate.getDate() + 7);
-                
-                // Format end date string
-                const formattedEndDate = `${endDate.getDate().toString().padStart(2, '0')}.${(endDate.getMonth() + 1).toString().padStart(2, '0')}.${endDate.getFullYear()} ${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}:${endDate.getSeconds().toString().padStart(2, '0')} GMT+8`;
-                console.log("Formatted end date:", formattedEndDate);
-                
-                // Start timer
-                updateTimer(endDate);
-              }
+              endDate.setDate(endDate.getDate() + 7);
+              updateTimer(endDate);
             }
+            
           } catch (jobError) {
-            console.error("Error fetching job:", jobError);
-            // Try a fallback endpoint if the first one fails
+            console.error("Error fetching job from first endpoint:", jobError);
+            
+            // Try fallback endpoint
             try {
-              const fallbackResponse = await axios.get(`http://localhost:5000/jobs/${jobId}`);
+              const fallbackResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              
               setJobDetails(fallbackResponse.data);
               console.log("Job data (fallback):", fallbackResponse.data);
               setValue("projectName", fallbackResponse.data.title || "Untitled Project");
               
-              // Calculate end time for fallback data
-              if (fallbackResponse.data.biddingStartTime) {
+              // Handle timer for fallback
+              if (fallbackResponse.data.biddingEndTime) {
+                updateTimer(new Date(fallbackResponse.data.biddingEndTime));
+              } else if (fallbackResponse.data.biddingStartTime) {
                 const endDate = new Date(fallbackResponse.data.biddingStartTime);
-                
-                if (fallbackResponse.data.biddingEndTime) {
-                  const directEndDate = new Date(fallbackResponse.data.biddingEndTime);
-                  updateTimer(directEndDate);
-                } else {
-                  // Assume 7 days
-                  endDate.setDate(endDate.getDate() + 7);
-                  updateTimer(endDate);
-                }
+                endDate.setDate(endDate.getDate() + 7);
+                updateTimer(endDate);
               }
             } catch (fallbackError) {
               console.error("All job fetch attempts failed:", fallbackError);
@@ -161,90 +161,67 @@ const BidForm = ({ sampleData }) => {
           updateTimer(endDate);
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching job data:", error);
         setSubmissionError(`Failed to load project details: ${error.message}`);
       } finally {
         setLoading(false);
       }
     };
+    
+    fetchJobDetails();
+  }, [jobId, sampleData, setValue]);
 
-    fetchData();
-  }, [jobId, setValue]);
-
-  // NEW: Separated qualification fetching function to avoid closure issues
+  // Updated fetchQualifications function
   const fetchQualifications = async (userId, contractorData) => {
     try {
       console.log("About to fetch qualifications for user:", userId);
       
-      // Try both endpoints to see which one works
-      const endpoints = [
-        `http://localhost:5000/qualify/user/${userId}?t=${Date.now()}`,
-        `http://localhost:5000/api/qualifications/user/${userId}?t=${Date.now()}`
-      ];
+      // Single endpoint instead of array
+      const endpoint = `http://localhost:5000/qualify/user/${userId}`;
       
-      let qualificationData = null;
-      
-      for (const endpoint of endpoints) {
-        try {
-          const qualificationResponse = await axios.get(endpoint, {
-            headers: { 'Cache-Control': 'no-cache' }
-          });
-          
-          if (qualificationResponse.data && 
-             (Array.isArray(qualificationResponse.data) || 
-              typeof qualificationResponse.data === 'object')) {
-            console.log(`✅ Qualifications found at ${endpoint}:`, qualificationResponse.data);
-            qualificationData = qualificationResponse.data;
-            break;
-          }
-        } catch (err) {
-          console.log(`Endpoint ${endpoint} failed:`, err.message);
-        }
-      }
-      
-      if (qualificationData) {
-        // Handle different response formats
-        if (Array.isArray(qualificationData)) {
-          console.log("Setting qualifications as array:", qualificationData.length);
+      try {
+        const qualificationResponse = await axios.get(endpoint, {
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        
+        const qualificationData = qualificationResponse.data;
+        
+        if (qualificationData && Array.isArray(qualificationData) && qualificationData.length > 0) {
+          console.log(`✅ Qualifications found:`, qualificationData);
           setQualifications(qualificationData);
-        } else if (qualificationData?.qualifications) {
-          console.log("Setting nested qualifications:", qualificationData.qualifications);
-          setQualifications(qualificationData.qualifications);
-        } else if (typeof qualificationData === 'object' && !Array.isArray(qualificationData)) {
-          // Convert single object to array
+        } else if (qualificationData && typeof qualificationData === 'object' && !Array.isArray(qualificationData)) {
+          // Handle single object response
           console.log("Converting single qualification to array");
           setQualifications([qualificationData]);
+        } else {
+          // Create default qualification if no data received
+          createDefaultQualification(contractorData);
         }
-      } else {
-        // Create default qualification using contractor data
-        if (contractorData?.experienceYears) {
-          const defaultQualifications = [{
-            type: "Experience",
-            name: `${contractorData.experienceYears} years experience`,
-            issuer: contractorData.companyName || getUserInfo()?.username,
-            year: new Date().getFullYear()
-          }];
-          console.log("Created default qualifications:", defaultQualifications);
-          setQualifications(defaultQualifications);
-        }
+      } catch (err) {
+        console.log(`Endpoint ${endpoint} failed:`, err.message);
+        createDefaultQualification(contractorData);
       }
     } catch (error) {
       console.warn("Final qualification fetch error:", error);
-      
-      // FALLBACK: Create a qualification from contractor experience
-      if (contractorData?.experienceYears) {
-        const defaultQualifications = [{
-          type: "Experience",
-          name: `${contractorData.experienceYears} years in construction`,
-          issuer: contractorData.companyName || getUserInfo()?.username
-        }];
-        console.log("Created fallback qualifications:", defaultQualifications);
-        setQualifications(defaultQualifications);
-      }
+      createDefaultQualification(contractorData);
+    }
+  };
+  
+  // Helper function for creating default qualification
+  const createDefaultQualification = (contractorData) => {
+    if (contractorData?.experienceYears) {
+      const defaultQualifications = [{
+        type: "Experience",
+        name: `${contractorData.experienceYears} years in construction`,
+        issuer: contractorData.companyName || userInfo?.username,
+        year: new Date().getFullYear().toString()
+      }];
+      console.log("Created default qualifications:", defaultQualifications);
+      setQualifications(defaultQualifications);
     }
   };
 
-  // Function to update timer - updated to match reference implementation exactly
+  // Timer function
   const updateTimer = (endDate) => {
     const calculateTime = () => {
       const now = new Date().getTime();
@@ -286,7 +263,7 @@ const BidForm = ({ sampleData }) => {
     return () => clearInterval(interval);
   };
 
-  // Estimated Budget and project details from job data
+  // Extracted project details
   const estimatedBudget = jobDetails?.budget || "Not specified";
   const projectTitle = jobDetails?.title || "";
   const projectDescription = jobDetails?.description || "";
@@ -296,56 +273,61 @@ const BidForm = ({ sampleData }) => {
     navigate(jobId ? `/project/${jobId}` : `/project-details`);
   };
 
-  // Submit bid form
-  const onSubmit = async (data) => {
-    if (timeLeft.timeUp) {
-      setSubmissionError("Auction has ended. You can no longer submit bids.");
-      return;
+  // Updated onSubmit function to match the bids.js route requirements
+// Update the onSubmit function to include contractorname with correct lowercase spelling
+
+const onSubmit = async (data) => {
+  if (timeLeft.timeUp) {
+    setSubmissionError("Auction has ended. You can no longer submit bids.");
+    return;
+  }
+
+  setLoading(true);
+  setSubmissionError(null);
+
+  try {
+    if (!userInfo) {
+      throw new Error("Authentication required. Please log in again.");
     }
-  
-    setLoading(true);
-    setSubmissionError(null);
-  
-    try {
-      // Get contractor info from state or token
-      const userInfo = getUserInfo();
-      
-      if (!userInfo) {
-        throw new Error("Authentication required. Please log in again.");
-      }
-      
-      // Format bid data for backend
-      const bidData = {
-        jobId: jobId, 
-        projectId: jobId, // For backward compatibility
-        userId: userInfo.userId,
-        contractorName: data.contractorName,
-        contractorId: data.contractorId,
-        price: parseFloat(data.yourBid),
-        timeline: parseInt(data.timeline),
-        qualifications: `Experience: ${contractorInfo?.experienceYears || data.experience} years. ${data.additionalDetails || ""}`,
-        experienceYears: parseInt(contractorInfo?.experienceYears || data.experience) || 0,
-        submissionDate: new Date().toISOString()
-      };
+    
+    // Create bid data exactly matching what the backend expects in bidModel.js
+    const bidData = {
+      projectId: jobId,
+      contractorId: userInfo.userId,
+      // IMPORTANT: Use lowercase 'contractorname' to match the model schema exactly
+      contractorname: contractorInfo?.companyName || userInfo?.username || "Anonymous Contractor",
+      price: parseFloat(data.yourBid),
+      timeline: parseInt(data.timeline),
+      qualifications: `Experience: ${contractorInfo?.experienceYears || data.experience} years. ${data.additionalDetails || ""}`,
+      // Optional fields from contractor profile
+      rating: contractorInfo?.rating || null,
+      completedProjects: contractorInfo?.completedProjects || userInfo?.completedProjects || 0
+    };
 
-      console.log("Sending bid data:", bidData);
+    console.log("Sending bid data:", bidData);
 
-      // Submit bid to API
-      const response = await axios.post("http://localhost:5000/bids/submit", bidData);
+    // Submit bid to API
+    const response = await axios.post("http://localhost:5000/bids/submit", bidData);
 
-      if (response.status === 201) {
-        alert("Bid Submitted Successfully!");
-        navigate(`/project/${jobId}`);
-      } else {
-        throw new Error(response.data.error || "Failed to submit bid");
-      }
-    } catch (error) {
-      console.error("Error submitting bid:", error);
+    if (response.status === 201) {
+      alert("Bid Submitted Successfully!");
+      navigate(`/project/${jobId}`);
+    } else {
+      throw new Error(response.data.error || "You have already submitted a bid for this project.");
+    }
+  } catch (error) {
+    console.error("Error submitting bid:", error);
+    // Handle duplicate bid error specifically
+    if (error.response && error.response.status === 400 && 
+        error.response.data.error === 'You have already submitted a bid for this project') {
+      setSubmissionError("You have already submitted a bid for this project.");
+    } else {
       setSubmissionError(error.message || "Failed to submit bid. Please try again.");
-    } finally {
-      setLoading(false);
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Confirmation Modal Handlers
   const handleConfirmation = (data) => {
@@ -357,346 +339,469 @@ const BidForm = ({ sampleData }) => {
     handleSubmit(onSubmit)();
   };
 
-  // Prepare qualifications for display with better error handling
-  const formattedQualifications = useMemo(() => {
-    try {
-      if (!qualifications || qualifications.length === 0) {
-        return "";
-      }
-      
-      return qualifications.map(qual => {
-        // Safety checks for each field
-        if (!qual) return "";
-        
-        // Handle string qualifications
-        if (typeof qual === 'string') return qual;
-        
-        // Extract fields with fallbacks for different naming conventions
-        const type = qual.type || qual.qualificationType || "";
-        const name = qual.name || qual.qualificationName || "";
-        const issuer = qual.issuer || qual.issuingAuthority || "";
-        const year = qual.year || qual.yearObtained || "";
-        
-        // Build formatted string
-        let result = name || type;
-        if (type && name && type !== name) result = `${type}: ${name}`;
-        if (issuer) result += ` (${issuer}${year ? `, ${year}` : ""})`;
-        else if (year) result += ` (${year})`;
-        
-        return result;
-      }).filter(Boolean).join(", ");
-    } catch (err) {
-      console.error("Error formatting qualifications:", err);
-      return "Error displaying qualifications";
-    }
+  // Get qualification count
+  const qualificationCount = useMemo(() => {
+    return qualifications && Array.isArray(qualifications) ? qualifications.length : 0;
   }, [qualifications]);
 
   return (
-    <div className="max-w-2xl mx-auto mt-10 p-6 bg-white border border-gray-100 rounded-xl shadow-lg transition-all duration-300">
-      {/* Back Button */}
-      <div className="mb-6">
-        <button
-          onClick={handleBackToProject}
-          className="text-blue-600 hover:text-blue-800 flex items-center transition-colors duration-200 font-medium"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 mr-1"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+    <div className="max-w-4xl mx-auto mt-10 p-8 bg-white border border-gray-100 rounded-xl shadow-xl transition-all duration-300 relative overflow-hidden">
+      {/* Inspiring background elements */}
+      <div className="absolute inset-0 overflow-hidden z-0 opacity-10">
+        <img 
+          src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?ixlib=rb-4.0.3&auto=format&fit=crop&q=80" 
+          alt="" 
+          className="w-full h-full object-cover"
+        />
+      </div>
+      
+      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-600/10 to-purple-600/5 z-0"></div>
+      
+      {/* Decorative elements */}
+      <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-b from-blue-50 to-transparent rounded-bl-full opacity-80 z-0"></div>
+      <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-t from-blue-50 to-transparent rounded-tr-full opacity-80 z-0"></div>
+      
+      {/* Inspirational quote */}
+      <div className="relative z-10 mb-8 bg-blue-50/70 p-4 rounded-lg border border-blue-100 text-center">
+        <p className="text-blue-800 italic font-medium">
+          "Winning bids aren't just about the price - they're about demonstrating your unique value and expertise."
+        </p>
+      </div>
+      
+      {/* Main content - add relative positioning to appear above background */}
+      <div className="relative z-10">
+        {/* Back Button with enhanced styling */}
+        <div className="mb-8">
+          <button
+            onClick={handleBackToProject}
+            className="text-blue-600 hover:text-blue-800 flex items-center transition-all duration-200 font-medium hover:translate-x-[-3px]"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-          Back to Project Details
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 mr-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            Back to Project Details
+          </button>
+        </div>
+
+        <h2 className="text-3xl font-bold mb-8 text-gray-800 border-b pb-4 flex items-center">
+          <span className="bg-blue-600 text-white p-1 rounded mr-3 shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </span>
+          Bid Submission Form
+        </h2>
+
+        {/* Enhanced Project Details */}
+        {(jobDetails || sampleData) && (
+          <div className="mb-8 bg-gradient-to-r from-gray-50 to-white p-6 rounded-xl shadow-sm border border-gray-100 transform transition-all hover:shadow-md">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="font-bold text-xl text-gray-800 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
+                </svg>
+                Project Overview
+              </h3>
+              <span className="text-sm font-medium px-3 py-1 bg-blue-100 text-blue-800 rounded-full">
+                #{jobId || "Sample"}
+              </span>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm uppercase tracking-wide text-gray-500 font-medium">Title</h4>
+                  <p className="font-semibold text-gray-900">{projectTitle || "Untitled Project"}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm uppercase tracking-wide text-gray-500 font-medium">Description</h4>
+                  <p className="text-gray-700">{projectDescription || "No description available."}</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm uppercase tracking-wide text-gray-500 font-medium">Budget</h4>
+                  <p className="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-sm font-medium inline-block">
+                    {estimatedBudget}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-sm uppercase tracking-wide text-gray-500 font-medium">Deadline</h4>
+                  <p className="bg-orange-50 text-orange-700 px-3 py-1 rounded-lg text-sm font-medium inline-block">
+                    {new Date(timeLeft.timeUp ? new Date() : jobDetails?.biddingEndTime || sampleData?.biddingEndTime).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Enhanced Timer */}
+        {timeLeft.timeUp ? (
+          <div className="mb-8 p-4 bg-red-100 text-red-700 rounded-xl font-medium text-center shadow-sm border border-red-200 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Auction has ended!
+          </div>
+        ) : (
+          <div className="mb-8 bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-xl shadow-sm border border-blue-200">
+            <p className="font-semibold text-blue-800 mb-3 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+              </svg>
+              Auction ends in:
+            </p>
+            <div className="grid grid-cols-4 gap-3 text-center">
+              <div className="bg-white p-3 rounded-lg shadow-md">
+                <span className="block text-3xl font-bold text-blue-700">{timeLeft.days}</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wide">days</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg shadow-md">
+                <span className="block text-3xl font-bold text-blue-700">{timeLeft.hours}</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wide">hours</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg shadow-md">
+                <span className="block text-3xl font-bold text-blue-700">{timeLeft.minutes}</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wide">mins</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg shadow-md">
+                <span className="block text-3xl font-bold text-blue-700">{timeLeft.seconds}</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wide">secs</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Submission Error with improved styling */}
+        {submissionError && (
+          <div className="mb-8 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-lg shadow-sm">
+            <div className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span className="font-medium">{submissionError}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Enhanced Form */}
+        <form onSubmit={handleSubmit(handleConfirmation)} className="space-y-7">
+          {/* Hidden inputs - properly hidden with CSS */}
+          <div className="hidden">
+            <input type="hidden" {...register("projectName")} value={projectTitle} />
+            <input type="hidden" {...register("projectId")} value={jobId} />
+            <input type="hidden" {...register("contractorName")} value={contractorInfo?.companyName || userInfo?.username || ""} />
+            <input type="hidden" {...register("contractorId")} value={userInfo?.userId || ""} />
+            <input type="hidden" {...register("experience")} value={contractorInfo?.experienceYears || "0"} />
+          </div>
+
+          {/* Form Sections with Cards */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Contractor Information */}
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 backdrop-blur-sm bg-opacity-90">
+              <h3 className="text-lg font-semibold mb-4 text-gray-800 pb-2 border-b flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                </svg>
+                Contractor Details
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Contractor Name */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contractor Name
+                  </label>
+                  <div className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+                    </svg>
+                    {contractorInfo?.companyName || userInfo?.username || "Unknown"}
+                  </div>
+                </div>
+
+                {/* Experience */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Experience
+                  </label>
+                  <div className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                    </svg>
+                    {contractorInfo?.experienceYears || "Not specified"} years
+                  </div>
+                </div>
+
+                {/* Qualifications */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Qualifications
+                  </label>
+                  <div className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
+                    </svg>
+                    {qualificationCount > 0 
+                      ? `${qualificationCount} qualification${qualificationCount !== 1 ? 's' : ''} available` 
+                      : "No qualifications available"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bid Information */}
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 backdrop-blur-sm bg-opacity-90">
+              <h3 className="text-lg font-semibold mb-4 text-gray-800 pb-2 border-b flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+                Your Bid Details
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Your Bid with enhanced validation */}
+                <div className="relative">
+                  <label htmlFor="yourBid" className="block text-sm font-medium text-gray-700 mb-1">
+                    Your Bid Amount <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-gray-500 font-medium">RS</span>
+                    <input
+                      id="yourBid"
+                      type="text" // Changed to text for better pattern control
+                      placeholder="Enter your bid amount"
+                      {...register("yourBid", {
+                        required: "Your bid is required",
+                        maxLength: {
+                          value: 12,
+                          message: "Bid amount cannot exceed 12 digits"
+                        },
+                        pattern: {
+                          value: /^[0-9]+(\.[0-9]{1,2})?$/,
+                          message: "Please enter a valid number (e.g., 1000 or 1000.50)"
+                        },
+                        validate: {
+                          positive: v => parseFloat(v) > 0 || "Bid must be greater than 0"
+                        },
+                        onChange: (e) => {
+                          // Only allow numbers and single decimal point
+                          const value = e.target.value;
+                          if (!/^[0-9]*\.?[0-9]*$/.test(value)) {
+                            e.target.value = value.slice(0, -1);
+                          }
+                        }
+                      })}
+                      className={`w-full p-3 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${
+                        errors.yourBid ? "border-red-500 bg-red-50" : 
+                        "border-gray-300 focus:border-blue-500"
+                      }`}
+                      onBlur={() => trigger("yourBid")}
+                    />
+                  </div>
+                  {errors.yourBid && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.yourBid.message}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Enter amount in RS. Use decimal point for cents (e.g., 1000.50)
+                  </p>
+                </div>
+
+                {/* Timeline with enhanced validation */}
+                <div className="relative">
+                  <label htmlFor="timeline" className="block text-sm font-medium text-gray-700 mb-1">
+                    Timeline (Days) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="timeline"
+                      type="text" // Changed to text for better pattern control
+                      placeholder="Enter project timeline in days"
+                      {...register("timeline", {
+                        required: "Timeline is required",
+                        maxLength: {
+                          value: 3,
+                          message: "Bid amount cannot exceed 12 digits"
+                        },
+                        pattern: {
+                          value: /^[0-9]+$/, 
+                          message: "Please enter a whole number (no decimals)"
+                        },
+                        validate: {
+                          positive: v => parseInt(v) > 0 || "Timeline must be at least 1 day",
+                          notTooLarge: v => parseInt(v) <= 365 || "Timeline must not exceed 1 year"
+                        },
+                        onChange: (e) => {
+                          // Only allow integers (whole numbers)
+                          const value = e.target.value;
+                          if (!/^[0-9]*$/.test(value)) {
+                            e.target.value = value.slice(0, -1);
+                          }
+                        }
+                      })}
+                      className={`w-full p-3 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${
+                        errors.timeline ? "border-red-500 bg-red-50" : 
+                        "border-gray-300 focus:border-blue-500"
+                      }`}
+                      onBlur={() => trigger("timeline")}
+                    />
+                    <span className="absolute left-3 top-3 text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  </div>
+                  {errors.timeline && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.timeline.message}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Enter whole number of days needed to complete the project
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Details */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 backdrop-blur-sm bg-opacity-90">
+            <label htmlFor="additionalDetails" className="block text-sm font-medium text-gray-700 mb-3 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd" />
+              </svg>
+              Additional Details <span className="text-gray-500 ml-1">(Optional)</span>
+            </label>
+            <textarea
+              id="additionalDetails"
+              {...register("additionalDetails",
+                {
+                  maxLength: {
+                    value: 1000,
+                    message: "Description cannot exceed 1000 characters"
+                  }
+                }
+              )}
+              className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50"
+              rows="4"
+              placeholder="Describe your approach, relevant experience, or any other information that might help your bid stand out..."
+            ></textarea>
+          </div>
+
+          {/* Winning Bid Tips */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl shadow-sm border border-blue-100">
+            <h4 className="font-semibold text-blue-800 mb-2 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+              Tips for a Winning Bid
+            </h4>
+            <ul className="text-sm text-blue-700 space-y-1 pl-6 list-disc">
+              <li>Consider both competitive pricing and quality delivery</li>
+              <li>Highlight your specific qualifications relevant to this project</li>
+              <li>Provide a realistic timeline that you can confidently deliver</li>
+              <li>Use the additional details section to explain your approach</li>
+            </ul>
+          </div>
+
+          {/* Submit Button */}
+          <div className="flex justify-end pt-5">
+            <button
+              type="submit"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-8 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:from-blue-300 disabled:to-blue-400 flex items-center shadow-md hover:shadow-lg transform hover:-translate-y-1"
+              disabled={loading || timeLeft.timeUp}
+            >
+              {loading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Submitting...
+                </span>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Submit Bid
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {/* Enhanced Confirmation Modal */}
+        {showConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-all duration-300">
+            <div className="bg-white p-8 rounded-xl shadow-2xl max-w-md w-full transform transition-all animate-fadeIn">
+              <div className="text-center mb-5">
+                <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 text-blue-600 mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold mb-2 text-gray-800">Confirm Bid Submission</h3>
+                <p className="text-gray-600">Are you sure you want to submit this bid? This action cannot be undone.</p>
+              </div>
+              <div className="flex justify-center gap-4">
+                <button
+                  onClick={() => setShowConfirmation(false)}
+                  className="bg-gray-100 text-gray-800 py-3 px-6 rounded-lg font-medium hover:bg-gray-200 transition-colors duration-200 flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmSubmit}
+                  className="bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 flex-1 shadow-md"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-3">Bid Submission Form</h2>
-
-      {loading && !jobDetails ? (
-        <div className="text-center py-10">
-          <div className="inline-block border-4 border-t-blue-500 border-r-blue-500 border-b-transparent border-l-transparent rounded-full h-12 w-12 animate-spin"></div>
-          <p className="mt-2 text-gray-600">Loading project details...</p>
-        </div>
-      ) : (
-        <>
-          {/* Display Project Details */}
-          <div className="mb-6 bg-gray-50 p-4 rounded-lg">
-            <h3 className="font-bold text-lg text-gray-800 mb-2">Project Details</h3>
-            <p className="text-gray-700 mb-2">{projectDescription}</p>
-            <div className="flex flex-wrap gap-4">
-              <p className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                Budget: {estimatedBudget}
-              </p>
-              <p className="bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
-                Deadline: {jobDetails?.biddingEndTime ? new Date(jobDetails.biddingEndTime).toLocaleString() : "Not specified"}
-              </p>
-              {/* Added client name if available */}
-              {jobDetails?.userName && (
-                <p className="bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
-                  Client: {jobDetails.userName}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Timer */}
-          {timeLeft.timeUp ? (
-            <div className="mb-6 p-3 bg-red-100 text-red-700 rounded-lg font-medium text-center">
-              Auction has ended!
-            </div>
-          ) : (
-            <div className="mb-6 bg-blue-50 p-4 rounded-lg">
-              <p className="font-medium text-blue-800 mb-2">Auction ends in:</p>
-              <div className="grid grid-cols-4 gap-2 text-center">
-                <div className="bg-white p-2 rounded-lg shadow-sm">
-                  <span className="block text-2xl font-bold text-blue-700">{timeLeft.days}</span>
-                  <span className="text-xs text-gray-500">days</span>
-                </div>
-                <div className="bg-white p-2 rounded-lg shadow-sm">
-                  <span className="block text-2xl font-bold text-blue-700">{timeLeft.hours}</span>
-                  <span className="text-xs text-gray-500">hours</span>
-                </div>
-                <div className="bg-white p-2 rounded-lg shadow-sm">
-                  <span className="block text-2xl font-bold text-blue-700">{timeLeft.minutes}</span>
-                  <span className="text-xs text-gray-500">minutes</span>
-                </div>
-                <div className="bg-white p-2 rounded-lg shadow-sm">
-                  <span className="block text-2xl font-bold text-blue-700">{timeLeft.seconds}</span>
-                  <span className="text-xs text-gray-500">seconds</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Rest of the component remains the same */}
-          {/* Submission Error */}
-          {submissionError && (
-            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-lg">
-              <div className="flex">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                {submissionError}
-              </div>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit(handleConfirmation)} className="space-y-6">
-            {/* Project Name - Read-only */}
-            <div className="relative">
-              <label htmlFor="projectName" className="block text-sm font-medium text-gray-700 mb-1">
-                Project Name
-              </label>
-              <div className="w-full p-3 border bg-gray-50 border-gray-300 rounded-lg text-gray-700">
-                {projectTitle}
-              </div>
-              <input
-                type="hidden"
-                {...register("projectName")}
-                value={projectTitle}
-              />
-            </div>
-
-            {/* Contractor Name - Read-only */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Contractor Name
-              </label>
-              <div className="w-full p-3 border bg-gray-50 border-gray-300 rounded-lg text-gray-700">
-                {contractorInfo?.companyName || getUserInfo()?.username || "Unknown"}
-              </div>
-              <input
-                type="hidden"
-                {...register("contractorName")}
-                value={contractorInfo?.companyName || getUserInfo()?.username || ""}
-              />
-            </div>
-
-            {/* Hidden Contractor ID field */}
-            <input
-              type="hidden"
-              {...register("contractorId")}
-              value={getUserInfo()?.userId || ""}
-            />
-
-            {/* Experience - Always Read-only */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Experience (Years)
-              </label>
-              <div className="w-full p-3 border bg-gray-50 border-gray-300 rounded-lg text-gray-700">
-                {contractorInfo?.experienceYears || "Not specified"} years
-              </div>
-              <input
-                type="hidden"
-                {...register("experience")}
-                value={contractorInfo?.experienceYears || "0"}
-              />
-            </div>
-
-            {/* Qualifications Display - Using fetched qualifications with better error handling */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Qualifications
-              </label>
-              <div className="w-full p-3 border bg-gray-50 border-gray-300 rounded-lg text-gray-700">
-                {formattedQualifications || 
-                 (contractorInfo?.qualifications?.length > 0 
-                  ? contractorInfo.qualifications.join(", ") 
-                  : "No qualifications listed")}
-              </div>
-            </div>
-
-            {/* Your Bid - Editable */}
-            <div className="relative">
-              <label htmlFor="yourBid" className="block text-sm font-medium text-gray-700 mb-1">
-                Your Bid (RS)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-3 text-gray-500">RS</span>
-                <input
-                  id="yourBid"
-                  type="number"
-                  {...register("yourBid", {
-                    required: "Your bid is required",
-                    min: { value: 1, message: "Bid must be greater than 0" },
-                  })}
-                  className={`w-full p-3 pl-8 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${errors.yourBid ? "border-red-500" : "border-gray-300"}`}
-                  onBlur={() => trigger("yourBid")}
-                />
-              </div>
-              {errors.yourBid && (
-                <p className="mt-1 text-sm text-red-600 flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  {errors.yourBid.message}
-                </p>
-              )}
-            </div>
-
-            {/* Timeline - Editable */}
-            <div className="relative">
-              <label htmlFor="timeline" className="block text-sm font-medium text-gray-700 mb-1">
-                Timeline (Days)
-              </label>
-              <input
-                id="timeline"
-                type="number"
-                {...register("timeline", {
-                  required: "Timeline is required",
-                  min: { value: 1, message: "Timeline must be at least 1 day" },
-                  max: { value: 365, message: "Timeline must not exceed 1 year" },
-                })}
-                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${errors.timeline ? "border-red-500" : "border-gray-300"}`}
-                onBlur={() => trigger("timeline")}
-              />
-              {errors.timeline && (
-                <p className="mt-1 text-sm text-red-600 flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293-1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  {errors.timeline.message}
-                </p>
-              )}
-            </div>
-
-            {/* Additional Details - Editable */}
-            <div className="relative">
-              <label htmlFor="additionalDetails" className="block text-sm font-medium text-gray-700 mb-1">
-                Additional Details (Optional)
-              </label>
-              <textarea
-                id="additionalDetails"
-                rows="4"
-                {...register("additionalDetails")}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                placeholder="Add any additional information about your bid..."
-              />
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end mt-8">
-              <button
-                type="submit"
-                disabled={timeLeft.timeUp || loading}
-                className={`px-6 py-3 bg-blue-600 text-white font-medium rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 ${
-                  (timeLeft.timeUp || loading) ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                {loading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing...
-                  </span>
-                ) : "Submit Bid"}
-              </button>
-              
-            </div>
-          </form>
-        </>
-      )}
-
-      {/* Confirmation Modal */}
-      {showConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Confirm Your Bid</h3>
-            
-            <div className="space-y-3 mb-6">
-              <p className="text-gray-700">
-                Are you sure you want to submit this bid?
-              </p>
-              
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <div className="flex justify-between border-b border-blue-100 pb-2 mb-2">
-                  <span className="font-medium text-gray-600">Project:</span>
-                  <span className="font-medium">{projectTitle}</span>
-                </div>
-                <div className="flex justify-between border-b border-blue-100 pb-2 mb-2">
-                  <span className="font-medium text-gray-600">Your Bid:</span>
-                  <span className="font-bold text-blue-700">
-                    RS {document.getElementById("yourBid")?.value || "N/A"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-600">Timeline:</span>
-                  <span className="font-medium">
-                    {document.getElementById("timeline")?.value || "N/A"} days
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowConfirmation(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmSubmit}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                disabled={loading}
-              >
-                {loading ? "Processing..." : "Confirm Bid"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Add a style tag for animations */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+        
+        /* Pulse animation for the submit button */
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+        .animate-pulse-slow {
+          animation: pulse 3s infinite;
+        }
+      `}</style>
     </div>
   );
 };

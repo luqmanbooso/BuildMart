@@ -53,10 +53,11 @@ router.get('/', async (req, res) => {
  * @desc    Get contractor by ID
  * @access  Public
  */
-router.get('/:id', async (req, res) => {
+router.get('/:userId', async (req, res) => {
   try {
-    const contractor = await Contractor.findById(req.params.id)
-      .populate('userId', 'username email profilePic');
+    // Fetch the contractor by userId, assuming userId is stored as ObjectId
+    const contractor = await Contractor.findOne({ userId: req.params.userId })
+      .populate('userId', 'username email profilePic'); // Populating user info
     
     if (!contractor) {
       return res.status(404).json({ error: 'Contractor not found' });

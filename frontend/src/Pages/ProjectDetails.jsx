@@ -148,7 +148,7 @@ const ProjectDetails = () => {
       
       // Format the bids data for display
       const formattedBids = response.data.map(bid => ({
-        bidder: hideContractorName(bid.contractorName),
+        bidder: hideContractorName(bid.contractorname),
         bidAmount: `LKR ${bid.price}`,
         bidTime: new Date(bid.createdAt).toLocaleString('en-GB', {
           day: '2-digit',
