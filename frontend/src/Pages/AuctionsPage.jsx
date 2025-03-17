@@ -25,6 +25,60 @@ const AuctionCard = ({ auction }) => {
     }
   };
 
+  // Determine if auction has ended based on endDate
+  const isAuctionEnded = () => {
+    try {
+      const endDate = new Date(auction.endDate);
+      const now = new Date();
+      return now > endDate;
+    } catch (e) {
+      return false;
+    }
+  };
+  
+  // Determine if auction has started based on startTime
+  const isAuctionStarted = () => {
+    try {
+      const startTime = new Date(auction.startTime || auction.biddingStartTime);
+      const now = new Date();
+      return now > startTime;
+    } catch (e) {
+      return true; // Default to started if we can't determine
+    }
+  };
+  
+  // Calculate actual display status
+  const determineStatus = () => {
+    try {
+      const now = new Date().getTime();
+      const endDate = new Date(auction.endDate).getTime();
+      const startTime = new Date(auction.startTime || auction.biddingStartTime).getTime();
+      
+      // If backend explicitly says it's closed, prioritize that
+      if (auction.status === 'Closed') {
+        return "ended";
+      }
+      
+      // If past end date, it's ended
+      if (now > endDate) {
+        return "ended";
+      } 
+      
+      // If backend says it's active or we're between start & end dates
+      if (auction.status === 'Active' || (now >= startTime && now <= endDate)) {
+        return "active";
+      }
+      
+      // Otherwise, it's pending
+      return "pending";
+    } catch (e) {
+      console.error("Error determining auction status:", e);
+      return auction.status?.toLowerCase() || "pending";
+    }
+  };
+  
+  const displayStatus = determineStatus();
+
   return (
     <motion.div 
       className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 hover:border-blue-200 transition-all duration-300"
@@ -38,7 +92,11 @@ const AuctionCard = ({ auction }) => {
     >
       <div className="relative">
         {/* Color bar at the top indicating status */}
-        <div className={`h-1.5 w-full ${auction.status === 'active' ? 'bg-green-500' : 'bg-amber-400'}`}></div>
+        <div className={`h-1.5 w-full ${
+          displayStatus === 'active' ? 'bg-green-500' : 
+          displayStatus === 'ended' ? 'bg-red-500' : 
+          'bg-amber-400'
+        }`}></div>
         
         {/* Main content */}
         <div className="p-5">
@@ -71,9 +129,19 @@ const AuctionCard = ({ auction }) => {
           
           <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
             <div className="flex items-center">
-              <div className={`w-2.5 h-2.5 rounded-full ${auction.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-amber-400'} mr-2`}></div>
-              <span className={`text-xs font-medium ${auction.status === 'active' ? 'text-green-700' : 'text-amber-700'}`}>
-                {auction.status === 'active' ? 'Active' : 'Pending'}
+              <div className={`w-2.5 h-2.5 rounded-full ${
+                displayStatus === 'active' ? 'bg-green-500 animate-pulse' : 
+                displayStatus === 'ended' ? 'bg-red-500' : 
+                'bg-amber-400'
+              } mr-2`}></div>
+              <span className={`text-xs font-medium ${
+                displayStatus === 'active' ? 'text-green-700' : 
+                displayStatus === 'ended' ? 'text-red-700' : 
+                'text-amber-700'
+              }`}>
+                {displayStatus === 'active' ? 'Active' : 
+                 displayStatus === 'ended' ? 'Auction Ended' : 
+                 'Pending'}
               </span>
             </div>
             
@@ -87,12 +155,16 @@ const AuctionCard = ({ auction }) => {
         {/* Action button - Updated to navigate to ProjectDetails */}
         <div className="bg-gray-50 p-4 flex justify-end">
           <motion.button 
-            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-5 rounded-lg font-medium text-sm flex items-center transition-colors"
+            className={`${
+              displayStatus === 'ended' 
+                ? "bg-gray-500 hover:bg-gray-600" 
+                : "bg-blue-600 hover:bg-blue-700"
+            } text-white py-2 px-5 rounded-lg font-medium text-sm flex items-center transition-colors`}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate(`/project/${auction.id}`)}
           >
-            View Details
+            {displayStatus === 'ended' ? "View Results" : "View Details"}
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
@@ -115,7 +187,7 @@ const AuctionsPage = () => {
   const auctionsPerPage = 8;
   
   const categories = ['All', 'Construction', 'Plumbing', 'Electrical', 'Renovation', 'Interior'];
-  const statuses = ['All', 'active', 'pending'];
+  const statuses = ['All', 'active', 'pending', 'ended'];
   
   // Fetch auctions from API
   useEffect(() => {
@@ -130,12 +202,13 @@ const AuctionsPage = () => {
           id: job._id,
           title: job.title,
           categories: [job.category], // Convert single category to array
-          username: job.username || 'Unknown User', // Use username from job
-          contractor: job.username || 'Unknown',  // For backwards compatibility
+          username: job.username || 'Unknown User', 
+          contractor: job.username || 'Unknown',
           area: job.area,
           budget: job.budget,
+          startTime: job.biddingStartTime, // Ensure this is included
           endDate: job.biddingEndTime || new Date().toISOString(),
-          status: job.status?.toLowerCase() || 'pending',
+          status: job.status || 'Pending', // Make sure we get the status from backend
           description: job.description || 'No description provided',
           date: new Date(job.date).toLocaleDateString(),
           bids: job.bids || 0
@@ -167,9 +240,21 @@ const AuctionsPage = () => {
     
     // Apply status filter
     if (activeStatus !== 'All') {
-      result = result.filter(auction => 
-        auction.status === activeStatus
-      );
+      if (activeStatus === 'ended') {
+        // For ended auctions, check end date
+        result = result.filter(auction => {
+          const now = new Date();
+          const endDate = new Date(auction.endDate);
+          return now > endDate;
+        });
+      } else {
+        // For active/pending, use the existing status
+        result = result.filter(auction => 
+          auction.status === activeStatus &&
+          // For active, also ensure it hasn't ended
+          (activeStatus !== 'active' || new Date() < new Date(auction.endDate))
+        );
+      }
     }
     
     // Apply search
@@ -183,31 +268,64 @@ const AuctionsPage = () => {
       );
     }
     
+    // Get auction status for sorting
+    const getAuctionStatusPriority = (auction) => {
+      const now = new Date().getTime();
+      const endDate = new Date(auction.endDate).getTime();
+      const startTime = new Date(auction.startTime || auction.biddingStartTime).getTime();
+      
+      if (auction.status === 'Closed' || now > endDate) {
+        return 3; // Ended auctions (lowest priority)
+      } else if (auction.status === 'Active' || (now >= startTime && now <= endDate)) {
+        return 1; // Active auctions (highest priority)
+      } else {
+        return 2; // Pending auctions (medium priority)
+      }
+    };
+    
     // Apply sorting
     switch(sortOrder) {
       case 'budget-high-low':
         result = result.sort((a, b) => {
-          const aBudget = parseInt(a.budget.split('-')[1].replace(/[^\d]/g, ''));
-          const bBudget = parseInt(b.budget.split('-')[1].replace(/[^\d]/g, ''));
+          // First sort by status priority
+          const statusDiff = getAuctionStatusPriority(a) - getAuctionStatusPriority(b);
+          if (statusDiff !== 0) return statusDiff;
+          
+          // Then by budget high to low
+          const aBudget = parseInt(a.budget.replace(/[^\d]/g, '')) || 0;
+          const bBudget = parseInt(b.budget.replace(/[^\d]/g, '')) || 0;
           return bBudget - aBudget;
         });
         break;
       case 'budget-low-high':
         result = result.sort((a, b) => {
-          const aBudget = parseInt(a.budget.split('-')[0].replace(/[^\d]/g, ''));
-          const bBudget = parseInt(b.budget.split('-')[0].replace(/[^\d]/g, ''));
+          // First sort by status priority
+          const statusDiff = getAuctionStatusPriority(a) - getAuctionStatusPriority(b);
+          if (statusDiff !== 0) return statusDiff;
+          
+          // Then by budget low to high
+          const aBudget = parseInt(a.budget.replace(/[^\d]/g, '')) || 0;
+          const bBudget = parseInt(b.budget.replace(/[^\d]/g, '')) || 0;
           return aBudget - bBudget;
         });
         break;
       case 'date-newest':
         result = result.sort((a, b) => {
+          // First sort by status priority
+          const statusDiff = getAuctionStatusPriority(a) - getAuctionStatusPriority(b);
+          if (statusDiff !== 0) return statusDiff;
+          
+          // Then by end date (soonest first)
           const aDate = new Date(a.endDate);
           const bDate = new Date(b.endDate);
           return aDate - bDate;
         });
         break;
       default:
-        // Keep original order
+        // Default sort: just by status priority (active first, then pending, then ended)
+        result = result.sort((a, b) => {
+          return getAuctionStatusPriority(a) - getAuctionStatusPriority(b);
+        });
         break;
     }
     

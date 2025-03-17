@@ -17,6 +17,7 @@ const ActiveJob = () => {
   
   // State variable for bids
   const [bids, setBids] = useState([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const sampleJobData = {
     id: "sample-project-id",
@@ -278,6 +279,40 @@ const handleStopAuction = async () => {
     }
   };
 
+  // Add this function to handle job deletion
+const handleDeleteJob = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    const response = await axios.delete(
+      `http://localhost:5000/api/jobs/${jobId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+    
+    if (response.status === 200) {
+      setSuccessMessage('Job deleted successfully!');
+      
+      // Redirect to the dashboard or jobs list page after a brief delay
+      setTimeout(() => {
+        navigate('/userprofile');
+      }, 1500);
+    }
+  } catch (err) {
+    console.error('Error deleting job:', err);
+    setError('Failed to delete job: ' + (err.response?.data?.error || err.message));
+  } finally {
+    setShowDeleteConfirm(false);
+    setLoading(false);
+  }
+};
+
   if (loading && !job) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -485,6 +520,17 @@ const handleStopAuction = async () => {
                   Stop Auction
                 </button>
               )}
+              
+              {/* Delete Job button */}
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center transition-colors"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Delete Job
+              </button>
             </div>
           </div>
 
@@ -813,6 +859,57 @@ const handleStopAuction = async () => {
             )}
           </div>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                  <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">Delete Job</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Are you sure you want to delete this job? This action cannot be undone.
+                  {job?.auctionStarted && (
+                    <span className="block text-red-600 font-medium mt-2">
+                      Warning: This job has an ongoing auction. Deleting it will cancel all bids.
+                    </span>
+                  )}
+                </p>
+                <div className="mt-4 flex justify-center space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-transparent rounded-md hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteJob}
+                    disabled={loading}
+                    className={`inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 ${
+                      loading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Deleting...
+                      </>
+                    ) : 'Yes, Delete Job'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
