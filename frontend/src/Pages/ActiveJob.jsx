@@ -96,7 +96,7 @@ const ActiveJob = () => {
             formattedAmount: `LKR ${parseFloat(bid?.price).toLocaleString()}`,
             message: bid.qualifications || 'No additional details provided by the contractor.',
             contractor: {
-              name: bid.contractorName || 'Unknown Contractor',
+              name: bid.contractorname || 'Unknown Contractor',
               profileImage: 'default-profile-image-url.jpg',
               completedProjects: bid.completedProjects || 0,
               rating: bid.rating || 0,

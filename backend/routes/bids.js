@@ -10,83 +10,58 @@ router.post('/submit', async (req, res) => {
   try {
     const { projectId, contractorId, contractorname, price, timeline, qualifications, rating, completedProjects } = req.body;
 
-    // Enhanced debugging
-    console.log('Bid submission with values:', {
-      projectId,
-      projectIdType: typeof projectId,
-      contractorId,
-      contractorIdType: typeof contractorId
-    });
-
-    // Basic validation
-    if (!projectId || !contractorId || !contractorname || !price || !timeline || !qualifications) {
+    // Input validation
+    if (!projectId || !contractorId || !price || !timeline) {
       return res.status(400).json({ 
-        error: 'Missing required fields',
-        details: 'Project ID, Contractor ID, Contractor Name, Price, Timeline, and Qualifications are required'
+        error: 'Missing required fields'
       });
     }
 
-    // Manual check for existing bid - more reliable than relying on MongoDB's unique index
+    // Check if this contractor has already bid on this project
     const existingBid = await Bid.findOne({ 
-      projectId: projectId.toString(), 
-      contractorId: contractorId.toString()
+      projectId: projectId,
+      contractorId: contractorId
+    });
+
+    if (existingBid) {
+      return res.status(400).json({ 
+        error: 'You have already submitted a bid for this project'
+      });
+    }
+
+    // Create new bid - this allows different contractors to bid on the same project
+    const newBid = new Bid({
+      projectId,
+      contractorId,
+      contractorname: contractorname || "Anonymous Contractor",
+      price,
+      timeline,
+      qualifications: qualifications || `Experience: ${req.body.experience || 'Not specified'} years`,
+      rating: rating || 0,
+      completedProjects: completedProjects || 0
     });
     
-    if (existingBid) {
-      // Update existing bid
-      existingBid.contractorname = contractorname;
-      existingBid.price = price;
-      existingBid.timeline = timeline;
-      existingBid.qualifications = qualifications;
-      existingBid.rating = rating || existingBid.rating;
-      existingBid.completedProjects = completedProjects || existingBid.completedProjects;
-      
-      await existingBid.save();
-      return res.status(200).json({
-        message: 'Your bid has been updated successfully',
-        bid: existingBid
-      });
-    } else {
-      // Create new bid
-      const newBid = new Bid({
-        projectId: projectId.toString(), // Ensure string type
-        contractorId: contractorId.toString(), // Ensure string type
-        contractorname,
-        price,
-        timeline,
-        qualifications,
-        rating: rating || 0,
-        completedProjects: completedProjects || 0
-      });
-      
-      await newBid.save();
-      return res.status(201).json({
-        message: 'Bid submitted successfully',
-        bid: newBid
-      });
-    }
+    await newBid.save();
+    
+    res.status(201).json({
+      message: 'Bid submitted successfully',
+      bid: newBid
+    });
+
   } catch (error) {
     console.error('Bid submission error:', error);
     
-    // Handle duplicate key errors explicitly
+    // Check if error is a MongoDB duplicate key error
     if (error.code === 11000) {
-      // Log the exact key pattern causing the issue
-      console.error('Duplicate key error details:', {
-        keyPattern: error.keyPattern,
-        keyValue: error.keyValue
-      });
-      
       return res.status(400).json({ 
         error: 'Duplicate bid error',
         message: 'You have already submitted a bid for this project'
       });
     }
     
-    // Generic error handler
     res.status(500).json({ 
-      error: 'Error processing bid', 
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: 'Error submitting bid', 
+      message: error.message 
     });
   }
 });
