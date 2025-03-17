@@ -27,7 +27,7 @@ const UserProfilePage = () => {
     budget: '',
     description: '',
     biddingStartTime: new Date().toISOString().substr(0, 16),
-    biddingEndTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 7 days later
+    biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 3 days later
     milestones: [
       { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
     ]
@@ -218,7 +218,7 @@ const UserProfilePage = () => {
         budget: '',
         description: '',
         biddingStartTime: new Date().toISOString().substr(0, 16),
-        biddingEndTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 7 days later
+        biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 3 days later
         milestones: [
           { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
         ]
@@ -801,7 +801,18 @@ const UserProfilePage = () => {
                                             id="biddingEndTime"
                                             name="biddingEndTime"
                                             value={newJob.biddingEndTime}
-                                            onChange={(e) => setNewJob({...newJob, biddingEndTime: e.target.value})}
+                                            onChange={(e) => {
+                                              const startTime = new Date(newJob.biddingStartTime);
+                                              const selectedEndTime = new Date(e.target.value);
+                                              const maxEndTime = new Date(startTime.getTime() + 3 * 24 * 60 * 60 * 1000);
+                                              
+                                              // If selected time is beyond 3 days, use the max allowed time
+                                              const validEndTime = selectedEndTime > maxEndTime ? 
+                                                maxEndTime.toISOString().substr(0, 16) : 
+                                                e.target.value;
+                                                
+                                              setNewJob({...newJob, biddingEndTime: validEndTime});
+                                            }}
                                             className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
                                             min={newJob.biddingStartTime}
                                             required
@@ -811,7 +822,7 @@ const UserProfilePage = () => {
                                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                           </svg>
-                                          <p className="text-xs text-gray-500">Set a deadline for bids to ensure you receive timely responses. We recommend 3-7 days.</p>
+                                          <p className="text-xs text-gray-500">Set a deadline for bids to ensure you receive timely responses. Maximum bidding period is 3 days from start time.</p>
                                         </div>
                                       </div>
                                     </div>
