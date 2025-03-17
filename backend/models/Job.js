@@ -8,6 +8,7 @@ const milestoneSchema = new mongoose.Schema({
 
 const jobSchema = new mongoose.Schema({
   userid: String,
+  username: String, // Add username field to store directly with job
   title: String,  
   category: String,
   area: String,
@@ -16,7 +17,7 @@ const jobSchema = new mongoose.Schema({
   status: { type: String, default: 'Pending' }, // 'Pending', 'Active', 'Closed'
   date: { type: Date, default: Date.now },
   biddingStartTime: { type: Date, required: true },
-  biddingEndTime: { type: Date, required: true }, // Added bidding end time field
+  biddingEndTime: { type: Date, required: true },
   bids: { type: Number, default: 0 },
   milestones: [milestoneSchema],
 });

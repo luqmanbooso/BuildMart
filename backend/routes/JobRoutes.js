@@ -1,5 +1,6 @@
 const express = require('express');
 const Job = require('../models/Job');
+const User = require('../models/User'); // Add this import for User model
 const router = express.Router();
 
 // POST: Create a new job
@@ -12,31 +13,35 @@ router.post('/', async (req, res) => {
     description,
     budget, 
     biddingStartTime, 
-    biddingEndTime, // Added bidding end time
+    biddingEndTime,
     milestones 
   } = req.body;
 
-  const newJob = new Job({
-    userid,
-    title,
-    category,
-    area,
-    description,
-    budget,
-    biddingStartTime,
-    biddingEndTime, // Added bidding end time
-    milestones,
-  });
-
   try {
+    // Fetch the username for the given userid
+    const user = await User.findById(userid);
+    const username = user ? user.username : 'Unknown User';
+
+    const newJob = new Job({
+      userid,
+      username, // Store the username with the job
+      title,
+      category,
+      area,
+      description,
+      budget,
+      biddingStartTime,
+      biddingEndTime,
+      milestones,
+    });
+
     await newJob.save();
     res.status(201).json({ message: 'Job created successfully', job: newJob });
   } catch (err) {
+    console.error('Error creating job:', err);
     res.status(500).json({ error: 'Error creating job' });
   }
 });
-
-// Update the GET all jobs route to include user info
 
 // GET: Fetch all jobs with user info
 router.get('/', async (req, res) => {
@@ -49,27 +54,30 @@ router.get('/', async (req, res) => {
     // Fetch jobs
     const jobs = await Job.find(query);
     
-    // For each job, try to fetch the user info
+    // For each job, try to fetch the user info if username is not already stored
     const jobsWithUserInfo = await Promise.all(jobs.map(async (job) => {
-      try {
-        // Assuming you have a User model and endpoint
-        const user = await User.findOne({ _id: job.userid });
-        const jobObj = job.toObject();
-        jobObj.userName = user ? user.name : 'Unknown User';
-        return jobObj;
-      } catch (error) {
-        // If user lookup fails, just return the job
-        return job;
+      const jobObj = job.toObject();
+      
+      // Only fetch user info if username is not available
+      if (!jobObj.username && jobObj.userid) {
+        try {
+          const user = await User.findById(jobObj.userid);
+          jobObj.username = user ? user.username : 'Unknown User';
+        } catch (error) {
+          console.log('Error fetching user data:', error);
+          jobObj.username = 'Unknown User';
+        }
       }
+      
+      return jobObj;
     }));
     
     res.status(200).json(jobsWithUserInfo);
   } catch (err) {
+    console.error('Error fetching jobs:', err);
     res.status(500).json({ error: 'Error fetching jobs' });
   }
 });
-
-// Update the GET specific job route to include user information
 
 // GET: Fetch a specific job by ID
 router.get('/:id', async (req, res) => {
@@ -80,23 +88,23 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
     
-    // If there's a userid, try to get the user name
-    if (job.userid) {
+    const jobData = job.toObject();
+    
+    // If username is not stored with job, try to fetch it
+    if (!jobData.username && jobData.userid) {
       try {
-        const user = await User.findById(job.userid).select('name');
+        const user = await User.findById(jobData.userid);
         if (user) {
-          const jobData = job.toObject();
-          jobData.userName = user.name;
-          return res.status(200).json(jobData);
+          jobData.username = user.username;
         }
       } catch (userErr) {
         console.log('Error fetching user data:', userErr);
       }
     }
     
-    // Return job without user info if user fetch fails
-    res.status(200).json(job);
+    res.status(200).json(jobData);
   } catch (err) {
+    console.error('Error fetching job details:', err);
     res.status(500).json({ error: 'Error fetching job details' });
   }
 });

@@ -147,70 +147,30 @@ const UserProfilePage = () => {
     e.preventDefault();
     
     try {
-      // Get the token from storage
+      // Get the current user's info
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
-      // Decode token to get userId
-      const decoded = jwtDecode(token);
-      const userId = decoded.userId;
-      
-      // Validate form
-      if (!newJob.title || !newJob.category || !newJob.area || !newJob.budget || 
-        !newJob.biddingStartTime || !newJob.biddingEndTime) {
-        alert('Please fill all required fields including bidding start and end times.');
-        return;
-      }
-      
-      // Format the job data for API submission
-      const jobData = {
-        userid: userId, // Add the user ID from the token
-        title: newJob.title,
-        category: newJob.category,
-        area: newJob.area,
-        budget: newJob.budget,
-        description: newJob.description, // Make sure description is included
-        biddingStartTime: newJob.biddingStartTime,
-        biddingEndTime: newJob.biddingEndTime, // Added bidding end time
-        milestones: newJob.milestones.map(milestone => ({
-          name: milestone.name,
-          amount: milestone.amount,
-          description: milestone.description
-        }))
-      };
-      
-      // Make the API request using axios with the full URL
-      const response = await axios.post('http://localhost:5000/api/jobs', jobData, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+      const userResponse = await axios.get('http://localhost:5000/api/users/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      // Extract data from axios response
-      const data = response.data;
+      const userId = userResponse.data._id;
+      const username = userResponse.data.username;
       
-      // Update UI with the new job from API response
-      const newJobRequest = {
-        id: data.job._id || (user.requests.length + 1).toString().padStart(2, '0'),
-        title: data.job.title,
-        category: data.job.category,
-        area: data.job.area,
-        budget: `LKR : ${data.job.budget}`,
-        status: data.job.status || 'Pending',
-        date: new Date(data.job.date).toLocaleDateString('en-GB', { 
-          day: '2-digit', month: 'short', year: 'numeric' 
-        }),
-        bids: data.job.bids || 0
-      };
-      
-      // Update local state with the new job
-      setUser({
-        ...user,
-        requests: [...user.requests, newJobRequest]
+      // Create job with user ID and username
+      const response = await axios.post('http://localhost:5000/api/jobs', {
+        ...newJob,
+        userid: userId,
+        username: username
+      }, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      // Reset form and close modal
+      // Show success message and refresh jobs
+      toast.success('Job created successfully!');
       setShowAddJobForm(false);
+      fetchJobs();
+      
+      // Reset form
       setNewJob({
         title: '',
         category: '',
@@ -218,18 +178,14 @@ const UserProfilePage = () => {
         budget: '',
         description: '',
         biddingStartTime: new Date().toISOString().substr(0, 16),
-        biddingEndTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 7 days later
+        biddingEndTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16),
         milestones: [
           { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
         ]
       });
-      
-      // Show success message
-      alert('Job created successfully!');
-      
     } catch (error) {
-      console.error('Error creating job:', error.response ? error.response.data : error.message);
-      alert(`Failed to create job: ${error.response ? error.response.data.error : error.message}`);
+      console.error('Error creating job:', error);
+      toast.error('Failed to create job. Please try again.');
     }
   };
 
@@ -372,7 +328,13 @@ const UserProfilePage = () => {
                 {['requirements', 'ongoing', 'past', 'payments', 'transactions'].map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => {
+                      if (tab === 'ongoing') {
+                        navigate('/ongoingjobs');
+                      } else {
+                        setActiveTab(tab);
+                      }
+                    }}
                     className={`font-medium py-2 px-4 rounded-lg transition-all duration-300 ${
                       activeTab === tab
                         ? 'bg-blue-600 text-white'

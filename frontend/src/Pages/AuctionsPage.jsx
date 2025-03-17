@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// Update the AuctionCard component
+// Update the AuctionCard component to use username
 const AuctionCard = ({ auction }) => {
   const navigate = useNavigate();
   
@@ -44,7 +44,7 @@ const AuctionCard = ({ auction }) => {
         <div className="p-5">
           <div className="mb-4">
             <h3 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">{auction.title || 'Untitled Project'}</h3>
-            <p className="text-sm text-gray-500">Posted by {auction.userName || auction.contractor || 'Unknown'}</p>
+            <p className="text-sm text-gray-500">Posted by {auction.username || 'Unknown'}</p>
           </div>
           
           <div className="flex flex-wrap gap-2 mb-4">
@@ -130,10 +130,11 @@ const AuctionsPage = () => {
           id: job._id,
           title: job.title,
           categories: [job.category], // Convert single category to array
-          contractor: job.userid || 'Unknown',  // Use userid as placeholder for contractor name
+          username: job.username || 'Unknown User', // Use username from job
+          contractor: job.username || 'Unknown',  // For backwards compatibility
           area: job.area,
           budget: job.budget,
-          endDate: job.biddingStartTime || new Date().toISOString(),
+          endDate: job.biddingEndTime || new Date().toISOString(),
           status: job.status?.toLowerCase() || 'pending',
           description: job.description || 'No description provided',
           date: new Date(job.date).toLocaleDateString(),

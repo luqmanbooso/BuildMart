@@ -37,16 +37,13 @@ const ProjectDetails = () => {
         if (jobResponse.data) {
           setJob(jobResponse.data);
           
-          // Calculate end time based on bidding start time
-          if (jobResponse.data.biddingStartTime) {
+          // Use the actual biddingEndTime
+          if (jobResponse.data.biddingEndTime) {
+            const endDate = new Date(jobResponse.data.biddingEndTime);
+            updateTimer(endDate);
+          } else if (jobResponse.data.biddingStartTime) {
             const endDate = new Date(jobResponse.data.biddingStartTime);
-            // Assuming bidding is open for 7 days
             endDate.setDate(endDate.getDate() + 7);
-            
-            // Set auction end time for timer
-            const formattedEndDate = `${endDate.getDate().toString().padStart(2, '0')}.${(endDate.getMonth() + 1).toString().padStart(2, '0')}.${endDate.getFullYear()} ${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}:${endDate.getSeconds().toString().padStart(2, '0')} GMT+8`;
-            
-            // Start timer
             updateTimer(endDate);
           }
           
@@ -338,8 +335,7 @@ const ProjectDetails = () => {
                         <h2 className="text-xl font-semibold text-gray-800">Client Information</h2>
                       </div>
                       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                        <p className="font-medium">User ID: {job.userid}</p>
-                        {job.userName && <p className="text-gray-700">Name: {job.userName}</p>}
+                        {job.username && <p className="font-medium">Posted by: {job.username}</p>}
                         <p className="text-sm text-gray-500 mt-2">
                           Contact the client through the BuildMart messaging system after placing your bid.
                         </p>
