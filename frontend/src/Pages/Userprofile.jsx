@@ -543,208 +543,384 @@ const UserProfilePage = () => {
                 {showAddJobForm && (
                   <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
                     <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                      {/* Background overlay */}
+                      {/* Background overlay with blur effect */}
                       <div 
-                        className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity" 
+                        className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-md transition-opacity" 
                         aria-hidden="true"
                         onClick={() => setShowAddJobForm(false)}
                       ></div>
 
                       {/* Modal Panel */}
-                      <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+                      <div className="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full border border-blue-100">
                         <div className="relative">
-                          {/* Modal Header */}
-                          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
-                            <div className="flex justify-between items-center">
-                              <h2 className="text-xl font-bold text-white">Post a New Project</h2>
+                          {/* Enhanced Header with pattern background */}
+                          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-8 relative overflow-hidden">
+                            <div className="absolute inset-0 opacity-10">
+                              <div className="absolute inset-0" style={{backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\' fill-rule=\'evenodd\'%3E%3Ccircle cx=\'3\' cy=\'3\' r=\'3\'/%3E%3Ccircle cx=\'13\' cy=\'13\' r=\'3\'/%3E%3C/g%3E%3C/svg%3E")', backgroundSize: '15px 15px'}}></div>
+                            </div>
+                            <div className="flex justify-between items-center relative z-10">
+                              <div className="flex items-start">
+                                <div className="bg-white/20 p-3 rounded-xl mr-4">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <h2 className="text-3xl font-bold text-white leading-tight">Create New Project</h2>
+                                  <p className="text-blue-200 text-sm mt-2">Fill in the details to post your construction project and receive bids from qualified professionals</p>
+                                  <div className="flex items-center mt-3 text-xs text-blue-200">
+                                    <div className="flex items-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      <span>All fields marked with * are required</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                               <button 
                                 onClick={() => setShowAddJobForm(false)}
-                                className="rounded-full p-1 text-white bg-white/20 hover:bg-white/30 focus:outline-none transition-colors duration-200"
+                                className="rounded-full p-2 text-white bg-white/20 hover:bg-white/30 focus:outline-none transition-colors duration-200 hover:rotate-90 transform"
                               >
-                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                               </button>
                             </div>
                           </div>
 
-                          {/* Modal Form */}
-                          <div className="bg-white px-6 py-5 max-h-[80vh] overflow-y-auto">
-                            <form onSubmit={handleSubmitJob}>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4 col-span-2">
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700">Project Title</label>
-                                    <input
-                                      type="text"
-                                      value={newJob.title}
-                                      onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
-                                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                      placeholder="Enter a descriptive title for your project"
-                                      required
-                                    />
+                          {/* Form with progress steps */}
+                          <div className="bg-white px-0 py-0 max-h-[80vh] overflow-y-auto">
+                            {/* Progress Bar */}
+                            <div className="bg-gray-50 px-8 py-4 border-b border-gray-200">
+                              <div className="flex items-center justify-between max-w-3xl mx-auto">
+                                <div className="flex flex-col items-center">
+                                  <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">1</div>
+                                  <span className="text-xs font-medium mt-1 text-blue-600">Basic Info</span>
+                                </div>
+                                <div className="flex-1 h-1 bg-blue-200 mx-2"></div>
+                                <div className="flex flex-col items-center">
+                                  <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center text-blue-600 font-bold">2</div>
+                                  <span className="text-xs font-medium mt-1 text-gray-500">Timeline</span>
+                                </div>
+                                <div className="flex-1 h-1 bg-blue-200 mx-2"></div>
+                                <div className="flex flex-col items-center">
+                                  <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center text-blue-600 font-bold">3</div>
+                                  <span className="text-xs font-medium mt-1 text-gray-500">Milestones</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <form onSubmit={handleSubmitJob} className="px-8 py-6">
+                              {/* Form Content with Cards */}
+                              <div className="space-y-8">
+                                {/* Project Details Card */}
+                                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                                    <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                      </svg>
+                                      Project Details
+                                    </h3>
                                   </div>
-                                </div>
 
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700">Category</label>
-                                  <select
-                                    value={newJob.category}
-                                    onChange={(e) => setNewJob({ ...newJob, category: e.target.value })}
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                    required
-                                  >
-                                    <option value="">Select a category</option>
-                                    <option value="Plumbing">Plumbing</option>
-                                    <option value="Electrical">Electrical</option>
-                                    <option value="Carpentry">Carpentry</option>
-                                    <option value="Masonry">Masonry</option>
-                                    <option value="Painting">Painting</option>
-                                    <option value="Roofing">Roofing</option>
-                                    <option value="Landscaping">Landscaping</option>
-                                    <option value="Other">Other</option>
-                                  </select>
-                                </div>
+                                  <div className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                      <div className="col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Project Title <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                          </div>
+                                          <input
+                                            type="text"
+                                            value={newJob.title}
+                                            onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
+                                            className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                                            placeholder="Enter a descriptive title for your project"
+                                            required
+                                          />
+                                        </div>
+                                        <p className="mt-1.5 text-xs text-gray-500">Be specific and clear to attract the right professionals</p>
+                                      </div>
 
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700">Area/Location</label>
-                                  <input
-                                    type="text"
-                                    value={newJob.area}
-                                    onChange={(e) => setNewJob({ ...newJob, area: e.target.value })}
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                    placeholder="Where is the project located?"
-                                    required
-                                  />
-                                </div>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Category <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                            </svg>
+                                          </div>
+                                          <select
+                                            value={newJob.category}
+                                            onChange={(e) => setNewJob({ ...newJob, category: e.target.value })}
+                                            className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none text-gray-900"
+                                            required
+                                          >
+                                            <option value="">Select a category</option>
+                                            <option value="Plumbing">Plumbing</option>
+                                            <option value="Electrical">Electrical</option>
+                                            <option value="Carpentry">Carpentry</option>
+                                            <option value="Masonry">Masonry</option>
+                                            <option value="Painting">Painting</option>
+                                            <option value="Roofing">Roofing</option>
+                                            <option value="Landscaping">Landscaping</option>
+                                            <option value="Other">Other</option>
+                                          </select>
+                                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                      </div>
 
-                                <div className="col-span-2">
-                                  <label className="block text-sm font-medium text-gray-700">Description</label>
-                                  <textarea
-                                    value={newJob.description}
-                                    onChange={(e) => setNewJob({ ...newJob, description: e.target.value })}
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                    rows="3"
-                                    placeholder="Provide details about the project requirements..."
-                                    required
-                                  ></textarea>
-                                </div>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Area/Location <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                          </div>
+                                          <input
+                                            type="text"
+                                            value={newJob.area}
+                                            onChange={(e) => setNewJob({ ...newJob, area: e.target.value })}
+                                            className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                                            placeholder="City, District, or Region"
+                                            required
+                                          />
+                                        </div>
+                                      </div>
 
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700">Total Budget (LKR)</label>
-                                  <div className="mt-1 relative rounded-md shadow-sm">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                      <span className="text-gray-500 sm:text-sm">LKR</span>
+                                      <div className="col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Description <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                          <textarea
+                                            value={newJob.description}
+                                            onChange={(e) => setNewJob({ ...newJob, description: e.target.value })}
+                                            className="block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                                            rows="4"
+                                            placeholder="Provide detailed information about your project requirements, specifications, materials needed, and any special considerations..."
+                                            required
+                                          ></textarea>
+                                        </div>
+                                        <p className="mt-1.5 text-xs text-gray-500">
+                                          The more details you provide, the more accurate bids you'll receive. Be sure to include dimensions, materials, timeline constraints, etc.
+                                        </p>
+                                      </div>
                                     </div>
-                                    <input
-                                      type="text"
-                                      value={newJob.budget}
-                                      onChange={(e) => setNewJob({ ...newJob, budget: e.target.value })}
-                                      className="pl-12 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                      placeholder="0.00"
-                                      required
-                                    />
                                   </div>
                                 </div>
 
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700">Bidding Start Time</label>
-                                  <input
-                                    type="datetime-local"
-                                    value={newJob.biddingStartTime}
-                                    onChange={(e) => setNewJob({ ...newJob, biddingStartTime: e.target.value })}
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                    required
-                                  />
+                                {/* Budget & Timeline Card */}
+                                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                                    <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      Budget & Timeline
+                                    </h3>
+                                  </div>
+
+                                  <div className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Total Budget (LKR) <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative rounded-lg shadow-sm">
+                                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <span className="text-gray-500 sm:text-sm font-medium">LKR</span>
+                                          </div>
+                                          <input
+                                            type="text"
+                                            value={newJob.budget}
+                                            onChange={(e) => setNewJob({ ...newJob, budget: e.target.value })}
+                                            className="pl-14 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                                            placeholder="0.00"
+                                            required
+                                          />
+                                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                        <p className="mt-1.5 text-xs text-gray-500">Enter your approximate budget for the entire project</p>
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Bidding Start Time <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                          </div>
+                                          <input
+                                            type="datetime-local"
+                                            value={newJob.biddingStartTime}
+                                            onChange={(e) => setNewJob({ ...newJob, biddingStartTime: e.target.value })}
+                                            className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                                            required
+                                          />
+                                        </div>
+                                        <p className="mt-1.5 text-xs text-gray-500">When should professionals start bidding on your project?</p>
+                                      </div>
+
+                                      <div className="col-span-2">
+                                        <label htmlFor="biddingEndTime" className="block text-sm font-medium text-gray-700 mb-1">
+                                          Bidding End Time <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                          </div>
+                                          <input
+                                            type="datetime-local"
+                                            id="biddingEndTime"
+                                            name="biddingEndTime"
+                                            value={newJob.biddingEndTime}
+                                            onChange={(e) => setNewJob({...newJob, biddingEndTime: e.target.value})}
+                                            className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                                            min={newJob.biddingStartTime}
+                                            required
+                                          />
+                                        </div>
+                                        <div className="mt-1.5 flex items-center">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          <p className="text-xs text-gray-500">Set a deadline for bids to ensure you receive timely responses. We recommend 3-7 days.</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
 
-                                <div className="col-span-3">
-                                  <label htmlFor="biddingEndTime" className="block text-sm font-medium text-gray-700">
-                                    Bidding End Time <span className="text-red-500">*</span>
-                                  </label>
-                                  <input
-                                    type="datetime-local"
-                                    id="biddingEndTime"
-                                    name="biddingEndTime"
-                                    value={newJob.biddingEndTime}
-                                    onChange={(e) => setNewJob({...newJob, biddingEndTime: e.target.value})}
-                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                    min={newJob.biddingStartTime} // Ensure end time is after start time
-                                    required
-                                  />
-                                  <p className="mt-1 text-xs text-gray-500">When should the bidding period end for this project?</p>
-                                </div>
-
-                                {/* Milestones */}
-                                <div className="col-span-2">
-                                  <div className="border-t border-gray-200 pt-4 mt-2">
-                                    <div className="flex justify-between items-center mb-3">
-                                      <h3 className="text-lg font-medium text-gray-900">Payment Milestones</h3>
+                                {/* Milestones Card */}
+                                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                                    <div className="flex justify-between items-center">
+                                      <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                        </svg>
+                                        Payment Milestones
+                                      </h3>
                                       <button
                                         type="button"
                                         onClick={addMilestone}
-                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none transition-colors"
                                       >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                         </svg>
                                         Add Milestone
                                       </button>
                                     </div>
+                                    <p className="text-sm text-gray-500 mt-1">Break down your project into manageable payment phases</p>
+                                  </div>
 
-                                    <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                                  <div className="p-6">
+                                    <div className="space-y-5 max-h-96 overflow-y-auto pr-2">
                                       {newJob.milestones.map((milestone, index) => (
-                                        <div key={milestone.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                          <div className="flex justify-between mb-2">
-                                            <h4 className="font-medium text-gray-700 text-sm">Milestone {index + 1}</h4>
+                                        <div 
+                                          key={milestone.id} 
+                                          className="bg-blue-50 p-5 rounded-xl border border-blue-100 hover:border-blue-200 transition-colors relative"
+                                        >
+                                          {/* Milestone header with decorative elements */}
+                                          <div className="flex justify-between mb-4">
+                                            <div className="flex items-center">
+                                              <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold mr-3 border-2 border-white shadow-sm">
+                                                {index + 1}
+                                              </div>
+                                              <h4 className="font-medium text-gray-800 text-base">Milestone {index + 1}</h4>
+                                            </div>
                                             {newJob.milestones.length > 1 && (
                                               <button
                                                 type="button"
                                                 onClick={() => removeMilestone(milestone.id)}
-                                                className="text-red-500 hover:text-red-700"
+                                                className="text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 transition-colors absolute top-2 right-2"
                                               >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
                                               </button>
                                             )}
                                           </div>
                                           
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                          {/* Milestone form fields with enhanced styling */}
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                             <div>
-                                              <label className="block text-xs font-medium text-gray-500">Milestone Name</label>
-                                              <input
-                                                type="text"
-                                                value={milestone.name}
-                                                onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
-                                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                                required
-                                              />
+                                              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                                                Milestone Name <span className="text-red-500">*</span>
+                                              </label>
+                                              <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                  </svg>
+                                                </div>
+                                                <input
+                                                  type="text"
+                                                  value={milestone.name}
+                                                  onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
+                                                  className="pl-9 block w-full px-4 py-3 border border-blue-200 bg-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors"
+                                                  placeholder="e.g., Foundation Completion"
+                                                  required
+                                                />
+                                              </div>
                                             </div>
                                             <div>
-                                              <label className="block text-xs font-medium text-gray-500">Amount (LKR)</label>
-                                              <div className="mt-1 relative rounded-md shadow-sm">
-                                                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                                                  <span className="text-gray-500 sm:text-xs">LKR</span>
+                                              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                                                Amount (LKR) <span className="text-red-500">*</span>
+                                              </label>
+                                              <div className="relative rounded-md shadow-sm">
+                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                  <span className="text-gray-500 sm:text-xs font-medium">LKR</span>
                                                 </div>
                                                 <input
                                                   type="text"
                                                   value={milestone.amount}
                                                   onChange={(e) => updateMilestone(milestone.id, 'amount', e.target.value)}
-                                                  className="pl-10 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                  className="pl-12 block w-full px-4 py-3 border border-blue-200 bg-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors"
+                                                  placeholder="0.00"
                                                   required
                                                 />
                                               </div>
                                             </div>
                                             <div className="md:col-span-2">
-                                              <label className="block text-xs font-medium text-gray-500">Description</label>
-                                              <input
-                                                type="text"
-                                                value={milestone.description}
-                                                onChange={(e) => updateMilestone(milestone.id, 'description', e.target.value)}
-                                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                                placeholder="What does this milestone involve?"
-                                              />
+                                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Description</label>
+                                              <div className="relative">
+                                                <textarea
+                                                  value={milestone.description}
+                                                  onChange={(e) => updateMilestone(milestone.id, 'description', e.target.value)}
+                                                  className="block w-full px-4 py-3 border border-blue-200 bg-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors"
+                                                  rows="2"
+                                                  placeholder="What does this milestone involve?"
+                                                ></textarea>
+                                              </div>
                                             </div>
                                           </div>
                                         </div>
@@ -755,17 +931,17 @@ const UserProfilePage = () => {
                               </div>
 
                               {/* Action buttons */}
-                              <div className="mt-8 flex justify-end space-x-3">
+                              <div className="mt-10 flex justify-end space-x-4">
                                 <button
                                   type="button"
                                   onClick={() => setShowAddJobForm(false)}
-                                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                                  className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition-colors"
                                 >
                                   Cancel
                                 </button>
                                 <button
                                   type="submit"
-                                  className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none"
+                                  className="px-8 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none transition-all hover:shadow-lg"
                                 >
                                   Post Project
                                 </button>
