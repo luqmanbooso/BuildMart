@@ -18,6 +18,10 @@ const ActiveJob = () => {
   // State variable for bids
   const [bids, setBids] = useState([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Add new state variables for sorting
+  const [sortField, setSortField] = useState('price');  // Default sort by price
+  const [sortDirection, setSortDirection] = useState('asc');  // Default ascending order
 
   const sampleJobData = {
     id: "sample-project-id",
@@ -312,6 +316,79 @@ const handleDeleteJob = async () => {
     setLoading(false);
   }
 };
+
+  // Add sorting function
+  const handleSort = (field) => {
+    // If clicking the same field, toggle direction
+    if (field === sortField) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // If clicking a new field, set it as sort field and default to ascending
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Function to get sorted bids
+  const getSortedBids = () => {
+    if (!bids.length) return [];
+    
+    return [...bids].sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'price':
+          comparison = parseFloat(a.price) - parseFloat(b.price);
+          break;
+        case 'timeline':
+          comparison = parseInt(a.timeline) - parseInt(b.timeline);
+          break;
+        case 'date':
+          comparison = new Date(a.createdAt) - new Date(b.createdAt);
+          break;
+        case 'contractor':
+          comparison = (a.contractor?.name || '').localeCompare(b.contractor?.name || '');
+          break;
+        default:
+          comparison = 0;
+      }
+      
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  };
+
+  // Replace the bids table header in the render section with this:
+  const renderSortableHeader = (label, field) => {
+    const isActive = sortField === field;
+    
+    return (
+      <th 
+        scope="col" 
+        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+        onClick={() => handleSort(field)}
+      >
+        <div className="flex items-center space-x-1">
+          <span>{label}</span>
+          <div className="flex flex-col">
+            <svg 
+              className={`w-2 h-2 ${isActive && sortDirection === 'asc' ? 'text-blue-600' : 'text-gray-400'}`} 
+              fill="currentColor" 
+              viewBox="0 0 20 20"
+            >
+              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            <svg 
+              className={`w-2 h-2 ${isActive && sortDirection === 'desc' ? 'text-blue-600' : 'text-gray-400'}`} 
+              fill="currentColor" 
+              viewBox="0 0 20 20"
+            >
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </div>
+        </div>
+      </th>
+    );
+  };
 
   if (loading && !job) {
     return (
@@ -744,18 +821,10 @@ const handleDeleteJob = async () => {
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead>
                             <tr className="bg-gray-50">
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Contractor
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Bid Amount
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Timeline
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Date
-                              </th>
+                              {renderSortableHeader('Contractor', 'contractor')}
+                              {renderSortableHeader('Bid Amount', 'price')}
+                              {renderSortableHeader('Timeline', 'timeline')}
+                              {renderSortableHeader('Date', 'date')}
                               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Status
                               </th>
@@ -765,7 +834,7 @@ const handleDeleteJob = async () => {
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {bids.map((bid) => (
+                            {getSortedBids().map((bid) => (
                               <tr key={bid.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="flex items-center">
