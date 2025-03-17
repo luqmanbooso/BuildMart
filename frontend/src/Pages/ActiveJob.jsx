@@ -70,11 +70,13 @@ const ActiveJob = () => {
             title: jobData.title,
             description: jobData.description || 'No description provided',
             budget: jobData.budget,
-            timeline: jobData.timeline || 30,  // Default to 30 days if not specified
             location: jobData.area,
             category: jobData.category,
             createdAt: jobData.date,
-            auctionStarted: jobData.status !== 'Pending',
+            // Only consider an auction started if status is specifically 'Active'
+            auctionStarted: jobData.status === 'Active',
+            // Store the actual status directly from the backend
+            status: jobData.status || 'Pending',
             milestones: jobData.milestones || []
           };
           
@@ -246,6 +248,48 @@ const handleStopAuction = async () => {
     setTimeout(() => setSuccessMessage(''), 3000);
   }
 };
+
+// Add a new effect to check if the auction has ended automatically
+useEffect(() => {
+  // Only run this check if the auction is active
+  if (job?.auctionStarted && job?.status === 'Active') {
+    const checkAuctionEnd = () => {
+      const now = new Date();
+      const endTime = new Date(job.biddingEndTime);
+      
+      // If current time is past the end time, update status to Closed
+      if (now > endTime) {
+        // Update status in backend
+        axios.put(`http://localhost:5000/api/jobs/${job._id}/auction-status`, {
+          status: 'Closed'
+        })
+        .then(() => {
+          // Update local state
+          setJob(prevJob => ({
+            ...prevJob,
+            auctionStarted: false,
+            status: 'Closed'
+          }));
+          setSuccessMessage('Auction has ended.');
+          setTimeout(() => setSuccessMessage(''), 3000);
+        })
+        .catch(error => {
+          console.error('Error updating auction status:', error);
+          // Don't show error to user as this is automatic
+        });
+      }
+    };
+
+    // Check immediately
+    checkAuctionEnd();
+    
+    // Set up interval to check every minute
+    const intervalId = setInterval(checkAuctionEnd, 60000);
+    
+    // Clean up interval
+    return () => clearInterval(intervalId);
+  }
+}, [job?.auctionStarted, job?.biddingEndTime, job?._id, job?.status]);
 
   // Accept a bid
   const handleAcceptBid = async (bidId) => {
@@ -565,8 +609,8 @@ const handleDeleteJob = async () => {
                 </button>
               )}
               
-              {/* Start Auction button */}
-              {!job?.auctionStarted && (
+              {/* Start Auction button - only show if status is Pending */}
+              {job?.status === 'Pending' && (
                 <button
                   onClick={handleStartAuction}
                   disabled={loading}
@@ -581,8 +625,8 @@ const handleDeleteJob = async () => {
                 </button>
               )}
               
-              {/* Stop Auction button - only show if auction is active */}
-              {job?.auctionStarted && (
+              {/* Stop Auction button - only show if status is Active */}
+              {job?.status === 'Active' && (
                 <button
                   onClick={handleStopAuction}
                   disabled={loading}
@@ -608,6 +652,22 @@ const handleDeleteJob = async () => {
                 </svg>
                 Delete Job
               </button>
+
+              {/* Restart Auction button */}
+              {job?.status === 'Closed' && (
+                <button
+                  onClick={handleStartAuction}
+                  disabled={loading}
+                  className={`px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center transition-colors ${
+                    loading ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Restart Auction
+                </button>
+              )}
             </div>
           </div>
 
@@ -652,16 +712,6 @@ const handleDeleteJob = async () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Timeline (in days)</label>
-                    <input
-                      type="number"
-                      name="timeline"
-                      value={editedJob.timeline || ''}
-                      onChange={handleInputChange}
-                      className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
                     <input
                       type="text"
@@ -671,7 +721,7 @@ const handleDeleteJob = async () => {
                       className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                     <select
                       name="category"
@@ -730,11 +780,7 @@ const handleDeleteJob = async () => {
                       <p className="text-gray-600">{job?.description}</p>
                     </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <p className="text-xs text-blue-500 uppercase font-semibold">Timeline</p>
-                        <p className="text-lg font-medium">{bids?.timeline} days</p>
-                      </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                       <div className="bg-blue-50 p-4 rounded-lg">
                         <p className="text-xs text-blue-500 uppercase font-semibold">Location</p>
                         <p className="text-lg font-medium">{job?.location}</p>
@@ -788,14 +834,24 @@ const handleDeleteJob = async () => {
                       </div>
                       
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                        job?.auctionStarted 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
+                        job?.status === 'Closed' 
+                          ? 'bg-red-100 text-red-800'
+                          : job?.status === 'Active'
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
                       }`}> 
                         <span className={`w-2 h-2 mr-2 rounded-full ${
-                          job?.auctionStarted ? 'bg-green-600' : 'bg-yellow-500'
+                          job?.status === 'Closed'
+                            ? 'bg-red-600'
+                            : job?.status === 'Active'
+                              ? 'bg-green-600' 
+                              : 'bg-yellow-500'
                         }`}></span>
-                        {job?.auctionStarted ? "Auction Started" : "Auction Not Started"}
+                        {job?.status === 'Closed' 
+                          ? "Auction Ended" 
+                          : job?.status === 'Active'
+                            ? "Auction Active" 
+                            : "Auction Not Started"}
                       </span>
                       
                       <div className="mt-4">
@@ -808,7 +864,7 @@ const handleDeleteJob = async () => {
                 </div>
                 
                 {/* Bids section */}
-                {job?.auctionStarted && (
+                {job?.status === 'Active' && (
                   <div className="mt-10">
                     <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
                       Bids 
