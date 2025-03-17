@@ -22,6 +22,7 @@ import UserProfile from './Pages/UserProfile'
 import ActiveJob from './Pages/ActiveJob'
 import OngoingJobs from './Pages/Ongoingworks'
 import BiddingHistoryPage from './components/BiddingHistory'
+import ContractorProfileSetup from './components/ContractorOnboarding'
 
 
 function App() {
@@ -59,7 +60,7 @@ function App() {
     <>
       <Routes>
         <Route path='/' element={<Home/>} />
-        <Route path='/bid-form' element={<BidForm
+        <Route path='/bid-form/:jobId' element={<BidForm
         sampleData={sampleProjectData}
         />} />
         <Route path="/myprojects" element={<ProjectsPage />} /> 
@@ -88,7 +89,7 @@ function App() {
         <Route path="/job/:jobId" element={<ActiveJob />} />
         <Route path="/project/:jobId" element={<ProjectDetails />} />
         <Route path="/activejobs" element={<ActiveJob />} />
-
+        <Route path="/contractorStart" element={<ContractorProfileSetup />} />
 
         <Route path="/ongoingjobs" element={<OngoingJobs />} />
       </Routes>

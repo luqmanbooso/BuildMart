@@ -57,12 +57,21 @@ const SignUp = () => {
       });
 
             // console.log(response)
+            const token = response.data.token || 
+            (response.data.user && response.data.user.token) || 
+            response.data.accessToken;
 
+            localStorage.setItem('token', token);
+            console.log('Token saved, verification:', localStorage.getItem('token'));
       // Handle successful signup
       console.log('User signed up successfully:', response.data);
       alert('Signup successful!');
 
-      navigate('/');
+      if (selectedRole === "Service Provider") {
+        navigate('/contractorStart');
+      } else {
+        navigate('/');
+      }
 
       // Optionally, reset form fields after successful submission
       setUsername('');
