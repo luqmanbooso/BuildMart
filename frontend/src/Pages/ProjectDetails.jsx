@@ -36,20 +36,16 @@ const ProjectDetails = () => {
         });
         
         if (jobResponse.data) {
-          setJob(jobResponse.data);
+          const jobData = jobResponse.data;
+          setJob(jobData);
           
-          // Determine if auction has started or not
+          // Determine auction status based on backend status & time
           const now = new Date().getTime();
-          const startTime = new Date(jobResponse.data.biddingStartTime).getTime();
-          const endTime = new Date(jobResponse.data.biddingEndTime).getTime();
+          const startTime = new Date(jobData.biddingStartTime).getTime();
+          const endTime = new Date(jobData.biddingEndTime).getTime();
           
-          if (now < startTime) {
-            // Auction hasn't started yet, count down to start time
-            updateTimer(new Date(jobResponse.data.biddingStartTime), 'start');
-          } else if (now < endTime) {
-            // Auction is in progress, count down to end time
-            updateTimer(new Date(jobResponse.data.biddingEndTime), 'end');
-          } else {
+          // Check if auction has ended based on time
+          if (now > endTime || jobData.status === 'Closed') {
             // Auction has ended
             setTimeLeft({
               days: 0,
@@ -59,6 +55,24 @@ const ProjectDetails = () => {
               timeUp: true,
               auctionStarted: true
             });
+          } else if (now >= startTime || jobData.status === 'Active') {
+            // Auction is in progress
+            updateTimer(new Date(jobData.biddingEndTime), 'end');
+            
+            // If backend status doesn't match, update it
+            if (jobData.status !== 'Active') {
+              try {
+                await axios.put(`http://localhost:5000/api/jobs/${jobId}/auction-status`, 
+                  { status: 'Active' },
+                  { headers: { 'Authorization': `Bearer ${token}` }}
+                );
+              } catch (error) {
+                console.error("Error updating auction status:", error);
+              }
+            }
+          } else {
+            // Auction hasn't started yet
+            updateTimer(new Date(jobData.biddingStartTime), 'start');
           }
           
           // Fetch bids for this job
@@ -299,11 +313,13 @@ const ProjectDetails = () => {
                           <p className="text-sm text-gray-500">Status</p>
                           <p className="font-medium">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              job?.status === 'Active' ? 'bg-green-100 text-green-800' : 
-                              job?.status === 'Completed' ? 'bg-blue-100 text-blue-800' : 
+                              timeLeft.timeUp ? 'bg-red-100 text-red-800' : 
+                              timeLeft.auctionStarted ? 'bg-green-100 text-green-800' : 
                               'bg-yellow-100 text-yellow-800'
                             }`}>
-                              {job?.status || 'Pending'}
+                              {timeLeft.timeUp ? 'Auction Ended' : 
+                               timeLeft.auctionStarted ? 'Active' : 
+                               'Pending'}
                             </span>
                           </p>
                         </div>
@@ -498,7 +514,15 @@ const ProjectDetails = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Status:</span>
-                          <span className="font-semibold text-blue-600">Active</span>
+                          <span className={`font-semibold ${
+                            timeLeft.timeUp ? 'text-red-600' : 
+                            timeLeft.auctionStarted ? 'text-green-600' : 
+                            'text-yellow-600'
+                          }`}>
+                            {timeLeft.timeUp ? 'Ended' : 
+                             timeLeft.auctionStarted ? 'Active' : 
+                             'Pending'}
+                          </span>
                         </div>
                       </div>
                     </div>

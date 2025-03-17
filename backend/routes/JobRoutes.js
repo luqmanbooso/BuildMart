@@ -143,4 +143,30 @@ router.put('/:id/auction-status', async (req, res) => {
   }
 });
 
+// Add this route to handle job deletion
+router.delete('/:id', async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Optional: Add authentication to ensure only the job owner can delete it
+    // if (job.userid !== req.user.id) {
+    //   return res.status(403).json({ error: 'Not authorized to delete this job' });
+    // }
+    
+    await Job.findByIdAndDelete(req.params.id);
+    
+    // Optional: Delete related bids or other associated data
+    // await Bid.deleteMany({ jobId: req.params.id });
+    
+    res.status(200).json({ message: 'Job deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting job:', err);
+    res.status(500).json({ error: 'Error deleting job' });
+  }
+});
+
 module.exports = router;
