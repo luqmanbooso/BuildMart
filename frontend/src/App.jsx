@@ -79,9 +79,9 @@ function App() {
         <Route path='/aggreement' element={<ClientContractorAgreement />} />
         <Route path='/auction' element={<AuctionsPage />} />
         {/* Fallback route */}
-        <Route path="/contact" element={<Contact />} />
+        <Route path="/contact-us" element={<Contact />} />
         <Route path="/admindashboard" element={<Admindashboard />} />
-        <Route path="/about" element={<About />} />
+        <Route path="/about-us" element={<About />} />
         <Route path="/paymentdashboard" element={<PaymentDashboard />} />
         <Route path="*" element={<NoPage />} />
         <Route path="/contractor-profile" element={<ContractorProfile />} />
