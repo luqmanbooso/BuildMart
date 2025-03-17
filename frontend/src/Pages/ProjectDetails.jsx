@@ -17,7 +17,8 @@ const ProjectDetails = () => {
     hours: 0,
     minutes: 0,
     seconds: 0,
-    timeUp: false
+    timeUp: false,
+    auctionStarted: false
   });
 
   // Fetch job details
@@ -37,14 +38,27 @@ const ProjectDetails = () => {
         if (jobResponse.data) {
           setJob(jobResponse.data);
           
-          // Use the actual biddingEndTime
-          if (jobResponse.data.biddingEndTime) {
-            const endDate = new Date(jobResponse.data.biddingEndTime);
-            updateTimer(endDate);
-          } else if (jobResponse.data.biddingStartTime) {
-            const endDate = new Date(jobResponse.data.biddingStartTime);
-            endDate.setDate(endDate.getDate() + 7);
-            updateTimer(endDate);
+          // Determine if auction has started or not
+          const now = new Date().getTime();
+          const startTime = new Date(jobResponse.data.biddingStartTime).getTime();
+          const endTime = new Date(jobResponse.data.biddingEndTime).getTime();
+          
+          if (now < startTime) {
+            // Auction hasn't started yet, count down to start time
+            updateTimer(new Date(jobResponse.data.biddingStartTime), 'start');
+          } else if (now < endTime) {
+            // Auction is in progress, count down to end time
+            updateTimer(new Date(jobResponse.data.biddingEndTime), 'end');
+          } else {
+            // Auction has ended
+            setTimeLeft({
+              days: 0,
+              hours: 0,
+              minutes: 0,
+              seconds: 0,
+              timeUp: true,
+              auctionStarted: true
+            });
           }
           
           // Fetch bids for this job
@@ -64,20 +78,41 @@ const ProjectDetails = () => {
   }, [jobId]);
 
   // Function to update timer
-  const updateTimer = (endDate) => {
+  const updateTimer = (targetDate, timerType) => {
     const calculateTime = () => {
       const now = new Date().getTime();
-      const end = new Date(endDate).getTime();
-      const difference = end - now;
+      const target = new Date(targetDate).getTime();
+      const difference = target - now;
       
       if (difference <= 0) {
-        setTimeLeft({
-          days: 0,
-          hours: 0,
-          minutes: 0, 
-          seconds: 0,
-          timeUp: true
-        });
+        if (timerType === 'start') {
+          // If start timer ended, switch to end timer
+          const endDate = new Date(job.biddingEndTime).getTime();
+          const endDifference = endDate - now;
+          
+          if (endDifference <= 0) {
+            setTimeLeft({
+              days: 0,
+              hours: 0,
+              minutes: 0, 
+              seconds: 0,
+              timeUp: true,
+              auctionStarted: true
+            });
+          } else {
+            // Switch to countdown to end time
+            updateTimer(new Date(job.biddingEndTime), 'end');
+          }
+        } else {
+          setTimeLeft({
+            days: 0,
+            hours: 0,
+            minutes: 0, 
+            seconds: 0,
+            timeUp: true,
+            auctionStarted: true
+          });
+        }
         return;
       }
       
@@ -91,7 +126,8 @@ const ProjectDetails = () => {
         hours,
         minutes,
         seconds,
-        timeUp: false
+        timeUp: false,
+        auctionStarted: timerType === 'end'
       });
     };
     
@@ -390,7 +426,10 @@ const ProjectDetails = () => {
                     <div className="mb-6">
                       <div className="flex items-center mb-3">
                         <FaClock className="text-blue-600 mr-2" />
-                        <h3 className="text-lg font-semibold text-gray-800">Auction Ends In</h3>
+                        <h3 className="text-lg font-semibold text-gray-800">
+                          {timeLeft.timeUp ? "Auction Status" : 
+                           timeLeft.auctionStarted ? "Auction Ends In" : "Auction Starts In"}
+                        </h3>
                       </div>
                       {timeLeft.timeUp ? (
                         <div className="bg-red-100 text-red-800 p-3 rounded-lg text-center">
@@ -417,7 +456,10 @@ const ProjectDetails = () => {
                             </div>
                           </div>
                           <p className="text-sm text-gray-600">
-                            Auction ends: {job?.biddingEndTime ? new Date(job.biddingEndTime).toLocaleString() : 'Not specified'}
+                            {timeLeft.auctionStarted 
+                              ? `Auction ends: ${job?.biddingEndTime ? new Date(job.biddingEndTime).toLocaleString() : 'Not specified'}`
+                              : `Auction starts: ${job?.biddingStartTime ? new Date(job.biddingStartTime).toLocaleString() : 'Not specified'}`
+                            }
                           </p>
                         </div>
                       )}
@@ -430,11 +472,15 @@ const ProjectDetails = () => {
                         className={`w-full py-3 px-6 rounded-lg shadow-md font-medium transition-all duration-300 flex items-center justify-center ${
                           timeLeft.timeUp 
                             ? "bg-gray-300 text-gray-600 cursor-not-allowed" 
+                            : !timeLeft.auctionStarted
+                            ? "bg-gray-400 text-white cursor-not-allowed"
                             : "bg-gradient-to-r from-blue-600 to-blue-800 text-white hover:from-blue-700 hover:to-blue-900 transform hover:-translate-y-1"
                         }`}
-                        disabled={timeLeft.timeUp}
+                        disabled={timeLeft.timeUp || !timeLeft.auctionStarted}
                       >
-                        {timeLeft.timeUp ? "Auction Ended" : "Win This Project - Place Your Bid"}
+                        {timeLeft.timeUp ? "Auction Ended" : 
+                         !timeLeft.auctionStarted ? "Auction Not Started Yet" :
+                         "Win This Project - Place Your Bid"}
                       </button>
                     </div>
                     
