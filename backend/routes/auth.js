@@ -40,10 +40,10 @@ router.post('/signup', upload.single('profilePic'), async (req, res) => {
       
       const token = jwt.sign(
         { 
-          userId: user._id, 
-          username: user.username, 
-          email: user.email,
-          role: user.role
+          userId: newUser._id, 
+          username: newUser.username, 
+          email: newUser.email,
+          role: newUser.role
         },
         process.env.JWT_SECRET,
         { expiresIn: '1h' }

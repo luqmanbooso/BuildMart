@@ -11,6 +11,10 @@ const qualificationSchema = new mongoose.Schema({
     enum: ['Certification', 'Education', 'License', 'Award', 'Skill'],
     required: true
   },
+  documentImage: {
+    type: String,
+    maxlength: 5000000
+  },
   name: {
     type: String,
     required: true

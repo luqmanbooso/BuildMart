@@ -18,6 +18,7 @@ app.use('/protected', protectedRoutes);
 app.use('/qualify', qualifyRoutes);
 const jobRoutes = require('./routes/JobRoutes');
 app.use('/api/jobs', jobRoutes);
+app.use('/api/contractors', require('./routes/contractorprofile'));
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
