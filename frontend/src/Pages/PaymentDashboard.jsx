@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 function PaymentDashboard() {
+  const [activePage, setActivePage] = useState('Dashboard');
   const [activeTab, setActiveTab] = useState('service-providers');
   const [selectedRows, setSelectedRows] = useState([]);
   const [isAllSelected, setIsAllSelected] = useState(false);
@@ -214,6 +215,200 @@ function PaymentDashboard() {
     { name: 'Expenses', icon: <ArrowDownRight size={20} /> }
   ];
 
+  const renderPageContent = () => {
+    switch (activePage) {
+      case 'Dashboard':
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {stats.map((stat, index) => (
+                <div key={index} className="bg-white rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">{stat.title}</p>
+                      <h3 className="text-xl font-bold text-gray-900 mt-2">{stat.value}</h3>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg">{stat.icon}</div>
+                  </div>
+                  <div className="mt-4 flex items-center">
+                    <span className={`text-sm font-medium ${
+                      stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {stat.change}
+                    </span>
+                    <TrendingUp 
+                      size={16} 
+                      className={`ml-2 ${
+                        stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                      } ${stat.trend === 'down' ? 'transform rotate-180' : ''}`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
+              <div className="flex items-center space-x-4">
+                {paymentMethods.map((method, index) => (
+                  <div key={index} className="flex-1">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-500">{method.method}</span>
+                      <span className="text-sm font-semibold text-gray-900">{method.percentage}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${method.percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'Service Providers':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Service Provider Management</h2>
+                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  <Plus size={16} className="mr-2" />
+                  Add Provider
+                </button>
+              </div>
+              {renderPaymentTable(serviceProviderPayments)}
+            </div>
+          </div>
+        );
+
+      case 'Inventory Sales':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Inventory Sales Records</h2>
+                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  <Plus size={16} className="mr-2" />
+                  New Sale
+                </button>
+              </div>
+              {renderPaymentTable(itemsPayments)}
+            </div>
+          </div>
+        );
+
+      case 'Wages':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Employee Wages</h2>
+                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  <Plus size={16} className="mr-2" />
+                  New Payment
+                </button>
+              </div>
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hours</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {[
+                    { name: 'John Doe', position: 'Mason', hours: 40, rate: 'Rs. 200/hr', total: 'Rs. 8,000', status: 'Paid' },
+                    { name: 'Jane Smith', position: 'Carpenter', hours: 35, rate: 'Rs. 180/hr', total: 'Rs. 6,300', status: 'Pending' },
+                    { name: 'Mike Johnson', position: 'Electrician', hours: 45, rate: 'Rs. 250/hr', total: 'Rs. 11,250', status: 'Processing' }
+                  ].map((employee, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{employee.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.position}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.hours}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.rate}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.total}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(employee.status)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+
+      case 'Incomes':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Income Tracking</h2>
+                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  <Plus size={16} className="mr-2" />
+                  Record Income
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {[
+                  { label: 'Total Income', value: 'Rs. 450,000', trend: '+12.5%' },
+                  { label: 'This Month', value: 'Rs. 125,000', trend: '+5.2%' },
+                  { label: 'Last Month', value: 'Rs. 115,000', trend: '+3.8%' }
+                ].map((stat, index) => (
+                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500">{stat.label}</p>
+                    <p className="text-xl font-semibold text-gray-900">{stat.value}</p>
+                    <p className="text-sm text-green-600">{stat.trend}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'Expenses':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Expense Management</h2>
+                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  <Plus size={16} className="mr-2" />
+                  Add Expense
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { category: 'Materials', amount: 'Rs. 250,000', items: 45 },
+                  { category: 'Equipment', amount: 'Rs. 180,000', items: 12 },
+                  { category: 'Labor', amount: 'Rs. 320,000', items: 28 },
+                  { category: 'Transportation', amount: 'Rs. 45,000', items: 15 },
+                  { category: 'Utilities', amount: 'Rs. 25,000', items: 8 },
+                  { category: 'Miscellaneous', amount: 'Rs. 30,000', items: 20 }
+                ].map((expense, index) => (
+                  <div key={index} className="border rounded-lg p-4">
+                    <h3 className="text-lg font-medium text-gray-900">{expense.category}</h3>
+                    <p className="text-2xl font-bold text-gray-900 mt-2">{expense.amount}</p>
+                    <p className="text-sm text-gray-500 mt-1">{expense.items} items</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Modern Sidebar */}
@@ -236,8 +431,12 @@ function PaymentDashboard() {
               <a
                 key={index}
                 href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActivePage(item.name);
+                }}
                 className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  item.name === 'Service Providers'
+                  item.name === activePage
                     ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-50'
                 }`}
@@ -246,7 +445,7 @@ function PaymentDashboard() {
                   {item.icon}
                 </span>
                 <span className="truncate">{item.name}</span>
-                {item.name === 'Service Providers' && (
+                {item.name === activePage && (
                   <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
                     Active
                   </span>
@@ -315,147 +514,16 @@ function PaymentDashboard() {
         {/* Main Content */}
         <main className="flex-1 overflow-auto bg-gray-50 p-8">
           <div className="max-w-7xl mx-auto">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {stats.map((stat, index) => (
-                <div key={index} className="bg-white rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">{stat.title}</p>
-                      <h3 className="text-xl font-bold text-gray-900 mt-2">{stat.value}</h3>
-                    </div>
-                    <div className="p-3 bg-gray-50 rounded-lg">{stat.icon}</div>
-                  </div>
-                  <div className="mt-4 flex items-center">
-                    <span className={`text-sm font-medium ${
-                      stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {stat.change}
-                    </span>
-                    <TrendingUp 
-                      size={16} 
-                      className={`ml-2 ${
-                        stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                      } ${stat.trend === 'down' ? 'transform rotate-180' : ''}`}
-                    />
-                  </div>
-                </div>
-              ))}
+            {/* Page Header */}
+            <div className="mb-6">
+              <h1 className="text-2xl font-semibold text-gray-900">{activePage}</h1>
+              <p className="mt-2 text-sm text-gray-500">
+                Manage your {activePage.toLowerCase()} and related activities
+              </p>
             </div>
-
-            {/* Payment Methods Distribution */}
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
-              <div className="flex items-center space-x-4">
-                {paymentMethods.map((method, index) => (
-                  <div key={index} className="flex-1">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-500">{method.method}</span>
-                      <span className="text-sm font-semibold text-gray-900">{method.percentage}%</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${method.percentage}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Existing Table Section with updated styling */}
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="border-b border-gray-200">
-                <div className="flex">
-                  <button 
-                    className={`px-6 py-4 text-sm font-medium transition duration-150 border-b-2 ${activeTab === 'service-providers' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                    onClick={() => setActiveTab('service-providers')}
-                  >
-                    Service Providers
-                  </button>
-                  <button 
-                    className={`px-6 py-4 text-sm font-medium transition duration-150 border-b-2 ${activeTab === 'items' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                    onClick={() => setActiveTab('items')}
-                  >
-                    Items
-                  </button>
-                </div>
-              </div>
-
-              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex justify-between items-center">
-                  <div className="flex space-x-2">
-                    <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
-                      <Filter size={16} className="mr-2" />
-                      Filter
-                    </button>
-                    <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
-                      <Download size={16} className="mr-2" />
-                      Export
-                    </button>
-                  </div>
-                  <button className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
-                    <Plus size={16} className="mr-2" />
-                    New Payment
-                  </button>
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="overflow-hidden">
-                {activeTab === 'service-providers' 
-                  ? renderPaymentTable(serviceProviderPayments) 
-                  : renderPaymentTable(itemsPayments)
-                }
-              </div>
-
-              {/* Pagination */}
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                <div className="flex-1 flex justify-between sm:hidden">
-                  <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    Previous
-                  </a>
-                  <a href="#" className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    Next
-                  </a>
-                </div>
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">1</span> to <span className="font-medium">5</span> of <span className="font-medium">20</span> results
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <a href="#" className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        <span className="sr-only">Previous</span>
-                        <ChevronDown className="h-5 w-5 rotate-90" />
-                      </a>
-                      <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-blue-600 hover:bg-blue-50 bg-blue-50">
-                        1
-                      </a>
-                      <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        2
-                      </a>
-                      <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        3
-                      </a>
-                      <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                        ...
-                      </span>
-                      <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        8
-                      </a>
-                      <a href="#" className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        <span className="sr-only">Next</span>
-                        <ChevronDown className="h-5 w-5 -rotate-90" />
-                      </a>
-                    </nav>
-                  </div>
-                </div>
-              </div>
-            </div>
+            
+            {/* Dynamic Page Content */}
+            {renderPageContent()}
           </div>
         </main>
       </div>
