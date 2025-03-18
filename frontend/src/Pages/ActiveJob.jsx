@@ -773,6 +773,7 @@ const handleDeleteJob = async () => {
                                   LKR {job?.milestones?.reduce((sum, m) => sum + parseInt(m.amount.replace(/,/g, ''), 10), 0).toLocaleString()}
                                 </td>
                               </tr>
+
                             </tbody>
                           </table>
                         </div>
@@ -831,6 +832,10 @@ const handleDeleteJob = async () => {
                               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Action
                               </th>
+                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                
+                              </th>
+                              
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
@@ -879,7 +884,21 @@ const handleDeleteJob = async () => {
                                     >
                                       Accept Bid
                                     </button>
+                                   
+
+                                    
                                   )}
+                                </td>
+                                <td>
+                                <button 
+  className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-blue-700 bg-white hover:bg-blue-50 focus:outline-none"
+  onClick={() => navigate(`/contractor/${bid.contractorId}/bid/${bid.id}/project/${jobId}`)}
+>
+  <span className="w-4 h-4 mr-1">
+    <i className="fas fa-eye"></i> {/* Using Font Awesome "eye" icon */}
+  </span>
+  View Details
+</button>
                                 </td>
                               </tr>
                             ))}
