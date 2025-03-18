@@ -43,6 +43,18 @@ const bidSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // NEW FIELDS for bid updates
+  updateCount: {
+    type: Number,
+    default: 0 // Start with 0 updates
+  },
+  previousPrices: [{
+    price: Number,
+    updatedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   // Timestamps
   createdAt: { 
     type: Date, 
@@ -52,7 +64,6 @@ const bidSchema = new mongoose.Schema({
   timestamps: true // Adds updatedAt field automatically
 });
 
-// Add this line to create a compound index that enforces one bid per project per contractor
 
 const Bid = mongoose.model('Bid', bidSchema);
 
