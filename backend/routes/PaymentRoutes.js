@@ -100,13 +100,93 @@ router.post('/process-payment', async (req, res) => {
 // Fetch All Payments Route
 router.get('/', async (req, res) => {
   try {
-    const payments = await Payment.find().sort({ createdAt: -1 });
+    const { 
+      status, 
+      cardType, 
+      dateFrom, 
+      dateTo,
+      sort = 'createdAt',
+      order = 'desc'
+    } = req.query;
+    
+    // Build filter object
+    const filter = {};
+    
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+    
+    if (cardType && cardType !== 'all') {
+      filter.cardType = cardType;
+    }
+    
+    if (dateFrom || dateTo) {
+      filter.createdAt = {};
+      
+      if (dateFrom) {
+        filter.createdAt.$gte = new Date(dateFrom);
+      }
+      
+      if (dateTo) {
+        filter.createdAt.$lte = new Date(dateTo);
+      }
+    }
+    
+    // Build sort object
+    const sortObj = {};
+    sortObj[sort] = order === 'asc' ? 1 : -1;
+    
+    const payments = await Payment.find(filter)
+      .sort(sortObj)
+      .exec();
+    
     res.status(200).json(payments);
   } catch (error) {
     console.error('Error fetching payments:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch payments',
+      error: error.message
+    });
+  }
+});
+
+// Add route to update payment status
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!['pending', 'completed', 'failed'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payment status'
+      });
+    }
+    
+    const payment = await Payment.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true, runValidators: true }
+    );
+    
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Payment status updated successfully',
+      payment
+    });
+  } catch (error) {
+    console.error('Error updating payment status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update payment status',
       error: error.message
     });
   }

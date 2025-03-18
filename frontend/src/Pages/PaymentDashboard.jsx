@@ -3,22 +3,37 @@ import {
   ChevronDown, Search, LogOut, Filter, Download, 
   Plus, MoreHorizontal, Calendar, CreditCard, 
   DollarSign, TrendingUp, Users, Box, Activity,
-  LayoutDashboard, ShoppingCart, Wallet, 
-  ArrowDownRight, ArrowUpRight, Loader, RefreshCw
+  LayoutDashboard, ShoppingCart, Wallet, Sliders,
+  ArrowDownRight, ArrowUpRight, Loader, RefreshCw, 
+  FileText, Check, X, ChevronRight, BarChart2
 } from 'lucide-react';
 
 function PaymentDashboard() {
+  // Keep existing state variables
   const [activePage, setActivePage] = useState('Dashboard');
   const [activeTab, setActiveTab] = useState('service-providers');
   const [selectedRows, setSelectedRows] = useState([]);
   const [isAllSelected, setIsAllSelected] = useState(false);
-  
-  // New state variables for API data
   const [payments, setPayments] = useState([]);
   const [serviceProviderPayments, setServiceProviderPayments] = useState([]);
   const [itemsPayments, setItemsPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Add new state variables for filtering and advanced features
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState('all');
+  const [filterDateRange, setFilterDateRange] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [paymentTrends, setPaymentTrends] = useState([]);
+  
+  // Keep existing paymentStats state
   const [paymentStats, setPaymentStats] = useState({
     totalAmount: 0,
     completedCount: 0,
@@ -28,17 +43,67 @@ function PaymentDashboard() {
     itemsPurchased: 0,
     pendingAmount: 0
   });
+  
   const [paymentMethodsData, setPaymentMethodsData] = useState([
     { method: 'Visa', percentage: 0 },
     { method: 'Mastercard', percentage: 0 },
     { method: 'Other', percentage: 0 }
   ]);
 
-  // Fetch payments from the backend API
+  // Enhanced fetch payments with filtering and sorting
   const fetchPayments = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/payments');
+      
+      // Build query parameters for filtering
+      let queryParams = new URLSearchParams();
+      
+      if (filterStatus !== 'all') {
+        queryParams.append('status', filterStatus);
+      }
+      
+      if (filterPaymentMethod !== 'all') {
+        queryParams.append('cardType', filterPaymentMethod);
+      }
+      
+      if (filterDateRange === 'custom' && dateFrom && dateTo) {
+        queryParams.append('dateFrom', dateFrom);
+        queryParams.append('dateTo', dateTo);
+      } else if (filterDateRange !== 'all') {
+        // Calculate date range based on selection
+        const today = new Date();
+        let fromDate = new Date();
+        
+        switch (filterDateRange) {
+          case 'today':
+            fromDate = new Date(today.setHours(0, 0, 0, 0));
+            break;
+          case 'week':
+            fromDate.setDate(today.getDate() - 7);
+            break;
+          case 'month':
+            fromDate.setMonth(today.getMonth() - 1);
+            break;
+          case 'year':
+            fromDate.setFullYear(today.getFullYear() - 1);
+            break;
+          default:
+            break;
+        }
+        
+        queryParams.append('dateFrom', fromDate.toISOString());
+        queryParams.append('dateTo', new Date().toISOString());
+      }
+      
+      // Add sorting parameters
+      if (sortBy !== 'date' || sortOrder !== 'desc') {
+        queryParams.append('sort', sortBy);
+        queryParams.append('order', sortOrder);
+      }
+      
+      // Make API request
+      const url = `http://localhost:5000/api/payments${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error(`Error: ${response.status}`);
@@ -50,9 +115,120 @@ function PaymentDashboard() {
       // Process payment data
       processPaymentData(data);
       
+      // Generate payment trends
+      generatePaymentTrends(data);
+      
     } catch (err) {
       setError(err.message);
       console.error("Failed to fetch payment data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate payment trends data for charts
+  const generatePaymentTrends = (data) => {
+    // Group payments by day
+    const paymentsByDay = data.reduce((acc, payment) => {
+      const date = new Date(payment.createdAt).toLocaleDateString();
+      
+      if (!acc[date]) {
+        acc[date] = {
+          date,
+          total: 0,
+          count: 0
+        };
+      }
+      
+      acc[date].total += payment.amount;
+      acc[date].count += 1;
+      
+      return acc;
+    }, {});
+    
+    // Convert to array and sort by date
+    const trendData = Object.values(paymentsByDay)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(-7); // Get last 7 days
+    
+    setPaymentTrends(trendData);
+  };
+
+  // Export payments as CSV
+  const exportPayments = () => {
+    // Create CSV header
+    const headers = [
+      'ID',
+      'Cardholder Name',
+      'Amount',
+      'Status',
+      'Payment Method',
+      'Last Four Digits',
+      'Date'
+    ];
+    
+    // Convert payment data to CSV rows
+    const csvData = payments.map(payment => [
+      payment._id,
+      payment.cardholderName,
+      payment.amount,
+      payment.status,
+      payment.cardType,
+      payment.lastFourDigits,
+      new Date(payment.createdAt).toLocaleString()
+    ]);
+    
+    // Combine headers and data
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `payments_export_${new Date().toISOString()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // View payment details
+  const viewPaymentDetails = (payment) => {
+    setSelectedPayment(payment);
+    setShowPaymentDetails(true);
+  };
+
+  // Update payment status
+  const updatePaymentStatus = async (paymentId, newStatus) => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`http://localhost:5000/api/payments/${paymentId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+      
+      // Refresh payment data
+      fetchPayments();
+      
+      // Close the details modal
+      setShowPaymentDetails(false);
+      setSelectedPayment(null);
+      
+    } catch (err) {
+      setError(err.message);
+      console.error("Failed to update payment status:", err);
     } finally {
       setLoading(false);
     }
@@ -335,9 +511,18 @@ function PaymentDashboard() {
                   <div className="text-sm text-gray-500">{payment.date}</div>
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-right text-sm">
-                  <button className="text-gray-400 hover:text-gray-600 transition-colors duration-150">
-                    <MoreHorizontal size={18} />
-                  </button>
+                  <div className="flex justify-end space-x-2">
+                    <button 
+                      onClick={() => viewPaymentDetails(payment)}
+                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-150"
+                      title="View Details"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                    <button className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded transition-colors duration-150">
+                      <MoreHorizontal size={18} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -388,37 +573,310 @@ function PaymentDashboard() {
     { name: 'Expenses', icon: <ArrowDownRight size={20} /> }
   ];
 
+  // Add filter component for the dashboard
+  const renderFilters = () => (
+    <div className={`bg-white rounded-xl shadow-sm p-6 overflow-hidden transition-all duration-300 ${showFilters ? 'max-h-96' : 'max-h-0 p-0 opacity-0'}`}>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All Statuses</option>
+            <option value="completed">Completed</option>
+            <option value="pending">Pending</option>
+            <option value="failed">Failed</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+          <select
+            value={filterPaymentMethod}
+            onChange={(e) => setFilterPaymentMethod(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All Methods</option>
+            <option value="visa">Visa</option>
+            <option value="mastercard">Mastercard</option>
+            <option value="amex">Amex</option>
+            <option value="discover">Discover</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+          <select
+            value={filterDateRange}
+            onChange={(e) => setFilterDateRange(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">Last 7 Days</option>
+            <option value="month">Last 30 Days</option>
+            <option value="year">Last Year</option>
+            <option value="custom">Custom Range</option>
+          </select>
+        </div>
+      </div>
+      
+      {filterDateRange === 'custom' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+      )}
+      
+      <div className="mt-6 flex justify-end space-x-3">
+        <button
+          onClick={() => {
+            // Reset all filters
+            setFilterStatus('all');
+            setFilterPaymentMethod('all');
+            setFilterDateRange('all');
+            setDateFrom('');
+            setDateTo('');
+            setSortBy('date');
+            setSortOrder('desc');
+            fetchPayments();
+          }}
+          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+        >
+          Reset
+        </button>
+        
+        <button
+          onClick={fetchPayments}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Apply Filters
+        </button>
+      </div>
+    </div>
+  );
+
+  // Add Payment Details Modal
+  const renderPaymentDetailsModal = () => (
+    showPaymentDetails && selectedPayment && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+          <div className="p-6 border-b border-gray-100">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-800">Payment Details</h2>
+              <button 
+                onClick={() => setShowPaymentDetails(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Payment ID</p>
+                <p className="text-base font-mono">{selectedPayment.id || selectedPayment._id}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-500">Amount</p>
+                <p className="text-xl font-bold">Rs. {parseFloat(selectedPayment.amount).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                })}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-500">Status</p>
+                <div className="mt-1">
+                  {getStatusBadge(convertStatus(selectedPayment.status))}
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-500">Payment Date</p>
+                <p className="text-base">{new Date(selectedPayment.createdAt).toLocaleString()}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-500">Card Type</p>
+                <div className="mt-1">
+                  {getCardIcon(selectedPayment.cardType)}
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-sm font-medium text-gray-500">Cardholder Name</p>
+                <p className="text-base">{selectedPayment.cardholderName}</p>
+              </div>
+            </div>
+            
+            <div className="mt-8 border-t border-gray-100 pt-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-3">Update Payment Status</h3>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => updatePaymentStatus(selectedPayment.id || selectedPayment._id, 'completed')}
+                  className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 flex items-center"
+                  disabled={selectedPayment.status === 'completed'}
+                >
+                  <Check size={16} className="mr-2" />
+                  Mark as Completed
+                </button>
+                
+                <button
+                  onClick={() => updatePaymentStatus(selectedPayment.id || selectedPayment._id, 'pending')}
+                  className="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 flex items-center"
+                  disabled={selectedPayment.status === 'pending'}
+                >
+                  <Clock size={16} className="mr-2" />
+                  Mark as Pending
+                </button>
+                
+                <button
+                  onClick={() => updatePaymentStatus(selectedPayment.id || selectedPayment._id, 'failed')}
+                  className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center"
+                  disabled={selectedPayment.status === 'failed'}
+                >
+                  <X size={16} className="mr-2" />
+                  Mark as Failed
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  );
+
+  // Add Payment Trends Chart
+  const renderPaymentTrendsChart = () => (
+    <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Recent Payment Trends</h3>
+        <select
+          className="p-1.5 text-sm border border-gray-300 rounded-md"
+          onChange={(e) => {
+            // Trigger re-fetch with new timeframe
+            fetchPayments();
+          }}
+        >
+          <option value="week">Last 7 Days</option>
+          <option value="month">Last 30 Days</option>
+          <option value="quarter">Last 3 Months</option>
+        </select>
+      </div>
+      
+      {loading ? (
+        <div className="h-64 flex items-center justify-center">
+          <Loader className="animate-spin h-6 w-6 text-blue-600" />
+        </div>
+      ) : paymentTrends.length === 0 ? (
+        <div className="h-64 flex flex-col items-center justify-center text-gray-500">
+          <BarChart2 className="h-12 w-12 mb-2" />
+          <p>No payment data available for this period</p>
+        </div>
+      ) : (
+        <div className="h-64 w-full">
+          <div className="flex h-full items-end">
+            {paymentTrends.map((day, index) => (
+              <div 
+                key={index} 
+                className="flex-1 flex flex-col items-center"
+                title={`${day.date}: Rs. ${day.total.toLocaleString()}`}
+              >
+                <div 
+                  className="w-full mx-1 bg-blue-600 rounded-t"
+                  style={{ 
+                    height: `${Math.max(10, (day.total / Math.max(...paymentTrends.map(d => d.total))) * 100)}%`,
+                    opacity: 0.7 + (index / 10)
+                  }}
+                ></div>
+                <p className="text-xs mt-2 text-gray-600">{day.date.split('/')[1]}</p>
+                <p className="text-xs font-medium">Rs. {day.total.toLocaleString(undefined, {
+                  maximumFractionDigits: 0
+                })}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Modify your existing renderPageContent function's Dashboard case
   const renderPageContent = () => {
     switch (activePage) {
       case 'Dashboard':
         return (
           <div className="space-y-6">
-            {/* Dashboard Refresh Button */}
-            <div className="flex justify-between items-center">
+            {/* Dashboard Controls */}
+            <div className="flex justify-between items-center flex-wrap gap-4">
               <h2 className="text-lg font-semibold">Payment Overview</h2>
-              <button 
-                onClick={fetchPayments}
-                disabled={loading}
-                className={`inline-flex items-center px-4 py-2 ${
-                  loading 
-                    ? 'bg-gray-300 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700'
-                } text-white rounded-lg transition`}
-              >
-                {loading ? (
-                  <>
-                    <Loader size={16} className="animate-spin mr-2" />
-                    Refreshing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={16} className="mr-2" />
-                    Refresh Data
-                  </>
-                )}
-              </button>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  <Sliders size={16} className="mr-2" />
+                  {showFilters ? 'Hide Filters' : 'Show Filters'}
+                </button>
+                
+                <button
+                  onClick={exportPayments}
+                  className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  <FileText size={16} className="mr-2" />
+                  Export Data
+                </button>
+                
+                <button 
+                  onClick={fetchPayments}
+                  disabled={loading}
+                  className={`inline-flex items-center px-4 py-2 ${
+                    loading 
+                      ? 'bg-gray-300 cursor-not-allowed' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  } text-white rounded-lg transition`}
+                >
+                  {loading ? (
+                    <>
+                      <Loader size={16} className="animate-spin mr-2" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={16} className="mr-2" />
+                      Refresh Data
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-
+            
+            {/* Display Filters */}
+            {renderFilters()}
+            
             {/* Stats Cards */}
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -477,6 +935,9 @@ function PaymentDashboard() {
               </div>
             )}
             
+            {/* New: Payment Trends Chart */}
+            {renderPaymentTrendsChart()}
+            
             {/* Payment Methods Distribution */}
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
@@ -515,6 +976,9 @@ function PaymentDashboard() {
                 </div>
               )}
             </div>
+            
+            {/* Payment Details Modal */}
+            {renderPaymentDetailsModal()}
           </div>
         );
   
