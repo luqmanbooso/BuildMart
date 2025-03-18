@@ -20,11 +20,9 @@ import PaymentDashboard from './Pages/PaymentDashboard'
 import ProjectsPage from './Pages/MyProjects'
 import UserProfile from './Pages/UserProfile'
 import ActiveJob from './Pages/ActiveJob'
-import OngoingJobs from './Pages/Ongoingworks'
+import OngoingJobs from './Pages/OngoingWorks'
 import BiddingHistoryPage from './components/BiddingHistory'
 import ContractorProfileSetup from './components/ContractorOnboarding'
-import ViewDetails from './Pages/ViewDetails'
-import Cart from './Pages/Cart'
 
 
 function App() {
@@ -95,7 +93,7 @@ function App() {
         <Route path="/viewdetails" element={<ViewDetails />} />
         <Route path="/cart" element={<Cart />} />
 
-        <Route path="/ongoingjobs" element={<OngoingJobs />} />
+        <Route path="/ongoing-works" element={<OngoingJobs />} />
       </Routes>
     </>
   )

@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
-import { ChevronDown, Search, LogOut, Filter, Download, RefreshCw, Plus, MoreHorizontal, Calendar } from 'lucide-react';
+import { 
+  ChevronDown, Search, LogOut, Filter, Download, 
+  Plus, MoreHorizontal, Calendar, CreditCard, 
+  DollarSign, TrendingUp, Users, Box, Activity,
+  LayoutDashboard, ShoppingCart, Wallet, 
+  ArrowDownRight, ArrowUpRight // Add these new icons
+} from 'lucide-react';
 
 function PaymentDashboard() {
+  const [activePage, setActivePage] = useState('Dashboard');
   const [activeTab, setActiveTab] = useState('service-providers');
   const [selectedRows, setSelectedRows] = useState([]);
   const [isAllSelected, setIsAllSelected] = useState(false);
@@ -160,198 +167,363 @@ function PaymentDashboard() {
     </div>
   );
 
-  return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg">
-        <div className="px-6 py-6 border-b border-gray-200">
-          <div className="flex items-center">
-            <div className="h-8 w-8 bg-blue-600 rounded-md flex items-center justify-center text-white font-bold">
-              B
+  // Add new stats data
+  const stats = [
+    {
+      title: "Total Payments",
+      value: "Rs. 124,500.00",
+      change: "+12.5%",
+      icon: <DollarSign className="h-6 w-6 text-blue-600" />,
+      trend: "up"
+    },
+    {
+      title: "Active Providers",
+      value: "45",
+      change: "+5.6%",
+      icon: <Users className="h-6 w-6 text-green-600" />,
+      trend: "up"
+    },
+    {
+      title: "Pending Payments",
+      value: "Rs. 23,500.00",
+      change: "-2.3%",
+      icon: <CreditCard className="h-6 w-6 text-yellow-600" />,
+      trend: "down"
+    },
+    {
+      title: "Items Purchased",
+      value: "289",
+      change: "+18.2%",
+      icon: <Box className="h-6 w-6 text-purple-600" />,
+      trend: "up"
+    }
+  ];
+
+  // Add payment method distribution data
+  const paymentMethods = [
+    { method: 'Visa', percentage: 45 },
+    { method: 'Mastercard', percentage: 35 },
+    { method: 'Bank Transfer', percentage: 20 }
+  ];
+
+  const navigationItems = [
+    { name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+    { name: 'Service Providers', icon: <Users size={20} /> },
+    { name: 'Inventory Sales', icon: <ShoppingCart size={20} /> },
+    { name: 'Wages', icon: <Wallet size={20} /> },
+    { name: 'Incomes', icon: <ArrowUpRight size={20} /> },
+    { name: 'Expenses', icon: <ArrowDownRight size={20} /> }
+  ];
+
+  const renderPageContent = () => {
+    switch (activePage) {
+      case 'Dashboard':
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {stats.map((stat, index) => (
+                <div key={index} className="bg-white rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">{stat.title}</p>
+                      <h3 className="text-xl font-bold text-gray-900 mt-2">{stat.value}</h3>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg">{stat.icon}</div>
+                  </div>
+                  <div className="mt-4 flex items-center">
+                    <span className={`text-sm font-medium ${
+                      stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {stat.change}
+                    </span>
+                    <TrendingUp 
+                      size={16} 
+                      className={`ml-2 ${
+                        stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                      } ${stat.trend === 'down' ? 'transform rotate-180' : ''}`}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            <h1 className="ml-2 text-xl font-bold text-gray-900">BuildMart</h1>
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
+              <div className="flex items-center space-x-4">
+                {paymentMethods.map((method, index) => (
+                  <div key={index} className="flex-1">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-500">{method.method}</span>
+                      <span className="text-sm font-semibold text-gray-900">{method.percentage}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${method.percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'Service Providers':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Service Provider Management</h2>
+                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  <Plus size={16} className="mr-2" />
+                  Add Provider
+                </button>
+              </div>
+              {renderPaymentTable(serviceProviderPayments)}
+            </div>
+          </div>
+        );
+
+      case 'Inventory Sales':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Inventory Sales Records</h2>
+                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  <Plus size={16} className="mr-2" />
+                  New Sale
+                </button>
+              </div>
+              {renderPaymentTable(itemsPayments)}
+            </div>
+          </div>
+        );
+
+      case 'Wages':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Employee Wages</h2>
+                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  <Plus size={16} className="mr-2" />
+                  New Payment
+                </button>
+              </div>
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hours</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {[
+                    { name: 'John Doe', position: 'Mason', hours: 40, rate: 'Rs. 200/hr', total: 'Rs. 8,000', status: 'Paid' },
+                    { name: 'Jane Smith', position: 'Carpenter', hours: 35, rate: 'Rs. 180/hr', total: 'Rs. 6,300', status: 'Pending' },
+                    { name: 'Mike Johnson', position: 'Electrician', hours: 45, rate: 'Rs. 250/hr', total: 'Rs. 11,250', status: 'Processing' }
+                  ].map((employee, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{employee.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.position}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.hours}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.rate}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.total}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(employee.status)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+
+      case 'Incomes':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Income Tracking</h2>
+                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  <Plus size={16} className="mr-2" />
+                  Record Income
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {[
+                  { label: 'Total Income', value: 'Rs. 450,000', trend: '+12.5%' },
+                  { label: 'This Month', value: 'Rs. 125,000', trend: '+5.2%' },
+                  { label: 'Last Month', value: 'Rs. 115,000', trend: '+3.8%' }
+                ].map((stat, index) => (
+                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500">{stat.label}</p>
+                    <p className="text-xl font-semibold text-gray-900">{stat.value}</p>
+                    <p className="text-sm text-green-600">{stat.trend}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'Expenses':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Expense Management</h2>
+                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                  <Plus size={16} className="mr-2" />
+                  Add Expense
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { category: 'Materials', amount: 'Rs. 250,000', items: 45 },
+                  { category: 'Equipment', amount: 'Rs. 180,000', items: 12 },
+                  { category: 'Labor', amount: 'Rs. 320,000', items: 28 },
+                  { category: 'Transportation', amount: 'Rs. 45,000', items: 15 },
+                  { category: 'Utilities', amount: 'Rs. 25,000', items: 8 },
+                  { category: 'Miscellaneous', amount: 'Rs. 30,000', items: 20 }
+                ].map((expense, index) => (
+                  <div key={index} className="border rounded-lg p-4">
+                    <h3 className="text-lg font-medium text-gray-900">{expense.category}</h3>
+                    <p className="text-2xl font-bold text-gray-900 mt-2">{expense.amount}</p>
+                    <p className="text-sm text-gray-500 mt-1">{expense.items} items</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-100">
+      {/* Modern Sidebar */}
+      <div className="w-64 bg-white shadow-xl">
+        <div className="px-6 py-6">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+              <span className="text-white text-xl font-bold">B</span>
+            </div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
+              BuildMart
+            </h1>
           </div>
         </div>
+
+        {/* Updated Navigation */}
         <nav className="mt-6 px-4">
           <div className="space-y-1">
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Dashboard</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Users</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Client's Requests</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Biddings</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Feedbacks</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Inventory</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Suppliers</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-blue-700 bg-blue-50 rounded-md transition duration-150">
-              <span className="truncate">Finance</span>
-            </a>
+            {navigationItems.map((item, index) => (
+              <a
+                key={index}
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActivePage(item.name);
+                }}
+                className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  item.name === activePage
+                    ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <span className="inline-flex items-center justify-center mr-3 text-gray-500">
+                  {item.icon}
+                </span>
+                <span className="truncate">{item.name}</span>
+                {item.name === activePage && (
+                  <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                    Active
+                  </span>
+                )}
+              </a>
+            ))}
           </div>
         </nav>
-        <div className="absolute bottom-0 w-64 border-t border-gray-200">
+
+        {/* Updated Logout Section */}
+        <div className="absolute bottom-0 w-64 border-t border-gray-100">
           <div className="px-6 py-4">
-            <a href="#" className="group flex items-center text-sm font-medium text-gray-700 hover:text-gray-900 transition duration-150">
-              <LogOut size={18} className="mr-3 text-gray-400 group-hover:text-gray-500" />
+            <button className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
+              <LogOut size={18} className="mr-2 text-gray-500" />
               <span>Log out</span>
-            </a>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Enhanced Header */}
         <header className="bg-white shadow-sm z-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex justify-between items-center">
-              <div className="relative w-64">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search size={18} className="text-gray-400" />
-                </div>
+              {/* Enhanced Search */}
+              <div className="relative w-96">
+                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                  placeholder="Search payments, providers, items..."
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200"
                 />
               </div>
-              <div className="flex items-center space-x-4">
-                <button className="text-gray-500 hover:text-gray-600 transition duration-150">
+
+              {/* User Profile Section */}
+              <div className="flex items-center space-x-6">
+                <button className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-all duration-200">
                   <Calendar size={20} />
                 </button>
-                <button className="text-gray-500 hover:text-gray-600 transition duration-150">
-                  <RefreshCw size={20} />
+                <button className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-all duration-200">
+                  <Activity size={20} />
                 </button>
+                
+                {/* Enhanced Profile Button */}
                 <div className="relative">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <img
-                        className="h-10 w-10 rounded-full object-cover ring-2 ring-white"
-                        src="https://via.placeholder.com/40"
-                        alt="User"
-                      />
+                  <button className="flex items-center space-x-4 p-2 rounded-lg hover:bg-gray-50 transition-all duration-200">
+                    <img
+                      className="h-10 w-10 rounded-lg object-cover ring-2 ring-gray-100"
+                      src="https://via.placeholder.com/40"
+                      alt="User"
+                    />
+                    <div className="flex flex-col items-start">
+                      <span className="text-sm font-semibold text-gray-700">Mr. S.S. Silva</span>
+                      <span className="text-xs text-gray-500">Administrator</span>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-900">Mr. S.S. Silva</span>
-                      <span className="text-xs text-gray-500">Admin</span>
-                    </div>
-                  </div>
+                    <ChevronDown size={16} className="text-gray-400" />
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </header>
 
+        {/* Main Content */}
         <main className="flex-1 overflow-auto bg-gray-50 p-8">
           <div className="max-w-7xl mx-auto">
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-gray-900">Finance</h1>
-              <p className="mt-1 text-sm text-gray-600">
-                {activeTab === 'service-providers' ? 'Manage payments to service providers' : 'Manage payments for inventory items'}
+            {/* Page Header */}
+            <div className="mb-6">
+              <h1 className="text-2xl font-semibold text-gray-900">{activePage}</h1>
+              <p className="mt-2 text-sm text-gray-500">
+                Manage your {activePage.toLowerCase()} and related activities
               </p>
             </div>
-
-            <div className="bg-white shadow rounded-lg overflow-hidden mb-8">
-              <div className="border-b border-gray-200">
-                <div className="flex">
-                  <button 
-                    className={`px-6 py-4 text-sm font-medium transition duration-150 border-b-2 ${activeTab === 'service-providers' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                    onClick={() => setActiveTab('service-providers')}
-                  >
-                    Service Providers
-                  </button>
-                  <button 
-                    className={`px-6 py-4 text-sm font-medium transition duration-150 border-b-2 ${activeTab === 'items' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                    onClick={() => setActiveTab('items')}
-                  >
-                    Items
-                  </button>
-                </div>
-              </div>
-
-              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex justify-between items-center">
-                  <div className="flex space-x-2">
-                    <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
-                      <Filter size={16} className="mr-2" />
-                      Filter
-                    </button>
-                    <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
-                      <Download size={16} className="mr-2" />
-                      Export
-                    </button>
-                  </div>
-                  <button className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
-                    <Plus size={16} className="mr-2" />
-                    New Payment
-                  </button>
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="overflow-hidden">
-                {activeTab === 'service-providers' 
-                  ? renderPaymentTable(serviceProviderPayments) 
-                  : renderPaymentTable(itemsPayments)
-                }
-              </div>
-
-              {/* Pagination */}
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                <div className="flex-1 flex justify-between sm:hidden">
-                  <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    Previous
-                  </a>
-                  <a href="#" className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    Next
-                  </a>
-                </div>
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">1</span> to <span className="font-medium">5</span> of <span className="font-medium">20</span> results
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <a href="#" className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        <span className="sr-only">Previous</span>
-                        <ChevronDown className="h-5 w-5 rotate-90" />
-                      </a>
-                      <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-blue-600 hover:bg-blue-50 bg-blue-50">
-                        1
-                      </a>
-                      <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        2
-                      </a>
-                      <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        3
-                      </a>
-                      <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                        ...
-                      </span>
-                      <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        8
-                      </a>
-                      <a href="#" className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                        <span className="sr-only">Next</span>
-                        <ChevronDown className="h-5 w-5 -rotate-90" />
-                      </a>
-                    </nav>
-                  </div>
-                </div>
-              </div>
-            </div>
+            
+            {/* Dynamic Page Content */}
+            {renderPageContent()}
           </div>
         </main>
       </div>
