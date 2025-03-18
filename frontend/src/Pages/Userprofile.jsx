@@ -303,6 +303,16 @@ const UserProfilePage = () => {
     navigate(`/job/${jobId}`); // Navigate to the ActiveJob page with the job ID
   };
 
+  const handleTabClick = (tab) => {
+    if (tab === 'ongoing') {
+      // Navigate to the ongoing works page
+      navigate('/ongoing-works');
+    } else {
+      // For other tabs, just update the active tab state
+      setActiveTab(tab);
+    }
+  };
+
   const ongoingWorks = [
     { id: '01', title: 'Kitchen Renovation', contractor: 'ABC Contractors', progress: '65%', startDate: '15 Jan 2025', dueDate: '15 Apr 2025' },
     { id: '02', title: 'Bathroom Plumbing', contractor: 'Best Plumbers Ltd', progress: '40%', startDate: '1 Mar 2025', dueDate: '15 Mar 2025' }
@@ -449,7 +459,7 @@ const UserProfilePage = () => {
                 {['requirements', 'ongoing', 'past', 'payments', 'transactions'].map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => handleTabClick(tab)}
                     className={`font-medium py-2 px-4 rounded-lg transition-all duration-300 ${
                       activeTab === tab
                         ? 'bg-blue-600 text-white'
