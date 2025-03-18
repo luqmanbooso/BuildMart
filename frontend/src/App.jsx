@@ -25,7 +25,7 @@ import BiddingHistoryPage from './components/BiddingHistory'
 import ContractorProfileSetup from './components/ContractorOnboarding'
 import ContractorViewDetails from './components/ContractorViewDetails'
 import BidUpdate from './components/BidUpdate'
-
+import AgreementForm from './Pages/AgreementForm' // Add this import
 
 function App() {
   const sampleData = {
@@ -93,10 +93,13 @@ function App() {
         <Route path="/activejobs" element={<ActiveJob />} />
         <Route path="/contractorStart" element={<ContractorProfileSetup />} />
           
-          <Route path='/contractor/:contractorId/bid/:bidId/project/:projectId' element= {<ContractorViewDetails/>} />
+        <Route path='/contractor/:contractorId/bid/:bidId/project/:projectId' element= {<ContractorViewDetails/>} />
 
-          <Route path="/bids/:bidId/update" element={<BidUpdate />} />
+        <Route path="/bids/:bidId/update" element={<BidUpdate />} />
         <Route path="/ongoingjobs" element={<OngoingJobs />} />
+        
+        {/* Add the new route for the agreement form */}
+        <Route path="/agreement/:jobId/:bidId" element={<AgreementForm />} />
       </Routes>
     </>
   )

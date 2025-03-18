@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import ContractorUserNav from './ContractorUserNav';
 
 const BiddingHistoryPage = () => {
   // Sample bidding history data
@@ -115,84 +116,8 @@ const BiddingHistoryPage = () => {
 
   return (
     <div className="bg-white min-h-screen">
-      {/* Header with navigation */}
-      <header className="bg-white shadow-md">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <img src="/api/placeholder/120/50" alt="BuildMart Logo" className="h-12" />
-            </div>
-            <nav className="hidden md:flex space-x-10">
-              <a href="#" className="text-gray-800">Home</a>
-              <a href="#" className="text-gray-800">Auction</a>
-              <a href="#" className="text-gray-800">About Us</a>
-              <a href="#" className="text-gray-800">Contact Us</a>
-            </nav>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <button 
-                  className="p-2 rounded-full bg-gray-100 text-gray-600 focus:outline-none"
-                  onClick={toggleNotifications}
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                  </svg>
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-                
-                {/* Notifications Dropdown */}
-                {showNotifications && (
-                  <motion.div 
-                    className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50"
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <div className="p-3 border-b border-gray-200">
-                      <h3 className="text-lg font-medium text-gray-800">Notifications</h3>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
-                          No notifications
-                        </div>
-                      ) : (
-                        notifications.map((notification) => (
-                          <div 
-                            key={notification.id}
-                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${!notification.read ? 'bg-blue-50' : ''}`}
-                            onClick={() => markAsRead(notification.id)}
-                          >
-                            <p className="text-sm text-gray-800">{notification.message}</p>
-                            <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <div className="p-2 text-center border-t border-gray-200">
-                      <button className="text-sm text-blue-600 hover:text-blue-800">
-                        Mark all as read
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-              <button className="p-2 rounded-full bg-gray-100">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-              </button>
-              <button className="bg-blue-900 text-white px-4 py-2 rounded">
-                Account
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Use ContractorUserNav component */}
+      <ContractorUserNav />
 
       {/* Main title banner */}
       <motion.div 

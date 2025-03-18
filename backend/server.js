@@ -6,6 +6,7 @@ const bidRoutes = require('./routes/bids');
 const authRoutes = require('./routes/auth');
 const protectedRoutes = require('./routes/protected');
 const qualifyRoutes = require('./routes/Qualify');
+const ongoingWorksRoutes = require('./routes/ongoingworks');
 const app = express();
 
 // Middleware
@@ -19,6 +20,10 @@ app.use('/qualify', qualifyRoutes);
 const jobRoutes = require('./routes/JobRoutes');
 app.use('/api/jobs', jobRoutes);
 app.use('/api/contractors', require('./routes/contractorprofile'));
+app.use('/api/email', require('./routes/email'));
+
+// Use routes
+app.use('/api/ongoingworks', ongoingWorksRoutes);
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)

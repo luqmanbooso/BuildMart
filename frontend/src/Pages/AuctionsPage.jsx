@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import ContractorUserNav from '../components/ContractorUserNav';
 
 // Update the AuctionCard component to use username
 const AuctionCard = ({ auction }) => {
@@ -80,6 +81,7 @@ const AuctionCard = ({ auction }) => {
   const displayStatus = determineStatus();
 
   return (
+    
     <motion.div 
       className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 hover:border-blue-200 transition-all duration-300"
       initial={{ opacity: 0, y: 20 }}
@@ -347,6 +349,9 @@ const AuctionsPage = () => {
   
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Add ContractorUserNav at the top */}
+      <ContractorUserNav />
+      
       {/* Hero Banner */}
       <motion.div 
         className="relative bg-gradient-to-r from-blue-800 to-indigo-900 overflow-hidden"

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import logo from '../assets/images/buildmart_logo1.png';
+import BidListingSection from '../components/BidListingSection';
 
 const ActiveJob = () => {
   const { jobId = "sample-project-id" } = useParams();
@@ -866,119 +867,40 @@ const handleDeleteJob = async () => {
                 
                 {/* Bids section */}
                 {job?.status === 'Active' && (
-                  <div className="mt-10">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b">
-                      Bids 
-                      <span className="ml-2 text-sm font-medium bg-gray-100 text-gray-700 py-1 px-2 rounded-full">
-                        {bids.length}
-                      </span>
-                    </h3>
-                    {bids.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead>
-                            <tr className="bg-gray-50">
-                              {renderSortableHeader('Contractor', 'contractor')}
-                              {renderSortableHeader('Bid Amount', 'price')}
-                              {renderSortableHeader('Timeline', 'timeline')}
-                              {renderSortableHeader('Date', 'date')}
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Status
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Action
-                              </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                
-                              </th>
-                              
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {getSortedBids().map((bid) => (
-                              <tr key={bid.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex items-center">
-                                    <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                      <span className="text-blue-800 font-medium">
-                                        {(bid.contractor?.name || 'Unknown').charAt(0)}
-                                      </span>
-                                    </div>
-                                    <div className="ml-4">
-                                      <div className="text-sm font-medium text-gray-900">
-                                        {bid.contractor?.name || 'Unknown'}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">LKR {parseFloat(bid.price).toLocaleString()}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-500">{bid.timeline} days</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-500">
-                                    {new Date(bid.createdAt).toLocaleDateString()}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                                    ${bid.status === 'accepted' 
-                                      ? 'bg-green-100 text-green-800' 
-                                      : bid.status === 'pending' 
-                                        ? 'bg-yellow-100 text-yellow-800' 
-                                        : 'bg-gray-100 text-gray-800'
-                                    }`}>{bid.status}</span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                  {bid.status === 'pending' && (
-                                    <button 
-                                      className={`inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                      onClick={() => handleAcceptBid(bid.id)}
-                                      disabled={loading}
-                                    >
-                                      Accept Bid
-                                    </button>
-                                   
-
-                                    
-                                  )}
-                                </td>
-                                <td>
-                                <button 
-  className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-blue-700 bg-white hover:bg-blue-50 focus:outline-none"
-  onClick={() => navigate(`/contractor/${bid.contractorId}/bid/${bid.id}/project/${jobId}`)}
->
-  <span className="w-4 h-4 mr-1">
-    <i className="fas fa-eye"></i> {/* Using Font Awesome "eye" icon */}
-  </span>
-  View Details
-</button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                        <div className="flex">
-                          <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          <div className="ml-3">
-                            <h3 className="text-sm font-medium text-blue-800">No bids yet</h3>
-                            <div className="mt-2 text-sm text-blue-700">
-                              <p>No bids have been placed yet for this job. Check back later or adjust your job details to attract more contractors.</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <BidListingSection 
+                    bids={bids} 
+                    jobId={jobId} 
+                    refreshBids={() => {
+                      // Function to refresh bids from the server
+                      const fetchBids = async () => {
+                        try {
+                          const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
+                          
+                          const formattedBids = bidsResponse.data.map(bid => ({
+                            ...bid,
+                            id: bid._id,
+                            formattedAmount: `LKR ${parseFloat(bid?.price).toLocaleString()}`,
+                            message: bid.qualifications || 'No additional details provided by the contractor.',
+                            contractor: {
+                              name: bid.contractorname || 'Unknown Contractor',
+                              profileImage: 'default-profile-image-url.jpg',
+                              completedProjects: bid.completedProjects || 0,
+                              rating: bid.rating || 0,
+                            },
+                            status: bid.status || 'pending',
+                            createdAt: new Date(bid.createdAt).toLocaleDateString(),
+                            timeline: bid.timeline,
+                          }));
+                          
+                          setBids(formattedBids);
+                        } catch (err) {
+                          console.error('Error fetching bids:', err);
+                        }
+                      };
+                      
+                      fetchBids();
+                    }}
+                  />
                 )}
               </>
             )}
