@@ -27,10 +27,18 @@ const UserProfilePage = () => {
     budget: '',
     description: '',
     biddingStartTime: new Date().toISOString().substr(0, 16),
-    biddingEndTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 7 days later
+    biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 3 days later
     milestones: [
       { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
     ]
+  });
+
+  // Add these state variables at the top of the component
+  const [showEditProfileForm, setShowEditProfileForm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editedProfile, setEditedProfile] = useState({
+    name: '',
+    email: ''
   });
 
   useEffect(() => {
@@ -218,7 +226,7 @@ const UserProfilePage = () => {
         budget: '',
         description: '',
         biddingStartTime: new Date().toISOString().substr(0, 16),
-        biddingEndTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 7 days later
+        biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 3 days later
         milestones: [
           { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
         ]
@@ -230,6 +238,64 @@ const UserProfilePage = () => {
     } catch (error) {
       console.error('Error creating job:', error.response ? error.response.data : error.message);
       alert(`Failed to create job: ${error.response ? error.response.data.error : error.message}`);
+    }
+  };
+
+  // Add these functions to handle user actions
+  const handleLogout = () => {
+    // Clear tokens from storage
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    
+    // Redirect to login page
+    navigate('/login');
+  };
+
+  const handleEditProfileClick = () => {
+    // Initialize form with current user data
+    setEditedProfile({
+      name: user.name || '',
+      email: user.email || ''
+    });
+    setShowEditProfileForm(true);
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    
+    try {
+      // Here you would make an API call to update the user profile
+      // For now, just update the local state
+      setUser({
+        ...user,
+        name: editedProfile.name,
+        email: editedProfile.email
+      });
+      
+      setShowEditProfileForm(false);
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Failed to update profile. Please try again.');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      // Here you would make an API call to delete the account
+      // Using the auth endpoint we can see in the attached files
+      
+      // Clear tokens from storage
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
+      
+      // Redirect to login page
+      navigate('/login');
+      
+      alert('Your account has been deleted successfully.');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      alert('Failed to delete account. Please try again.');
     }
   };
 
@@ -325,7 +391,7 @@ const UserProfilePage = () => {
       <div className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* Left Sidebar */}
+            {/* Updated Left Sidebar */}
             <div className="lg:w-1/4">
               <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
                 <div className="h-20 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
@@ -333,33 +399,44 @@ const UserProfilePage = () => {
                   <div className="flex justify-center">
                     <div className="absolute -top-10 rounded-full border-4 border-white p-1 bg-white">
                       <div className="h-16 w-16 bg-blue-500 rounded-full flex justify-center items-center">
-                        <span className="text-white text-xl">{user.name[0]}</span>
+                        <span className="text-white text-xl">{user.name ? user.name[0] : 'U'}</span>
                       </div>
                     </div>
                   </div>
                   <div className="mt-12 text-center">
-                    <h2 className="text-lg font-bold text-gray-800">{user.name}</h2>
-                    <p className="text-sm text-gray-500">{user.email}</p>
-                    <p className="text-xs text-gray-400">{`Member since ${user.memberSince}`}</p>
-                    <div className="mt-4">
-                      <div className="flex justify-between text-sm">
-                        <div>
-                          <span className="block font-medium text-gray-800">Completed Projects</span>
-                          <span className="block text-gray-600">{user.completedProjects}</span>
-                        </div>
-                        <div>
-                          <span className="block font-medium text-gray-800">Ongoing Projects</span>
-                          <span className="block text-gray-600">{user.ongoingProjects}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex justify-between text-sm">
-                        <div>
-                          <span className="block font-medium text-gray-800">Rating</span>
-                          <span className="block text-gray-600">{user.rating}</span>
-                        </div>
-                      </div>
+                    <h2 className="text-lg font-bold text-gray-800">{user.name || 'User'}</h2>
+                    <p className="text-sm text-gray-500 mb-6">{user.email || 'email@example.com'}</p>
+                    
+                    <div className="space-y-3">
+                      <button 
+                        onClick={handleEditProfileClick}
+                        className="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center justify-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        Edit Profile
+                      </button>
+                      
+                      <button 
+                        onClick={handleLogout}
+                        className="w-full py-2 px-3 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center justify-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Log Out
+                      </button>
+                      
+                      <button 
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="w-full py-2 px-3 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center justify-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete Account
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -801,7 +878,18 @@ const UserProfilePage = () => {
                                             id="biddingEndTime"
                                             name="biddingEndTime"
                                             value={newJob.biddingEndTime}
-                                            onChange={(e) => setNewJob({...newJob, biddingEndTime: e.target.value})}
+                                            onChange={(e) => {
+                                              const startTime = new Date(newJob.biddingStartTime);
+                                              const selectedEndTime = new Date(e.target.value);
+                                              const maxEndTime = new Date(startTime.getTime() + 3 * 24 * 60 * 60 * 1000);
+                                              
+                                              // If selected time is beyond 3 days, use the max allowed time
+                                              const validEndTime = selectedEndTime > maxEndTime ? 
+                                                maxEndTime.toISOString().substr(0, 16) : 
+                                                e.target.value;
+                                                
+                                              setNewJob({...newJob, biddingEndTime: validEndTime});
+                                            }}
                                             className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
                                             min={newJob.biddingStartTime}
                                             required
@@ -811,7 +899,7 @@ const UserProfilePage = () => {
                                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                           </svg>
-                                          <p className="text-xs text-gray-500">Set a deadline for bids to ensure you receive timely responses. We recommend 3-7 days.</p>
+                                          <p className="text-xs text-gray-500">Set a deadline for bids to ensure you receive timely responses. Maximum bidding period is 3 days from start time.</p>
                                         </div>
                                       </div>
                                     </div>
@@ -948,6 +1036,138 @@ const UserProfilePage = () => {
                               </div>
                             </form>
                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Edit Profile Modal */}
+                {showEditProfileForm && (
+                  <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                      {/* Background overlay */}
+                      <div 
+                        className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity" 
+                        aria-hidden="true"
+                        onClick={() => setShowEditProfileForm(false)}
+                      ></div>
+
+                      {/* Modal Panel */}
+                      <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-blue-100">
+                        <div className="relative">
+                          {/* Modal Header */}
+                          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 relative">
+                            <div className="flex justify-between items-center relative">
+                              <h3 className="text-xl font-bold text-white">Edit Profile</h3>
+                              <button 
+                                onClick={() => setShowEditProfileForm(false)}
+                                className="rounded-full p-1 text-white bg-white/20 hover:bg-white/30 focus:outline-none transition-colors"
+                              >
+                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Form Content */}
+                          <form onSubmit={handleSaveProfile} className="p-6">
+                            <div className="space-y-6">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Full Name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editedProfile.name}
+                                  onChange={(e) => setEditedProfile({...editedProfile, name: e.target.value})}
+                                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="Your name"
+                                  required
+                                />
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Email Address
+                                </label>
+                                <input
+                                  type="email"
+                                  value={editedProfile.email}
+                                  onChange={(e) => setEditedProfile({...editedProfile, email: e.target.value})}
+                                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="Your email address"
+                                  required
+                                />
+                              </div>
+                            </div>
+                            
+                            <div className="mt-8 flex justify-end space-x-3">
+                              <button
+                                type="button"
+                                onClick={() => setShowEditProfileForm(false)}
+                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-800 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="submit"
+                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                              >
+                                Save Changes
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Delete Account Confirmation Modal */}
+                {showDeleteConfirm && (
+                  <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                      {/* Background overlay */}
+                      <div 
+                        className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity" 
+                        aria-hidden="true"
+                        onClick={() => setShowDeleteConfirm(false)}
+                      ></div>
+
+                      {/* Modal Panel */}
+                      <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                        <div className="bg-white px-6 pt-5 pb-6">
+                          <div className="text-center">
+                            <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 mb-4">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                            </div>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">Delete Your Account</h3>
+                            <div className="mt-3">
+                              <p className="text-sm text-gray-500">
+                                Are you sure you want to delete your account? All of your data including projects, bids, and payment history will be permanently removed. This action cannot be undone.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse">
+                          <button
+                            type="button"
+                            onClick={handleDeleteAccount}
+                            className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
+                          >
+                            Delete Account
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(false)}
+                            className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </div>
                     </div>

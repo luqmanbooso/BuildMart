@@ -15,6 +15,15 @@ const EnhancedPaymentGateway = () => {
   const [showNotification, setShowNotification] = useState(false);
   const [notificationType, setNotificationType] = useState('');
   const [notificationMessage, setNotificationMessage] = useState('');
+  const [manuallySelectedCard, setManuallySelectedCard] = useState(null);
+
+  // Available card types
+  const cardTypes = [
+    { id: 'visa', name: 'Visa' },
+    { id: 'mastercard', name: 'Mastercard' },
+    { id: 'amex', name: 'American Express' },
+    { id: 'discover', name: 'Discover' }
+  ];
 
   // Format card number as user types (adds spaces every 4 digits)
   const formatCardNumber = (value) => {
@@ -45,21 +54,29 @@ const EnhancedPaymentGateway = () => {
     return cleanValue;
   };
 
-  // Detect card type based on number
+  // Detect card type based on number (only if user hasn't manually selected a card)
   useEffect(() => {
-    const cardNumberClean = cardNumber.replace(/\s+/g, '');
-    if (cardNumberClean.startsWith('4')) {
-      setActiveCard('visa');
-    } else if (/^5[1-5]/.test(cardNumberClean)) {
-      setActiveCard('mastercard');
-    } else if (/^3[47]/.test(cardNumberClean)) {
-      setActiveCard('amex');
-    } else if (/^6(?:011|5)/.test(cardNumberClean)) {
-      setActiveCard('discover');
-    } else {
-      setActiveCard('default');
+    if (!manuallySelectedCard) {
+      const cardNumberClean = cardNumber.replace(/\s+/g, '');
+      if (cardNumberClean.startsWith('4')) {
+        setActiveCard('visa');
+      } else if (/^5[1-5]/.test(cardNumberClean)) {
+        setActiveCard('mastercard');
+      } else if (/^3[47]/.test(cardNumberClean)) {
+        setActiveCard('amex');
+      } else if (/^6(?:011|5)/.test(cardNumberClean)) {
+        setActiveCard('discover');
+      } else {
+        setActiveCard('default');
+      }
     }
-  }, [cardNumber]);
+  }, [cardNumber, manuallySelectedCard]);
+
+  // Handle card selection
+  const handleCardSelection = (cardType) => {
+    setActiveCard(cardType);
+    setManuallySelectedCard(cardType);
+  };
 
   // Validate inputs
   const validateInputs = () => {
@@ -134,6 +151,8 @@ const EnhancedPaymentGateway = () => {
     setName('');
     setIsComplete(false);
     setErrors({});
+    setManuallySelectedCard(null);
+    setActiveCard('visa');
   };
 
   // Card logo components
@@ -183,7 +202,7 @@ const EnhancedPaymentGateway = () => {
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful</h2>
             <p className="text-gray-600 mb-6 text-center">
-              Your payment of ${parseFloat(amount).toFixed(2)} has been processed successfully!
+              Your payment of LKR {parseFloat(amount).toFixed(2)} has been processed successfully!
             </p>
             <button 
               onClick={resetForm}
@@ -261,6 +280,29 @@ const EnhancedPaymentGateway = () => {
             {errors.name && <p className="mt-1 text-red-500 text-xs">{errors.name}</p>}
           </div>
 
+          {/* Card Type Selection */}
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-medium mb-2">
+              Card Type<span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {cardTypes.map((card) => (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => handleCardSelection(card.id)}
+                  className={`p-2 rounded-md border flex items-center justify-center ${
+                    activeCard === card.id 
+                      ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' 
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <CardLogo type={card.id} />
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Card Number */}
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-medium mb-2">
@@ -334,11 +376,11 @@ const EnhancedPaymentGateway = () => {
             </label>
             <div className={`relative rounded-md shadow-sm`}>
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500">$</span>
+                <span className="text-gray-500">LKR</span>
               </div>
               <input 
                 type="text" 
-                className={`w-full p-3 border ${errors.amount ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-8 transition-all duration-200`} 
+                className={`w-full p-3 border ${errors.amount ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 transition-all duration-200`} 
                 value={amount} 
                 onChange={(e) => {
                   const value = e.target.value.replace(/[^\d.]/g, '');
@@ -373,7 +415,7 @@ const EnhancedPaymentGateway = () => {
                 Processing...
               </>
             ) : (
-              <>Pay ${parseFloat(amount || 0).toFixed(2)}</>
+              <>Pay LKR {parseFloat(amount || 0).toFixed(2)}</>
             )}
           </button>
         </form>
