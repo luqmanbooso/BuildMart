@@ -8,7 +8,7 @@ const ShippingTracking = ({ shipmentId, shipmentStatus, deliveryProgress, estima
         Shipment Tracking
       </h2>
       <div className="space-y-6">
-        {/* Shipment ID */}
+        {/*Shipment ID*/}
         <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm">
           <span className="text-gray-600 flex items-center">
             <FaTruck className="mr-2 text-blue-500" /> Shipment ID:
