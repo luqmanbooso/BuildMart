@@ -23,8 +23,6 @@ import ActiveJob from './Pages/ActiveJob'
 import OngoingJobs from './Pages/OngoingWorks'
 import BiddingHistoryPage from './components/BiddingHistory'
 import ContractorProfileSetup from './components/ContractorOnboarding'
-import ContractorViewDetails from './components/ContractorViewDetails'
-import BidUpdate from './components/BidUpdate'
 
 
 function App() {
@@ -92,6 +90,8 @@ function App() {
         <Route path="/project/:jobId" element={<ProjectDetails />} />
         <Route path="/activejobs" element={<ActiveJob />} />
         <Route path="/contractorStart" element={<ContractorProfileSetup />} />
+        <Route path="/viewdetails" element={<ViewDetails />} />
+        <Route path="/cart" element={<Cart />} />
 
         <Route path="/ongoing-works" element={<OngoingJobs />} />
       </Routes>
