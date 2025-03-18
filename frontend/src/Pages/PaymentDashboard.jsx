@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { ChevronDown, Search, LogOut, Filter, Download, RefreshCw, Plus, MoreHorizontal, Calendar } from 'lucide-react';
+import { 
+  ChevronDown, Search, LogOut, Filter, Download, 
+  Plus, MoreHorizontal, Calendar, CreditCard, 
+  DollarSign, TrendingUp, Users, Box, Activity 
+} from 'lucide-react';
 
 function PaymentDashboard() {
   const [activeTab, setActiveTab] = useState('service-providers');
@@ -160,108 +164,194 @@ function PaymentDashboard() {
     </div>
   );
 
+  // Add new stats data
+  const stats = [
+    {
+      title: "Total Payments",
+      value: "Rs. 124,500.00",
+      change: "+12.5%",
+      icon: <DollarSign className="h-6 w-6 text-blue-600" />,
+      trend: "up"
+    },
+    {
+      title: "Active Providers",
+      value: "45",
+      change: "+5.6%",
+      icon: <Users className="h-6 w-6 text-green-600" />,
+      trend: "up"
+    },
+    {
+      title: "Pending Payments",
+      value: "Rs. 23,500.00",
+      change: "-2.3%",
+      icon: <CreditCard className="h-6 w-6 text-yellow-600" />,
+      trend: "down"
+    },
+    {
+      title: "Items Purchased",
+      value: "289",
+      change: "+18.2%",
+      icon: <Box className="h-6 w-6 text-purple-600" />,
+      trend: "up"
+    }
+  ];
+
+  // Add payment method distribution data
+  const paymentMethods = [
+    { method: 'Visa', percentage: 45 },
+    { method: 'Mastercard', percentage: 35 },
+    { method: 'Bank Transfer', percentage: 20 }
+  ];
+
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg">
-        <div className="px-6 py-6 border-b border-gray-200">
-          <div className="flex items-center">
-            <div className="h-8 w-8 bg-blue-600 rounded-md flex items-center justify-center text-white font-bold">
-              B
+    <div className="flex h-screen bg-gray-100">
+      {/* Modern Sidebar */}
+      <div className="w-64 bg-white shadow-xl">
+        <div className="px-6 py-6">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+              <span className="text-white text-xl font-bold">B</span>
             </div>
-            <h1 className="ml-2 text-xl font-bold text-gray-900">BuildMart</h1>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
+              BuildMart
+            </h1>
           </div>
         </div>
+
+        {/* Updated Navigation */}
         <nav className="mt-6 px-4">
           <div className="space-y-1">
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Dashboard</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Users</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Client's Requests</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Biddings</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Feedbacks</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Inventory</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition duration-150">
-              <span className="truncate">Suppliers</span>
-            </a>
-            <a href="#" className="group flex items-center px-4 py-3 text-sm font-medium text-blue-700 bg-blue-50 rounded-md transition duration-150">
-              <span className="truncate">Finance</span>
-            </a>
+            {['Dashboard', 'Users', "Client's Requests", 'Biddings', 'Feedbacks', 'Inventory', 'Suppliers', 'Finance'].map((item, index) => (
+              <a
+                key={index}
+                href="#"
+                className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  item === 'Finance'
+                    ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <span className="truncate">{item}</span>
+                {item === 'Finance' && (
+                  <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                    Active
+                  </span>
+                )}
+              </a>
+            ))}
           </div>
         </nav>
-        <div className="absolute bottom-0 w-64 border-t border-gray-200">
+
+        {/* Updated Logout Section */}
+        <div className="absolute bottom-0 w-64 border-t border-gray-100">
           <div className="px-6 py-4">
-            <a href="#" className="group flex items-center text-sm font-medium text-gray-700 hover:text-gray-900 transition duration-150">
-              <LogOut size={18} className="mr-3 text-gray-400 group-hover:text-gray-500" />
+            <button className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
+              <LogOut size={18} className="mr-2 text-gray-500" />
               <span>Log out</span>
-            </a>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Enhanced Header */}
         <header className="bg-white shadow-sm z-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex justify-between items-center">
-              <div className="relative w-64">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search size={18} className="text-gray-400" />
-                </div>
+              {/* Enhanced Search */}
+              <div className="relative w-96">
+                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                  placeholder="Search payments, providers, items..."
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200"
                 />
               </div>
-              <div className="flex items-center space-x-4">
-                <button className="text-gray-500 hover:text-gray-600 transition duration-150">
+
+              {/* User Profile Section */}
+              <div className="flex items-center space-x-6">
+                <button className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-all duration-200">
                   <Calendar size={20} />
                 </button>
-                <button className="text-gray-500 hover:text-gray-600 transition duration-150">
-                  <RefreshCw size={20} />
+                <button className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-all duration-200">
+                  <Activity size={20} />
                 </button>
+                
+                {/* Enhanced Profile Button */}
                 <div className="relative">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <img
-                        className="h-10 w-10 rounded-full object-cover ring-2 ring-white"
-                        src="https://via.placeholder.com/40"
-                        alt="User"
-                      />
+                  <button className="flex items-center space-x-4 p-2 rounded-lg hover:bg-gray-50 transition-all duration-200">
+                    <img
+                      className="h-10 w-10 rounded-lg object-cover ring-2 ring-gray-100"
+                      src="https://via.placeholder.com/40"
+                      alt="User"
+                    />
+                    <div className="flex flex-col items-start">
+                      <span className="text-sm font-semibold text-gray-700">Mr. S.S. Silva</span>
+                      <span className="text-xs text-gray-500">Administrator</span>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-900">Mr. S.S. Silva</span>
-                      <span className="text-xs text-gray-500">Admin</span>
-                    </div>
-                  </div>
+                    <ChevronDown size={16} className="text-gray-400" />
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </header>
 
+        {/* Main Content */}
         <main className="flex-1 overflow-auto bg-gray-50 p-8">
           <div className="max-w-7xl mx-auto">
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-gray-900">Finance</h1>
-              <p className="mt-1 text-sm text-gray-600">
-                {activeTab === 'service-providers' ? 'Manage payments to service providers' : 'Manage payments for inventory items'}
-              </p>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {stats.map((stat, index) => (
+                <div key={index} className="bg-white rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">{stat.title}</p>
+                      <h3 className="text-xl font-bold text-gray-900 mt-2">{stat.value}</h3>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg">{stat.icon}</div>
+                  </div>
+                  <div className="mt-4 flex items-center">
+                    <span className={`text-sm font-medium ${
+                      stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {stat.change}
+                    </span>
+                    <TrendingUp 
+                      size={16} 
+                      className={`ml-2 ${
+                        stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                      } ${stat.trend === 'down' ? 'transform rotate-180' : ''}`}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
 
-            <div className="bg-white shadow rounded-lg overflow-hidden mb-8">
+            {/* Payment Methods Distribution */}
+            <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
+              <div className="flex items-center space-x-4">
+                {paymentMethods.map((method, index) => (
+                  <div key={index} className="flex-1">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-500">{method.method}</span>
+                      <span className="text-sm font-semibold text-gray-900">{method.percentage}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${method.percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Existing Table Section with updated styling */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="border-b border-gray-200">
                 <div className="flex">
                   <button 
