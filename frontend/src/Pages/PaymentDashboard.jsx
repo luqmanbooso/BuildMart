@@ -267,7 +267,7 @@ function PaymentDashboard() {
             </div>
           </div>
         );
-
+  
       case 'Service Providers':
         return (
           <div className="space-y-6">
@@ -283,7 +283,7 @@ function PaymentDashboard() {
             </div>
           </div>
         );
-
+  
       case 'Inventory Sales':
         return (
           <div className="space-y-6">
@@ -299,7 +299,7 @@ function PaymentDashboard() {
             </div>
           </div>
         );
-
+  
       case 'Wages':
         return (
           <div className="space-y-6">
@@ -344,7 +344,7 @@ function PaymentDashboard() {
             </div>
           </div>
         );
-
+  
       case 'Incomes':
         return (
           <div className="space-y-6">
@@ -372,7 +372,7 @@ function PaymentDashboard() {
             </div>
           </div>
         );
-
+  
       case 'Expenses':
         return (
           <div className="space-y-6">
@@ -403,7 +403,7 @@ function PaymentDashboard() {
             </div>
           </div>
         );
-
+  
       default:
         return null;
     }
@@ -512,18 +512,31 @@ function PaymentDashboard() {
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto bg-gray-50 p-8">
+        <main className="flex-1 overflow-auto bg-gradient-to-br from-gray-50 to-gray-100 p-8">
           <div className="max-w-7xl mx-auto">
-            {/* Page Header */}
-            <div className="mb-6">
-              <h1 className="text-2xl font-semibold text-gray-900">{activePage}</h1>
-              <p className="mt-2 text-sm text-gray-500">
-                Manage your {activePage.toLowerCase()} and related activities
+            {/* Enhanced Page Header with animation */}
+            <div className="mb-8 animate-fade-in-down">
+              <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">
+                {activePage}
+              </h1>
+              <p className="mt-2 text-sm text-gray-600 leading-relaxed max-w-2xl">
+                Manage your {activePage.toLowerCase()} and related activities with our 
+                comprehensive dashboard tools and analytics
               </p>
+              <div className="mt-4 flex space-x-4">
+                <div className="h-1 w-20 bg-gradient-to-r from-blue-600 to-blue-400 rounded-full"></div>
+                <div className="h-1 w-10 bg-gray-200 rounded-full"></div>
+              </div>
             </div>
             
-            {/* Dynamic Page Content */}
-            {renderPageContent()}
+            {/* Dynamic Page Content with container styling */}
+            <div className="transform transition-all duration-300 ease-in-out">
+              <div className="backdrop-blur-sm bg-white/80 rounded-2xl shadow-xl border border-gray-100/50">
+                <div className="p-6">
+                  {renderPageContent()}
+                </div>
+              </div>
+            </div>
           </div>
         </main>
       </div>
