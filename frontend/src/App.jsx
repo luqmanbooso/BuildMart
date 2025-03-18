@@ -91,7 +91,7 @@ function App() {
         <Route path="/activejobs" element={<ActiveJob />} />
         <Route path="/contractorStart" element={<ContractorProfileSetup />} />
 
-        <Route path="/ongoingjobs" element={<OngoingJobs />} />
+        <Route path="/ongoing-works" element={<OngoingJobs />} />
       </Routes>
     </>
   )
