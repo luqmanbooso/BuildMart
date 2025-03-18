@@ -20,7 +20,7 @@ import PaymentDashboard from './Pages/PaymentDashboard'
 import ProjectsPage from './Pages/MyProjects'
 import UserProfile from './Pages/UserProfile'
 import ActiveJob from './Pages/ActiveJob'
-import OngoingJobs from './Pages/Ongoingworks'
+import OngoingJobs from './Pages/OngoingWorks'
 import BiddingHistoryPage from './components/BiddingHistory'
 import ContractorProfileSetup from './components/ContractorOnboarding'
 import ContractorViewDetails from './components/ContractorViewDetails'
@@ -93,7 +93,7 @@ function App() {
         <Route path="/activejobs" element={<ActiveJob />} />
         <Route path="/contractorStart" element={<ContractorProfileSetup />} />
 
-        <Route path="/ongoingjobs" element={<OngoingJobs />} />
+        <Route path="/ongoing-works" element={<OngoingJobs />} />
       </Routes>
     </>
   )
