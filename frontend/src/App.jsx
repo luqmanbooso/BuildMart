@@ -23,6 +23,8 @@ import ActiveJob from './Pages/ActiveJob'
 import OngoingJobs from './Pages/OngoingWorks'
 import BiddingHistoryPage from './components/BiddingHistory'
 import ContractorProfileSetup from './components/ContractorOnboarding'
+import ViewDetails from './Pages/ViewDetails'
+import Cart from './Pages/Cart'
 
 
 function App() {
