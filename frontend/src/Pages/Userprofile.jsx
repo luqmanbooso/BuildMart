@@ -313,10 +313,6 @@ const UserProfilePage = () => {
     }
   };
 
-  const ongoingWorks = [
-    { id: '01', title: 'Kitchen Renovation', contractor: 'ABC Contractors', progress: '65%', startDate: '15 Jan 2025', dueDate: '15 Apr 2025' },
-    { id: '02', title: 'Bathroom Plumbing', contractor: 'Best Plumbers Ltd', progress: '40%', startDate: '1 Mar 2025', dueDate: '15 Mar 2025' }
-  ];
 
   const pastWorks = [
     { id: '01', title: 'Living Room Painting', contractor: 'Color Masters', completionDate: '10 Jan 2025', rating: 4.5 },

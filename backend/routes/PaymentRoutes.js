@@ -1,7 +1,9 @@
+// paymentController.js
 const express = require('express');
 const router = express.Router();
-const Payment = require('../models/Payment');
+const Payment = require('../models/Payment');  // Import your payment model
 
+// Process Payment Route
 router.post('/process-payment', async (req, res) => {
   try {
     const {
@@ -21,15 +23,22 @@ router.post('/process-payment', async (req, res) => {
     }
 
     // Validate card number format (12 to 19 digits)
-
+    const cardNumberPattern = /^[0-9]{12,19}$/;
+    if (!cardNumberPattern.test(cardNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid card number format'
+      });
+    }
 
     // Validate expiry date (MM/YY) and check if it's expired
     const [month, year] = expiry.split('/').map(num => parseInt(num, 10));
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear() % 100;
     const currentMonth = currentDate.getMonth() + 1;
+    const expiryYear = 2000 + year; // convert to full year (e.g., 2023 from 23)
 
-    if (!month || !year || month < 1 || month > 12 || year < currentYear || (year === currentYear && month < currentMonth)) {
+    if (!month || !year || month < 1 || month > 12 || expiryYear < currentDate.getFullYear() || (expiryYear === currentDate.getFullYear() && month < currentMonth)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid or expired card date'
@@ -83,6 +92,21 @@ router.post('/process-payment', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Payment processing failed',
+      error: error.message
+    });
+  }
+});
+
+// Fetch All Payments Route
+router.get('/', async (req, res) => {
+  try {
+    const payments = await Payment.find().sort({ createdAt: -1 });
+    res.status(200).json(payments);
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch payments',
       error: error.message
     });
   }
