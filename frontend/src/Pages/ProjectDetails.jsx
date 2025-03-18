@@ -2,16 +2,27 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom"; // Add useParams
 import axios from "axios";
 import { toast } from "react-toastify";
-import { FaHammer, FaUserCircle, FaClock, FaMoneyBillWave, FaTag, FaBell, FaTools, FaSearch } from "react-icons/fa";
+import { FaHammer, FaUserCircle, FaClock, FaMoneyBillWave, FaTag, FaBell, FaTools, FaSearch, FaEdit } from "react-icons/fa";
+// Import the BidUpdate component
+import BidUpdate from "../components/BidUpdate";
+// Import jwtDecode for token handling
+import { jwtDecode } from "jwt-decode";
 
 const ProjectDetails = () => {
   const { jobId } = useParams(); // Get jobId from URL params
   const navigate = useNavigate();
   
+  // Add state for bid update modal
+  const [showBidUpdateModal, setShowBidUpdateModal] = useState(false);
+  
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState(null);
   const [bids, setBids] = useState([]);
   const [bidAmount, setBidAmount] = useState("");
+  // Add state for contractor's existing bid
+  const [contractorBid, setContractorBid] = useState(null);
+  // Add state for user info from token
+  const [userInfo, setUserInfo] = useState(null);
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
     hours: 0,
@@ -21,12 +32,30 @@ const ProjectDetails = () => {
     auctionStarted: false
   });
 
-  // Fetch job details
+  // Get user information from token
+  useEffect(() => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        setUserInfo({
+          userId: decoded.userId,
+          username: decoded.username
+        });
+      } catch (error) {
+        console.error("Error decoding token:", error);
+        toast.error("Authentication error. Please log in again.");
+      }
+    }
+  }, []);
+
+  // Fetch job details and contractor's bid if they exist
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const contractorId = userInfo?.userId;
         
         // Fetch job data
         const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
@@ -75,8 +104,12 @@ const ProjectDetails = () => {
             updateTimer(new Date(jobData.biddingStartTime), 'start');
           }
           
-          // Fetch bids for this job
-          fetchBids(jobId);
+          // Fetch bids for this job and check for contractor's bid
+          if (contractorId) {
+            await fetchBids(jobId, contractorId);
+          } else {
+            await fetchBids(jobId);
+          }
         }
       } catch (error) {
         console.error("Error fetching job details:", error);
@@ -89,7 +122,7 @@ const ProjectDetails = () => {
     if (jobId) {
       fetchJobDetails();
     }
-  }, [jobId]);
+  }, [jobId, userInfo]);
 
   // Function to update timer
   const updateTimer = (targetDate, timerType) => {
@@ -155,8 +188,8 @@ const ProjectDetails = () => {
     return () => clearInterval(interval);
   };
 
-  // Fetch bids for the job
-  const fetchBids = async (jobId) => {
+  // Updated fetchBids function to also check for contractor's existing bid
+  const fetchBids = async (jobId, contractorId = null) => {
     try {
       const response = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
       
@@ -175,6 +208,19 @@ const ProjectDetails = () => {
       }));
       
       setBids(formattedBids);
+      
+      // If contractorId is provided, check if they have a bid
+      if (contractorId) {
+        // Find if contractor has a bid
+        const existingBid = response.data.find(bid => bid.contractorId === contractorId);
+        if (existingBid) {
+          // Ensure updateCount exists, default to 0 if not present
+          if (existingBid.updateCount === undefined) {
+            existingBid.updateCount = 0;
+          }
+          setContractorBid(existingBid);
+        }
+      }
     } catch (error) {
       console.error("Error fetching bids:", error);
     }
@@ -189,8 +235,38 @@ const ProjectDetails = () => {
     return `${firstChar}${middleStars}${lastChar}`;
   };
 
+  // Updated handle bid button click with better authentication
   const handleToBid = () => {
-    navigate(`/bid-form/${jobId}`);
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    if (!token || !userInfo?.userId) {
+      toast.error("You must be logged in to place a bid");
+      navigate('/login');
+      return;
+    }
+    
+    if (contractorBid) {
+      // If contractor already has a bid (even with updateCount=0), show the update modal
+      setShowBidUpdateModal(true);
+    } else {
+      // Only navigate to new bid form if they don't have any existing bid
+      navigate(`/bid-form/${jobId}`);
+    }
+  };
+  
+  // Handle successful bid update
+  const handleBidUpdateSuccess = (updatedBid, updatesRemaining) => {
+    // Update the contractor's bid in state
+    setContractorBid(updatedBid);
+    
+    // Refresh the bids display
+    fetchBids(jobId, userInfo?.userId);
+    
+    // Close the modal
+    setShowBidUpdateModal(false);
+    
+    // Show success message
+    toast.success(`Bid updated successfully! You have ${updatesRemaining} updates remaining.`);
   };
 
   // Show loading state
@@ -269,7 +345,7 @@ const ProjectDetails = () => {
               </li>
               <li className="flex items-center">
                 <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a 1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a 1 1 0 010 1.414l-4 4a 1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
                 <span className="ml-1 text-blue-700 font-medium">{job?.title}</span>
               </li>
@@ -483,21 +559,51 @@ const ProjectDetails = () => {
                     
                     {/* Action Button */}
                     <div className="mb-6">
-                      <button 
-                        onClick={handleToBid}
-                        className={`w-full py-3 px-6 rounded-lg shadow-md font-medium transition-all duration-300 flex items-center justify-center ${
-                          timeLeft.timeUp 
-                            ? "bg-gray-300 text-gray-600 cursor-not-allowed" 
-                            : !timeLeft.auctionStarted
-                            ? "bg-gray-400 text-white cursor-not-allowed"
-                            : "bg-gradient-to-r from-blue-600 to-blue-800 text-white hover:from-blue-700 hover:to-blue-900 transform hover:-translate-y-1"
-                        }`}
-                        disabled={timeLeft.timeUp || !timeLeft.auctionStarted}
-                      >
-                        {timeLeft.timeUp ? "Auction Ended" : 
-                         !timeLeft.auctionStarted ? "Auction Not Started Yet" :
-                         "Win This Project - Place Your Bid"}
-                      </button>
+                      {contractorBid ? (
+                        <div>
+                          <div className="mb-2 bg-green-100 text-green-800 p-2 rounded-lg">
+                            <div className="flex items-center">
+                              <FaEdit className="mr-2" />
+                              <span className="font-medium">You've already bid on this project</span>
+                            </div>
+                            <p className="text-sm mt-1">
+                              {contractorBid.updateCount >= 3 
+                                ? "You've used all your bid updates" 
+                                : `Updates remaining: ${3 - contractorBid.updateCount}`}
+                            </p>
+                          </div>
+                          <button 
+                            onClick={handleToBid}
+                            className={`w-full py-3 px-6 rounded-lg shadow-md font-medium transition-all duration-300 flex items-center justify-center ${
+                              timeLeft.timeUp || contractorBid.updateCount >= 3 || !timeLeft.auctionStarted
+                                ? "bg-gray-300 text-gray-600 cursor-not-allowed" 
+                                : "bg-gradient-to-r from-green-600 to-green-800 text-white hover:from-green-700 hover:to-green-900 transform hover:-translate-y-1"
+                            }`}
+                            disabled={timeLeft.timeUp || contractorBid.updateCount >= 3 || !timeLeft.auctionStarted}
+                          >
+                            {timeLeft.timeUp ? "Auction Ended" : 
+                             !timeLeft.auctionStarted ? "Auction Not Started Yet" :
+                             contractorBid.updateCount >= 3 ? "Update Limit Reached" : 
+                             "Update Your Bid"}
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={handleToBid}
+                          className={`w-full py-3 px-6 rounded-lg shadow-md font-medium transition-all duration-300 flex items-center justify-center ${
+                            timeLeft.timeUp 
+                              ? "bg-gray-300 text-gray-600 cursor-not-allowed" 
+                              : !timeLeft.auctionStarted
+                              ? "bg-gray-400 text-white cursor-not-allowed"
+                              : "bg-gradient-to-r from-blue-600 to-blue-800 text-white hover:from-blue-700 hover:to-blue-900 transform hover:-translate-y-1"
+                          }`}
+                          disabled={timeLeft.timeUp || !timeLeft.auctionStarted}
+                        >
+                          {timeLeft.timeUp ? "Auction Ended" : 
+                           !timeLeft.auctionStarted ? "Auction Not Started Yet" :
+                           "Win This Project - Place Your Bid"}
+                        </button>
+                      )}
                     </div>
                     
                     {/* Project Stats */}
@@ -663,6 +769,15 @@ const ProjectDetails = () => {
           </div>
         </div>
       </footer>
+      
+      {/* Add BidUpdate modal */}
+      {showBidUpdateModal && contractorBid && (
+        <BidUpdate 
+          bid={contractorBid}
+          onClose={() => setShowBidUpdateModal(false)}
+          onSuccess={handleBidUpdateSuccess}
+        />
+      )}
     </div>
   );
 };

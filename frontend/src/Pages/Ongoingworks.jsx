@@ -1,225 +1,189 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import logo from '../assets/images/buildmart_logo1.png';
 
 function Ongoingworks() {
-  // Sample data for ongoing works (in a real app, this would come from an API)
   const [ongoingWorks, setOngoingWorks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeWorkId, setActiveWorkId] = useState(null);
+  const location = useLocation();
+  
+  // Get userId from location state or from localStorage as fallback
+  const userId = location.state?.userId || localStorage.getItem('userId');
 
-  // Fetch ongoing works data
+  // Fetch ongoing works data from backend
   useEffect(() => {
-    // Simulate API fetch with timeout
-    const timer = setTimeout(() => {
-      const sampleOngoingWorks = [
-        {
-          id: "work1",
-          title: "Renovate Kitchen with Modern Design",
-          category: "Renovation",
-          contractor: "Premium Renovations Ltd",
-          contractorId: "contractor1",
-          contractorPhone: "+94771234567",
-          contractorEmail: "contact@premiumrenovations.lk",
-          contractorImage: "https://randomuser.me/api/portraits/men/32.jpg",
-          location: "Colombo 5, Sri Lanka",
-          startDate: "01-Mar-2025",
-          dueDate: "15-Apr-2025",
-          progress: 35,
-          description: "Complete kitchen renovation including new countertops, cabinets, flooring, and appliances. The space is approximately 15x12 feet.",
-          milestones: [
-            {
-              id: "ms1",
-              title: "Initial Payment",
-              description: "Payment upon signing contract",
-              amount: "100,000",
-              status: "completed",
-              completedDate: "01-Mar-2025"
-            },
-            {
-              id: "ms2",
-              title: "Demolition Complete",
-              description: "Remove existing cabinets and countertops",
-              amount: "75,000",
-              status: "in_progress",
-              completedDate: null
-            },
-            {
-              id: "ms3",
-              title: "Cabinet Installation",
-              description: "Install new custom cabinets",
-              amount: "100,000",
-              status: "pending",
-              completedDate: null
-            },
-            {
-              id: "ms4",
-              title: "Final Payment",
-              description: "Project completion and inspection",
-              amount: "75,000",
-              status: "pending",
-              completedDate: null
-            }
-          ]
-        },
-        {
-          id: "work2",
-          title: "Bathroom Plumbing Repair",
-          category: "Plumbing",
-          contractor: "FixIt Plumbing Services",
-          contractorId: "contractor2",
-          contractorPhone: "+94777654321",
-          contractorEmail: "service@fixitplumbing.lk",
-          contractorImage: "https://randomuser.me/api/portraits/men/45.jpg",
-          location: "Kandy, Sri Lanka",
-          startDate: "05-Mar-2025",
-          dueDate: "20-Mar-2025",
-          progress: 60,
-          description: "Fix leaking pipes, replace toilet flush mechanism, and install new shower fixtures in the master bathroom.",
-          milestones: [
-            {
-              id: "ms5",
-              title: "Initial Assessment",
-              description: "Inspect and diagnose issues",
-              amount: "5,000",
-              status: "completed",
-              completedDate: "05-Mar-2025"
-            },
-            {
-              id: "ms6",
-              title: "Parts Procurement",
-              description: "Purchase necessary replacement parts",
-              amount: "12,000",
-              status: "completed",
-              completedDate: "08-Mar-2025"
-            },
-            {
-              id: "ms7",
-              title: "Main Repair Work",
-              description: "Complete all plumbing repairs",
-              amount: "18,000",
-              status: "ready_for_payment",
-              completedDate: null
-            }
-          ]
-        },
-        {
-          id: "work3",
-          title: "Home Office Wiring and Setup",
-          category: "Electrical",
-          contractor: "PowerTech Electrical",
-          contractorId: "contractor3",
-          contractorPhone: "+94762223333",
-          contractorEmail: "info@powertech.lk",
-          contractorImage: "https://randomuser.me/api/portraits/women/28.jpg",
-          location: "Galle, Sri Lanka",
-          startDate: "10-Mar-2025",
-          dueDate: "25-Mar-2025",
-          progress: 15,
-          description: "Install additional power outlets, internet cabling, and lighting for a new home office setup.",
-          milestones: [
-            {
-              id: "ms8",
-              title: "Site Assessment",
-              description: "Evaluate requirements and plan installation",
-              amount: "8,000",
-              status: "completed",
-              completedDate: "10-Mar-2025"
-            },
-            {
-              id: "ms9",
-              title: "Cabling Installation",
-              description: "Run new electrical and network cables",
-              amount: "15,000",
-              status: "in_progress",
-              completedDate: null
-            },
-            {
-              id: "ms10",
-              title: "Outlets and Fixtures",
-              description: "Install outlets, switches, and light fixtures",
-              amount: "12,000",
-              status: "pending",
-              completedDate: null
-            }
-          ]
+    const fetchOngoingWorks = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Make API call to fetch ongoing projects for the user
+        const response = await axios.get(`/api/jobs`, {
+          params: { 
+            userid: userId,
+            status: 'in_progress' // Filter for ongoing works only
+          }
+        });
+        
+        if (response.data && response.data.length > 0) {
+          // Transform API data to match our component's expected structure
+          const formattedWorks = response.data.map(job => ({
+            id: job._id,
+            title: job.title,
+            category: job.category,
+            contractor: job.assignedTo?.name || 'Unassigned',
+            contractorId: job.assignedTo?._id || '',
+            contractorPhone: job.assignedTo?.phone || '+94XXXXXXXXX',
+            contractorEmail: job.assignedTo?.email || 'contact@example.com',
+            contractorImage: job.assignedTo?.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg',
+            location: job.area || 'Not specified',
+            startDate: new Date(job.startDate).toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric'
+            }),
+            dueDate: new Date(job.completionDate || job.dueDate).toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric'
+            }),
+            progress: calculateProgress(job.milestones || []),
+            description: job.description || 'No description available',
+            milestones: (job.milestones || []).map(milestone => ({
+              id: milestone._id,
+              title: milestone.name,
+              description: milestone.description,
+              amount: milestone.amount,
+              status: milestone.status || 'pending',
+              completedDate: milestone.completedDate ? new Date(milestone.completedDate).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+              }) : null
+            }))
+          }));
+          
+          setOngoingWorks(formattedWorks);
+          
+          // Set the first project as active if there are projects
+          if (formattedWorks.length > 0) {
+            setActiveWorkId(formattedWorks[0].id);
+          }
+        } else {
+          // Handle case when no ongoing works exist
+          setOngoingWorks([]);
         }
-      ];
-      
-      setOngoingWorks(sampleOngoingWorks);
-      setActiveWorkId(sampleOngoingWorks[0].id);
-      setIsLoading(false);
-    }, 1000);
+      } catch (err) {
+        console.error('Error fetching ongoing works:', err);
+        setError('Failed to fetch ongoing projects. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    return () => clearTimeout(timer);
-  }, []);
+    fetchOngoingWorks();
+  }, [userId]);
+
+  // Calculate progress based on completed milestones
+  const calculateProgress = (milestones) => {
+    if (!milestones || milestones.length === 0) return 0;
+    
+    const completedMilestones = milestones.filter(m => 
+      m.status === 'completed' || m.status === 'paid'
+    ).length;
+    
+    return Math.round((completedMilestones / milestones.length) * 100);
+  };
 
   // Handle payment for milestone
-  const handlePayment = (workId, milestoneId) => {
-    // In a real app, this would open a payment process or modal
-    alert(`Initiating payment for milestone ${milestoneId} of work ${workId}`);
-    
-    // Update milestone status after successful payment (simulate API call)
-    setOngoingWorks(prevWorks => 
-      prevWorks.map(work => {
-        if (work.id === workId) {
-          const updatedMilestones = work.milestones.map(milestone => {
-            if (milestone.id === milestoneId) {
+  const handlePayment = async (workId, milestoneId) => {
+    try {
+      // In real implementation, show payment gateway/confirmation
+      if (window.confirm('Proceed with payment for this milestone?')) {
+        // Update the milestone status on the backend
+        await axios.put(`/api/jobs/${workId}/milestones/${milestoneId}`, {
+          status: 'completed',
+          completedDate: new Date()
+        });
+        
+        // Update local state to reflect the change
+        setOngoingWorks(prevWorks => 
+          prevWorks.map(work => {
+            if (work.id === workId) {
+              const updatedMilestones = work.milestones.map(milestone => {
+                if (milestone.id === milestoneId) {
+                  return {
+                    ...milestone,
+                    status: 'completed',
+                    completedDate: new Date().toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric'
+                    })
+                  };
+                }
+                return milestone;
+              });
+              
+              // Recalculate progress
+              const totalMilestones = updatedMilestones.length;
+              const completedMilestones = updatedMilestones.filter(m => m.status === 'completed').length;
+              const newProgress = Math.round((completedMilestones / totalMilestones) * 100);
+              
               return {
-                ...milestone,
-                status: 'completed',
-                completedDate: new Date().toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric'
-                })
+                ...work,
+                milestones: updatedMilestones,
+                progress: newProgress
               };
             }
-            return milestone;
-          });
-          
-          // Recalculate progress based on completed milestones
-          const totalMilestones = updatedMilestones.length;
-          const completedMilestones = updatedMilestones.filter(m => m.status === 'completed').length;
-          const newProgress = Math.round((completedMilestones / totalMilestones) * 100);
-          
-          return {
-            ...work,
-            milestones: updatedMilestones,
-            progress: newProgress
-          };
-        }
-        return work;
-      })
-    );
+            return work;
+          })
+        );
+      }
+    } catch (err) {
+      console.error('Error processing payment:', err);
+      alert('Failed to process payment. Please try again.');
+    }
   };
 
   // Handle verification of milestone completion
-  const handleVerifyCompletion = (workId, milestoneId) => {
-    // In a real app, this would show details and confirmation
-    alert(`Verifying completion of milestone ${milestoneId}`);
-    
-    // Update milestone status after verification (simulate API call)
-    setOngoingWorks(prevWorks => 
-      prevWorks.map(work => {
-        if (work.id === workId) {
-          const updatedMilestones = work.milestones.map(milestone => {
-            if (milestone.id === milestoneId) {
+  const handleVerifyCompletion = async (workId, milestoneId) => {
+    try {
+      if (window.confirm('Confirm that this milestone has been completed?')) {
+        // Update milestone status to ready for payment
+        await axios.put(`/api/jobs/${workId}/milestones/${milestoneId}`, {
+          status: 'ready_for_payment'
+        });
+        
+        // Update local state to reflect the change
+        setOngoingWorks(prevWorks => 
+          prevWorks.map(work => {
+            if (work.id === workId) {
+              const updatedMilestones = work.milestones.map(milestone => {
+                if (milestone.id === milestoneId) {
+                  return {
+                    ...milestone,
+                    status: 'ready_for_payment'
+                  };
+                }
+                return milestone;
+              });
+              
               return {
-                ...milestone,
-                status: 'ready_for_payment'
+                ...work,
+                milestones: updatedMilestones
               };
             }
-            return milestone;
-          });
-          return {
-            ...work,
-            milestones: updatedMilestones
-          };
-        }
-        return work;
-      })
-    );
+            return work;
+          })
+        );
+      }
+    } catch (err) {
+      console.error('Error verifying milestone completion:', err);
+      alert('Failed to verify milestone. Please try again.');
+    }
   };
 
   // Get active work details
@@ -236,6 +200,69 @@ function Ongoingworks() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-md">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-red-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h2 className="mt-4 text-xl font-bold text-gray-800">Something went wrong</h2>
+          <p className="mt-2 text-gray-600">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (ongoingWorks.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-lg shadow-sm py-4 px-6 border-b border-gray-200">
+          <div className="max-w-7xl mx-auto flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <Link to="/">
+                <img src={logo} alt="BuildMart Logo" className="h-10" />
+              </Link>
+              <h1 className="text-xl font-semibold text-gray-800">My Ongoing Projects</h1>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <Link 
+                to="/dashboard" 
+                className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                Back to Dashboard
+              </Link>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex flex-col items-center justify-center p-10 h-[80vh]">
+          <div className="p-8 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            <h2 className="text-2xl font-bold text-gray-700 mb-2">No Ongoing Projects</h2>
+            <p className="text-gray-500 mb-6">You don't have any ongoing projects at the moment.</p>
+            <Link 
+              to="/dashboard" 
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Return to Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Rest of your component remains unchanged...
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-800">
       {/* Header */}
@@ -566,4 +593,4 @@ function Ongoingworks() {
   );
 }
 
-export default Ongoingworks
+export default Ongoingworks;
