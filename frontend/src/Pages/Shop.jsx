@@ -12,15 +12,143 @@ const formatCurrency = (amount) => {
   return `LKR ${amount.toFixed(2)}`;
 };
 
+// Replace the existing products array with this expanded version
 const products = [
-  { id: 1, name: "Cement", image: cementImg, price: 100 },
-  { id: 2, name: "Binding Wires", image: cementImg, price: 50 },
-  { id: 3, name: "Shovel", image: cementImg, price: 80 },
-  { id: 4, name: "Wire Cutter", image: cementImg, price: 60 },
-  { id: 5, name: "Cement Premium", image: cementImg, price: 120 },
-  { id: 6, name: "Binding Wires Pro", image: cementImg, price: 70 },
-  { id: 7, name: "Heavy-duty Shovel", image: cementImg, price: 90 },
-  { id: 8, name: "Wire Cutter XL", image: cementImg, price: 85 },
+  // Construction Materials
+  { 
+    id: 1, 
+    category: "Construction",
+    name: "Portland Cement 50kg", 
+    image: cementImg, 
+    price: 2500,
+    description: "High-quality Portland cement for general construction use"
+  },
+  { 
+    id: 2, 
+    category: "Construction",
+    name: "Steel Reinforcement Bars 12mm", 
+    image: cementImg, 
+    price: 3200,
+    description: "TMT steel bars for concrete reinforcement"
+  },
+  { 
+    id: 3, 
+    category: "Construction",
+    name: "Building Blocks 6\"", 
+    image: cementImg, 
+    price: 145,
+    description: "Standard concrete blocks for construction"
+  },
+  { 
+    id: 4, 
+    category: "Construction",
+    name: "River Sand (cuft)", 
+    image: cementImg, 
+    price: 850,
+    description: "Clean river sand for construction"
+  },
+
+  // Plumbing Materials
+  { 
+    id: 5, 
+    category: "Plumbing",
+    name: "PVC Pipe 1\" (10ft)", 
+    image: cementImg, 
+    price: 420,
+    description: "High-pressure PVC pipes for water supply"
+  },
+  { 
+    id: 6, 
+    category: "Plumbing",
+    name: "Ball Valve 1/2\"", 
+    image: cementImg, 
+    price: 350,
+    description: "Brass ball valve for water control"
+  },
+  { 
+    id: 7, 
+    category: "Plumbing",
+    name: "Water Tank 1000L", 
+    image: cementImg, 
+    price: 12500,
+    description: "Durable plastic water storage tank"
+  },
+  { 
+    id: 8, 
+    category: "Plumbing",
+    name: "CPVC Pipe 3/4\" (10ft)", 
+    image: cementImg, 
+    price: 580,
+    description: "Hot water resistant CPVC pipes"
+  },
+
+  // Carpentry Materials
+  { 
+    id: 9, 
+    category: "Carpentry",
+    name: "Teak Wood (cuft)", 
+    image: cementImg, 
+    price: 8500,
+    description: "Premium quality teak wood"
+  },
+  { 
+    id: 10, 
+    category: "Carpentry",
+    name: "Wood Screws 1\" (100pcs)", 
+    image: cementImg, 
+    price: 450,
+    description: "Rust-resistant wood screws"
+  },
+  { 
+    id: 11, 
+    category: "Carpentry",
+    name: "Marine Plywood 18mm", 
+    image: cementImg, 
+    price: 4800,
+    description: "Water-resistant marine plywood sheet"
+  },
+  { 
+    id: 12, 
+    category: "Carpentry",
+    name: "Wood Adhesive 1L", 
+    image: cementImg, 
+    price: 980,
+    description: "Strong bonding wood adhesive"
+  },
+
+  // Electrical Materials
+  { 
+    id: 13, 
+    category: "Electrical",
+    name: "2.5mm² Wire (100m)", 
+    image: cementImg, 
+    price: 4500,
+    description: "ACL electrical wiring cable"
+  },
+  { 
+    id: 14, 
+    category: "Electrical",
+    name: "MCB Double Pole 32A", 
+    image: cementImg, 
+    price: 1200,
+    description: "Circuit breaker for electrical safety"
+  },
+  { 
+    id: 15, 
+    category: "Electrical",
+    name: "LED Bulb 9W", 
+    image: cementImg, 
+    price: 350,
+    description: "Energy-saving LED light bulb"
+  },
+  { 
+    id: 16, 
+    category: "Electrical",
+    name: "Distribution Board 8-Way", 
+    image: cementImg, 
+    price: 3800,
+    description: "Electrical distribution panel"
+  }
 ];
 
 const Shop = () => {
@@ -30,10 +158,13 @@ const Shop = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutAmount, setCheckoutAmount] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
-  const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const addToCart = (product) => {
     setCartItems((prev) => [...prev, product]);
@@ -88,6 +219,9 @@ const Shop = () => {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0 }
   };
+
+  // Add this before the return statement
+  const categories = ["All", "Construction", "Plumbing", "Carpentry", "Electrical"];
 
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
@@ -193,6 +327,31 @@ const Shop = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-4 rounded-full border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 bg-white/80 backdrop-blur-sm"
           />
+        </motion.div>
+      </div>
+
+      {/* Category Filter */}
+      <div className="max-w-7xl mx-auto px-6 py-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-wrap gap-4 justify-center"
+        >
+          {categories.map((category) => (
+            <motion.button
+              key={category}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setSelectedCategory(category)}
+              className={`px-6 py-2 rounded-full ${
+                selectedCategory === category
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              } transition-colors duration-200`}
+            >
+              {category}
+            </motion.button>
+          ))}
         </motion.div>
       </div>
 
