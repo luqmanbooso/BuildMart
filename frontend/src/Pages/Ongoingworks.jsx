@@ -66,6 +66,8 @@ function Ongoingworks() {
         // Your transformation logic remains unchanged
         id: work._id,
         title: work.jobId?.title || 'Untitled Project',
+        jobId: work.jobId?._id || work.jobId, // Get the actual job ID
+        bidId: work.bidId || work._id, // Use bid ID if available or work ID as fallback
         category: work.jobId?.category || 'General',
         contractor: work.contractorId, // You might want to fetch contractor details separately
         contractorId: work.contractorId,
@@ -429,6 +431,46 @@ function Ongoingworks() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                           </svg>
                           Chat
+                        </button>
+                        <button 
+                          onClick={() => {
+                            // Create full agreement data object
+                            const agreementData = {
+                              jobDetails: {
+                                title: activeWork.title,
+                                description: activeWork.description,
+                                location: activeWork.location,
+                                milestones: activeWork.milestones.map(m => ({
+                                  name: m.title,
+                                  description: m.description,
+                                  amount: m.amount,
+                                }))
+                              },
+                              contractorDetails: {
+                                name: activeWork.contractor,
+                                email: activeWork.contractorEmail,
+                                phone: activeWork.contractorPhone
+                              },
+                              bidDetails: {
+                                price: activeWork.milestones.reduce((sum, m) => sum + parseFloat(m.amount || 0), 0),
+                                timeline: `${activeWork.startDate} to ${activeWork.dueDate}`,
+                                status: "accepted" // Add this "accepted" status
+                              },
+                              // Add this important flag
+                              bidAlreadyAccepted: true
+                            };
+                            
+                            // Navigate with state
+                            navigate(`/agreement/${activeWork.jobId}/${activeWork.bidId}`, { 
+                              state: agreementData 
+                            });
+                          }}
+                          className="inline-flex justify-center items-center px-3 py-2 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          View Agreement
                         </button>
                       </div>
                     </div>
