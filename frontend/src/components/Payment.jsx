@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Calendar, Lock, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { formatLKR } from '../utils/formatters';
 
 const printStyles = `
   @media print {
@@ -32,7 +33,9 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
   // Update the amount state to use the prop
-  const [amount, setAmount] = useState(initialAmount || '0.00');
+  const [amount, setAmount] = useState(
+    initialAmount ? parseFloat(initialAmount).toFixed(2) : '0.00'
+  );
   const [name, setName] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -137,8 +140,11 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
       newErrors.cvv = `${cvvLength}-digit CVV is required`;
     }
     
-    if (!amount.trim() || parseFloat(amount) <= 0) {
-      newErrors.amount = "Valid amount is required";
+    const amountValue = parseFloat(amount);
+    if (isNaN(amountValue) || amountValue <= 0) {
+      newErrors.amount = "Please enter a valid amount";
+    } else if (amountValue > 1000000) {
+      newErrors.amount = "Amount cannot exceed LKR 1,000,000.00";
     }
     
     setErrors(newErrors);
@@ -216,6 +222,24 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
     }
   }, [initialAmount]);
 
+  // Add this new function to handle amount changes
+  const handleAmountChange = (value) => {
+    // Remove any non-numeric characters except decimal point
+    const cleaned = value.replace(/[^\d.]/g, '');
+    
+    // Prevent multiple decimal points
+    const parts = cleaned.split('.');
+    if (parts.length > 2) return;
+    
+    // Limit decimal places to 2
+    if (parts[1]?.length > 2) return;
+    
+    // Maximum amount validation (e.g., 1 million)
+    if (parseFloat(cleaned) > 1000000) return;
+    
+    setAmount(cleaned);
+  };
+
   // Card logo components
   const CardLogo = ({ type }) => {
     const logos = {
@@ -258,79 +282,85 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
       <>
         <style>{printStyles}</style>
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-[#002855] to-[#0057B7] p-6">
-          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-2xl w-full invoice-section">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-3xl w-full invoice-section">
             {/* Company Header */}
-            <div className="border-b border-gray-200 pb-6 mb-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-800">BuildMart</h1>
-                  <p className="text-gray-500 mt-1">Building Materials & Hardware</p>
-                </div>
-                <div className="text-right">
-                  <h2 className="text-xl font-semibold text-gray-800">INVOICE</h2>
-                  <p className="text-gray-500 mt-1">#{invoiceData?.id || 'N/A'}</p>
-                </div>
+            <div className="flex justify-between items-start border-b border-gray-200 pb-6 mb-8">
+              <div>
+                <h1 className="text-4xl font-bold text-gray-800">BuildMart</h1>
+                <p className="text-gray-600 mt-2">293/B, Galle Road, Colombo 03</p>
+                <p className="text-gray-500">Tel: +94 11 234 5678</p>
+                <p className="text-gray-500">Email: info@buildmart.lk</p>
+              </div>
+              <div className="text-right">
+                <h2 className="text-2xl font-semibold text-gray-800">PAYMENT RECEIPT</h2>
+                <p className="text-gray-600 mt-2">Receipt #: {invoiceData?.id || Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
+                <p className="text-gray-500">Date: {new Date().toLocaleDateString()}</p>
+                <p className="text-gray-500">Time: {new Date().toLocaleTimeString()}</p>
               </div>
             </div>
 
             {/* Success Message */}
-            <div className="flex items-center justify-center py-6 mb-6 bg-green-50 rounded-lg">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
-                <CheckCircle size={24} className="text-green-500" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-green-800">Payment Successful</h2>
-                <p className="text-green-600">Transaction completed successfully</p>
+            <div className="flex items-center justify-center py-6 mb-8 bg-green-50 rounded-lg">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-green-800">Payment Successful</h3>
+                  <p className="text-green-600">Transaction completed successfully</p>
+                </div>
               </div>
             </div>
 
             {/* Payment Details Grid */}
             <div className="grid grid-cols-2 gap-8 mb-8">
-              {/* Customer Info */}
+              {/* Customer Information */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                  Customer Details
-                </h3>
+                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  Customer Information
+                </h4>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="font-medium text-gray-800">{name}</p>
-                  <p className="text-gray-500 mt-1">Card ending in {cardNumber.slice(-4)}</p>
-                  <p className="text-gray-500">{new Date().toLocaleDateString('en-US', { 
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}</p>
+                  <p className="text-gray-500 mt-1">Card ending in ****{cardNumber.slice(-4)}</p>
+                  <p className="text-gray-500">Transaction ID: {Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
                 </div>
               </div>
 
-              {/* Payment Info */}
+              {/* Payment Method */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                  Payment Details
-                </h3>
+                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  Payment Method
+                </h4>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex items-center mb-2">
+                  <div className="flex items-center space-x-3">
                     <CardLogo type={activeCard} />
-                    <span className="ml-2 font-medium text-gray-800 capitalize">{activeCard}</span>
+                    <div>
+                      <p className="font-medium text-gray-800 capitalize">{activeCard}</p>
+                      <p className="text-gray-500 text-sm">Expires: {expiry}</p>
+                    </div>
                   </div>
-                  <p className="text-gray-500">Card ending in {cardNumber.slice(-4)}</p>
-                  <p className="text-gray-500">Exp: {expiry}</p>
                 </div>
               </div>
             </div>
 
-            {/* Amount Summary */}
-            <div className="border-t border-gray-200 pt-6 mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="font-medium">LKR {parseFloat(amount).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center mb-4 text-sm text-gray-500">
-                <span>Transaction Fee</span>
-                <span>LKR 0.00</span>
-              </div>
-              <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                <span className="text-lg font-semibold text-gray-800">Total Paid</span>
-                <span className="text-lg font-bold text-green-600">LKR {parseFloat(amount).toFixed(2)}</span>
+            {/* Payment Summary */}
+            <div className="border-t border-gray-200 pt-8 mb-8">
+              <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                Payment Summary
+              </h4>
+              <div className="space-y-3">
+                <div className="flex justify-between text-gray-600">
+                  <span>Amount Paid</span>
+                  <span>{formatLKR(parseFloat(amount))}</span>
+                </div>
+                <div className="flex justify-between text-gray-500 text-sm">
+                  <span>Transaction Fee</span>
+                  <span>LKR 0.00</span>
+                </div>
+                <div className="flex justify-between font-semibold text-lg pt-4 border-t border-gray-200">
+                  <span>Total Amount</span>
+                  <span className="text-green-600">{formatLKR(parseFloat(amount))}</span>
+                </div>
               </div>
             </div>
 
@@ -338,16 +368,16 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
             <div className="flex space-x-4">
               <button 
                 onClick={() => window.print()}
-                className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-lg transition-colors duration-300 flex items-center justify-center"
+                className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-lg transition-colors duration-300 flex items-center justify-center no-print"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002-2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
                 </svg>
-                Download Invoice
+                Print Receipt
               </button>
               <button 
                 onClick={resetForm}
-                className="flex-1 py-3 px-4 bg-[#002855] hover:bg-[#0057B7] text-white font-bold rounded-lg transition-colors duration-300"
+                className="flex-1 py-3 px-4 bg-[#002855] hover:bg-[#0057B7] text-white font-bold rounded-lg transition-colors duration-300 no-print"
               >
                 Make Another Payment
               </button>
@@ -355,7 +385,8 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
 
             {/* Footer */}
             <div className="mt-8 text-center text-sm text-gray-500">
-              <p>Thank you for your payment. For any queries, please contact support.</p>
+              <p>Thank you for your business!</p>
+              <p className="mt-1">For any questions, please contact our support team.</p>
               <p className="mt-1">© {new Date().getFullYear()} BuildMart. All rights reserved.</p>
             </div>
           </div>
@@ -527,27 +558,25 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
             {/* Amount */}
             <div className="mb-6">
               <label className="block text-gray-700 text-sm font-medium mb-2">
-                Amount<span className="text-red-500">*</span>
+                Amount<span className="text-red-500">*</span><br></br>
               </label>
               <div className={`relative rounded-md shadow-sm`}>
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500">LKR</span>
+                  <span className="text-gray-500"></span>
                 </div>
-                <input 
-                  type="text" 
-                  className={`w-full p-3 border ${errors.amount ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 transition-all duration-200`} 
-                  value={amount} 
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^\d.]/g, '');
-                    setAmount(value);
-                  }} 
-                  placeholder="0.00"
-                  {...amountInputProps}
-                />
+                
+                {amount && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <span className="text-sm text-gray-500">
+                      <br></br>
+                      {parseFloat(amount) > 0 && formatLKR(parseFloat(amount))}
+                    </span>
+                  </div>
+                )}
               </div>
-              {errors.amount && <p className="mt-1 text-red-500 text-xs">{errors.amount}</p>}
+              
             </div>
-
+<br></br>
             {/* Security note */}
             <div className="mb-6 bg-gray-50 p-3 rounded-md border border-gray-200">
               <div className="flex items-center">
@@ -560,7 +589,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
             <button 
               type="submit" 
               className="w-full py-3 px-4 bg-[#002855] hover:bg-[#0057B7] text-white font-bold rounded-md shadow-md transition-all duration-300 transform hover:translate-y-[-2px] flex items-center justify-center" 
-              disabled={isProcessing}
+              disabled={isProcessing || parseFloat(amount) <= 0}
             >
               {isProcessing ? (
                 <>
@@ -571,7 +600,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
                   Processing...
                 </>
               ) : (
-                <>Pay LKR {parseFloat(amount || 0).toFixed(2)}</>
+                <>Pay {formatLKR(parseFloat(amount) || 0)}</>
               )}
             </button>
           </form>
