@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import logo from '../assets/images/buildmart_logo1.png';
 import axios from 'axios'; // Make sure axios is installed
 
@@ -9,6 +9,7 @@ function Ongoingworks() {
   const [error, setError] = useState(null);
   const [activeWorkId, setActiveWorkId] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Calculate progress for each work based on completed milestones
   const calculateProgress = (milestones) => {
@@ -26,14 +27,39 @@ function Ongoingworks() {
     try {
       setIsLoading(true);
       
-      // Get user ID from localStorage or context
-      const userId = localStorage.getItem('userId');
-      if (!userId) {
-        throw new Error("User not authenticated");
+      // Get token from localStorage
+      const token = localStorage.getItem('token'); // Assuming 'token' is your JWT token key
+      
+      // If no token is found, redirect to login
+      if (!token) {
+        console.log("No token found, redirecting to login");
+        navigate('/login', { state: { from: location.pathname } });
+        return;
       }
       
-      // Make API call to fetch ongoing works
-      const response = await axios.get(`/api/ongoingworks/client/${userId}`);
+      // Extract userId from token
+      let userId;
+      try {
+        // Decode JWT token (split by dot, take the payload part (index 1), and decode)
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        userId = tokenPayload.userId || tokenPayload.id || tokenPayload._id;
+        
+        if (!userId) {
+          throw new Error('User ID not found in token');
+        }
+      } catch (tokenError) {
+        console.error('Invalid token:', tokenError);
+        // Token is invalid, redirect to login
+        navigate('/login', { state: { from: location.pathname } });
+        return;
+      }
+      
+      // Make API call to fetch ongoing works with the extracted userId
+      const response = await axios.get(`http://localhost:5000/api/ongoingworks/client/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}` // Include token in the authorization header
+        }
+      });
       
       // Transform and adapt the data to match the frontend format
       const formattedWorks = response.data.map(work => ({
