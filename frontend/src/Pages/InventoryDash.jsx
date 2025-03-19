@@ -16,30 +16,55 @@ import {
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 
-// Sample inventory data - in a real app, this would come from your API/database
-const initialInventory = [
-  { id: 1, name: "Cement", sku: "CMT-01", category: "Building Materials", price: 100, stock: 230, threshold: 50, lastUpdated: "2025-03-01" },
-  { id: 2, name: "Binding Wires", sku: "BW-02", category: "Hardware", price: 50, stock: 120, threshold: 30, lastUpdated: "2025-03-02" },
-  { id: 3, name: "Shovel", sku: "SHV-03", category: "Tools", price: 80, stock: 45, threshold: 15, lastUpdated: "2025-03-05" },
-  { id: 4, name: "Wire Cutter", sku: "WC-04", category: "Tools", price: 60, stock: 18, threshold: 20, lastUpdated: "2025-02-28" },
-  { id: 5, name: "Cement Premium", sku: "CMT-05", category: "Building Materials", price: 120, stock: 175, threshold: 40, lastUpdated: "2025-03-10" },
-  { id: 6, name: "Binding Wires Pro", sku: "BW-06", category: "Hardware", price: 70, stock: 82, threshold: 25, lastUpdated: "2025-03-08" },
-  { id: 7, name: "Heavy-duty Shovel", sku: "SHV-07", category: "Tools", price: 90, stock: 12, threshold: 10, lastUpdated: "2025-03-12" },
-  { id: 8, name: "Wire Cutter XL", sku: "WC-08", category: "Tools", price: 85, stock: 24, threshold: 15, lastUpdated: "2025-03-15" },
-  { id: 9, name: "Bricks", sku: "BRK-09", category: "Building Materials", price: 2, stock: 5000, threshold: 1000, lastUpdated: "2025-03-12" },
-  { id: 10, name: "PVC Pipes", sku: "PVC-010", category: "Plumbing", price: 35, stock: 65, threshold: 30, lastUpdated: "2025-03-11" },
-];
+
 
 const categoryColors = {
   "Building Materials": "bg-blue-100 text-blue-800",
   "Hardware": "bg-green-100 text-green-800",
   "Tools": "bg-purple-100 text-purple-800",
   "Plumbing": "bg-orange-100 text-orange-800",
+  "Electrical": "bg-yellow-100 text-yellow-800",
+  "Paint & Supplies": "bg-pink-100 text-pink-800",
+  "Flooring": "bg-indigo-100 text-indigo-800",
+  "Doors & Windows": "bg-teal-100 text-teal-800",
+  "Safety Equipment": "bg-red-100 text-red-800",
+  "Landscaping": "bg-lime-100 text-lime-800",
+  "Roofing": "bg-amber-100 text-amber-800",
+  "HVAC": "bg-cyan-100 text-cyan-800",
+  "Fasteners": "bg-slate-100 text-slate-800",
+  "Adhesives & Sealants": "bg-violet-100 text-violet-800",
+  "Cleaning Supplies": "bg-sky-100 text-sky-800",
+  "Other": "bg-gray-100 text-gray-800"
 };
+
+// Predefined categories for construction materials
+const predefinedCategories = [
+  "Building Materials",
+  "Hardware",
+  "Tools", 
+  "Plumbing",
+  "Electrical",
+  "Paint & Supplies",
+  "Flooring",
+  "Doors & Windows",
+  "Safety Equipment",
+  "Landscaping",
+  "Roofing",
+  "HVAC",
+  "Fasteners",
+  "Adhesives & Sealants",
+  "Cleaning Supplies",
+  "Other"
+];
+
+// Add initialInventory before the component declaration
+
+// Initialize with empty array instead of undefined
+const initialInventory = [];
 
 const InventoryDash = () => {
   const [inventory, setInventory] = useState([]);
-  const [filteredInventory, setFilteredInventory] = useState(initialInventory);
+  const [filteredInventory, setFilteredInventory] = useState([]);  // Start with empty array
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
@@ -73,6 +98,32 @@ const InventoryDash = () => {
     setFilteredInventory(sortedInventory);
   }, [sortConfig]);
 
+  // Move API fetch to a separate function that can be called immediately
+  const fetchInventoryData = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/product/products');
+      if (response.data.success && response.data.products) {
+        const products = response.data.products;
+        setInventory(products);
+        setFilteredInventory(products); // Also update filtered inventory
+        return products; // Return for any additional processing
+      } else {
+        // If response is successful but no products
+        console.log('No products found in the response');
+        return [];
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast.error('Error loading products. Please try again later.');
+      return []; // Return empty array on error
+    }
+  };
+
+  // Fetch products on component mount
+  useEffect(() => {
+    fetchInventoryData();
+  }, []);
+
   // Filter items when search term or category filter changes
   useEffect(() => {
     let results = inventory;
@@ -90,19 +141,6 @@ const InventoryDash = () => {
     
     setFilteredInventory(results);
   }, [searchTerm, categoryFilter, inventory]);
-
-  // Fetch products from API
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await axios.get('http://localhost:5000/api/products');
-        setInventory(response.data.products);
-      } catch (error) {
-        toast.error('Error fetching products');
-      }
-    };
-    fetchProducts();
-  }, []);
 
   // Request sort
   const requestSort = (key) => {
@@ -144,22 +182,49 @@ const InventoryDash = () => {
     setUpdateQuantity(0);
   };
 
-  // Handle item deletion
-  const handleDeleteItem = async (id) => {
-    if (window.confirm("Are you sure you want to delete this item?")) {
-      try {
-        await axios.delete(`http://localhost:5000/api/products/${id}`);
-        setInventory(inventory.filter(item => item._id !== id));
-        toast.success('Product deleted successfully');
-      } catch (error) {
-        toast.error('Error deleting product');
-      }
-    }
-  };
+  // Replace the existing handleDeleteItem function with this improved version:
 
+const handleDeleteItem = async (id) => {
+  if (!id) {
+    toast.error('Cannot delete: Item ID is missing');
+    return;
+  }
+  
+  if (window.confirm("Are you sure you want to delete this item?")) {
+    try {
+      console.log('Deleting item with ID:', id);
+      
+      // MongoDB items use _id, local items use id
+      const itemId = typeof id === 'object' ? id._id : id;
+      
+      await axios.delete(`http://localhost:5000/product/products/${itemId}`);
+      
+      // Filter items with improved logic
+      setInventory(inventory.filter(item => {
+        // For items with _id property
+        if (item._id) {
+          return item._id !== itemId;
+        }
+        // For items with id property
+        if (item.id) {
+          return item.id !== id;
+        }
+        // Default case (shouldn't happen)
+        return true;
+      }));
+      
+      toast.success('Product deleted successfully');
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('Error deleting product: ' + (error.response?.data?.message || error.message));
+    }
+  }
+};
+
+  // Update supplier notification endpoint
   const notifySupplier = async (item) => {
     try {
-      await axios.post('/api/notifications/supplier', {
+      await axios.post('http://localhost:5000/api/email/supplier-notification', {
         productName: item.name,
         currentStock: item.stock,
         threshold: item.threshold,
@@ -171,6 +236,7 @@ const InventoryDash = () => {
         autoClose: 3000
       });
     } catch (error) {
+      console.error('Error notifying supplier:', error);
       toast.error(`Failed to notify supplier about ${item.name}`, {
         position: "top-right",
         autoClose: 3000
@@ -201,10 +267,10 @@ const InventoryDash = () => {
     visible: { y: 0, opacity: 1 }
   };
 
-  // Handle add product
+  // Handle add product - update endpoint
   const handleAddProduct = async (formData) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/products', {
+      const response = await axios.post('http://localhost:5000/product/products', {
         name: formData.get('name'),
         sku: formData.get('sku'),
         category: formData.get('category'),
@@ -212,33 +278,46 @@ const InventoryDash = () => {
         stock: parseInt(formData.get('stock')),
         threshold: parseInt(formData.get('threshold')),
         description: formData.get('description'),
-        image: formData.get('image') || cementImg // Default image if none provided
+        image: formData.get('image') || null // Remove cementImg reference as it's undefined
       });
       
-      setInventory([...inventory, response.data.product]);
-      setIsFormOpen(false);
-      toast.success('Product added successfully');
+      if (response.data.success && response.data.product) {
+        setInventory([...inventory, response.data.product]);
+        setIsFormOpen(false);
+        toast.success('Product added successfully');
+      } else {
+        toast.error('Error adding product: ' + (response.data.message || 'Unknown error'));
+      }
     } catch (error) {
-      toast.error('Error adding product');
+      console.error('Error adding product:', error);
+      toast.error('Error adding product: ' + (error.response?.data?.message || error.message));
     }
   };
 
-  // Handle edit product
+  // Handle edit product - update endpoint
   const handleEditProduct = async (editedProduct) => {
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/products/${editedProduct._id}`,
+        `http://localhost:5000/product/products/${editedProduct._id || editedProduct.id}`,
         editedProduct
       );
       
-      const updatedInventory = inventory.map(item =>
-        item._id === editedProduct._id ? response.data.product : item
-      );
-      setInventory(updatedInventory);
-      setEditingItem(null);
-      toast.success('Product updated successfully');
+      if (response.data.success && response.data.product) {
+        const updatedInventory = inventory.map(item =>
+          (item._id && item._id === editedProduct._id) || 
+          (item.id && item.id === editedProduct.id) 
+            ? response.data.product 
+            : item
+        );
+        setInventory(updatedInventory);
+        setEditingItem(null);
+        toast.success('Product updated successfully');
+      } else {
+        toast.error('Error updating product: ' + (response.data.message || 'Unknown error'));
+      }
     } catch (error) {
-      toast.error('Error updating product');
+      console.error('Error updating product:', error);
+      toast.error('Error updating product: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -466,7 +545,7 @@ const InventoryDash = () => {
                             <FiEdit size={18} />
                           </button>
                           <button
-                            onClick={() => handleDeleteItem(item.id)}
+                            onClick={() => handleDeleteItem(item._id || item.id)}
                             className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
                           >
                             <FiTrash2 size={18} />
@@ -581,12 +660,15 @@ const InventoryDash = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Category
                 </label>
-                <input
-                  type="text"
+                <select
                   value={editingItem.category}
                   onChange={(e) => setEditingItem({...editingItem, category: e.target.value})}
                   className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                />
+                >
+                  {predefinedCategories.map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -691,7 +773,7 @@ const InventoryDash = () => {
                     required
                     className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
                   >
-                    {categories.filter(c => c !== "All").map(category => (
+                    {predefinedCategories.map(category => (
                       <option key={category} value={category}>{category}</option>
                     ))}
                   </select>

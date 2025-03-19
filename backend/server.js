@@ -8,6 +8,7 @@ const protectedRoutes = require('./routes/protected');
 const qualifyRoutes = require('./routes/Qualify');
 const ongoingWorksRoutes = require('./routes/ongoingworks');
 const paymentRoutes = require('./routes/PaymentRoutes'); // Add this line
+const productRoutes = require('./routes/productRoutes');
 const app = express();
 
 // Middleware
@@ -18,6 +19,7 @@ app.use('/bids', bidRoutes);
 app.use('/auth', authRoutes);
 app.use('/protected', protectedRoutes);
 app.use('/qualify', qualifyRoutes);
+app.use('/product', productRoutes);
 const jobRoutes = require('./routes/JobRoutes');
 app.use('/api/jobs', jobRoutes);
 app.use('/api/contractors', require('./routes/contractorprofile'));

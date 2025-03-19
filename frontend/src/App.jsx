@@ -97,7 +97,7 @@ function App() {
         <Route path="/contractorStart" element={<ContractorProfileSetup />} />
         <Route path="/ongoingproject" element={<OngoingProjects />} />
           
-          <Route path='/contractor/:contractorId/bid/:bidId/project/:projectId' element= {<ContractorViewDetails/>} />
+        <Route path='/contractor/:contractorId/bid/:bidId/project/:projectId' element= {<ContractorViewDetails/>} />
 
           <Route path="/bids/:bidId/update" element={<BidUpdate />} />
         <Route path="/ongoing-works" element={<OngoingJobs />} />
