@@ -33,6 +33,11 @@ function PaymentDashboard() {
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [paymentTrends, setPaymentTrends] = useState([]);
   
+  // Add these state variables
+  const [showExpensesSubmenu, setShowExpensesSubmenu] = useState(false);
+  const [supplierPayments, setSupplierPayments] = useState([]);
+  const [expensesSubPage, setExpensesSubPage] = useState('');
+
   // Keep existing paymentStats state
   const [paymentStats, setPaymentStats] = useState({
     totalAmount: 0,
@@ -356,6 +361,31 @@ function PaymentDashboard() {
     fetchPayments();
   }, []);
 
+  // Add this useEffect after your existing useEffects
+  useEffect(() => {
+    if (expensesSubPage === 'Supplier Payments') {
+      // Fetch supplier payments from your API
+      const fetchSupplierPayments = async () => {
+        try {
+          setLoading(true);
+          const response = await fetch('http://localhost:5000/api/supplier-payments');
+          if (!response.ok) {
+            throw new Error('Failed to fetch supplier payments');
+          }
+          const data = await response.json();
+          setSupplierPayments(data);
+        } catch (error) {
+          console.error('Error fetching supplier payments:', error);
+          setError(error.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchSupplierPayments();
+    }
+  }, [expensesSubPage]);
+
   const toggleSelectAll = () => {
     setIsAllSelected(!isAllSelected);
     setSelectedRows(isAllSelected ? [] : 
@@ -570,7 +600,11 @@ function PaymentDashboard() {
     { name: 'Inventory Sales', icon: <ShoppingCart size={20} /> },
     { name: 'Wages', icon: <Wallet size={20} /> },
     { name: 'Incomes', icon: <ArrowUpRight size={20} /> },
-    { name: 'Expenses', icon: <ArrowDownRight size={20} /> }
+    { 
+      name: 'Expenses', 
+      icon: <ArrowDownRight size={20} />,
+      subItems: ['Supplier Payments', 'Other Expenses']
+    }
   ];
 
   // Add filter component for the dashboard
@@ -1084,6 +1118,125 @@ function PaymentDashboard() {
         );
   
       // Other cases remain the same
+      case 'Expenses':
+        return (
+          <div className="space-y-6">
+            {/* Expenses Navigation */}
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setExpensesSubPage('Supplier Payments')}
+                  className={`px-4 py-2 rounded-lg transition-all ${
+                    expensesSubPage === 'Supplier Payments'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Supplier Payments
+                </button>
+                <button
+                  onClick={() => setExpensesSubPage('Other Expenses')}
+                  className={`px-4 py-2 rounded-lg transition-all ${
+                    expensesSubPage === 'Other Expenses'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Other Expenses
+                </button>
+              </div>
+            </div>
+      
+            {/* Supplier Payments Content */}
+            {expensesSubPage === 'Supplier Payments' && (
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-semibold">Supplier Payment Records</h2>
+                  <div className="flex space-x-2">
+                    <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                      <Plus size={16} className="mr-2" />
+                      New Payment
+                    </button>
+                    <button className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg">
+                      <Download size={16} className="mr-2" />
+                      Export
+                    </button>
+                  </div>
+                </div>
+      
+                {/* Supplier Payments Table */}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Supplier Name
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Invoice Number
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Amount
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Payment Date
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Status
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {supplierPayments.length === 0 ? (
+                        <tr>
+                          <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
+                            No supplier payments found
+                          </td>
+                        </tr>
+                      ) : (
+                        supplierPayments.map((payment, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {payment.supplierName}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {payment.invoiceNumber}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              Rs. {payment.amount.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {new Date(payment.paymentDate).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {getStatusBadge(payment.status)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <button className="text-blue-600 hover:text-blue-800">
+                                View Details
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+      
+            {/* Other Expenses Content */}
+            {expensesSubPage === 'Other Expenses' && (
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <h2 className="text-lg font-semibold mb-4">Other Expenses</h2>
+                {/* Add your other expenses content here */}
+              </div>
+            )}
+          </div>
+        );
       default:
         return null;
     }
