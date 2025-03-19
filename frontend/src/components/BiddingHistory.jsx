@@ -1,94 +1,203 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 import ContractorUserNav from './ContractorUserNav';
+import { Link } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+import { useNavigate } from 'react-router-dom';
 
 const BiddingHistoryPage = () => {
-  // Sample bidding history data
-  const [biddingHistory, setBiddingHistory] = useState([
-    {
-      id: 1,
-      projectName: "Modern Villa Construction",
-      projectOwner: "Jane Smith",
-      bidAmount: 8500000,
-      bidDate: "2025-02-15",
-      status: "Active",
-      deadline: "2025-03-30"
-    },
-    {
-      id: 2,
-      projectName: "Office Building Renovation",
-      projectOwner: "Acme Corp",
-      bidAmount: 4200000,
-      bidDate: "2025-02-01",
-      status: "Won",
-      deadline: "2025-02-28"
-    },
-    {
-      id: 3,
-      projectName: "Residential Complex",
-      projectOwner: "Urban Developers",
-      bidAmount: 12750000,
-      bidDate: "2025-01-20",
-      status: "Lost",
-      deadline: "2025-02-10"
-    },
-    {
-      id: 4,
-      projectName: "Shopping Mall Interior",
-      projectOwner: "Metro Retail",
-      bidAmount: 3800000,
-      bidDate: "2025-01-05",
-      status: "Expired",
-      deadline: "2025-01-25"
-    }
-  ]);
-
-  // Sample notifications
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      message: "Your bid for Modern Villa Construction has been outbid",
-      time: "30 minutes ago",
-      read: false
-    },
-    {
-      id: 2,
-      message: "The auction for Shopping Mall Interior has closed",
-      time: "5 hours ago",
-      read: false
-    },
-    {
-      id: 3,
-      message: "You won the bid for Office Building Renovation!",
-      time: "1 day ago",
-      read: true
-    }
-  ]);
+  const [biddingHistory, setBiddingHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('All Bids');
+  const [statistics, setStatistics] = useState({
+    total: 0,
+    won: 0,
+    lost: 0,
+    active: 0,
+    expired: 0
+  });
+  const [contractorData, setContractorData] = useState({
+    id: '',
+    name: 'Contractor',
+    email: 'contractor@example.com'
+  });
   
-  // Show/hide notifications dropdown
-  const [showNotifications, setShowNotifications] = useState(false);
+  const navigate = useNavigate();
   
-  // Toggle notifications dropdown
-  const toggleNotifications = () => {
-    setShowNotifications(!showNotifications);
-  };
+  // First effect to extract contractor ID and details from token
+  useEffect(() => {
+    const getContractorDetails = () => {
+      try {
+        // Try to get from localStorage first
+        const storedId = localStorage.getItem('userId');
+        
+        if (storedId) {
+          setContractorData({
+            id: storedId,
+            name: localStorage.getItem('name') || 'Contractor',
+            email: localStorage.getItem('email') || 'contractor@example.com'
+          });
+          return;
+        }
+        
+        // If not in localStorage, try to extract from token
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        if (!token) {
+          toast.error("Authentication required");
+          navigate('/login');
+          return;
+        }
+        
+        const decoded = jwtDecode(token);
+        const userId = decoded.id || decoded._id || decoded.userId || decoded.sub;
+        
+        if (!userId) {
+          toast.error("Invalid authentication token");
+          navigate('/login');
+          return;
+        }
+        
+        // Save extracted ID and details
+        localStorage.setItem('userId', userId);
+        
+        if (decoded.name) localStorage.setItem('name', decoded.name);
+        if (decoded.email) localStorage.setItem('email', decoded.email);
+        
+        setContractorData({
+          id: userId,
+          name: decoded.name || 'Contractor',
+          email: decoded.email || 'contractor@example.com'
+        });
+        
+      } catch (error) {
+        console.error("Error extracting user details:", error);
+        toast.error("Please log in again");
+        navigate('/login');
+      }
+    };
+    
+    getContractorDetails();
+  }, [navigate]);
   
-  // Mark notification as read
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(notification => 
-      notification.id === id ? { ...notification, read: true } : notification
-    ));
-  };
-
-  // Count unread notifications
-  const unreadCount = notifications.filter(notification => !notification.read).length;
-
+  // Second effect to fetch bids once we have the contractor ID
+  useEffect(() => {
+    const fetchBids = async () => {
+      // Only proceed if we have a contractor ID
+      if (!contractorData.id) {
+        return; // First useEffect will handle the error
+      }
+      
+      setLoading(true);
+      try {
+        // Fetch all bids for this contractor using contractorData.id instead of contractorId
+        const response = await axios.get(`http://localhost:5000/bids/contractor/${contractorData.id}`);
+        
+        if (response.data) {
+          setBiddingHistory(response.data.map(bid => ({
+            id: bid._id,
+            projectId: bid.projectId,
+            projectName: bid.projectName || "Project #" + bid.projectId.substring(0, 8),
+            projectOwner: bid.clientName || "Client",
+            bidAmount: bid.price,
+            bidDate: new Date(bid.createdAt).toLocaleDateString(),
+            status: bid.status.charAt(0).toUpperCase() + bid.status.slice(1), // Capitalize status
+            deadline: bid.deadline || "Not specified",
+            timeline: bid.timeline || 0,
+            qualifications: bid.qualifications || "",
+            updateCount: bid.updateCount || 0,
+            updatesRemaining: 3 - (bid.updateCount || 0)
+          })));
+          
+          // Calculate statistics
+          const stats = {
+            total: response.data.length,
+            won: response.data.filter(bid => bid.status === 'accepted').length,
+            lost: response.data.filter(bid => bid.status === 'rejected').length,
+            active: response.data.filter(bid => bid.status === 'pending').length,
+            expired: 0 // API doesn't have expired status yet
+          };
+          
+          setStatistics(stats);
+        }
+      } catch (err) {
+        console.error('Error fetching bids:', err);
+        
+        if (err.response?.status === 404) {
+          setError('API endpoint not found. Please check if the backend server has the contractor bids endpoint implemented.');
+        } else {
+          setError('Failed to load bidding history. Please try again later.');
+        }
+        
+        // Create some sample bids for development/testing
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Using sample bid data for development');
+          const sampleBids = [
+            {
+              id: '1',
+              projectId: '123456789',
+              projectName: 'Sample Project 1',
+              projectOwner: 'Test Client',
+              bidAmount: 250000,
+              bidDate: new Date().toLocaleDateString(),
+              status: 'Pending',
+              timeline: 30,
+              qualifications: 'Sample qualifications',
+              updateCount: 0,
+              updatesRemaining: 3
+            },
+            {
+              id: '2',
+              projectId: '987654321',
+              projectName: 'Sample Project 2',
+              projectOwner: 'Test Client 2',
+              bidAmount: 500000,
+              bidDate: new Date(Date.now() - 7*24*60*60*1000).toLocaleDateString(),
+              status: 'Accepted',
+              timeline: 45,
+              qualifications: 'Sample qualifications 2',
+              updateCount: 1,
+              updatesRemaining: 2
+            }
+          ];
+          
+          setBiddingHistory(sampleBids);
+          setStatistics({
+            total: 2,
+            won: 1,
+            lost: 0,
+            active: 1,
+            expired: 0
+          });
+          
+          // Remove error message when using sample data
+          setError(null);
+        }
+        
+        // Show error toast
+        toast.error(`Error loading bids: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchBids();
+  }, [contractorData.id]); // Depend on contractorData.id instead of contractorId
+  
+  // Filter bids based on selected status
+  const filteredBids = filter === 'All Bids' 
+    ? biddingHistory
+    : biddingHistory.filter(bid => bid.status === filter);
+  
   // Status color mapping
   const getStatusColor = (status) => {
     switch(status) {
-      case 'Won': return 'bg-green-500';
-      case 'Lost': return 'bg-red-500';
-      case 'Active': return 'bg-blue-500';
+      case 'Accepted': return 'bg-green-500';
+      case 'Rejected': return 'bg-red-500';
+      case 'Pending': return 'bg-blue-500';
       case 'Expired': return 'bg-gray-500';
       default: return 'bg-blue-500';
     }
@@ -113,13 +222,17 @@ const BiddingHistoryPage = () => {
       transition: { duration: 0.5 }
     }
   };
+  
+  // Handle bid update
+  const handleEditBid = (bidId) => {
+    // Navigate to bid edit page
+    window.location.href = `/edit-bid/${bidId}`;
+  };
 
   return (
     <div className="bg-white min-h-screen">
-      {/* Use ContractorUserNav component */}
       <ContractorUserNav />
 
-      {/* Main title banner */}
       <motion.div 
         className="bg-blue-900 text-white py-8 px-4"
         initial={{ opacity: 0 }}
@@ -131,7 +244,6 @@ const BiddingHistoryPage = () => {
         </div>
       </motion.div>
 
-      {/* Main content area */}
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar */}
@@ -147,24 +259,24 @@ const BiddingHistoryPage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                 </svg>
               </div>
-              <h2 className="text-xl font-bold">Mr. Saman Perera</h2>
-              <p className="text-gray-500 text-sm">samanperera@gmail.com</p>
-              <button className="text-red-500 mt-2">Logout</button>
+              <h2 className="text-xl font-bold">{contractorData.name}</h2>
+              <p className="text-gray-500 text-sm">{contractorData.email}</p>
+              <Link to="/login" className="text-red-500 mt-2">Logout</Link>
             </div>
             
             <ul className="space-y-2 border-t pt-4">
-              <li><a href="#" className="block py-2 text-gray-700">My Requirements</a></li>
-              <li><a href="#" className="block py-2 text-gray-700">Transaction History</a></li>
-              <li><a href="#" className="block py-2 text-blue-600 font-bold">Bidding History</a></li>
-              <li><a href="#" className="block py-2 text-gray-700">Ongoing Works</a></li>
-              <li><a href="#" className="block py-2 text-gray-700">
+              <li><Link to="/contractor-dashboard" className="block py-2 text-gray-700">Dashboard</Link></li>
+              <li><Link to="/contractor-projects" className="block py-2 text-gray-700">Available Projects</Link></li>
+              <li><Link to="/bidding-history" className="block py-2 text-blue-600 font-bold">Bidding History</Link></li>
+              <li><Link to="/ongoing-works" className="block py-2 text-gray-700">Ongoing Works</Link></li>
+              <li><Link to="/contractor-profile" className="block py-2 text-gray-700">
                 <span className="flex items-center">
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
                   </svg>
-                  Account Settings
+                  Profile Settings
                 </span>
-              </a></li>
+              </Link></li>
             </ul>
           </motion.div>
 
@@ -179,74 +291,104 @@ const BiddingHistoryPage = () => {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Bidding History</h2>
                 <div className="flex space-x-2">
-                  <select className="border rounded px-4 py-2 text-sm">
+                  <select 
+                    className="border rounded px-4 py-2 text-sm"
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                  >
                     <option>All Bids</option>
-                    <option>Active</option>
-                    <option>Won</option>
-                    <option>Lost</option>
-                    <option>Expired</option>
+                    <option>Pending</option>
+                    <option>Accepted</option>
+                    <option>Rejected</option>
                   </select>
-                  <button className="bg-blue-600 text-white px-4 py-2 rounded text-sm">Filter</button>
                 </div>
               </div>
 
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="overflow-x-auto"
-              >
-                <table className="min-w-full bg-white">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Project Name</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Project Owner</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Bid Amount</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Bid Date</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Deadline</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Status</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {biddingHistory.map((bid) => (
-                      <motion.tr 
-                        key={bid.id} 
-                        variants={itemVariants}
-                        className="border-b border-gray-200 hover:bg-gray-50"
-                      >
-                        <td className="py-3 px-4">{bid.projectName}</td>
-                        <td className="py-3 px-4">{bid.projectOwner}</td>
-                        <td className="py-3 px-4">Rs. {bid.bidAmount.toLocaleString()}</td>
-                        <td className="py-3 px-4">{bid.bidDate}</td>
-                        <td className="py-3 px-4">{bid.deadline}</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded text-white text-xs ${getStatusColor(bid.status)}`}>
-                            {bid.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex space-x-2">
-                            <button className="bg-blue-600 text-white px-3 py-1 rounded text-xs">View</button>
-                            {bid.status === 'Active' && (
-                              <button className="bg-yellow-500 text-white px-3 py-1 rounded text-xs">Edit</button>
+              {loading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  <p className="ml-3">Loading bids...</p>
+                </div>
+              ) : error ? (
+                <div className="text-center py-8">
+                  <p className="text-red-500">{error}</p>
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : filteredBids.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No bids found in this category.</p>
+                  {filter !== 'All Bids' && (
+                    <button 
+                      onClick={() => setFilter('All Bids')} 
+                      className="mt-4 text-blue-600"
+                    >
+                      View all bids instead
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <motion.div
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className="overflow-x-auto"
+                >
+                  <table className="min-w-full bg-white">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="text-left py-3 px-4 font-semibold text-sm">Project Name</th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm">Bid Amount</th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm">Timeline (days)</th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm">Bid Date</th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm">Status</th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm">Updates</th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBids.map((bid) => (
+                        <motion.tr 
+                          key={bid.id} 
+                          variants={itemVariants}
+                          className="border-b border-gray-200 hover:bg-gray-50"
+                        >
+                          <td className="py-3 px-4">{bid.projectName}</td>
+                          <td className="py-3 px-4">LKR {bid.bidAmount.toLocaleString()}</td>
+                          <td className="py-3 px-4">{bid.timeline}</td>
+                          <td className="py-3 px-4">{bid.bidDate}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded text-white text-xs ${getStatusColor(bid.status)}`}>
+                              {bid.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {bid.status === 'Pending' ? (
+                              `${bid.updatesRemaining}/3 remaining`
+                            ) : (
+                              '—'
                             )}
-                          </div>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </motion.div>
-
-              <div className="flex justify-between items-center mt-6">
-                <p className="text-sm text-gray-600">Showing 1-4 of 4 entries</p>
-                <div className="flex space-x-1">
-                  <button className="px-3 py-1 border rounded bg-gray-100">&lt;</button>
-                  <button className="px-3 py-1 border rounded bg-blue-600 text-white">1</button>
-                  <button className="px-3 py-1 border rounded bg-gray-100">&gt;</button>
-                </div>
-              </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex space-x-2">
+                              <Link 
+                                to={`/project/${bid.projectId}`}
+                                className="bg-blue-600 text-white px-3 py-1 rounded text-xs"
+                              >
+                                View
+                              </Link>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </motion.div>
+              )}
             </div>
 
             <motion.div
@@ -259,65 +401,25 @@ const BiddingHistoryPage = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-blue-50 p-4 rounded">
                   <p className="text-sm text-gray-600">Total Bids</p>
-                  <p className="text-2xl font-bold">4</p>
+                  <p className="text-2xl font-bold">{statistics.total}</p>
                 </div>
                 <div className="bg-green-50 p-4 rounded">
                   <p className="text-sm text-gray-600">Won Bids</p>
-                  <p className="text-2xl font-bold">1</p>
+                  <p className="text-2xl font-bold">{statistics.won}</p>
                 </div>
                 <div className="bg-red-50 p-4 rounded">
                   <p className="text-sm text-gray-600">Lost Bids</p>
-                  <p className="text-2xl font-bold">1</p>
+                  <p className="text-2xl font-bold">{statistics.lost}</p>
                 </div>
                 <div className="bg-blue-50 p-4 rounded">
                   <p className="text-sm text-gray-600">Active Bids</p>
-                  <p className="text-2xl font-bold">1</p>
+                  <p className="text-2xl font-bold">{statistics.active}</p>
                 </div>
               </div>
             </motion.div>
           </motion.div>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="bg-blue-900 text-white py-12 mt-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <p className="mb-4">Your all-in-one platform for finding top-rated contractors and architects. Compare bids, connect with professionals, and ensure secure payments with our escrow system. Build smarter, faster, and hassle-free!</p>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold mb-4">Quick Links</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-gray-300 hover:text-white">About Us</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white">Register to bid</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white">Terms & Conditions</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-white">Privacy Policy</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold mb-4">Connect With Us</h3>
-              <div className="flex space-x-4">
-                <a href="#" className="bg-white text-blue-900 p-2 rounded-full">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.563V12h2.773l-.443 2.891h-2.33v6.987C18.343 21.128 22 16.991 22 12z"/>
-                  </svg>
-                </a>
-                <a href="#" className="bg-white text-blue-900 p-2 rounded-full">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M22.46 6c-.77.34-1.6.57-2.46.67a4.28 4.28 0 001.88-2.37 8.56 8.56 0 01-2.72 1.04 4.27 4.27 0 00-7.29 3.89A12.13 12.13 0 013 4.67a4.27 4.27 0 001.32 5.7 4.27 4.27 0 01-1.93-.53v.05a4.27 4.27 0 003.42 4.18 4.27 4.27 0 01-1.92.07 4.27 4.27 0 003.99 2.97A8.56 8.56 0 012 19.54a12.07 12.07 0 006.56 1.92c7.88 0 12.2-6.53 12.2-12.2 0-.19 0-.38-.01-.57A8.72 8.72 0 0024 4.56a8.56 8.56 0 01-2.54.7z"/>
-                  </svg>
-                </a>
-                <a href="#" className="bg-white text-blue-900 p-2 rounded-full">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2.04c-5.5 0-9.96 4.46-9.96 9.96 0 4.41 2.87 8.14 6.84 9.46.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.15-1.1-1.46-1.1-1.46-.9-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.56 9.56 0 015 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10.01 10.01 0 0022 12c0-5.5-4.46-9.96-9.96-9.96z"/>
-                  </svg>
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

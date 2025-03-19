@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import logo from '../assets/images/buildmart_logo1.png';
 import BidListingSection from '../components/BidListingSection';
+import { jwtDecode } from 'jwt-decode';
 
 const ActiveJob = () => {
   const { jobId = "sample-project-id" } = useParams();
@@ -24,23 +25,17 @@ const ActiveJob = () => {
   const [sortField, setSortField] = useState('price');  // Default sort by price
   const [sortDirection, setSortDirection] = useState('asc');  // Default ascending order
 
-  const sampleJobData = {
-    id: "sample-project-id",
-    title: 'Renovate Kitchen with Modern Design',
-    description: 'Complete kitchen renovation including new countertops, cabinets, flooring, and appliances. The space is approximately 15x12 feet. Looking for a contractor with experience in modern kitchen designs. Materials will be provided by the homeowner.',
-    budget: '350,000',
-    timeline: 30,
-    location: 'Colombo 5, Sri Lanka',
-    category: 'Renovation',
-    createdAt: '2025-03-01T10:30:00',
-    auctionStarted: true,
-    milestones: [
-      { id: 1, name: 'Initial Payment', amount: '100,000', description: 'Payment upon signing contract' },
-      { id: 2, name: 'Demolition Complete', amount: '75,000', description: 'When old kitchen is removed' },
-      { id: 3, name: 'Cabinet Installation', amount: '100,000', description: 'When new cabinets are installed' },
-      { id: 4, name: 'Final Payment', amount: '75,000', description: 'Upon project completion and inspection' }
-    ]
-  };
+  // Add this state in your component
+  const [contractorDetails, setContractorDetails] = useState({
+    id: null,
+    name: 'Contractor',
+    email: 'contractor@example.com',
+    phone: '',
+    experience: 0,
+    completedProjects: 0,
+    specializations: [],
+    rating: 0
+  });
 
   
   // Fetch job details and bids when component mounts
@@ -127,6 +122,95 @@ const ActiveJob = () => {
   
     fetchJobAndBids();
   }, [jobId]);
+
+  // Add this useEffect hook to fetch contractor details when component mounts
+  useEffect(() => {
+    const fetchContractorDetails = async () => {
+      try {
+        // Get token from storage
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        if (!token) {
+          console.error('No authentication token found');
+          return;
+        }
+        
+        // Decode token to get userId
+        try {
+          const decoded = jwtDecode(token);
+          const userId = decoded.id || decoded._id || decoded.userId;
+          
+          if (!userId) {
+            console.error('No user ID found in token');
+            return;
+          }
+          
+          // Store userId in localStorage for convenience
+          localStorage.setItem('userId', userId);
+          
+          // Fetch contractor profile using the token
+          const contractorResponse = await axios.get(`http://localhost:5000/api/contractors/profile`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (contractorResponse.data) {
+            const data = contractorResponse.data;
+            
+            // Update contractor details state
+            setContractorDetails({
+              id: userId,
+              name: data.companyName || decoded.name || 'Contractor',
+              email: decoded.email || data.email || 'contractor@example.com',
+              phone: data.phone || '',
+              experience: data.experienceYears || 0,
+              completedProjects: data.completedProjects || 0,
+              specializations: data.specialization || [],
+              rating: data.rating || 0,
+              verified: data.verified || false
+            });
+            
+            // Also store basic info in localStorage for components that might need it
+            localStorage.setItem('name', data.companyName || decoded.name || 'Contractor');
+            localStorage.setItem('email', decoded.email || data.email || 'contractor@example.com');
+          }
+        } catch (decodeError) {
+          console.error('Error decoding token:', decodeError);
+          
+          // Fallback to try direct API request with the token
+          try {
+            const userResponse = await axios.get(`http://localhost:5000/api/users/profile`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (userResponse.data) {
+              const userData = userResponse.data;
+              setContractorDetails({
+                id: userData._id,
+                name: userData.name || 'Contractor',
+                email: userData.email || 'contractor@example.com',
+                phone: userData.phone || '',
+                verified: userData.verified || false
+              });
+              
+              localStorage.setItem('userId', userData._id);
+              localStorage.setItem('name', userData.name || 'Contractor');
+              localStorage.setItem('email', userData.email || 'contractor@example.com');
+            }
+          } catch (userError) {
+            console.error('Error fetching user profile:', userError);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching contractor details:', err);
+      }
+    };
+  
+    fetchContractorDetails();
+  }, []);
 
   // Handle form input changes
   const handleInputChange = (e) => {
