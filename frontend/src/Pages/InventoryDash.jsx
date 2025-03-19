@@ -38,7 +38,7 @@ const categoryColors = {
 };
 
 const InventoryDash = () => {
-  const [inventory, setInventory] = useState(initialInventory);
+  const [inventory, setInventory] = useState([]);
   const [filteredInventory, setFilteredInventory] = useState(initialInventory);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -91,6 +91,19 @@ const InventoryDash = () => {
     setFilteredInventory(results);
   }, [searchTerm, categoryFilter, inventory]);
 
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/products');
+        setInventory(response.data.products);
+      } catch (error) {
+        toast.error('Error fetching products');
+      }
+    };
+    fetchProducts();
+  }, []);
+
   // Request sort
   const requestSort = (key) => {
     let direction = 'ascending';
@@ -132,9 +145,15 @@ const InventoryDash = () => {
   };
 
   // Handle item deletion
-  const handleDeleteItem = (id) => {
+  const handleDeleteItem = async (id) => {
     if (window.confirm("Are you sure you want to delete this item?")) {
-      setInventory(inventory.filter(item => item.id !== id));
+      try {
+        await axios.delete(`http://localhost:5000/api/products/${id}`);
+        setInventory(inventory.filter(item => item._id !== id));
+        toast.success('Product deleted successfully');
+      } catch (error) {
+        toast.error('Error deleting product');
+      }
     }
   };
 
@@ -180,6 +199,47 @@ const InventoryDash = () => {
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1 }
+  };
+
+  // Handle add product
+  const handleAddProduct = async (formData) => {
+    try {
+      const response = await axios.post('http://localhost:5000/api/products', {
+        name: formData.get('name'),
+        sku: formData.get('sku'),
+        category: formData.get('category'),
+        price: parseFloat(formData.get('price')),
+        stock: parseInt(formData.get('stock')),
+        threshold: parseInt(formData.get('threshold')),
+        description: formData.get('description'),
+        image: formData.get('image') || cementImg // Default image if none provided
+      });
+      
+      setInventory([...inventory, response.data.product]);
+      setIsFormOpen(false);
+      toast.success('Product added successfully');
+    } catch (error) {
+      toast.error('Error adding product');
+    }
+  };
+
+  // Handle edit product
+  const handleEditProduct = async (editedProduct) => {
+    try {
+      const response = await axios.put(
+        `http://localhost:5000/api/products/${editedProduct._id}`,
+        editedProduct
+      );
+      
+      const updatedInventory = inventory.map(item =>
+        item._id === editedProduct._id ? response.data.product : item
+      );
+      setInventory(updatedInventory);
+      setEditingItem(null);
+      toast.success('Product updated successfully');
+    } catch (error) {
+      toast.error('Error updating product');
+    }
   };
 
   return (
@@ -574,13 +634,7 @@ const InventoryDash = () => {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  const updatedInventory = inventory.map(item => 
-                    item.id === editingItem.id ? editingItem : item
-                  );
-                  setInventory(updatedInventory);
-                  setEditingItem(null);
-                }}
+                onClick={() => handleEditProduct(editingItem)}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
               >
                 Save Changes
@@ -603,18 +657,7 @@ const InventoryDash = () => {
             <form onSubmit={(e) => {
               e.preventDefault();
               const formData = new FormData(e.target);
-              const newItem = {
-                id: inventory.length + 1,
-                name: formData.get('name'),
-                sku: formData.get('sku'),
-                category: formData.get('category'),
-                price: parseFloat(formData.get('price')),
-                stock: parseInt(formData.get('stock')),
-                threshold: parseInt(formData.get('threshold')),
-                lastUpdated: new Date().toISOString().split('T')[0]
-              };
-              setInventory([...inventory, newItem]);
-              setIsFormOpen(false);
+              handleAddProduct(formData);
             }}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
