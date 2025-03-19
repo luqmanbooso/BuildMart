@@ -26,6 +26,7 @@ import ContractorProfileSetup from './components/ContractorOnboarding'
 import ContractorViewDetails from './components/ContractorViewDetails'
 import BidUpdate from './components/BidUpdate'
 import AgreementForm from './Pages/AgreementForm'
+import InventoryDash from './Pages/InventoryDash'
 
 
 function App() {
@@ -99,6 +100,7 @@ function App() {
           <Route path="/bids/:bidId/update" element={<BidUpdate />} />
         <Route path="/ongoing-works" element={<OngoingJobs />} />
         <Route path="/agreement/:jobId/:bidId" element={<AgreementForm />} />
+        <Route path="/inventoryDash" element={<InventoryDash />} />
       </Routes>
     </>
   )
