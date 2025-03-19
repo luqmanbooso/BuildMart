@@ -24,7 +24,8 @@ const UserProfilePage = () => {
     title: '',
     category: '',
     area: '',
-    budget: '',
+    minBudget: '',  // Replace budget with minBudget
+    maxBudget: '',  // Add maxBudget
     description: '',
     biddingStartTime: new Date().toISOString().substr(0, 16),
     biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 3 days later
@@ -163,22 +164,30 @@ const UserProfilePage = () => {
       const userId = decoded.userId;
       
       // Validate form
-      if (!newJob.title || !newJob.category || !newJob.area || !newJob.budget || 
-        !newJob.biddingStartTime || !newJob.biddingEndTime) {
-        alert('Please fill all required fields including bidding start and end times.');
+      if (!newJob.title || !newJob.category || !newJob.area || 
+          !newJob.minBudget || !newJob.maxBudget || 
+          !newJob.biddingStartTime || !newJob.biddingEndTime) {
+        alert('Please fill all required fields including budgets and bidding times.');
+        return;
+      }
+      
+      // Validate that maxBudget is greater than minBudget
+      if (Number(newJob.minBudget) >= Number(newJob.maxBudget)) {
+        alert('Maximum budget must be greater than minimum budget.');
         return;
       }
       
       // Format the job data for API submission
       const jobData = {
-        userid: userId, // Add the user ID from the token
+        userid: userId,
         title: newJob.title,
         category: newJob.category,
         area: newJob.area,
-        budget: newJob.budget,
-        description: newJob.description, // Make sure description is included
+        minBudget: newJob.minBudget,
+        maxBudget: newJob.maxBudget,
+        description: newJob.description,
         biddingStartTime: newJob.biddingStartTime,
-        biddingEndTime: newJob.biddingEndTime, // Added bidding end time
+        biddingEndTime: newJob.biddingEndTime,
         milestones: newJob.milestones.map(milestone => ({
           name: milestone.name,
           amount: milestone.amount,
@@ -186,7 +195,7 @@ const UserProfilePage = () => {
         }))
       };
       
-      // Make the API request using axios with the full URL
+      // Make the API request using axios
       const response = await axios.post('http://localhost:5000/api/jobs', jobData, {
         headers: {
           'Content-Type': 'application/json',
@@ -203,7 +212,7 @@ const UserProfilePage = () => {
         title: data.job.title,
         category: data.job.category,
         area: data.job.area,
-        budget: `LKR : ${data.job.budget}`,
+        budget: `LKR ${data.job.minBudget} - ${data.job.maxBudget}`,
         status: data.job.status || 'Pending',
         date: new Date(data.job.date).toLocaleDateString('en-GB', { 
           day: '2-digit', month: 'short', year: 'numeric' 
@@ -223,10 +232,11 @@ const UserProfilePage = () => {
         title: '',
         category: '',
         area: '',
-        budget: '',
+        minBudget: '',
+        maxBudget: '',
         description: '',
         biddingStartTime: new Date().toISOString().substr(0, 16),
-        biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 3 days later
+        biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16),
         milestones: [
           { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
         ]
@@ -702,7 +712,7 @@ const UserProfilePage = () => {
                                   <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
                                     <h3 className="text-lg font-semibold text-gray-800 flex items-center">
                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                                       </svg>
                                       Project Details
                                     </h3>
@@ -825,7 +835,7 @@ const UserProfilePage = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                       <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                          Total Budget (LKR) <span className="text-red-500">*</span>
+                                          Minimum Budget (LKR) <span className="text-red-500">*</span>
                                         </label>
                                         <div className="relative rounded-lg shadow-sm">
                                           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -833,8 +843,8 @@ const UserProfilePage = () => {
                                           </div>
                                           <input
                                             type="text"
-                                            value={newJob.budget}
-                                            onChange={(e) => setNewJob({ ...newJob, budget: e.target.value })}
+                                            value={newJob.minBudget}
+                                            onChange={(e) => setNewJob({ ...newJob, minBudget: e.target.value })}
                                             className="pl-14 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
                                             placeholder="0.00"
                                             required
@@ -845,7 +855,32 @@ const UserProfilePage = () => {
                                             </svg>
                                           </div>
                                         </div>
-                                        <p className="mt-1.5 text-xs text-gray-500">Enter your approximate budget for the entire project</p>
+                                        <p className="mt-1.5 text-xs text-gray-500">Enter your approximate minimum budget for the entire project</p>
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Maximum Budget (LKR) <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative rounded-lg shadow-sm">
+                                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <span className="text-gray-500 sm:text-sm font-medium">LKR</span>
+                                          </div>
+                                          <input
+                                            type="text"
+                                            value={newJob.maxBudget}
+                                            onChange={(e) => setNewJob({ ...newJob, maxBudget: e.target.value })}
+                                            className="pl-14 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                                            placeholder="0.00"
+                                            required
+                                          />
+                                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                        <p className="mt-1.5 text-xs text-gray-500">Enter your approximate maximum budget for the entire project</p>
                                       </div>
 
                                       <div>
