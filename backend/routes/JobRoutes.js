@@ -11,11 +11,11 @@ router.post('/', async (req, res) => {
     category, 
     area,
     description,
-    minBudget,  // Updated from budget
-    maxBudget,  // New field
+    minBudget,
+    maxBudget,
     biddingStartTime, 
     biddingEndTime,
-    // milestones removed from initial creation
+    milestones  // Add this to accept milestones
   } = req.body;
 
   try {
@@ -30,11 +30,11 @@ router.post('/', async (req, res) => {
       category,
       area,
       description,
-      minBudget,  // Updated from budget
-      maxBudget,  // New field
+      minBudget,
+      maxBudget,
       biddingStartTime,
       biddingEndTime,
-      // milestones will be empty by default
+      milestones: milestones || []  // Use provided milestones or empty array
     });
 
     await newJob.save();

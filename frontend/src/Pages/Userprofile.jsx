@@ -30,7 +30,7 @@ const UserProfilePage = () => {
     description: '',
     biddingStartTime: new Date().toISOString().substr(0, 16),
     biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16),
-    // Removing milestones from initial state
+    milestones: [] // Add this empty array for milestones
   });
 
   // Add these state variables at the top of the component
@@ -40,6 +40,9 @@ const UserProfilePage = () => {
     name: '',
     email: ''
   });
+
+  // Add this state to track form steps
+  const [formStep, setFormStep] = useState(1);
 
   useEffect(() => {
     // Get token from localStorage or sessionStorage
@@ -130,7 +133,7 @@ const UserProfilePage = () => {
       ...newJob,
       milestones: [
         ...newJob.milestones,
-        { id: newId, name: `Milestone ${newId}`, amount: '', description: '' }
+        { id: newId, name: `Milestone ${newId}`, description: '' }
       ]
     });
   };
@@ -186,8 +189,8 @@ const UserProfilePage = () => {
         maxBudget: newJob.maxBudget,
         description: newJob.description,
         biddingStartTime: newJob.biddingStartTime,
-        biddingEndTime: newJob.biddingEndTime
-        // Milestones removed
+        biddingEndTime: newJob.biddingEndTime,
+        milestones: newJob.milestones // Add this line to include milestones
       };
       
       // Make the API request using axios
@@ -231,8 +234,8 @@ const UserProfilePage = () => {
         maxBudget: '',
         description: '',
         biddingStartTime: new Date().toISOString().substr(0, 16),
-        biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16)
-        // Milestones removed
+        biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16),
+        milestones: [] // Add this empty array for milestones
       });
       
       // Show success message
@@ -332,6 +335,15 @@ const UserProfilePage = () => {
   const handleBudgetChange = (field, value) => {
     const validValue = validateBudgetInput(value);
     setNewJob({ ...newJob, [field]: validValue });
+  };
+
+  // Add these navigation functions
+  const nextStep = () => {
+    setFormStep(formStep + 1);
+  };
+
+  const prevStep = () => {
+    setFormStep(formStep - 1);
   };
 
   const pastWorks = [
@@ -848,7 +860,7 @@ const UserProfilePage = () => {
                                         <div className="col-span-2 mt-0 mb-4">
                                           <p className="text-sm text-red-600 flex items-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                                             </svg>
                                             Maximum budget must be greater than minimum budget
                                           </p>
@@ -918,6 +930,77 @@ const UserProfilePage = () => {
                                         </div>
                                       </div>
                                     </div>
+                                  </div>
+                                </div>
+
+                                {/* Milestones Card */}
+                                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                                    <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                      </svg>
+                                      Project Milestones
+                                    </h3>
+                                  </div>
+
+                                  <div className="p-6">
+                                    <p className="text-sm text-gray-600 mb-4">
+                                      Break down your project into manageable milestones. This helps track progress and organize the workflow of your project.
+                                    </p>
+
+                                    {/* Milestones List */}
+                                    <div className="space-y-4 mb-4">
+                                      {newJob.milestones.map((milestone) => (
+                                        <div key={milestone.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                          <div className="flex justify-between items-center mb-3">
+                                            <div className="flex items-center">
+                                              <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium">{milestone.id}</span>
+                                              <input
+                                                type="text"
+                                                value={milestone.name}
+                                                onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
+                                                className="ml-2 border-0 bg-transparent font-medium focus:ring-2 focus:ring-blue-500 rounded p-1"
+                                                placeholder="Milestone name"
+                                              />
+                                            </div>
+                                            <button 
+                                              onClick={() => removeMilestone(milestone.id)}
+                                              className="text-red-500 hover:text-red-700 focus:outline-none"
+                                              type="button"
+                                            >
+                                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                              </svg>
+                                            </button>
+                                          </div>
+                                          
+                                          {/* Milestone Description */}
+                                          <div>
+                                            <label className="block text-xs text-gray-500 mb-1">Description</label>
+                                            <textarea
+                                              value={milestone.description}
+                                              onChange={(e) => updateMilestone(milestone.id, 'description', e.target.value)}
+                                              rows="2"
+                                              className="block w-full sm:text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                              placeholder="Describe this milestone..."
+                                            ></textarea>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    {/* Add Milestone Button */}
+                                    <button
+                                      type="button"
+                                      onClick={addMilestone}
+                                      className="flex items-center justify-center w-full py-2 px-4 border border-dashed border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                      </svg>
+                                      Add Milestone
+                                    </button>
                                   </div>
                                 </div>
                               </div>
