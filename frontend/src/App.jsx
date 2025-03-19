@@ -96,7 +96,7 @@ function App() {
           <Route path='/contractor/:contractorId/bid/:bidId/project/:projectId' element= {<ContractorViewDetails/>} />
 
           <Route path="/bids/:bidId/update" element={<BidUpdate />} />
-        <Route path="/ongoingjobs" element={<OngoingJobs />} />
+        <Route path="/ongoing-works" element={<OngoingJobs />} />
       </Routes>
     </>
   )
