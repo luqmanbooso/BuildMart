@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaUserCircle, FaBriefcase, FaHistory, FaChartLine, FaCog, FaSignOutAlt, FaGavel } from 'react-icons/fa';
+import { FaUserCircle, FaBriefcase, FaHistory, FaChartLine, FaCog, FaSignOutAlt, FaGavel, FaSearch } from 'react-icons/fa';
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import logo from "../assets/images/buildmart_logo1.png";
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ContractorUserNav = () => {
   const navigate = useNavigate();
@@ -11,6 +13,34 @@ const ContractorUserNav = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Track scroll position for navbar styling - matching ClientNavBar
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 50) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Handle clicks outside dropdown to close it
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -23,7 +53,7 @@ const ContractorUserNav = () => {
         }
         
         const decoded = jwtDecode(token);
-        const userId = decoded.userId;
+        const userId = decoded.userId || decoded.id;
         
         // Fetch user data
         const response = await axios.get(`http://localhost:5000/auth/user/${userId}`, {
@@ -33,7 +63,20 @@ const ContractorUserNav = () => {
         setUserData(response.data.user);
       } catch (error) {
         console.error('Error fetching user data:', error);
-        toast.error('Failed to load user profile');
+        
+        // Fall back to using token data
+        try {
+          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+          if (token) {
+            const decoded = jwtDecode(token);
+            setUserData({
+              username: decoded.name || decoded.username || 'User',
+              email: decoded.email || ''
+            });
+          }
+        } catch (err) {
+          console.error('Error decoding token:', err);
+        }
       } finally {
         setLoading(false);
       }
@@ -61,136 +104,270 @@ const ContractorUserNav = () => {
     return location.pathname === path;
   };
 
-  // Get active link class
-  const getNavLinkClass = (path) => {
-    return isActive(path) 
-      ? "border-blue-500 text-blue-600 border-b-2 inline-flex items-center px-1 pt-1 text-sm font-medium" 
-      : "border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium";
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-16">
+      <nav className="fixed w-full backdrop-blur-md py-3 px-4 md:px-8 flex items-center justify-between transition-all duration-500 z-50 bg-white/90">
+        <div className="flex items-center">
+          <Link to="/">
+            <img src={logo} alt="BuildMart" className="h-12 md:h-16" />
+          </Link>
+        </div>
         <div className="w-6 h-6 border-2 border-t-blue-500 border-blue-200 rounded-full animate-spin"></div>
-      </div>
+      </nav>
     );
   }
 
   return (
-    <nav className="bg-white shadow-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* Logo and main nav */}
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="font-bold text-xl text-blue-800">BuildMart</Link>
-            </div>
-            <div className="hidden md:ml-6 md:flex md:space-x-8">
-              <Link 
-                to="/projects" 
-                className={getNavLinkClass('/projects')}
-              >
-                <FaBriefcase className="mr-1" /> Find Projects
-              </Link>
-              <Link 
-                to="/bidhistory" 
-                className={getNavLinkClass('/bidhistory')}
-              >
-                <FaHistory className="mr-1" /> Bid History
-              </Link>
-              <Link 
-                to="/ongoingjobs" 
-                className={getNavLinkClass('/ongoingjobs')}
-              >
-                <FaChartLine className="mr-1" /> Ongoing Projects
-              </Link>
-              <Link 
-                to="/auction" 
-                className={getNavLinkClass('/auction')}
-              >
-                <FaGavel className="mr-1" /> Auction
-              </Link>
-            </div>
-          </div>
+    <>
+      <nav 
+        className={`fixed w-full backdrop-blur-md py-3 px-4 md:px-8 flex items-center justify-between transition-all duration-500 z-50 ${
+          isScrolled ? "bg-white/90 shadow-lg" : "bg-white/50"
+        }`}
+      >
+        {/* Logo - same as ClientNavBar */}
+        <div className="flex items-center">
+          <Link to="/">
+            <img src={logo} alt="BuildMart" className="h-12 md:h-16" />
+          </Link>
+        </div>
 
-          {/* User profile dropdown */}
-          <div className="ml-3 relative flex items-center">
-            <div>
-              <button
-                onClick={() => setShowDropdown(!showDropdown)}
-                className="max-w-xs flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                id="user-menu"
-                aria-expanded="false"
+        {/* UPDATED: Main navigation links */}
+        <div className="hidden lg:flex items-center space-x-6">
+          <Link 
+            to="/auction" 
+            className={`relative py-2 px-1 ${isActive('/auction') ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
+          >
+            <FaGavel className="inline mr-1" /> Auction
+            <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${isActive('/auction') ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
+          </Link>
+          
+          <Link 
+            to="/bidhistory" 
+            className={`relative py-2 px-1 ${isActive('/bidhistory') ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
+          >
+            <FaHistory className="inline mr-1" /> Bid History
+            <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${isActive('/bidhistory') ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
+          </Link>
+          
+          <Link 
+            to="/ongoingproject" 
+            className={`relative py-2 px-1 ${isActive('/ongoingproject') ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
+          >
+            <FaChartLine className="inline mr-1" /> Ongoing Projects
+            <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${isActive('/ongoingproject') ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
+          </Link>
+          
+          <Link 
+            to="/about-us" 
+            className={`relative py-2 px-1 ${isActive('/about-us') ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
+          >
+            About Us
+            <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${isActive('/about-us') ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
+          </Link>
+          
+          <Link 
+            to="/contact-us" 
+            className={`relative py-2 px-1 ${isActive('/contact-us') ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
+          >
+            Contact Us
+            <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${isActive('/contact-us') ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
+          </Link>
+          
+          <div className="relative">
+            <button className="bg-gray-100 text-gray-800 p-3 rounded-full hover:bg-gray-200 transition-all transform hover:scale-105 flex items-center justify-center">
+              <FaSearch className="text-blue-600" />
+            </button>
+          </div>
+          
+          {/* User dropdown - styled similarly to ClientNavBar */}
+          <div className="relative" ref={dropdownRef}>
+            <div 
+              className="flex items-center space-x-2 cursor-pointer bg-gradient-to-r from-blue-50 to-gray-100 py-2 px-4 rounded-full border border-gray-200 hover:shadow-md transition-all"
+              onClick={() => setShowDropdown(!showDropdown)}
+            >
+              {userData?.profilePic ? (
+                <img
+                  src={`data:image/jpeg;base64,${userData.profilePic}`}
+                  alt="Profile"
+                  className="w-8 h-8 rounded-full border-2 border-blue-500 object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center text-white">
+                  {getInitials(userData?.username)}
+                </div>
+              )}
+              <span className="text-gray-800 font-medium">Hi, {userData?.username}</span>
+              <svg 
+                className={`w-4 h-4 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 20 20" 
+                fill="currentColor"
               >
-                <span className="sr-only">Open user menu</span>
-                {userData?.profilePic ? (
-                  <img
-                    className="h-8 w-8 rounded-full object-cover"
-                    src={`data:image/jpeg;base64,${userData.profilePic}`}
-                    alt={userData.username}
-                  />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                    {getInitials(userData?.username)}
-                  </div>
-                )}
-                <span className="ml-2 text-gray-700 hidden md:block">{userData?.username}</span>
-                <svg 
-                  className="ml-1 h-5 w-5 text-gray-400" 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  viewBox="0 0 20 20" 
-                  fill="currentColor" 
-                  aria-hidden="true"
-                >
-                  <path 
-                    fillRule="evenodd" 
-                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" 
-                    clipRule="evenodd" 
-                  />
-                </svg>
-              </button>
+                <path 
+                  fillRule="evenodd" 
+                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" 
+                  clipRule="evenodd" 
+                />
+              </svg>
             </div>
             
-            {/* Dropdown menu */}
-            {showDropdown && (
-              <div 
-                className="origin-top-right absolute right-0 top-10 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
-                role="menu"
-                aria-orientation="vertical"
-                aria-labelledby="user-menu"
-              >
-                <Link 
-                  to="/contractor-profile" 
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  role="menuitem"
-                  onClick={() => setShowDropdown(false)}
+            <AnimatePresence>
+              {showDropdown && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-100"
                 >
-                  <FaUserCircle className="inline-block mr-2" /> Profile
-                </Link>
-                <Link 
-                  to="/settings" 
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  role="menuitem"
-                  onClick={() => setShowDropdown(false)}
-                >
-                  <FaCog className="inline-block mr-2" /> Settings
-                </Link>
-                <button
-                  onClick={() => {
-                    setShowDropdown(false);
-                    handleLogout();
-                  }}
-                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                  role="menuitem"
-                >
-                  <FaSignOutAlt className="inline-block mr-2" /> Sign out
-                </button>
-              </div>
-            )}
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="text-sm text-gray-500">Signed in as</p>
+                    <p className="font-medium text-gray-800">{userData?.email || 'Contractor'}</p>
+                  </div>
+                  
+                  <Link 
+                    to="/contractor-profile" 
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    <span className="w-8"><FaUserCircle /></span>
+                    Profile
+                  </Link>
+                  
+                  
+                  
+                  <div className="border-t border-gray-100 my-1"></div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <span className="w-8"><FaSignOutAlt /></span>
+                    Logout
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
-      </div>
-    </nav>
+        
+        {/* Mobile menu button - matching ClientNavBar */}
+        <div className="lg:hidden">
+          <button 
+            className="text-gray-700 focus:outline-none p-2"
+            onClick={() => setShowDropdown(!showDropdown)}
+          >
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={showDropdown ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}></path>
+            </svg>
+          </button>
+        </div>
+      </nav>
+
+      {/* UPDATED: Mobile menu links */}
+      <AnimatePresence>
+        {showDropdown && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-[74px] left-0 w-full bg-white z-40 shadow-lg lg:hidden overflow-hidden"
+          >
+            <div className="p-5 flex flex-col space-y-4">
+              <Link 
+                to="/auction" 
+                className={`py-2 px-3 rounded-lg ${isActive('/auction') ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'} font-medium`}
+                onClick={() => setShowDropdown(false)}
+              >
+                <FaGavel className="inline mr-2" /> Auction
+              </Link>
+              
+              <Link 
+                to="/bidhistory" 
+                className={`py-2 px-3 rounded-lg ${isActive('/bidhistory') ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'} font-medium`}
+                onClick={() => setShowDropdown(false)}
+              >
+                <FaHistory className="inline mr-2" /> Bid History
+              </Link>
+              
+              <Link 
+                to="/ongoingproject" 
+                className={`py-2 px-3 rounded-lg ${isActive('/ongoingproject') ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'} font-medium`}
+                onClick={() => setShowDropdown(false)}
+              >
+                <FaChartLine className="inline mr-2" /> Ongoing Projects
+              </Link>
+              
+              <Link 
+                to="/about-us" 
+                className={`py-2 px-3 rounded-lg ${isActive('/about-us') ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'} font-medium`}
+                onClick={() => setShowDropdown(false)}
+              >
+                About Us
+              </Link>
+              
+              <Link 
+                to="/contact-us" 
+                className={`py-2 px-3 rounded-lg ${isActive('/contact-us') ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'} font-medium`}
+                onClick={() => setShowDropdown(false)}
+              >
+                Contact Us
+              </Link>
+              
+              <div className="pt-4 border-t border-gray-200">
+                <div className="flex items-center space-x-3 mb-4">
+                  {userData?.profilePic ? (
+                    <img
+                      src={`data:image/jpeg;base64,${userData.profilePic}`}
+                      alt="Profile"
+                      className="w-10 h-10 rounded-full border-2 border-blue-500 object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center text-white text-lg">
+                      {getInitials(userData?.username)}
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium">{userData?.username}</p>
+                    <p className="text-sm text-gray-500">{userData?.email || 'Contractor'}</p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col space-y-3">
+                  <Link 
+                    to="/contractor-profile"
+                    className="flex items-center py-2 px-3 rounded-lg hover:bg-gray-100 text-gray-700"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    <span className="w-8"><FaUserCircle /></span>
+                    Profile
+                  </Link>
+                  <Link 
+                    to="/settings"
+                    className="flex items-center py-2 px-3 rounded-lg hover:bg-gray-100 text-gray-700"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    <span className="w-8"><FaCog /></span>
+                    Settings
+                  </Link>
+                  
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setShowDropdown(false);
+                    }}
+                    className="flex items-center py-2 px-3 rounded-lg hover:bg-red-50 text-red-600 mt-2"
+                  >
+                    <span className="w-8"><FaSignOutAlt /></span>
+                    Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
