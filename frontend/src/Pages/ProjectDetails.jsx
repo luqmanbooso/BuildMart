@@ -32,6 +32,12 @@ const ProjectDetails = () => {
     auctionStarted: false
   });
 
+  // Add these state variables near the top with other state declarations
+  const [showMilestoneForm, setShowMilestoneForm] = useState(false);
+  const [milestones, setMilestones] = useState([
+    { name: '', amount: '', description: '' }
+  ]);
+
   // Get user information from token
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -417,23 +423,32 @@ const ProjectDetails = () => {
                     </div>
                     <div className="bg-green-50 p-5 rounded-lg border border-green-100">
                       <p className="text-2xl text-green-600 font-medium mb-2">
-                        LKR {job?.budget}
+                        {job?.minBudget && job?.maxBudget ? (
+                          <>LKR {job.minBudget} - {job.maxBudget}</>
+                        ) : (
+                          <>LKR {job?.budget || 'Not specified'}</>
+                        )}
                       </p>
                       <p className="text-sm text-gray-600">
                         Bidding started: {job?.biddingStartTime ? new Date(job.biddingStartTime).toLocaleString() : 'Not yet started'}
                       </p>
+                      <p className="text-sm text-gray-600 mt-2">
+                        <span className="font-medium">Budget Range:</span> Client is willing to pay between LKR {job?.minBudget || '0'} and LKR {job?.maxBudget || '0'} for this project based on contractor qualifications and proposal.
+                      </p>
                     </div>
                   </div>
 
-                  {/* Milestones */}
-                  {job?.milestones && job.milestones.length > 0 && (
-                    <div className="mb-8">
-                      <div className="flex items-center mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        <h2 className="text-xl font-semibold text-gray-800">Payment Milestones</h2>
-                      </div>
+                  {/* Milestones Section - Only show when appropriate */}
+                  <div className="mb-8">
+                    <div className="flex items-center mb-4">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <h2 className="text-xl font-semibold text-gray-800">Payment Milestones</h2>
+                    </div>
+
+                    {job?.milestones && job.milestones.length > 0 ? (
+                      // Display existing milestones if any
                       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                         <div className="divide-y divide-gray-200">
                           {job.milestones.map((milestone, index) => (
@@ -452,8 +467,44 @@ const ProjectDetails = () => {
                           ))}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    ) : job?.acceptedBid && userInfo?.userId === job?.userid ? (
+                      // For project owner with accepted bid but no milestones yet
+                      <div className="bg-blue-50 p-5 rounded-lg border border-blue-100">
+                        <div className="flex items-center mb-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p className="font-medium text-blue-700">You can now set up payment milestones for this project</p>
+                        </div>
+                        <p className="text-sm text-blue-600 mb-4">
+                          Break down your project into manageable payment phases to track progress and manage payments efficiently.
+                        </p>
+                        <button
+                          onClick={() => setShowMilestoneForm(true)} 
+                          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                          </svg>
+                          Set Up Milestones
+                        </button>
+                      </div>
+                    ) : timeLeft.timeUp && !job?.acceptedBid ? (
+                      // For projects with ended auction but no accepted bid
+                      <div className="bg-yellow-50 p-5 rounded-lg border border-yellow-100">
+                        <p className="text-sm text-yellow-700">
+                          Payment milestones will be established once a bid has been accepted. The project owner will set up payment phases based on the accepted bid amount.
+                        </p>
+                      </div>
+                    ) : (
+                      // For active auctions or others viewing the project
+                      <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
+                        <p className="text-sm text-gray-600">
+                          Payment milestones will be established after bidding ends and a contractor is selected. Milestones help track progress and manage payments throughout the project.
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Client Info */}
                   {job?.userid && (
@@ -777,6 +828,183 @@ const ProjectDetails = () => {
           onClose={() => setShowBidUpdateModal(false)}
           onSuccess={handleBidUpdateSuccess}
         />
+      )}
+
+      {/* Milestone Form Modal */}
+      {showMilestoneForm && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-md transition-opacity" 
+              aria-hidden="true"
+              onClick={() => setShowMilestoneForm(false)}
+            ></div>
+
+            <div className="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full border border-blue-100">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-8 relative overflow-hidden">
+                <div className="relative z-10">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-start">
+                      <div className="bg-white/20 p-3 rounded-xl mr-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 className="text-3xl font-bold text-white leading-tight">Set Payment Milestones</h2>
+                        <p className="text-blue-200 text-sm mt-2">
+                          Break down your project into payment phases based on the accepted bid of LKR {job?.acceptedBidAmount || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setShowMilestoneForm(false)}
+                      className="rounded-full p-2 text-white bg-white/20 hover:bg-white/30 focus:outline-none transition-colors"
+                    >
+                      <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleMilestoneSubmit} className="px-8 py-6 max-h-[70vh] overflow-y-auto">
+                <div className="mb-6 bg-blue-50 p-4 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-medium text-blue-800">
+                      Accepted Bid Amount
+                    </h3>
+                    <span className="text-xl font-semibold text-blue-700">
+                      LKR {job?.acceptedBidAmount || "0"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-medium text-blue-800">
+                      Total Milestone Amount
+                    </h3>
+                    <span className={`text-xl font-semibold ${
+                      getTotalMilestoneAmount() === job?.acceptedBidAmount ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      LKR {getTotalMilestoneAmount()}
+                    </span>
+                  </div>
+                  {getTotalMilestoneAmount() !== job?.acceptedBidAmount && (
+                    <p className="text-sm text-red-600 mt-2">
+                      Total milestone amount must equal the accepted bid amount
+                    </p>
+                  )}
+                </div>
+
+                {milestones.map((milestone, index) => (
+                  <div key={index} className="mb-6 bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-medium text-gray-800 flex items-center">
+                        <span className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-800 rounded-full mr-2 font-semibold text-sm">
+                          {index + 1}
+                        </span>
+                        Milestone {index + 1}
+                      </h3>
+                      {milestones.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeMilestone(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Milestone Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={milestone.name}
+                          onChange={(e) => handleMilestoneChange(index, 'name', e.target.value)}
+                          className="block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="e.g., Foundation Work"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Amount (LKR) <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="text-gray-500">LKR</span>
+                          </div>
+                          <input
+                            type="text"
+                            value={milestone.amount}
+                            onChange={(e) => handleMilestoneChange(index, 'amount', e.target.value)}
+                            className="pl-12 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="0.00"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Description <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        value={milestone.description}
+                        onChange={(e) => handleMilestoneChange(index, 'description', e.target.value)}
+                        className="block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        rows="2"
+                        placeholder="Describe the deliverables for this milestone"
+                        required
+                      ></textarea>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="flex justify-center mb-6">
+                  <button
+                    type="button"
+                    onClick={addMilestone}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    </svg>
+                    Add Another Milestone
+                  </button>
+                </div>
+
+                <div className="mt-6 flex justify-end space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowMilestoneForm(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={getTotalMilestoneAmount() !== job?.acceptedBidAmount}
+                    className={`px-6 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
+                      getTotalMilestoneAmount() === job?.acceptedBidAmount 
+                        ? 'bg-blue-600 hover:bg-blue-700' 
+                        : 'bg-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Save Milestones
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -179,5 +179,48 @@ router.put('/update/:bidId', async (req, res) => {
   }
 });
 
+// Add this new route to get bids for a specific contractor
+
+// Get bids by contractor ID
+router.get('/contractor/:contractorId', async (req, res) => {
+  try {
+    const { contractorId } = req.params;
+    
+    if (!contractorId) {
+      return res.status(400).json({ error: 'Contractor ID is required' });
+    }
+    
+    const bids = await Bid.find({ contractorId });
+    
+    // Enhance with project details if possible
+    const enhancedBids = await Promise.all(bids.map(async (bid) => {
+      try {
+        const bidObj = bid.toObject();
+        // Try to get job details for each bid
+        const job = await Job.findById(bid.projectId);
+        if (job) {
+          bidObj.projectName = job.title;
+          
+          // Try to get client details
+          if (job.clientId) {
+            const client = await User.findById(job.clientId);
+            if (client) {
+              bidObj.clientName = client.name;
+            }
+          }
+        }
+        return bidObj;
+      } catch (err) {
+        console.log(`Error fetching details for bid ${bid._id}:`, err);
+        return bid.toObject();
+      }
+    }));
+    
+    res.json(enhancedBids);
+  } catch (error) {
+    console.error('Error fetching contractor bids:', error);
+    res.status(500).json({ error: 'Error fetching contractor bids' });
+  }
+});
 
 module.exports = router;

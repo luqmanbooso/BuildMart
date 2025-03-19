@@ -24,13 +24,12 @@ const UserProfilePage = () => {
     title: '',
     category: '',
     area: '',
-    budget: '',
+    minBudget: '',
+    maxBudget: '',
     description: '',
     biddingStartTime: new Date().toISOString().substr(0, 16),
-    biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 3 days later
-    milestones: [
-      { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
-    ]
+    biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16),
+    // Removing milestones from initial state
   });
 
   // Add these state variables at the top of the component
@@ -163,30 +162,34 @@ const UserProfilePage = () => {
       const userId = decoded.userId;
       
       // Validate form
-      if (!newJob.title || !newJob.category || !newJob.area || !newJob.budget || 
-        !newJob.biddingStartTime || !newJob.biddingEndTime) {
-        alert('Please fill all required fields including bidding start and end times.');
+      if (!newJob.title || !newJob.category || !newJob.area || 
+          !newJob.minBudget || !newJob.maxBudget || 
+          !newJob.biddingStartTime || !newJob.biddingEndTime) {
+        alert('Please fill all required fields including budgets and bidding times.');
+        return;
+      }
+      
+      // Validate that maxBudget is greater than minBudget
+      if (Number(newJob.minBudget) >= Number(newJob.maxBudget)) {
+        alert('Maximum budget must be greater than minimum budget.');
         return;
       }
       
       // Format the job data for API submission
       const jobData = {
-        userid: userId, // Add the user ID from the token
+        userid: userId,
         title: newJob.title,
         category: newJob.category,
         area: newJob.area,
-        budget: newJob.budget,
-        description: newJob.description, // Make sure description is included
+        minBudget: newJob.minBudget,
+        maxBudget: newJob.maxBudget,
+        description: newJob.description,
         biddingStartTime: newJob.biddingStartTime,
-        biddingEndTime: newJob.biddingEndTime, // Added bidding end time
-        milestones: newJob.milestones.map(milestone => ({
-          name: milestone.name,
-          amount: milestone.amount,
-          description: milestone.description
-        }))
+        biddingEndTime: newJob.biddingEndTime
+        // Milestones removed
       };
       
-      // Make the API request using axios with the full URL
+      // Make the API request using axios
       const response = await axios.post('http://localhost:5000/api/jobs', jobData, {
         headers: {
           'Content-Type': 'application/json',
@@ -203,7 +206,7 @@ const UserProfilePage = () => {
         title: data.job.title,
         category: data.job.category,
         area: data.job.area,
-        budget: `LKR : ${data.job.budget}`,
+        budget: `LKR ${data.job.minBudget} - ${data.job.maxBudget}`,
         status: data.job.status || 'Pending',
         date: new Date(data.job.date).toLocaleDateString('en-GB', { 
           day: '2-digit', month: 'short', year: 'numeric' 
@@ -223,17 +226,16 @@ const UserProfilePage = () => {
         title: '',
         category: '',
         area: '',
-        budget: '',
+        minBudget: '',
+        maxBudget: '',
         description: '',
         biddingStartTime: new Date().toISOString().substr(0, 16),
-        biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16), // Default 3 days later
-        milestones: [
-          { id: 1, name: 'Initial Payment', amount: '', description: 'Payment made at the start of the project' }
-        ]
+        biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16)
+        // Milestones removed
       });
       
       // Show success message
-      alert('Job created successfully!');
+      alert('Job created successfully! You can set up milestones after accepting a bid.');
       
     } catch (error) {
       console.error('Error creating job:', error.response ? error.response.data : error.message);
@@ -313,6 +315,23 @@ const UserProfilePage = () => {
     }
   };
 
+  const validateBudgetInput = (value) => {
+    // Remove any non-digit characters except decimal point
+    const sanitized = value.replace(/[^\d.]/g, '');
+    
+    // Ensure only one decimal point
+    const parts = sanitized.split('.');
+    if (parts.length > 2) {
+      return parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    return sanitized;
+  };
+  
+  const handleBudgetChange = (field, value) => {
+    const validValue = validateBudgetInput(value);
+    setNewJob({ ...newJob, [field]: validValue });
+  };
 
   const pastWorks = [
     { id: '01', title: 'Living Room Painting', contractor: 'Color Masters', completionDate: '10 Jan 2025', rating: 4.5 },
@@ -679,12 +698,12 @@ const UserProfilePage = () => {
                               <div className="flex items-center justify-between max-w-3xl mx-auto">
                                 <div className="flex flex-col items-center">
                                   <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">1</div>
-                                  <span className="text-xs font-medium mt-1 text-blue-600">Basic Info</span>
+                                  <span className="text-xs font-medium mt-1 text-blue-600">Project Info</span>
                                 </div>
                                 <div className="flex-1 h-1 bg-blue-200 mx-2"></div>
                                 <div className="flex flex-col items-center">
                                   <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center text-blue-600 font-bold">2</div>
-                                  <span className="text-xs font-medium mt-1 text-gray-500">Timeline</span>
+                                  <span className="text-xs font-medium mt-1 text-gray-500">Timeline & Budget</span>
                                 </div>
                                 <div className="flex-1 h-1 bg-blue-200 mx-2"></div>
                                 <div className="flex flex-col items-center">
@@ -823,9 +842,10 @@ const UserProfilePage = () => {
 
                                   <div className="p-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                      {/* Min Budget */}
                                       <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                          Total Budget (LKR) <span className="text-red-500">*</span>
+                                          Minimum Budget (LKR) <span className="text-red-500">*</span>
                                         </label>
                                         <div className="relative rounded-lg shadow-sm">
                                           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -833,8 +853,8 @@ const UserProfilePage = () => {
                                           </div>
                                           <input
                                             type="text"
-                                            value={newJob.budget}
-                                            onChange={(e) => setNewJob({ ...newJob, budget: e.target.value })}
+                                            value={newJob.minBudget}
+                                            onChange={(e) => handleBudgetChange('minBudget', e.target.value)}
                                             className="pl-14 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
                                             placeholder="0.00"
                                             required
@@ -845,9 +865,49 @@ const UserProfilePage = () => {
                                             </svg>
                                           </div>
                                         </div>
-                                        <p className="mt-1.5 text-xs text-gray-500">Enter your approximate budget for the entire project</p>
+                                        <p className="mt-1.5 text-xs text-gray-500">Enter your minimum budget for the project</p>
                                       </div>
 
+                                      {/* Max Budget */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                          Maximum Budget (LKR) <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative rounded-lg shadow-sm">
+                                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <span className="text-gray-500 sm:text-sm font-medium">LKR</span>
+                                          </div>
+                                          <input
+                                            type="text"
+                                            value={newJob.maxBudget}
+                                            onChange={(e) => handleBudgetChange('maxBudget', e.target.value)}
+                                            className="pl-14 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                                            placeholder="0.00"
+                                            required
+                                          />
+                                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                        <p className="mt-1.5 text-xs text-gray-500">Enter your maximum budget for the project</p>
+                                      </div>
+
+                                      {/* Budget validation message */}
+                                      {parseFloat(newJob.minBudget) > 0 && parseFloat(newJob.maxBudget) > 0 && 
+                                      parseFloat(newJob.minBudget) >= parseFloat(newJob.maxBudget) && (
+                                        <div className="col-span-2 mt-0 mb-4">
+                                          <p className="text-sm text-red-600 flex items-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            Maximum budget must be greater than minimum budget
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      {/* Bidding Start Time */}
                                       <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                           Bidding Start Time <span className="text-red-500">*</span>
@@ -869,7 +929,8 @@ const UserProfilePage = () => {
                                         <p className="mt-1.5 text-xs text-gray-500">When should professionals start bidding on your project?</p>
                                       </div>
 
-                                      <div className="col-span-2">
+                                      {/* Bidding End Time */}
+                                      <div>
                                         <label htmlFor="biddingEndTime" className="block text-sm font-medium text-gray-700 mb-1">
                                           Bidding End Time <span className="text-red-500">*</span>
                                         </label>
@@ -905,120 +966,9 @@ const UserProfilePage = () => {
                                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                           </svg>
-                                          <p className="text-xs text-gray-500">Set a deadline for bids to ensure you receive timely responses. Maximum bidding period is 3 days from start time.</p>
+                                          <p className="text-xs text-gray-500">Set a deadline for bids (max 3 days from start time)</p>
                                         </div>
                                       </div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Milestones Card */}
-                                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                                    <div className="flex justify-between items-center">
-                                      <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                                        </svg>
-                                        Payment Milestones
-                                      </h3>
-                                      <button
-                                        type="button"
-                                        onClick={addMilestone}
-                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none transition-colors"
-                                      >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                        </svg>
-                                        Add Milestone
-                                      </button>
-                                    </div>
-                                    <p className="text-sm text-gray-500 mt-1">Break down your project into manageable payment phases</p>
-                                  </div>
-
-                                  <div className="p-6">
-                                    <div className="space-y-5 max-h-96 overflow-y-auto pr-2">
-                                      {newJob.milestones.map((milestone, index) => (
-                                        <div 
-                                          key={milestone.id} 
-                                          className="bg-blue-50 p-5 rounded-xl border border-blue-100 hover:border-blue-200 transition-colors relative"
-                                        >
-                                          {/* Milestone header with decorative elements */}
-                                          <div className="flex justify-between mb-4">
-                                            <div className="flex items-center">
-                                              <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold mr-3 border-2 border-white shadow-sm">
-                                                {index + 1}
-                                              </div>
-                                              <h4 className="font-medium text-gray-800 text-base">Milestone {index + 1}</h4>
-                                            </div>
-                                            {newJob.milestones.length > 1 && (
-                                              <button
-                                                type="button"
-                                                onClick={() => removeMilestone(milestone.id)}
-                                                className="text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 transition-colors absolute top-2 right-2"
-                                              >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                              </button>
-                                            )}
-                                          </div>
-                                          
-                                          {/* Milestone form fields with enhanced styling */}
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                            <div>
-                                              <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                Milestone Name <span className="text-red-500">*</span>
-                                              </label>
-                                              <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                                  </svg>
-                                                </div>
-                                                <input
-                                                  type="text"
-                                                  value={milestone.name}
-                                                  onChange={(e) => updateMilestone(milestone.id, 'name', e.target.value)}
-                                                  className="pl-9 block w-full px-4 py-3 border border-blue-200 bg-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors"
-                                                  placeholder="e.g., Foundation Completion"
-                                                  required
-                                                />
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                                Amount (LKR) <span className="text-red-500">*</span>
-                                              </label>
-                                              <div className="relative rounded-md shadow-sm">
-                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                  <span className="text-gray-500 sm:text-xs font-medium">LKR</span>
-                                                </div>
-                                                <input
-                                                  type="text"
-                                                  value={milestone.amount}
-                                                  onChange={(e) => updateMilestone(milestone.id, 'amount', e.target.value)}
-                                                  className="pl-12 block w-full px-4 py-3 border border-blue-200 bg-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors"
-                                                  placeholder="0.00"
-                                                  required
-                                                />
-                                              </div>
-                                            </div>
-                                            <div className="md:col-span-2">
-                                              <label className="block text-xs font-medium text-gray-700 mb-1.5">Description</label>
-                                              <div className="relative">
-                                                <textarea
-                                                  value={milestone.description}
-                                                  onChange={(e) => updateMilestone(milestone.id, 'description', e.target.value)}
-                                                  className="block w-full px-4 py-3 border border-blue-200 bg-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors"
-                                                  rows="2"
-                                                  placeholder="What does this milestone involve?"
-                                                ></textarea>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ))}
                                     </div>
                                   </div>
                                 </div>

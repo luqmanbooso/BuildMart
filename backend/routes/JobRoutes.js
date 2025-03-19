@@ -11,10 +11,11 @@ router.post('/', async (req, res) => {
     category, 
     area,
     description,
-    budget, 
+    minBudget,  // Updated from budget
+    maxBudget,  // New field
     biddingStartTime, 
     biddingEndTime,
-    milestones 
+    // milestones removed from initial creation
   } = req.body;
 
   try {
@@ -24,15 +25,16 @@ router.post('/', async (req, res) => {
 
     const newJob = new Job({
       userid,
-      username, // Store the username with the job
+      username,
       title,
       category,
       area,
       description,
-      budget,
+      minBudget,  // Updated from budget
+      maxBudget,  // New field
       biddingStartTime,
       biddingEndTime,
-      milestones,
+      // milestones will be empty by default
     });
 
     await newJob.save();
@@ -166,6 +168,38 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('Error deleting job:', err);
     res.status(500).json({ error: 'Error deleting job' });
+  }
+});
+
+// Add this route to handle milestone creation after bid acceptance
+router.put('/:id/milestones', async (req, res) => {
+  try {
+    const { milestones } = req.body;
+    const job = await Job.findById(req.params.id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Verify user is the job owner
+    // This would need proper auth middleware
+    // if (job.userid !== req.user.id) {
+    //   return res.status(403).json({ error: 'Not authorized to add milestones' });
+    // }
+    
+    // Verify job has an accepted bid
+    if (!job.acceptedBid) {
+      return res.status(400).json({ error: 'Cannot set milestones until a bid is accepted' });
+    }
+    
+    // Update milestones
+    job.milestones = milestones;
+    await job.save();
+    
+    res.status(200).json({ message: 'Milestones saved successfully', milestones: job.milestones });
+  } catch (err) {
+    console.error('Error saving milestones:', err);
+    res.status(500).json({ error: 'Error saving milestones' });
   }
 });
 
