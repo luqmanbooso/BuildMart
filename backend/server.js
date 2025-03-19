@@ -11,6 +11,7 @@ const paymentRoutes = require('./routes/PaymentRoutes'); // Add this line
 const productRoutes = require('./routes/productRoutes');
 const path = require('path'); // Add this line
 const app = express();
+const restockRoutes = require('./routes/restockRoutes');
 
 // Middleware
 app.use(cors());
@@ -25,6 +26,7 @@ const jobRoutes = require('./routes/JobRoutes');
 app.use('/api/jobs', jobRoutes);
 app.use('/api/contractors', require('./routes/contractorprofile'));
 app.use('/api/email', require('./routes/email'));
+app.use('/api/orders', restockRoutes);
 
 // Use routes
 app.use('/api/ongoingworks', ongoingWorksRoutes);

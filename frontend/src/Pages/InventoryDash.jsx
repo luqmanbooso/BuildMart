@@ -87,6 +87,13 @@ const InventoryDash = () => {
   const [updateQuantity, setUpdateQuantity] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const fileInputRef = useRef(null);
+  const [pendingOrderItems, setPendingOrderItems] = useState([]);
+  const [orderRequestItem, setOrderRequestItem] = useState(null);
+  const [orderRequestDetails, setOrderRequestDetails] = useState({
+    quantity: 0,
+    priority: "medium",
+    notes: ""
+  });
   
   // Extract unique categories for filter dropdown
   const categories = ["All", ...new Set(inventory.map(item => item.category))];
@@ -137,6 +144,26 @@ const InventoryDash = () => {
   // Fetch products on component mount
   useEffect(() => {
     fetchInventoryData();
+  }, []);
+
+  // Add this to your existing useEffect that runs on component mount
+  useEffect(() => {
+    const fetchInventoryAndPendingOrders = async () => {
+      try {
+        // Fetch inventory data first
+        const products = await fetchInventoryData();
+        
+        // Then fetch pending order product IDs
+        const pendingResponse = await axios.get('http://localhost:5000/api/orders/pending-product-ids');
+        if (pendingResponse.data.success) {
+          setPendingOrderItems(pendingResponse.data.productIds);
+        }
+      } catch (error) {
+        console.error('Error fetching pending order items:', error);
+      }
+    };
+    
+    fetchInventoryAndPendingOrders();
   }, []);
 
   // Filter items when search term or category filter changes
@@ -391,6 +418,48 @@ const handleEditProduct = async (editedProduct) => {
     }
   };
 
+  const handleOrderRequest = async () => {
+    if (!orderRequestItem) return;
+    
+    try {
+      // Show loading toast
+      const toastId = toast.loading("Sending restock request...");
+      
+      await axios.post('http://localhost:5000/api/orders/restock-request', {
+        productId: orderRequestItem._id || orderRequestItem.id,
+        productName: orderRequestItem.name,
+        productSku: orderRequestItem.sku,
+        currentStock: orderRequestItem.stock,
+        threshold: orderRequestItem.threshold,
+        quantity: orderRequestDetails.quantity,
+        priority: orderRequestDetails.priority,
+        notes: orderRequestDetails.notes
+      });
+      
+      // Add item ID to pendingOrderItems
+      setPendingOrderItems([...pendingOrderItems, orderRequestItem._id || orderRequestItem.id]);
+      
+      // Update toast to success
+      toast.update(toastId, {
+        render: `Restock request for ${orderRequestItem.name} sent to Supplier Manager`,
+        type: "success",
+        isLoading: false,
+        autoClose: 3000
+      });
+      
+      // Reset states
+      setOrderRequestItem(null);
+      setOrderRequestDetails({
+        quantity: 0,
+        priority: "medium",
+        notes: ""
+      });
+    } catch (error) {
+      console.error('Error sending restock request:', error);
+      toast.error(`Failed to send restock request: ${error.response?.data?.message || error.message}`);
+    }
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Dashboard Header */}
@@ -629,6 +698,29 @@ const handleEditProduct = async (editedProduct) => {
                               <FiBell size={18} />
                             </button>
                           )}
+                          {item.stock < item.threshold && !pendingOrderItems.includes(item._id || item.id) ? (
+                            <button
+                              onClick={() => {
+                                setOrderRequestItem(item);
+                                setOrderRequestDetails({
+                                  ...orderRequestDetails,
+                                  quantity: Math.max(item.threshold - item.stock, 10)
+                                });
+                              }}
+                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                              title="Request Order"
+                            >
+                              <FiRefreshCw size={18} />
+                            </button>
+                          ) : item.stock < item.threshold ? (
+                            <button
+                              disabled
+                              className="text-gray-400 p-1 rounded"
+                              title="Order Already Requested"
+                            >
+                              <FiCheckCircle size={18} />
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </motion.tr>
@@ -1026,6 +1118,104 @@ const handleEditProduct = async (editedProduct) => {
                 </button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Order Request Modal */}
+      {orderRequestItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-lg p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-4">Request Restock Order</h3>
+            <div className="mb-4">
+              <p className="font-medium">{orderRequestItem.name}</p>
+              <div className="mt-1 flex items-center text-sm text-gray-500">
+                <span>Current Stock: {orderRequestItem.stock}</span>
+                <span className="mx-2">•</span>
+                <span>Threshold: {orderRequestItem.threshold}</span>
+              </div>
+              
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Quantity to Order
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={orderRequestDetails.quantity}
+                  onChange={(e) => setOrderRequestDetails({
+                    ...orderRequestDetails,
+                    quantity: Math.max(1, parseInt(e.target.value) || 0)
+                  })}
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Priority
+                </label>
+                <select
+                  value={orderRequestDetails.priority}
+                  onChange={(e) => setOrderRequestDetails({
+                    ...orderRequestDetails,
+                    priority: e.target.value
+                  })}
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Additional Notes
+                </label>
+                <textarea
+                  value={orderRequestDetails.notes}
+                  onChange={(e) => setOrderRequestDetails({
+                    ...orderRequestDetails,
+                    notes: e.target.value
+                  })}
+                  rows={3}
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Any specific requirements or details..."
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setOrderRequestItem(null);
+                  setOrderRequestDetails({
+                    quantity: 0,
+                    priority: "medium",
+                    notes: ""
+                  });
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleOrderRequest}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Submit Request
+              </button>
+            </div>
           </motion.div>
         </div>
       )}
