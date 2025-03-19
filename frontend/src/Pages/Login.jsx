@@ -52,8 +52,12 @@ const Login = () => {
       
       console.log("User role:", userRole); // Debugging
       
+      // Check for admin credentials
+      if ((emailUsername === "admin@buildmart.com" || emailUsername === "admin") && password === "1234") {
+        navigate('/admindashboard');
+      }
       // Navigate based on user role
-      if (userRole === "Service Provider") {
+      else if (userRole === "Service Provider") {
         navigate('/auction');
       } else {
         // Default to home for Client role or any other role
