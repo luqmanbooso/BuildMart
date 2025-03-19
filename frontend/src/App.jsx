@@ -26,6 +26,8 @@ import ContractorProfileSetup from './components/ContractorOnboarding'
 import ContractorViewDetails from './components/ContractorViewDetails'
 import BidUpdate from './components/BidUpdate'
 import AgreementForm from './Pages/AgreementForm'
+import Supply_LogisticDashboard from './Pages/Supply_LogisticDashboard'
+import InventoryDash from './Pages/InventoryDash'
 
 
 function App() {
@@ -100,7 +102,7 @@ function App() {
         <Route path="/ongoing-works" element={<OngoingJobs />} />
         <Route path="/agreement/:jobId/:bidId" element={<AgreementForm />} />
         <Route path="/inventoryDash" element={<InventoryDash />} />
-        <Route path="/supply-logistics" element={<SupplyLogisticsDashboard />} />
+        <Route path="/supply-logistics" element={<Supply_LogisticDashboard />} />
       </Routes>
     </>
   )
