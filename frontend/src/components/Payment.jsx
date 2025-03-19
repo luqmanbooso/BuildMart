@@ -150,6 +150,9 @@ const EnhancedPaymentGateway = () => {
       setIsProcessing(true);
       
       try {
+        // Remove spaces from card number before sending to backend
+        const cleanCardNumber = cardNumber.replace(/\s+/g, '');
+        
         const response = await fetch('http://localhost:5000/api/payments/process-payment', {
           method: 'POST',
           headers: {
@@ -157,7 +160,7 @@ const EnhancedPaymentGateway = () => {
           },
           body: JSON.stringify({
             name,
-            cardNumber,
+            cardNumber: cleanCardNumber, // Use the cleaned card number
             expiry,
             amount,
             activeCard

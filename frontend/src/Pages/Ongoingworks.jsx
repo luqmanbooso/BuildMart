@@ -61,8 +61,9 @@ function Ongoingworks() {
         }
       });
       
-      // Transform and adapt the data to match the frontend format
+      // Rest of your code remains the same...
       const formattedWorks = response.data.map(work => ({
+        // Your transformation logic remains unchanged
         id: work._id,
         title: work.jobId?.title || 'Untitled Project',
         category: work.jobId?.category || 'General',
