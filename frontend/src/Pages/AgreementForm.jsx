@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useReactToPrint } from 'react-to-print';
@@ -457,24 +457,12 @@ const handleDownloadPdf = async () => {
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <nav className="mb-5">
           <ol className="flex items-center space-x-2 text-sm text-gray-500">
-            <li>
-              <a href="/dashboard" className="hover:text-gray-700">Dashboard</a>
-            </li>
-            <li>
-              <span className="mx-2">/</span>
-            </li>
-            <li>
-              <a href="/jobs" className="hover:text-gray-700">Projects</a>
-            </li>
-            <li>
-              <span className="mx-2">/</span>
-            </li>
-            <li>
-              <a href={`/jobs/${jobId}`} className="hover:text-gray-700">Project Details</a>
-            </li>
-            <li>
-              <span className="mx-2">/</span>
-            </li>
+            <li><Link to="/" className="hover:text-gray-700">Home</Link></li>
+            <li><span className="mx-2">/</span></li>
+            <li><Link to="/myprojects" className="hover:text-gray-700">My Projects</Link></li>
+            <li><span className="mx-2">/</span></li>
+            <li><Link to={`/job/${jobId}`} className="hover:text-gray-700">Project Details</Link></li>
+            <li><span className="mx-2">/</span></li>
             <li className="text-gray-900 font-medium">Agreement</li>
           </ol>
         </nav>
@@ -681,7 +669,7 @@ const handleDownloadPdf = async () => {
             <div className="print:hidden mt-8 flex justify-end space-x-3">
               <button
                 type="button"
-                onClick={() => navigate(`/jobs/${jobId}`)}
+                onClick={() => navigate(`/job/${jobId}`)}
                 className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
               >
                 Back to Project
