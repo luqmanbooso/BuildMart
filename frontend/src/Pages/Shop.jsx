@@ -8,12 +8,12 @@ import EnhancedPaymentGateway from '../components/Payment';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 
-// Add this helper function at the top of both files
+// Helper function for currency formatting
 const formatCurrency = (amount) => {
   return `LKR ${amount.toFixed(2)}`;
 };
 
-// Import the category colors from InventoryDash to maintain consistency
+// Category colors for visual consistency
 const categoryColors = {
   "Building Materials": "bg-blue-100 text-blue-800",
   "Hardware": "bg-green-100 text-green-800",
@@ -41,8 +41,7 @@ const Shop = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // Change endpoint to match your backend routes
-        const response = await axios.get('http://localhost:5000/product/products');
+        const response = await axios.get('http://localhost:5000/products');
         if (response.data.success) {
           const formattedProducts = response.data.products.map(product => ({
             id: product._id,
@@ -50,20 +49,84 @@ const Shop = () => {
             price: product.price,
             category: product.category,
             description: product.description || `High-quality ${product.name} for your construction needs.`,
-            image: product.image || cementImg, // Use default image if none provided
+            image: product.image || cementImg, // Default image fallback
             stock: product.stock,
             sku: product.sku
           }));
           setProducts(formattedProducts);
+          console.log('Products loaded successfully:', formattedProducts);
         } else {
+          console.error('Error from API:', response.data);
           toast.error('Error loading products');
+          loadSampleData(); // Fallback to sample data if API fails
         }
       } catch (error) {
         console.error('Error fetching products:', error);
         toast.error('Error connecting to product server');
+        loadSampleData(); // Fallback to sample data if connection fails
       }
     };
-    fetchProducts();
+
+    // Sample data function
+    const loadSampleData = () => {
+      const sampleProducts = [
+        {
+          id: '1',
+          name: 'Portland Cement',
+          price: 1250.00,
+          category: 'Building Materials',
+          description: 'High-quality cement for construction projects.',
+          image: cementImg,
+          stock: 25,
+          sku: 'CEM-001'
+        },
+        {
+          id: '2',
+          name: 'Steel Rebar (10mm)',
+          price: 450.00,
+          category: 'Building Materials',
+          description: 'Reinforcement steel bars for concrete structures.',
+          image: cementImg,
+          stock: 120,
+          sku: 'STL-010'
+        },
+        {
+          id: '3',
+          name: 'PVC Pipes (1 inch)',
+          price: 320.00,
+          category: 'Plumbing',
+          description: 'Durable PVC pipes for water supply systems.',
+          image: cementImg,
+          stock: 75,
+          sku: 'PVC-100'
+        },
+        {
+          id: '4',
+          name: 'Cordless Drill',
+          price: 8500.00,
+          category: 'Tools',
+          description: 'Professional-grade cordless drill with battery pack.',
+          image: cementImg,
+          stock: 8,
+          sku: 'TLS-DRL'
+        },
+        {
+          id: '5',
+          name: 'Wall Paint (White)',
+          price: 3200.00,
+          category: 'Paint & Supplies',
+          description: 'Premium quality interior wall paint, 4L bucket.',
+          image: cementImg,
+          stock: 18,
+          sku: 'PNT-W4L'
+        }
+      ];
+
+      setProducts(sampleProducts);
+      console.log('Loaded sample products as fallback');
+    };
+
+    loadSampleData(); // Load sample data initially for testing
   }, []);
 
   const filteredProducts = products.filter((product) => {
@@ -103,35 +166,16 @@ const Shop = () => {
     setIsCheckingOut(true);
   };
 
-  const handleCheckoutComplete = (total) => {
+  const handleCheckoutComplete = () => {
     setCartItems([]); // Clear cart
-    // Show success message or redirect
     toast.success('Payment completed successfully!');
   };
 
-  // Add new animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.3
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
-  };
-
-  // Add this before the return statement
-  const categories = ["All", "Construction", "Plumbing", "Carpentry", "Electrical"];
+  const categories = ["All", "Building Materials", "Hardware", "Tools", "Plumbing", "Electrical", "Paint & Supplies", "Flooring", "Doors & Windows", "Safety Equipment", "Landscaping", "Other"];
 
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* Enhanced Navbar */}
+      {/* Navbar */}
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
@@ -143,7 +187,7 @@ const Shop = () => {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
               BuildMart
             </h1>
-            
+
             <nav className="hidden md:flex space-x-8">
               {['Home', 'Shop', 'Contact'].map((item) => (
                 <motion.a
@@ -185,7 +229,7 @@ const Shop = () => {
         </div>
       </motion.header>
 
-      {/* Enhanced Hero Section */}
+      {/* Hero Section */}
       <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -218,7 +262,7 @@ const Shop = () => {
         </div>
       </motion.section>
 
-      {/* Enhanced Search Bar */}
+      {/* Search Bar */}
       <div className="max-w-7xl mx-auto px-6 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -261,12 +305,9 @@ const Shop = () => {
         </motion.div>
       </div>
 
-      {/* Enhanced Products Grid */}
+      {/* Products Grid */}
       <LayoutGroup>
         <motion.section
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
           className="max-w-7xl mx-auto px-6 pb-16"
         >
           <AnimatePresence>
@@ -275,7 +316,6 @@ const Shop = () => {
                 {filteredProducts.map((product) => (
                   <motion.div
                     key={product.id}
-                    variants={itemVariants}
                     layoutId={`product-${product.id}`}
                     className="group relative bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300"
                   >
@@ -360,7 +400,7 @@ const Shop = () => {
         </motion.section>
       </LayoutGroup>
 
-      {/* Enhanced Footer */}
+      {/* Footer */}
       <footer className="bg-gray-900 text-gray-300 py-12">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
@@ -422,7 +462,7 @@ const Shop = () => {
               onClick={() => setIsCheckingOut(false)}
               className="absolute top-4 right-4 z-50 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
             >
-              <X size={24} className="text-gray-600" />
+              <FiX size={24} className="text-gray-600" />
             </button>
             <EnhancedPaymentGateway
               amount={checkoutAmount.toString()}
