@@ -13,6 +13,21 @@ const formatCurrency = (amount) => {
   return `LKR ${amount.toFixed(2)}`;
 };
 
+// Import the category colors from InventoryDash to maintain consistency
+const categoryColors = {
+  "Building Materials": "bg-blue-100 text-blue-800",
+  "Hardware": "bg-green-100 text-green-800",
+  "Tools": "bg-purple-100 text-purple-800",
+  "Plumbing": "bg-orange-100 text-orange-800",
+  "Electrical": "bg-yellow-100 text-yellow-800",
+  "Paint & Supplies": "bg-pink-100 text-pink-800",
+  "Flooring": "bg-indigo-100 text-indigo-800",
+  "Doors & Windows": "bg-teal-100 text-teal-800",
+  "Safety Equipment": "bg-red-100 text-red-800",
+  "Landscaping": "bg-lime-100 text-lime-800",
+  "Other": "bg-gray-100 text-gray-800"
+};
+
 const Shop = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [cartItems, setCartItems] = useState([]);
@@ -26,10 +41,26 @@ const Shop = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/products');
-        setProducts(response.data.products);
+        // Change endpoint to match your backend routes
+        const response = await axios.get('http://localhost:5000/product/products');
+        if (response.data.success) {
+          const formattedProducts = response.data.products.map(product => ({
+            id: product._id,
+            name: product.name,
+            price: product.price,
+            category: product.category,
+            description: product.description || `High-quality ${product.name} for your construction needs.`,
+            image: product.image || cementImg, // Use default image if none provided
+            stock: product.stock,
+            sku: product.sku
+          }));
+          setProducts(formattedProducts);
+        } else {
+          toast.error('Error loading products');
+        }
       } catch (error) {
-        toast.error('Error fetching products');
+        console.error('Error fetching products:', error);
+        toast.error('Error connecting to product server');
       }
     };
     fetchProducts();
@@ -248,18 +279,42 @@ const Shop = () => {
                     layoutId={`product-${product.id}`}
                     className="group relative bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300"
                   >
-                    <div className="aspect-w-1 aspect-h-1 rounded-t-2xl overflow-hidden">
+                    <div className="aspect-w-1 aspect-h-1 rounded-t-2xl overflow-hidden bg-gray-100">
                       <img
-                        src={product.image}
+                        src={product.image || cementImg}
                         alt={product.name}
-                        className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-300"
+                        className="w-full h-64 object-contain transform group-hover:scale-105 transition-transform duration-300"
                       />
                     </div>
                     
                     <div className="p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryColors[product.category] || "bg-gray-100 text-gray-800"}`}>
+                          {product.category}
+                        </span>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          product.stock <= 0 
+                            ? 'bg-red-100 text-red-800' 
+                            : product.stock < 5 
+                              ? 'bg-amber-100 text-amber-800' 
+                              : 'bg-green-100 text-green-800'
+                        }`}>
+                          {product.stock <= 0 
+                            ? 'Out of stock' 
+                            : product.stock < 5 
+                              ? 'Low stock' 
+                              : 'In stock'}
+                        </span>
+                      </div>
+                      
+                      <h3 className="text-lg font-semibold text-gray-800 mb-1">
                         {product.name}
                       </h3>
+                      
+                      {product.sku && (
+                        <p className="text-sm text-gray-500 mb-2">SKU: {product.sku}</p>
+                      )}
+                      
                       <p className="text-2xl font-bold text-indigo-600 mb-4">
                         {formatCurrency(product.price)}
                       </p>
@@ -277,9 +332,14 @@ const Shop = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => addToCart(product)}
-                          className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                          disabled={product.stock <= 0}
+                          className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+                            product.stock <= 0 
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                          }`}
                         >
-                          Add to Cart
+                          {product.stock <= 0 ? 'Sold Out' : 'Add to Cart'}
                         </motion.button>
                       </div>
                     </div>

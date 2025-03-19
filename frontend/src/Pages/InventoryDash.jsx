@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { 
   FiPlusCircle, 
@@ -11,7 +11,10 @@ import {
   FiAlertTriangle,
   FiCheckCircle,
   FiRefreshCw,
-  FiBell
+  FiBell,
+  FiImage,
+  FiUpload,
+  FiX
 } from "react-icons/fi";
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
@@ -72,6 +75,8 @@ const InventoryDash = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [stockUpdateItem, setStockUpdateItem] = useState(null);
   const [updateQuantity, setUpdateQuantity] = useState(0);
+  const [previewImage, setPreviewImage] = useState(null);
+  const fileInputRef = useRef(null);
   
   // Extract unique categories for filter dropdown
   const categories = ["All", ...new Set(inventory.map(item => item.category))];
@@ -270,20 +275,35 @@ const handleDeleteItem = async (id) => {
   // Handle add product - update endpoint
   const handleAddProduct = async (formData) => {
     try {
-      const response = await axios.post('http://localhost:5000/product/products', {
-        name: formData.get('name'),
-        sku: formData.get('sku'),
-        category: formData.get('category'),
-        price: parseFloat(formData.get('price')),
-        stock: parseInt(formData.get('stock')),
-        threshold: parseInt(formData.get('threshold')),
-        description: formData.get('description'),
-        image: formData.get('image') || null // Remove cementImg reference as it's undefined
+      // Create a new FormData object for multipart/form-data
+      const data = new FormData();
+      data.append('name', formData.get('name'));
+      data.append('sku', formData.get('sku'));
+      data.append('category', formData.get('category'));
+      data.append('price', parseFloat(formData.get('price')));
+      data.append('stock', parseInt(formData.get('stock')));
+      data.append('threshold', parseInt(formData.get('threshold')));
+      data.append('description', formData.get('description') || '');
+      
+      const imageFile = fileInputRef.current?.files[0];
+      if (imageFile) {
+        data.append('productImage', imageFile);
+      } else if (previewImage && previewImage.startsWith('data:')) {
+        // If we have a data URL from the preview, convert it
+        data.append('image', previewImage);
+      }
+      
+      // Make API request
+      const response = await axios.post('http://localhost:5000/product/products', data, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
       
       if (response.data.success && response.data.product) {
         setInventory([...inventory, response.data.product]);
         setIsFormOpen(false);
+        setPreviewImage(null);
         toast.success('Product added successfully');
       } else {
         toast.error('Error adding product: ' + (response.data.message || 'Unknown error'));
@@ -318,6 +338,19 @@ const handleDeleteItem = async (id) => {
     } catch (error) {
       console.error('Error updating product:', error);
       toast.error('Error updating product: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  // Add this function to handle image selection
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Preview the image
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -707,6 +740,66 @@ const handleDeleteItem = async (id) => {
                   className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
+              <div className="md:col-span-2 mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Product Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={editingItem.description || ''}
+                  onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="md:col-span-2 mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Product Image
+                </label>
+                <div className="mt-1 flex items-center">
+                  {editingItem.image ? (
+                    <div className="relative">
+                      <img 
+                        src={editingItem.image} 
+                        alt={editingItem.name}
+                        className="h-24 w-auto object-contain" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditingItem({...editingItem, image: ''})}
+                        className="absolute top-0 right-0 bg-red-100 rounded-full p-1 hover:bg-red-200"
+                      >
+                        <FiX className="text-red-600" size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('edit-product-image').click()}
+                      className="flex justify-center items-center h-24 w-32 border-2 border-gray-300 border-dashed rounded-md hover:border-indigo-400"
+                    >
+                      <FiUpload className="text-gray-400" />
+                      <span className="ml-2 text-sm text-gray-500">Upload image</span>
+                    </button>
+                  )}
+                  <input
+                    id="edit-product-image"
+                    type="file"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setEditingItem({...editingItem, image: reader.result});
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                    accept="image/*"
+                  />
+                </div>
+              </div>
             </div>
             <div className="flex justify-end space-x-3">
               <button
@@ -814,6 +907,66 @@ const handleDeleteItem = async (id) => {
                     required
                     className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
                   />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Product Description
+                  </label>
+                  <textarea
+                    name="description"
+                    rows={3}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter product description..."
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Product Image
+                  </label>
+                  <div className="mt-1 flex items-center">
+                    <div 
+                      className={`flex justify-center items-center w-full h-32 border-2 border-dashed rounded-lg ${
+                        previewImage ? 'border-indigo-300' : 'border-gray-300'
+                      } hover:border-indigo-400 cursor-pointer transition-colors`}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {previewImage ? (
+                        <div className="relative w-full h-full">
+                          <img 
+                            src={previewImage} 
+                            alt="Preview" 
+                            className="h-full max-h-28 mx-auto object-contain"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewImage(null);
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                            className="absolute top-1 right-1 bg-red-100 rounded-full p-1 hover:bg-red-200"
+                          >
+                            <FiX className="text-red-600" size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <FiImage className="mx-auto h-10 w-10 text-gray-400" />
+                          <p className="mt-1 text-sm text-gray-500">
+                            Click to upload product image
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleImageChange}
+                      className="hidden"
+                      accept="image/*"
+                      name="productImage"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end space-x-3">
