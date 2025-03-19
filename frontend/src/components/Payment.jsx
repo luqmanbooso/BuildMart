@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Calendar, Lock, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { CreditCard, Calendar, Lock, CheckCircle, AlertCircle, X, DollarSign } from 'lucide-react';
 import { formatLKR } from '../utils/formatters';
 
 const printStyles = `
@@ -32,7 +32,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
   const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
-  // Update the amount state to use the prop
   const [amount, setAmount] = useState(
     initialAmount ? parseFloat(initialAmount).toFixed(2) : '0.00'
   );
@@ -45,6 +44,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
   const [notificationMessage, setNotificationMessage] = useState('');
   const [manuallySelectedCard, setManuallySelectedCard] = useState(null);
   const [invoiceData, setInvoiceData] = useState(null);
+  const [focused, setFocused] = useState({});
 
   // Available card types
   const cardTypes = [
@@ -83,7 +83,16 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
     return cleanValue;
   };
 
-  // Detect card type based on number (only if user hasn't manually selected a card)
+  // Handle focus state for input fields
+  const handleFocus = (field) => {
+    setFocused({...focused, [field]: true});
+  };
+  
+  const handleBlur = (field) => {
+    setFocused({...focused, [field]: false});
+  };
+
+  // Detect card type based on number
   useEffect(() => {
     if (!manuallySelectedCard) {
       const cardNumberClean = cardNumber.replace(/\s+/g, '');
@@ -151,7 +160,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
     return Object.keys(newErrors).length === 0;
   };
 
-  // Update the handlePayment function
+  // Process payment
   const handlePayment = async (e) => {
     e.preventDefault();
     if (validateInputs()) {
@@ -168,7 +177,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
           },
           body: JSON.stringify({
             name,
-            cardNumber: cleanCardNumber, // Use the cleaned card number
+            cardNumber: cleanCardNumber,
             expiry,
             amount,
             activeCard
@@ -215,28 +224,20 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
     setActiveCard('visa');
   };
 
-  // Add this useEffect to handle the initial amount
+  // Update amount when initialized
   useEffect(() => {
     if (initialAmount) {
       setAmount(initialAmount);
     }
   }, [initialAmount]);
 
-  // Add this new function to handle amount changes
+  // Handle amount changes
   const handleAmountChange = (value) => {
-    // Remove any non-numeric characters except decimal point
     const cleaned = value.replace(/[^\d.]/g, '');
-    
-    // Prevent multiple decimal points
     const parts = cleaned.split('.');
     if (parts.length > 2) return;
-    
-    // Limit decimal places to 2
     if (parts[1]?.length > 2) return;
-    
-    // Maximum amount validation (e.g., 1 million)
     if (parseFloat(cleaned) > 1000000) return;
-    
     setAmount(cleaned);
   };
 
@@ -244,30 +245,30 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
   const CardLogo = ({ type }) => {
     const logos = {
       visa: (
-        <div className="flex items-center justify-center w-12 h-8 bg-white rounded">
-          <div className="text-blue-600 font-bold text-lg">VISA</div>
+        <div className="flex items-center justify-center w-full h-10 bg-gradient-to-r from-blue-600 to-blue-800 rounded-md overflow-hidden group-hover:shadow-lg transition-all">
+          <div className="text-white font-extrabold text-lg tracking-wide">VISA</div>
         </div>
       ),
       mastercard: (
-        <div className="flex items-center justify-center w-12 h-8 bg-white rounded">
-          <div className="flex">
-            <div className="w-4 h-4 bg-red-500 rounded-full overflow-hidden"></div>
-            <div className="w-4 h-4 bg-yellow-400 rounded-full overflow-hidden ml-1"></div>
+        <div className="flex items-center justify-center w-full h-10 bg-gradient-to-r from-yellow-500 to-red-500 rounded-md overflow-hidden group-hover:shadow-lg transition-all">
+          <div className="flex gap-1">
+            <div className="w-4 h-4 bg-red-500 rounded-full border-2 border-white"></div>
+            <div className="w-4 h-4 bg-yellow-400 rounded-full border-2 border-white"></div>
           </div>
         </div>
       ),
       amex: (
-        <div className="flex items-center justify-center w-12 h-8 bg-blue-500 rounded">
-          <div className="text-white text-xs font-bold">AMEX</div>
+        <div className="flex items-center justify-center w-full h-10 bg-gradient-to-r from-blue-400 to-blue-600 rounded-md overflow-hidden group-hover:shadow-lg transition-all">
+          <div className="text-white text-sm font-bold uppercase">American Express</div>
         </div>
       ),
       discover: (
-        <div className="flex items-center justify-center w-12 h-8 bg-orange-500 rounded">
-          <div className="text-white text-xs font-bold">DISC</div>
+        <div className="flex items-center justify-center w-full h-10 bg-gradient-to-r from-orange-400 to-orange-600 rounded-md overflow-hidden group-hover:shadow-lg transition-all">
+          <div className="text-white text-sm font-bold">DISCOVER</div>
         </div>
       ),
       default: (
-        <div className="flex items-center justify-center w-12 h-8 bg-gray-200 rounded">
+        <div className="flex items-center justify-center w-full h-10 bg-gray-200 rounded-md overflow-hidden">
           <CreditCard size={20} className="text-gray-500" />
         </div>
       )
@@ -281,18 +282,23 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
     return (
       <>
         <style>{printStyles}</style>
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-[#002855] to-[#0057B7] p-6">
-          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-3xl w-full invoice-section">
-            {/* Company Header */}
-            <div className="flex justify-between items-start border-b border-gray-200 pb-6 mb-8">
-              <div>
-                <h1 className="text-4xl font-bold text-gray-800">BuildMart</h1>
-                <p className="text-gray-600 mt-2">293/B, Galle Road, Colombo 03</p>
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-800 p-6">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-3xl w-full invoice-section border border-gray-100">
+            {/* Company Header with enhanced styling */}
+            <div className="flex flex-col md:flex-row justify-between items-start border-b border-gray-200 pb-6 mb-8">
+              <div className="mb-4 md:mb-0">
+                <div className="flex items-center mb-3">
+                  <svg className="h-10 w-10 text-indigo-600 mr-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 12H19M5 12C3.89543 12 3 11.1046 3 10V6C3 4.89543 3.89543 4 5 4H19C20.1046 4 21 4.89543 21 6V10C21 11.1046 20.1046 12 19 12M5 12L5 18C5 19.1046 5.89543 20 7 20H17C18.1046 20 19 19.1046 19 18V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <h1 className="text-4xl font-bold text-gray-800">BuildMart</h1>
+                </div>
+                <p className="text-gray-600">293/B, Galle Road, Colombo 03</p>
                 <p className="text-gray-500">Tel: +94 11 234 5678</p>
                 <p className="text-gray-500">Email: info@buildmart.lk</p>
               </div>
-              <div className="text-right">
-                <h2 className="text-2xl font-semibold text-gray-800">PAYMENT RECEIPT</h2>
+              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 rounded-lg">
+                <h2 className="text-2xl font-semibold text-indigo-800">PAYMENT RECEIPT</h2>
                 <p className="text-gray-600 mt-2">Receipt #: {invoiceData?.id || Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
                 <p className="text-gray-500">Date: {new Date().toLocaleDateString()}</p>
                 <p className="text-gray-500">Time: {new Date().toLocaleTimeString()}</p>
@@ -365,20 +371,60 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
             </div>
 
             {/* Actions */}
-            <div className="flex space-x-4">
+            <div className="flex flex-col md:flex-row gap-4">
               <button 
                 onClick={() => window.print()}
-                className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-lg transition-colors duration-300 flex items-center justify-center no-print"
+                className="flex-1 py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center no-print shadow-md"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002-2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
                 Print Receipt
               </button>
+              
+              <button 
+                onClick={() => {
+                  // Create a PDF-like blob and download it
+                  const receiptContent = document.querySelector('.invoice-section').innerHTML;
+                  const blob = new Blob([`
+                    <html>
+                      <head>
+                        <title>BuildMart Receipt</title>
+                        <style>
+                          body { font-family: Arial, sans-serif; padding: 20px; }
+                          .container { max-width: 800px; margin: 0 auto; }
+                        </style>
+                      </head>
+                      <body>
+                        <div class="container">
+                          ${receiptContent}
+                        </div>
+                      </body>
+                    </html>
+                  `], {type: 'text/html'});
+                  
+                  const link = document.createElement('a');
+                  link.href = URL.createObjectURL(blob);
+                  link.download = `buildmart-receipt-${new Date().toISOString().slice(0,10)}.html`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="flex-1 py-3 px-6 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center no-print shadow-md"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download Receipt
+              </button>
+              
               <button 
                 onClick={resetForm}
-                className="flex-1 py-3 px-4 bg-[#002855] hover:bg-[#0057B7] text-white font-bold rounded-lg transition-colors duration-300 no-print"
+                className="flex-1 py-3 px-6 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center no-print shadow-md"
               >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
                 Make Another Payment
               </button>
             </div>
@@ -387,7 +433,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
             <div className="mt-8 text-center text-sm text-gray-500">
               <p>Thank you for your business!</p>
               <p className="mt-1">For any questions, please contact our support team.</p>
-              <p className="mt-1">© {new Date().getFullYear()} BuildMart. All rights reserved.</p>
+              <p className="mt-1">© {new Date().toLocaleDateString()} BuildMart. All rights reserved.</p>
             </div>
           </div>
         </div>
@@ -403,7 +449,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
   return (
     <>
       <style>{printStyles}</style>
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-[#002855] to-[#0057B7]">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-[#002855] to-[#0057B7] p-4">
         {/* Notification */}
         {showNotification && (
           <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg flex items-center ${
@@ -429,35 +475,37 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
           </div>
         )}
 
-        <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">Payment Gateway</h1>
-            <div className="flex space-x-2">
+        {/* Payment form with scrollable container */}
+        <div className="bg-white rounded-lg shadow-2xl p-6 md:p-8 max-w-3xl w-full mx-auto max-h-[90vh] overflow-y-auto">
+          {/* Header with more spacing */}
+          <div className="flex flex-col md:flex-row items-center justify-between mb-8">
+            <h1 className="text-3xl font-bold text-gray-800 mb-4 md:mb-0">Payment Gateway</h1>
+            <div className="flex space-x-3">
               <CardLogo type="visa" />
               <CardLogo type="mastercard" />
               <CardLogo type="amex" />
+              <CardLogo type="discover" />
             </div>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handlePayment}>
+          {/* Form with improved layout for wider container */}
+          <form onSubmit={handlePayment} className="space-y-6">
             {/* Cardholder Name */}
-            <div className="mb-4">
+            <div className="mb-5">
               <label className="block text-gray-700 text-sm font-medium mb-2">
                 Cardholder Name<span className="text-red-500">*</span>
               </label>
               <div className={`relative rounded-md shadow-sm`}>
                 <input 
                   type="text" 
-                  className={`w-full p-3 border ${errors.name ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-10 transition-all duration-200`} 
+                  className={`w-full p-4 border ${errors.name ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 transition-all duration-200`} 
                   value={name} 
                   onChange={(e) => setName(e.target.value)} 
                   placeholder="John Doe"
                 />
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <div className="text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -466,45 +514,68 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
               {errors.name && <p className="mt-1 text-red-500 text-xs">{errors.name}</p>}
             </div>
 
-            {/* Card Type Selection */}
-            <div className="mb-4">
+            {/* Card Type Selection with smaller, more compact buttons */}
+            <div className="mb-5">
               <label className="block text-gray-700 text-sm font-medium mb-2">
                 Card Type<span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="flex flex-wrap gap-2">
                 {cardTypes.map((card) => (
                   <button
                     key={card.id}
                     type="button"
                     onClick={() => handleCardSelection(card.id)}
-                    className={`p-2 rounded-md border flex items-center justify-center ${
+                    className={`p-2 rounded-md border flex items-center justify-center transition-all ${
                       activeCard === card.id 
-                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' 
+                        ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-200' 
                         : 'border-gray-300 hover:border-gray-400'
                     }`}
+                    style={{minWidth: "70px", height: "40px"}}
                   >
-                    <CardLogo type={card.id} />
+                    <div className="scale-75">
+                      {card.id === 'visa' && (
+                        <div className="flex items-center justify-center bg-gradient-to-r from-blue-600 to-blue-800 rounded px-2 py-1">
+                          <span className="text-white font-bold text-sm">VISA</span>
+                        </div>
+                      )}
+                      {card.id === 'mastercard' && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 bg-red-500 rounded-full border border-white"></div>
+                          <div className="w-3 h-3 bg-yellow-400 rounded-full border border-white"></div>
+                        </div>
+                      )}
+                      {card.id === 'amex' && (
+                        <div className="flex items-center justify-center bg-blue-500 px-2 py-1 rounded">
+                          <span className="text-white text-xs font-bold">AMEX</span>
+                        </div>
+                      )}
+                      {card.id === 'discover' && (
+                        <div className="flex items-center justify-center bg-orange-500 px-2 py-1 rounded">
+                          <span className="text-white text-xs font-bold">DISCOVER</span>
+                        </div>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Card Number */}
-            <div className="mb-4">
+            {/* Card Number with more padding */}
+            <div className="mb-5">
               <label className="block text-gray-700 text-sm font-medium mb-2">
                 Card Number<span className="text-red-500">*</span>
               </label>
               <div className={`relative rounded-md shadow-sm`}>
                 <input 
                   type="text" 
-                  className={`w-full p-3 border ${errors.cardNumber ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-10 pr-10 transition-all duration-200`} 
+                  className={`w-full p-4 border ${errors.cardNumber ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 pr-10 transition-all duration-200`} 
                   value={cardNumber} 
                   onChange={(e) => setCardNumber(formatCardNumber(e.target.value))} 
                   placeholder="1234 5678 9012 3456"
                   maxLength={19}
                 />
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <CreditCard size={18} className="text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <CreditCard size={20} className="text-gray-400" />
                 </div>
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <CardLogo type={activeCard} />
@@ -513,96 +584,105 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
               {errors.cardNumber && <p className="mt-1 text-red-500 text-xs">{errors.cardNumber}</p>}
             </div>
 
-            {/* Expiry and CVV */}
-            <div className="flex space-x-4 mb-4">
-              <div className="w-1/2">
+            {/* Expiry and CVV in a row with improved spacing */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              <div>
                 <label className="block text-gray-700 text-sm font-medium mb-2">
                   Expiry Date<span className="text-red-500">*</span>
                 </label>
                 <div className={`relative rounded-md shadow-sm`}>
                   <input 
                     type="text" 
-                    className={`w-full p-3 border ${errors.expiry ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-10 transition-all duration-200`} 
+                    className={`w-full p-4 border ${errors.expiry ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 transition-all duration-200`} 
                     value={expiry} 
                     onChange={(e) => setExpiry(formatExpiry(e.target.value))} 
                     placeholder="MM/YY"
                     maxLength={5}
                   />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Calendar size={18} className="text-gray-400" />
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Calendar size={20} className="text-gray-400" />
                   </div>
                 </div>
                 {errors.expiry && <p className="mt-1 text-red-500 text-xs">{errors.expiry}</p>}
               </div>
-              <div className="w-1/2">
+              <div>
                 <label className="block text-gray-700 text-sm font-medium mb-2">
                   CVV<span className="text-red-500">*</span>
                 </label>
                 <div className={`relative rounded-md shadow-sm`}>
                   <input 
                     type="text" 
-                    className={`w-full p-3 border ${errors.cvv ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-10 transition-all duration-200`} 
+                    className={`w-full p-4 border ${errors.cvv ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 transition-all duration-200`} 
                     value={cvv} 
                     onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))} 
                     placeholder={activeCard === 'amex' ? "4 digits" : "3 digits"}
                     maxLength={activeCard === 'amex' ? 4 : 3}
                   />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock size={18} className="text-gray-400" />
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Lock size={20} className="text-gray-400" />
                   </div>
                 </div>
                 {errors.cvv && <p className="mt-1 text-red-500 text-xs">{errors.cvv}</p>}
               </div>
             </div>
 
-            {/* Amount */}
+            {/* Amount with larger input */}
             <div className="mb-6">
               <label className="block text-gray-700 text-sm font-medium mb-2">
-                Amount<span className="text-red-500">*</span><br></br>
+                Amount<span className="text-red-500">*</span>
               </label>
               <div className={`relative rounded-md shadow-sm`}>
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500"></span>
-                </div>
                 
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  
+                </div>
                 {amount && (
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <span className="text-sm text-gray-500">
-                      <br></br>
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                    <span className="text-sm text-gray-500 font-medium">
                       {parseFloat(amount) > 0 && formatLKR(parseFloat(amount))}
                     </span>
                   </div>
                 )}
               </div>
-              
+              {errors.amount && <p className="mt-1 text-red-500 text-xs">{errors.amount}</p>}
             </div>
-<br></br>
-            {/* Security note */}
-            <div className="mb-6 bg-gray-50 p-3 rounded-md border border-gray-200">
+
+            {/* Enhanced Security note */}
+            <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-lg border border-blue-100 shadow-sm">
               <div className="flex items-center">
-                <Lock size={16} className="text-gray-500 mr-2" />
-                <p className="text-xs text-gray-500">Your payment information is encrypted and secure. We never store your full card details.</p>
+                <div className="bg-blue-500 rounded-full p-3 mr-4">
+                  <Lock size={18} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-base font-medium text-blue-800">Secure Payment</p>
+                  <p className="text-sm text-blue-600">Your payment information is encrypted with 256-bit SSL. We never store your full card details.</p>
+                </div>
               </div>
             </div>
 
-            {/* Submit button */}
-            <button 
-              type="submit" 
-              className="w-full py-3 px-4 bg-[#002855] hover:bg-[#0057B7] text-white font-bold rounded-md shadow-md transition-all duration-300 transform hover:translate-y-[-2px] flex items-center justify-center" 
-              disabled={isProcessing || parseFloat(amount) <= 0}
-            >
-              {isProcessing ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                <>Pay {formatLKR(parseFloat(amount) || 0)}</>
-              )}
-            </button>
+            {/* Submit button with increased size */}
+            <div className="pt-4">
+              <button 
+                type="submit" 
+                className="w-full py-5 px-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white text-lg font-bold rounded-lg shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.01] flex items-center justify-center" 
+                disabled={isProcessing || parseFloat(amount) <= 0}
+              >
+                {isProcessing ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing Payment...
+                  </>
+                ) : (
+                  <>
+                    <span className="mr-3">Pay {formatLKR(parseFloat(amount) || 0)}</span>
+                    <CreditCard size={22} />
+                  </>
+                )}
+              </button>
+            </div>
           </form>
         </div>
       </div>
