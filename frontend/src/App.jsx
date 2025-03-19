@@ -26,7 +26,9 @@ import ContractorProfileSetup from './components/ContractorOnboarding'
 import ContractorViewDetails from './components/ContractorViewDetails'
 import BidUpdate from './components/BidUpdate'
 import AgreementForm from './Pages/AgreementForm'
-
+import OngoingProjects from './components/OngoingProjects'
+import InventoryDash from './Pages/InventoryDash'
+import Supply_LogisticDashboard from './Pages/Supply_LogisticDashboard'
 
 function App() {
   const sampleData = {
