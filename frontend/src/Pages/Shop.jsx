@@ -4,6 +4,8 @@ import { FiSearch, FiShoppingCart } from "react-icons/fi";
 import cementImg from "../assets/images/cement.png";
 import ViewDetails from "./ViewDetails";
 import Cart from "./Cart"; // Import the Cart component
+import EnhancedPaymentGateway from '../components/Payment';
+import { toast } from 'react-toastify';
 
 const products = [
   { id: 1, name: "Cement", image: cementImg, price: 100 },
@@ -21,6 +23,8 @@ const Shop = () => {
   const [cartItems, setCartItems] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [checkoutAmount, setCheckoutAmount] = useState(0);
 
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -45,6 +49,22 @@ const Shop = () => {
 
   const toggleCart = () => {
     setIsCartOpen(!isCartOpen);
+  };
+
+  const calculateTotal = () => {
+    return cartItems.reduce((sum, item) => sum + item.price, 0);
+  };
+
+  const handleCheckout = (total) => {
+    setCheckoutAmount(total);
+    setIsCartOpen(false);
+    setIsCheckingOut(true);
+  };
+
+  const handleCheckoutComplete = (total) => {
+    setCartItems([]); // Clear cart
+    // Show success message or redirect
+    toast.success('Payment completed successfully!');
   };
 
   return (
@@ -184,8 +204,33 @@ const Shop = () => {
           onClose={() => setIsCartOpen(false)}
           cartItems={cartItems}
           removeFromCart={removeFromCart}
+          onCheckout={handleCheckoutComplete}
         />
       </AnimatePresence>
+
+      {isCheckingOut && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
+          <div className="relative w-full h-full">
+            <button
+              onClick={() => setIsCheckingOut(false)}
+              className="absolute top-4 right-4 z-50 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
+            >
+              <X size={24} className="text-gray-600" />
+            </button>
+            <EnhancedPaymentGateway
+              amount={checkoutAmount.toString()}
+              onSuccess={() => {
+                setIsCheckingOut(false);
+                setCartItems([]);
+                // You might want to show a success message here
+              }}
+              onCancel={() => {
+                setIsCheckingOut(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

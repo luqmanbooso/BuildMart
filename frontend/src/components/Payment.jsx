@@ -24,13 +24,15 @@ const printStyles = `
   }
 `;
 
-const EnhancedPaymentGateway = () => {
+// Update the component declaration to accept props
+const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) => {
   // State management
   const [activeCard, setActiveCard] = useState('visa');
   const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
-  const [amount, setAmount] = useState('100.00');
+  // Update the amount state to use the prop
+  const [amount, setAmount] = useState(initialAmount || '0.00');
   const [name, setName] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -143,7 +145,7 @@ const EnhancedPaymentGateway = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle payment submission
+  // Update the handlePayment function
   const handlePayment = async (e) => {
     e.preventDefault();
     if (validateInputs()) {
@@ -173,6 +175,7 @@ const EnhancedPaymentGateway = () => {
           setInvoiceData(data.payment);
           setIsComplete(true);
           showNotificationMessage('success', 'Payment processed successfully!');
+          onSuccess && onSuccess(data.payment);
         } else {
           throw new Error(data.message);
         }
@@ -205,6 +208,13 @@ const EnhancedPaymentGateway = () => {
     setManuallySelectedCard(null);
     setActiveCard('visa');
   };
+
+  // Add this useEffect to handle the initial amount
+  useEffect(() => {
+    if (initialAmount) {
+      setAmount(initialAmount);
+    }
+  }, [initialAmount]);
 
   // Card logo components
   const CardLogo = ({ type }) => {
@@ -331,7 +341,7 @@ const EnhancedPaymentGateway = () => {
                 className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-lg transition-colors duration-300 flex items-center justify-center"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002-2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
                 </svg>
                 Download Invoice
               </button>
@@ -353,6 +363,11 @@ const EnhancedPaymentGateway = () => {
       </>
     );
   }
+
+  // Update the amount input to be readonly if initialAmount is provided
+  const amountInputProps = initialAmount
+    ? { readOnly: true, className: 'bg-gray-50' }
+    : {};
 
   return (
     <>
@@ -527,6 +542,7 @@ const EnhancedPaymentGateway = () => {
                     setAmount(value);
                   }} 
                   placeholder="0.00"
+                  {...amountInputProps}
                 />
               </div>
               {errors.amount && <p className="mt-1 text-red-500 text-xs">{errors.amount}</p>}
