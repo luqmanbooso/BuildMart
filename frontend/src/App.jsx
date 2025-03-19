@@ -26,7 +26,7 @@ import ContractorProfileSetup from './components/ContractorOnboarding'
 import ContractorViewDetails from './components/ContractorViewDetails'
 import BidUpdate from './components/BidUpdate'
 import AgreementForm from './Pages/AgreementForm'
-import InventoryDash from './Pages/InventoryDash'
+import SupplyLogisticsDashboard from './Pages/Supply&LogisticDashboard'
 
 
 function App() {
