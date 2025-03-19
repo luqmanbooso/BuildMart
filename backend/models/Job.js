@@ -13,8 +13,7 @@ const jobSchema = new mongoose.Schema({
   category: String,
   area: String,
   description: String,
-  minBudget: String, // Change from budget to minBudget
-  maxBudget: String, // Add maxBudget
+  budget: String,
   status: { type: String, default: 'Pending' }, // 'Pending', 'Active', 'Closed'
   date: { type: Date, default: Date.now },
   biddingStartTime: { type: Date, required: true },

@@ -11,8 +11,7 @@ router.post('/', async (req, res) => {
     category, 
     area,
     description,
-    minBudget, // Changed from budget
-    maxBudget, // Added maxBudget
+    budget, 
     biddingStartTime, 
     biddingEndTime,
     milestones 
@@ -30,8 +29,7 @@ router.post('/', async (req, res) => {
       category,
       area,
       description,
-      minBudget, // Changed from budget
-      maxBudget, // Added maxBudget
+      budget,
       biddingStartTime,
       biddingEndTime,
       milestones,
