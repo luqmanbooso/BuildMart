@@ -65,6 +65,16 @@ const predefinedCategories = [
 // Initialize with empty array instead of undefined
 const initialInventory = [];
 
+// Add this helper function:
+
+// Helper to get correct image URL
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('data:')) return imagePath;
+  if (imagePath.startsWith('http')) return imagePath;
+  return `http://localhost:5000${imagePath}`;
+};
+
 const InventoryDash = () => {
   const [inventory, setInventory] = useState([]);
   const [filteredInventory, setFilteredInventory] = useState([]);  // Start with empty array
@@ -272,74 +282,101 @@ const handleDeleteItem = async (id) => {
     visible: { y: 0, opacity: 1 }
   };
 
-  // Handle add product - update endpoint
-  const handleAddProduct = async (formData) => {
-    try {
-      // Create a new FormData object for multipart/form-data
-      const data = new FormData();
-      data.append('name', formData.get('name'));
-      data.append('sku', formData.get('sku'));
-      data.append('category', formData.get('category'));
-      data.append('price', parseFloat(formData.get('price')));
-      data.append('stock', parseInt(formData.get('stock')));
-      data.append('threshold', parseInt(formData.get('threshold')));
-      data.append('description', formData.get('description') || '');
+  // Replace the existing handleAddProduct function with this:
+
+const handleAddProduct = async (formData) => {
+  try {
+    // Make API request
+    const response = await axios.post('http://localhost:5000/product/products', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    if (response.data.success && response.data.product) {
+      // Update state with the new product from the response
+      setInventory([...inventory, response.data.product]);
+      setFilteredInventory([...filteredInventory, response.data.product]);
+      setIsFormOpen(false);
+      setPreviewImage(null);
       
-      const imageFile = fileInputRef.current?.files[0];
-      if (imageFile) {
-        data.append('productImage', imageFile);
-      } else if (previewImage && previewImage.startsWith('data:')) {
-        // If we have a data URL from the preview, convert it
-        data.append('image', previewImage);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
       
-      // Make API request
-      const response = await axios.post('http://localhost:5000/product/products', data, {
+      toast.success('Product added successfully');
+    } else {
+      toast.error('Error adding product: ' + (response.data.message || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error adding product:', error);
+    toast.error('Error adding product: ' + (error.response?.data?.error || error.message));
+  }
+};
+
+  // Handle edit product - update endpoint
+const handleEditProduct = async (editedProduct) => {
+  try {
+    // Create FormData to handle file uploads
+    const formData = new FormData();
+    
+    // Add all product data to FormData
+    formData.append('name', editedProduct.name);
+    formData.append('sku', editedProduct.sku);
+    formData.append('category', editedProduct.category);
+    formData.append('price', parseFloat(editedProduct.price));
+    formData.append('stock', parseInt(editedProduct.stock));
+    formData.append('threshold', parseInt(editedProduct.threshold));
+    formData.append('description', editedProduct.description || '');
+    
+    // Handle image - could be a file, data URL, or existing path
+    if (editedProduct.image) {
+      // If image is a string that starts with data:, it's a new image as data URL
+      if (typeof editedProduct.image === 'string') {
+        if (editedProduct.image.startsWith('data:')) {
+          formData.append('image', editedProduct.image);
+        } else {
+          // It's an existing image path, do nothing special
+          formData.append('image', editedProduct.image);
+        }
+      } else if (editedProduct.image instanceof File) {
+        // If it's a File object, append as productImage
+        formData.append('productImage', editedProduct.image);
+      }
+    }
+    
+    // Make API request
+    const response = await axios.put(
+      `http://localhost:5000/product/products/${editedProduct._id || editedProduct.id}`,
+      formData,
+      {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
-      });
-      
-      if (response.data.success && response.data.product) {
-        setInventory([...inventory, response.data.product]);
-        setIsFormOpen(false);
-        setPreviewImage(null);
-        toast.success('Product added successfully');
-      } else {
-        toast.error('Error adding product: ' + (response.data.message || 'Unknown error'));
       }
-    } catch (error) {
-      console.error('Error adding product:', error);
-      toast.error('Error adding product: ' + (error.response?.data?.message || error.message));
-    }
-  };
-
-  // Handle edit product - update endpoint
-  const handleEditProduct = async (editedProduct) => {
-    try {
-      const response = await axios.put(
-        `http://localhost:5000/product/products/${editedProduct._id || editedProduct.id}`,
-        editedProduct
+    );
+    
+    if (response.data.success && response.data.product) {
+      // Update the inventory state with the updated product
+      const updatedInventory = inventory.map(item =>
+        (item._id && item._id === (editedProduct._id || editedProduct.id)) || 
+        (item.id && item.id === (editedProduct._id || editedProduct.id)) 
+          ? response.data.product 
+          : item
       );
       
-      if (response.data.success && response.data.product) {
-        const updatedInventory = inventory.map(item =>
-          (item._id && item._id === editedProduct._id) || 
-          (item.id && item.id === editedProduct.id) 
-            ? response.data.product 
-            : item
-        );
-        setInventory(updatedInventory);
-        setEditingItem(null);
-        toast.success('Product updated successfully');
-      } else {
-        toast.error('Error updating product: ' + (response.data.message || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('Error updating product:', error);
-      toast.error('Error updating product: ' + (error.response?.data?.message || error.message));
+      setInventory(updatedInventory);
+      setEditingItem(null);
+      toast.success('Product updated successfully');
+    } else {
+      toast.error('Error updating product: ' + (response.data.message || 'Unknown error'));
     }
-  };
+  } catch (error) {
+    console.error('Error updating product:', error);
+    toast.error('Error updating product: ' + (error.response?.data?.error || error.message));
+  }
+};
 
   // Add this function to handle image selection
   const handleImageChange = (e) => {
@@ -760,7 +797,11 @@ const handleDeleteItem = async (id) => {
                   {editingItem.image ? (
                     <div className="relative">
                       <img 
-                        src={editingItem.image} 
+                        src={
+                          editingItem.image.startsWith('data:') 
+                            ? editingItem.image 
+                            : `http://localhost:5000${editingItem.image}`
+                        } 
                         alt={editingItem.name}
                         className="h-24 w-auto object-contain" 
                       />

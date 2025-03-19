@@ -9,6 +9,7 @@ const qualifyRoutes = require('./routes/Qualify');
 const ongoingWorksRoutes = require('./routes/ongoingworks');
 const paymentRoutes = require('./routes/PaymentRoutes'); // Add this line
 const productRoutes = require('./routes/productRoutes');
+const path = require('path'); // Add this line
 const app = express();
 
 // Middleware
@@ -28,6 +29,9 @@ app.use('/api/email', require('./routes/email'));
 // Use routes
 app.use('/api/ongoingworks', ongoingWorksRoutes);
 app.use('/api/payments', paymentRoutes); // Add this line
+
+// Serve static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Add this line
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)

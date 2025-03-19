@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
+const upload = require('../middleware/upload');
 
 // Product routes with proper error handling
-router.post('/products', async (req, res) => {
+router.post('/products', upload.single('productImage'), async (req, res) => {
   try {
     await productController.createProduct(req, res);
   } catch (error) {
@@ -27,7 +28,7 @@ router.get('/products', async (req, res) => {
   }
 });
 
-router.put('/products/:id', async (req, res) => {
+router.put('/products/:id', upload.single('productImage'), async (req, res) => {
   try {
     await productController.updateProduct(req, res);
   } catch (error) {

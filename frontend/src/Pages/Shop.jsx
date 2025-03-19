@@ -14,6 +14,14 @@ const formatCurrency = (amount) => {
   return `LKR ${amount.toFixed(2)}`;
 };
 
+// Add the image URL helper function
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('data:')) return imagePath;
+  if (imagePath.startsWith('http')) return imagePath;
+  return `http://localhost:5000${imagePath}`;
+};
+
 // Category colors for visual consistency
 const categoryColors = {
   "Building Materials": "bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800 border border-blue-200",
@@ -63,7 +71,7 @@ const Shop = () => {
     const fetchProducts = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get('http://localhost:5000/products');
+        const response = await axios.get('http://localhost:5000/product/products');
         if (response.data.success) {
           const formattedProducts = response.data.products.map(product => ({
             id: product._id,
@@ -71,7 +79,7 @@ const Shop = () => {
             price: product.price,
             category: product.category,
             description: product.description || `High-quality ${product.name} for your construction needs.`,
-            image: product.image || cementImg,
+            image: product.image ? getImageUrl(product.image) : cementImg,
             stock: product.stock,
             sku: product.sku,
             rating: Math.floor(Math.random() * 5) + 1, // Mock rating for demo
@@ -315,7 +323,7 @@ const Shop = () => {
                   </div>
                   <div className="w-1/2 h-full flex items-center justify-center">
                     <img 
-                      src={featuredProducts[currentIndex].image} 
+                      src={featuredProducts[currentIndex].image || cementImg} 
                       alt={featuredProducts[currentIndex].name} 
                       className="max-h-72 max-w-full object-contain filter drop-shadow-2xl"
                     />
@@ -377,7 +385,7 @@ const Shop = () => {
           <motion.img
             src={product.image || cementImg}
             alt={product.name}
-            className="w-full h-full object-cover object-center"
+            className="w-full h-full object-contain object-center"
             animate={{ scale: isHovered ? 1.05 : 1 }}
             transition={{ duration: 0.3 }}
           />
@@ -604,7 +612,20 @@ const Shop = () => {
           className="max-w-7xl mx-auto px-6 pb-16"
         >
           <AnimatePresence>
-            {sortedAndFilteredProducts.length > 0 ? (
+            {isLoading ? (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex justify-center items-center py-12"
+              >
+                <svg className="animate-spin -ml-1 mr-3 h-10 w-10 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="text-lg text-gray-600">Loading products...</span>
+              </motion.div>
+            ) : sortedAndFilteredProducts.length > 0 ? (
               <motion.div className={`grid ${isGridView ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1'} gap-8`}>
                 {sortedAndFilteredProducts.map((product) => (
                   <ProductCard key={product.id} product={product} />

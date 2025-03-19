@@ -1,6 +1,39 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { FiX, FiShoppingCart } from "react-icons/fi";
+import { FiX, FiShoppingCart, FiStar } from "react-icons/fi";
+
+// Import required utility functions and styles
+const formatCurrency = (amount) => {
+  return `LKR ${amount.toFixed(2)}`;
+};
+
+// Helper function to get correct image URL
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('data:')) return imagePath;
+  if (imagePath.startsWith('http')) return imagePath;
+  return `http://localhost:5000${imagePath}`;
+};
+
+// Category colors for visual consistency
+const categoryColors = {
+  "Building Materials": "bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800 border border-blue-200",
+  "Hardware": "bg-gradient-to-r from-green-50 to-green-100 text-green-800 border border-green-200",
+  "Tools": "bg-gradient-to-r from-purple-50 to-purple-100 text-purple-800 border border-purple-200",
+  "Plumbing": "bg-gradient-to-r from-orange-50 to-orange-100 text-orange-800 border border-orange-200",
+  "Electrical": "bg-gradient-to-r from-yellow-50 to-yellow-100 text-yellow-800 border border-yellow-200",
+  "Paint & Supplies": "bg-gradient-to-r from-pink-50 to-pink-100 text-pink-800 border border-pink-200",
+  "Flooring": "bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-800 border border-indigo-200",
+  "Doors & Windows": "bg-gradient-to-r from-teal-50 to-teal-100 text-teal-800 border border-teal-200",
+  "Safety Equipment": "bg-gradient-to-r from-red-50 to-red-100 text-red-800 border border-red-200",
+  "Landscaping": "bg-gradient-to-r from-lime-50 to-lime-100 text-lime-800 border border-lime-200",
+  "Roofing": "bg-gradient-to-r from-amber-50 to-amber-100 text-amber-800 border border-amber-200",
+  "HVAC": "bg-gradient-to-r from-cyan-50 to-cyan-100 text-cyan-800 border border-cyan-200",
+  "Fasteners": "bg-gradient-to-r from-slate-50 to-slate-100 text-slate-800 border border-slate-200",
+  "Adhesives & Sealants": "bg-gradient-to-r from-violet-50 to-violet-100 text-violet-800 border border-violet-200",
+  "Cleaning Supplies": "bg-gradient-to-r from-sky-50 to-sky-100 text-sky-800 border border-sky-200",
+  "Other": "bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 border border-gray-200"
+};
 
 const ViewDetails = ({ product, onClose, onAddToCart }) => {
   if (!product) return null;
@@ -27,18 +60,26 @@ const ViewDetails = ({ product, onClose, onAddToCart }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Product Image */}
-        <div className="md:w-1/2">
+        <div className="md:w-1/2 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-8">
           <img
-            src={product.image}
+            src={getImageUrl(product.image)}
             alt={product.name}
-            className="w-full h-full object-cover"
+            className="max-h-80 max-w-full object-contain mx-auto filter drop-shadow-lg"
           />
         </div>
 
         {/* Product Details */}
         <div className="md:w-1/2 p-8 flex flex-col">
           <div className="flex justify-between items-start">
-            <h2 className="text-3xl font-bold text-gray-800">{product.name}</h2>
+            <div>
+              <span className={`inline-block px-3 py-1 rounded-full text-xs mb-3 ${categoryColors[product.category]}`}>
+                {product.category}
+              </span>
+              <h2 className="text-3xl font-bold text-gray-800">{product.name}</h2>
+              {product.sku && (
+                <p className="text-sm text-gray-500 mt-1">SKU: {product.sku}</p>
+              )}
+            </div>
             <button
               onClick={onClose}
               className="p-2 rounded-full hover:bg-gray-100"
@@ -48,76 +89,70 @@ const ViewDetails = ({ product, onClose, onAddToCart }) => {
           </div>
 
           <div className="mt-6">
-            <p className="text-2xl font-bold text-indigo-600">${product.price}</p>
+            <p className="text-3xl font-bold text-indigo-600">{formatCurrency(product.price)}</p>
+            
+            <div className="flex items-center space-x-1 my-4">
+              {[...Array(5)].map((_, i) => (
+                <FiStar 
+                  key={i} 
+                  className={`${i < (product.rating || 4) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
+                  size={18}
+                />
+              ))}
+              <span className="text-sm text-gray-500 ml-2">({product.reviews || '24'} reviews)</span>
+            </div>
+            
             <div className="h-0.5 bg-gray-200 my-6"></div>
+
+            {/* Stock Status */}
+            <div className="mb-6">
+              <span className={`px-3 py-1 text-sm rounded-full ${
+                product.stock <= 0 
+                  ? 'bg-red-100 text-red-800' 
+                  : product.stock < 5 
+                    ? 'bg-amber-100 text-amber-800' 
+                    : 'bg-green-100 text-green-800'
+              }`}>
+                {product.stock <= 0 
+                  ? 'Out of stock' 
+                  : product.stock < 5 
+                    ? `Low stock: ${product.stock} remaining` 
+                    : `In stock: ${product.stock} available`}
+              </span>
+            </div>
 
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Product Description</h3>
               <p className="text-gray-600">
-                {product.description || `${product.name} is a high-quality building material perfect for your construction needs. Made with premium materials to ensure durability and long-lasting performance.`}
+                {product.description || `${product.name} is a high-quality building material perfect for your construction needs.`}
               </p>
 
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Features</h3>
-                <ul className="list-disc list-inside text-gray-600 space-y-1">
-                  <li>Premium quality materials</li>
-                  <li>Durable and long-lasting</li>
-                  <li>Easy to use and install</li>
-                  <li>Industry-standard specifications</li>
-                </ul>
-              </div>
+              {/* Only show features for sample products or when features are available */}
+              {!product._id && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-lg">Features</h3>
+                  <ul className="list-disc list-inside text-gray-600 space-y-1">
+                    <li>Premium quality materials</li>
+                    <li>Durable and long-lasting</li>
+                    <li>Easy to use and install</li>
+                    <li>Industry-standard specifications</li>
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="mt-8">
               <button
                 onClick={handleAddToCart}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-6 rounded-lg flex items-center justify-center space-x-2 transition-colors"
-              >
-                <FiShoppingCart size={20} />
-                <span>Add to Cart</span>
-              </button>
-            </div>
-          </div>
-
-          {/* New Content */}
-          <div className="p-6">
-            <h2 className="text-2xl font-bold mb-2">{product.name}</h2>
-            
-            <div className="flex items-center space-x-2 mb-4">
-              <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryColors[product.category] || "bg-gray-100 text-gray-800"}`}>
-                {product.category}
-              </span>
-              {product.sku && (
-                <span className="text-sm text-gray-600">SKU: {product.sku}</span>
-              )}
-            </div>
-            
-            <p className="text-gray-700 mb-6">
-              {product.description || `High-quality ${product.name} for your construction needs.`}
-            </p>
-            
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <p className="text-3xl font-bold text-indigo-600">
-                  {formatCurrency(product.price)}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {product.stock <= 0 
-                    ? 'Currently Out of Stock' 
-                    : `${product.stock} units available`}
-                </p>
-              </div>
-              
-              <button
-                onClick={() => onAddToCart(product)}
                 disabled={product.stock <= 0}
-                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                className={`w-full py-3 px-6 rounded-lg flex items-center justify-center space-x-2 transition-colors ${
                   product.stock <= 0 
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                     : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                 }`}
               >
-                {product.stock <= 0 ? 'Sold Out' : 'Add to Cart'}
+                <FiShoppingCart size={20} />
+                <span>{product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}</span>
               </button>
             </div>
           </div>
