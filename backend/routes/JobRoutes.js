@@ -203,4 +203,32 @@ router.put('/:id/milestones', async (req, res) => {
   }
 });
 
+// Add this route to handle bid acceptance with milestones in one operation
+router.put('/:id/accept-bid', async (req, res) => {
+  try {
+    const { bidId, acceptedBidAmount, milestones } = req.body;
+    const job = await Job.findById(req.params.id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Update job with accepted bid info and milestones
+    job.acceptedBid = bidId;
+    job.acceptedBidAmount = acceptedBidAmount;
+    job.milestones = milestones;
+    job.status = 'Closed'; // Close the auction
+    
+    await job.save();
+    
+    res.status(200).json({ 
+      message: 'Bid accepted and milestones saved successfully',
+      job: job
+    });
+  } catch (err) {
+    console.error('Error accepting bid:', err);
+    res.status(500).json({ error: 'Error accepting bid' });
+  }
+});
+
 module.exports = router;
