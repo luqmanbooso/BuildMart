@@ -7,6 +7,11 @@ import Cart from "./Cart"; // Import the Cart component
 import EnhancedPaymentGateway from '../components/Payment';
 import { toast } from 'react-toastify';
 
+// Add this helper function at the top of both files
+const formatCurrency = (amount) => {
+  return `LKR ${amount.toFixed(2)}`;
+};
+
 const products = [
   { id: 1, name: "Cement", image: cementImg, price: 100 },
   { id: 2, name: "Binding Wires", image: cementImg, price: 50 },
@@ -152,7 +157,7 @@ const Shop = () => {
                   <img src={product.image} alt={product.name} className="w-full h-[200px] object-cover" />
                   <div className="p-5 text-center">
                     <h3 className="text-lg font-semibold">{product.name}</h3>
-                    <p className="text-indigo-600 font-bold my-2">${product.price}</p>
+                    <p className="text-indigo-600 font-bold my-2">{formatCurrency(product.price)}</p>
 
                     {/* Buttons */}
                     <div className="flex justify-center gap-x-2 mt-4">
