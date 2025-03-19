@@ -78,6 +78,49 @@ const ViewDetails = ({ product, onClose, onAddToCart }) => {
               </button>
             </div>
           </div>
+
+          {/* New Content */}
+          <div className="p-6">
+            <h2 className="text-2xl font-bold mb-2">{product.name}</h2>
+            
+            <div className="flex items-center space-x-2 mb-4">
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryColors[product.category] || "bg-gray-100 text-gray-800"}`}>
+                {product.category}
+              </span>
+              {product.sku && (
+                <span className="text-sm text-gray-600">SKU: {product.sku}</span>
+              )}
+            </div>
+            
+            <p className="text-gray-700 mb-6">
+              {product.description || `High-quality ${product.name} for your construction needs.`}
+            </p>
+            
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="text-3xl font-bold text-indigo-600">
+                  {formatCurrency(product.price)}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {product.stock <= 0 
+                    ? 'Currently Out of Stock' 
+                    : `${product.stock} units available`}
+                </p>
+              </div>
+              
+              <button
+                onClick={() => onAddToCart(product)}
+                disabled={product.stock <= 0}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                  product.stock <= 0 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                }`}
+              >
+                {product.stock <= 0 ? 'Sold Out' : 'Add to Cart'}
+              </button>
+            </div>
+          </div>
         </div>
       </motion.div>
     </motion.div>
