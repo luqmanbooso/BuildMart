@@ -16,6 +16,7 @@ const Login = () => {
   
   const navigate = useNavigate();
 
+  // Handle admin, inventory admin, and regular user redirections
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -25,13 +26,41 @@ const Login = () => {
       return;
     }
     
-    console.log("Sending request with:", { emailUsername, password }); // Debugging
+    console.log("Sending request with:", { emailUsername, password });
 
     setLoading(true);
     setError("");
     
     try {
-      // The correct way is to send credentials to backend for verification
+      // Special case handling for admin logins
+      if ((emailUsername === "admin@buildmart.com" || emailUsername === "Admin") && password === "1234") {
+        // For admin login, store a simple admin token
+        const adminToken = "admin-token-placeholder";
+        if (rememberMe) {
+          localStorage.setItem('token', adminToken);
+        } else {
+          sessionStorage.setItem('token', adminToken);
+        }
+        console.log("Admin login detected");
+        navigate('/admindashboard');
+        return; // Exit early
+      }
+      
+      // Special case handling for inventory admin logins
+      if ((emailUsername === "inventoryadmin@buildmart.com" || emailUsername === "Lithira") && password === "1234") {
+        // For inventory admin login, store a simple inventory admin token
+        const inventoryAdminToken = "inventory-admin-token-placeholder";
+        if (rememberMe) {
+          localStorage.setItem('token', inventoryAdminToken);
+        } else {
+          sessionStorage.setItem('token', inventoryAdminToken);
+        }
+        console.log("Inventory admin login detected");
+        navigate('/inventorydash');
+        return; // Exit early
+      }
+      
+      // Regular users authenticated through the API
       const response = await axios.post('http://localhost:5000/auth/login', {
         emailUsername,
         password
@@ -50,14 +79,10 @@ const Login = () => {
       const decoded = jwtDecode(token);
       const userRole = decoded.role;
       
-      console.log("User role:", userRole); // Debugging
+      console.log("User role:", userRole);
       
-      // Check for admin credentials
-      if ((emailUsername === "admin@buildmart.com" || emailUsername === "admin") && password === "1234") {
-        navigate('/admindashboard');
-      }
       // Navigate based on user role
-      else if (userRole === "Service Provider") {
+      if (userRole === "Service Provider") {
         navigate('/auction');
       } else {
         // Default to home for Client role or any other role

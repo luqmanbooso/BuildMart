@@ -41,6 +41,11 @@ const UserProfilePage = () => {
     email: ''
   });
 
+  // Add these state variables
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
   // Add this state to track form steps
   const [formStep, setFormStep] = useState(1);
 
@@ -270,19 +275,79 @@ const UserProfilePage = () => {
     e.preventDefault();
     
     try {
-      // Here you would make an API call to update the user profile
-      // For now, just update the local state
+      // Get token from storage
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      if (!token) {
+        console.error("No authentication token found");
+        setError("You must be logged in to update your profile");
+        return;
+      }
+      
+      // Get user ID (assuming it's stored in the user object)
+      const userId = user.id;
+      
+      if (!userId) {
+        console.error("User ID not found");
+        setError("User information not available");
+        return;
+      }
+      
+      // Show loading state
+      setIsLoading(true);
+      
+      // Make API request to update profile
+      const response = await axios.patch(
+        `http://localhost:5000/auth/user/${userId}`,
+        {
+          name: editedProfile.name,
+          email: editedProfile.email
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      // Update the user state with the returned data
       setUser({
         ...user,
-        name: editedProfile.name,
-        email: editedProfile.email
+        name: response.data.user.username,
+        email: response.data.user.email
       });
       
+      // Show success message
+      setSuccessMessage("Profile updated successfully");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      
+      // Close the edit profile modal
       setShowEditProfileForm(false);
-      alert('Profile updated successfully!');
+      
     } catch (error) {
-      console.error('Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
+      console.error("Error updating profile:", error);
+      
+      // Display appropriate error message
+      if (error.response) {
+        if (error.response.status === 400) {
+          setError("Email or username already exists");
+        } else if (error.response.status === 401) {
+          setError("You must be logged in to update your profile");
+        } else if (error.response.status === 404) {
+          setError("User not found");
+        } else {
+          setError("Failed to update profile: " + (error.response.data.error || "Unknown error"));
+        }
+      } else if (error.request) {
+        setError("No response from server. Please check your connection.");
+      } else {
+        setError("Error updating profile: " + error.message);
+      }
+      
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1100,9 +1165,18 @@ const UserProfilePage = () => {
                               </button>
                               <button
                                 type="submit" 
-                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                                disabled={isLoading}
+                                className={`px-6 py-2 ${isLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-lg transition-colors flex items-center`}
                               >
-                                Save Changes
+                                {isLoading ? (
+                                  <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Saving...
+                                  </>
+                                ) : "Save Changes"}
                               </button>
                             </div>
                           </form>
@@ -1157,6 +1231,41 @@ const UserProfilePage = () => {
                           </button>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Loading, Error, and Success Messages */}
+                {isLoading && (
+                  <div className="fixed top-4 right-4 bg-blue-100 text-blue-700 px-4 py-2 rounded-md shadow-md z-50">
+                    <div className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Updating profile...
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="fixed top-4 right-4 bg-red-100 text-red-700 px-4 py-2 rounded-md shadow-md z-50">
+                    <div className="flex items-center">
+                      <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {error}
+                    </div>
+                  </div>
+                )}
+
+                {successMessage && (
+                  <div className="fixed top-4 right-4 bg-green-100 text-green-700 px-4 py-2 rounded-md shadow-md z-50">
+                    <div className="flex items-center">
+                      <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      {successMessage}
                     </div>
                   </div>
                 )}
