@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import logo from '../assets/images/buildmart_logo1.png';
 import axios from 'axios'; // Make sure axios is installed
+import ClientNavBar from '../components/ClientNavBar';
 
 function Ongoingworks() {
   const [ongoingWorks, setOngoingWorks] = useState([]);
@@ -215,25 +216,7 @@ function Ongoingworks() {
   if (ongoingWorks.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-lg shadow-sm py-4 px-6 border-b border-gray-200">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <Link to="/">
-                <img src={logo} alt="BuildMart Logo" className="h-10" />
-              </Link>
-              <h1 className="text-xl font-semibold text-gray-800">My Ongoing Projects</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <Link 
-                to="/dashboard" 
-                className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                Back to Dashboard
-              </Link>
-            </div>
-          </div>
-        </header>
+       <ClientNavBar />
 
         <div className="flex flex-col items-center justify-center p-10 h-[80vh]">
           <div className="p-8 text-center">
@@ -257,28 +240,10 @@ function Ongoingworks() {
   // Rest of your component remains unchanged...
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-800">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-lg shadow-sm py-4 px-6 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <Link to="/">
-              <img src={logo} alt="BuildMart Logo" className="h-10" />
-            </Link>
-            <h1 className="text-xl font-semibold text-gray-800">My Ongoing Projects</h1>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <Link 
-              to="/dashboard" 
-              className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
-            >
-              Back to Dashboard
-            </Link>
-          </div>
-        </div>
-      </header>
+      <ClientNavBar />
 
       <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-8 md:px-6">
+        <br /><br /><br />
         <div className="flex flex-col md:flex-row gap-6">
           {/* Sidebar - Project List */}
           <div className="w-full md:w-1/3 lg:w-1/4">

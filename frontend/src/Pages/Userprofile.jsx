@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'; // Add this import
 import logo from '../assets/images/buildmart_logo1.png';
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
+import ClientNavBar from '../components/ClientNavBar';
 
 const UserProfilePage = () => {
   const navigate = useNavigate(); // Add this hook
@@ -346,65 +347,12 @@ const UserProfilePage = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-800">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-lg shadow-lg py-4 px-6">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <img src={logo} alt="BuildMart Logo" className="h-15" />
-          </div>
-          <nav className="hidden lg:flex space-x-8">
-            {['Home', 'Auction', 'Projects', 'About Us', 'Contact Us'].map((item) => (
-              <a key={item} href="#" className="font-medium relative group text-gray-600 hover:text-gray-900 transition-colors duration-300">
-                {item}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 group-hover:w-full transition-all duration-300"></span>
-              </a>
-            ))}
-          </nav>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors duration-300">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl ring-1 ring-black ring-opacity-5 p-2">
-                  <div className="p-3">
-                    <h3 className="font-medium">Notifications</h3>
-                    <div className="mt-2 p-2 rounded-lg bg-blue-50 flex items-start space-x-3">
-                      <div className="bg-blue-500 rounded-full p-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                        </svg>
-                      </div>
-                      <div className="text-sm">
-                        <p className="font-medium">New bid received</p>
-                        <p className="text-gray-500">You received a new bid on your kitchen project</p>
-                        <p className="text-xs text-blue-500 mt-1">10 minutes ago</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <button className="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-300">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-            <button className="hidden md:flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl">
-              <span>Account</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </header>
-
+   
+    <ClientNavBar/>
+    
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-r from-blue-800 via-blue-600 to-indigo-800">
+        <br /><br /><br />
         <div className="absolute inset-0 bg-gradient-to-r from-blue-900 to-indigo-900 opacity-70"></div>
         <div className="relative max-w-7xl mx-auto px-6 py-16">
           <h1 className="text-5xl font-bold text-white leading-tight">My <span className="text-blue-300">Account</span></h1>

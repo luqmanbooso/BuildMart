@@ -4,6 +4,7 @@ import { motion } from "framer-motion"; // For animations
 import logo from '../assets/images/buildmart_logo1.png'; 
 import axios from 'axios'; // Importing Axios for API requests
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode"; // FIXED: Use named import with curly braces
 
 const SignUp = () => {
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -63,27 +64,36 @@ const SignUp = () => {
 
             localStorage.setItem('token', token);
             console.log('Token saved, verification:', localStorage.getItem('token'));
-      // Handle successful signup
-      console.log('User signed up successfully:', response.data);
-      alert('Signup successful!');
+      
+      // Decode the token to get user role from the actual token
+      const decoded = jwtDecode(token);
+      const userRole = decoded.role;
+      
+      console.log('User registered as:', userRole); // Debug log
 
-      if (selectedRole === "Service Provider") {
+      // Navigate based on role from token, not from form selection
+      if (userRole === "Service Provider") {
         navigate('/contractorStart');
       } else {
+        // Default to home for Client role
         navigate('/');
       }
 
-      // Optionally, reset form fields after successful submission
+      // Success message
+      alert('Signup successful!');
+
+      // Reset form fields
       setUsername('');
       setEmail('');
       setPassword('');
       setConfirmPassword('');
       setProfilePic(null);
       setSelectedRole('Client');
+      
     } catch (error) {
       // Handle error
       console.error('Error during signup:', error.response ? error.response.data : error.message);
-      alert('Signup failed! Please try again.');
+      setErrorMessage(error.response?.data?.message || 'Signup failed! Please try again.');
     }
   };
 

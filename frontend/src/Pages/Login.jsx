@@ -4,6 +4,7 @@ import { motion } from "framer-motion"; // For animations
 import signin_img from '../assets/images/signin_pic.png';
 import axios from "axios";
 import { useNavigate } from "react-router-dom"; // For redirection after login
+import { jwtDecode } from "jwt-decode"; // Use curly braces for named export
 
 const Login = () => {
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -38,11 +39,26 @@ const Login = () => {
       
       const token = response.data.token;
 
-    // Store token in localStorage or sessionStorage
-    localStorage.setItem('token', token);
+      // Store token in localStorage or sessionStorage
+      if (rememberMe) {
+        localStorage.setItem('token', token);
+      } else {
+        sessionStorage.setItem('token', token);
+      }
       
-      // Redirect to dashboard or home
-      navigate('/');
+      // Decode the token to get user role
+      const decoded = jwtDecode(token);
+      const userRole = decoded.role;
+      
+      console.log("User role:", userRole); // Debugging
+      
+      // Navigate based on user role
+      if (userRole === "Service Provider") {
+        navigate('/auction');
+      } else {
+        // Default to home for Client role or any other role
+        navigate('/');
+      }
       
     } catch (error) {
       // Handle different error scenarios

@@ -3,15 +3,21 @@ import { FaFacebookF, FaTwitter, FaInstagram, FaPhone, FaMapMarkerAlt, FaAt, FaC
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import logo from '../assets/images/buildmart_logo1.png';
+import { jwtDecode } from 'jwt-decode';
+import ClientNavBar from '../components/ClientNavBar';
+import ContractorUserNav from '../components/ContractorUserNav';
 
 const ContactUs = () => {
+  // Add auth state
+  const [userRole, setUserRole] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Existing state
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     description: '',
   });
-
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState([
     { sender: 'bot', message: "Hello! I'm BuildMart AI assistant. How can I help you today?" }
@@ -20,6 +26,30 @@ const ContactUs = () => {
   const [isSending, setIsSending] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const chatEndRef = useRef(null);
+
+  // Add authentication check
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      
+      if (token) {
+        try {
+          const decoded = jwtDecode(token);
+          setIsAuthenticated(true);
+          setUserRole(decoded.role);
+        } catch (error) {
+          console.error("Error decoding token:", error);
+          setIsAuthenticated(false);
+          setUserRole(null);
+        }
+      } else {
+        setIsAuthenticated(false);
+        setUserRole(null);
+      }
+    };
+    
+    checkAuth();
+  }, []);
 
   // Auto-scroll chat to bottom on new messages
   useEffect(() => {
@@ -103,229 +133,224 @@ const ContactUs = () => {
 
   return (
     <div className="flex flex-col min-h-screen font-sans bg-gray-50">
-      {/* Navigation Bar */}
-      <nav className="bg-white py-4 px-6 shadow-md sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center">
-          <Link to="/" className="flex items-center">
-            <img src={logo} alt="BuildMart" className="h-12 transition-transform transform hover:scale-105" />
-          </Link>
-          <div className="hidden md:flex space-x-8">
-            <Link to="/" className="text-gray-700 hover:text-blue-600 transition duration-300 px-2 py-1 rounded-md hover:bg-blue-50">Home</Link>
-            <Link to="/auction" className="text-gray-700 hover:text-blue-600 transition duration-300 px-2 py-1 rounded-md hover:bg-blue-50">Auction</Link>
-            <Link to="/about-us" className="text-gray-700 hover:text-blue-600 transition duration-300 px-2 py-1 rounded-md hover:bg-blue-50">About Us</Link>
-            <Link to="/contact-us" className="text-blue-600 font-medium px-2 py-1 bg-blue-50 rounded-md">Contact Us</Link>
-          </div>
-        </div>
-      </nav>
+      {/* Use the same conditional navbar as Home component */}
+      {userRole === 'Service Provider' ? (
+        <ContractorUserNav />
+      ) : (
+        <ClientNavBar />
+      )}
 
-      {/* Header with Gradient Background */}
-      <motion.div 
-        className="bg-gradient-to-r from-blue-700 via-indigo-600 to-purple-700 py-20 text-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
-      >
-        <motion.h1 
-          className="text-5xl sm:text-6xl text-white font-bold tracking-tight leading-tight"
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
+      {/* Add top padding to account for fixed navbar */}
+      <div className="pt-[72px]">
+        {/* Header with Gradient Background */}
+        <motion.div 
+          className="bg-gradient-to-r from-blue-700 via-indigo-600 to-purple-700 py-20 text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8 }}
         >
-          Get in Touch
-        </motion.h1>
-        <motion.p 
-          className="text-lg text-white mt-4 max-w-xl mx-auto"
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.6 }}
-        >
-          We're here to help with any questions about our platform, services, or how we can assist your construction projects.
-        </motion.p>
-      </motion.div>
+          <motion.h1 
+            className="text-5xl sm:text-6xl text-white font-bold tracking-tight leading-tight"
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            Get in Touch
+          </motion.h1>
+          <motion.p 
+            className="text-lg text-white mt-4 max-w-xl mx-auto"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.6 }}
+          >
+            We're here to help with any questions about our platform, services, or how we can assist your construction projects.
+          </motion.p>
+        </motion.div>
 
-      {/* Main Content */}
-      <div className="flex-grow py-16 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Contact Information */}
-            <motion.div 
-              className="md:col-span-1"
-              initial={{ x: -50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ duration: 0.6 }}
-            >
-              <div className="bg-white rounded-xl shadow-lg p-8 h-full">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">Contact Information</h2>
-                
-                <div className="space-y-6">
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 p-3 rounded-full">
-                      <FaPhone className="text-blue-600" />
+        {/* Main Content */}
+        <div className="flex-grow py-16 px-4 sm:px-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Contact Information */}
+              <motion.div 
+                className="md:col-span-1"
+                initial={{ x: -50, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: 0.6 }}
+              >
+                <div className="bg-white rounded-xl shadow-lg p-8 h-full">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Contact Information</h2>
+                  
+                  <div className="space-y-6">
+                    <div className="flex items-start">
+                      <div className="bg-blue-100 p-3 rounded-full">
+                        <FaPhone className="text-blue-600" />
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="font-medium text-gray-900">Phone</h3>
+                        <p className="text-gray-600 mt-1">+94 773 456 7890</p>
+                        <p className="text-gray-600">Mon-Fri, 9am-6pm</p>
+                      </div>
                     </div>
-                    <div className="ml-4">
-                      <h3 className="font-medium text-gray-900">Phone</h3>
-                      <p className="text-gray-600 mt-1">+94 773 456 7890</p>
-                      <p className="text-gray-600">Mon-Fri, 9am-6pm</p>
+                    
+                    <div className="flex items-start">
+                      <div className="bg-blue-100 p-3 rounded-full">
+                        <FaAt className="text-blue-600" />
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="font-medium text-gray-900">Email</h3>
+                        <p className="text-gray-600 mt-1">support@buildmart.lk</p>
+                        <p className="text-gray-600">We respond within 24 hours</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start">
+                      <div className="bg-blue-100 p-3 rounded-full">
+                        <FaMapMarkerAlt className="text-blue-600" />
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="font-medium text-gray-900">Office</h3>
+                        <p className="text-gray-600 mt-1">42 Galle Road, Colombo 03</p>
+                        <p className="text-gray-600">Sri Lanka</p>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 p-3 rounded-full">
-                      <FaAt className="text-blue-600" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="font-medium text-gray-900">Email</h3>
-                      <p className="text-gray-600 mt-1">support@buildmart.lk</p>
-                      <p className="text-gray-600">We respond within 24 hours</p>
+                  <div className="mt-8">
+                    <h3 className="font-medium text-gray-900 mb-3">Follow Us</h3>
+                    <div className="flex space-x-4">
+                      <a 
+                        href="https://facebook.com" 
+                        className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors duration-300"
+                        aria-label="Facebook"
+                      >
+                        <FaFacebookF />
+                      </a>
+                      <a 
+                        href="https://twitter.com" 
+                        className="bg-blue-400 text-white p-2 rounded-full hover:bg-blue-500 transition-colors duration-300"
+                        aria-label="Twitter"
+                      >
+                        <FaTwitter />
+                      </a>
+                      <a 
+                        href="https://instagram.com" 
+                        className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-2 rounded-full hover:from-purple-600 hover:to-pink-600 transition-colors duration-300"
+                        aria-label="Instagram"
+                      >
+                        <FaInstagram />
+                      </a>
                     </div>
                   </div>
+                </div>
+              </motion.div>
+              
+              {/* Contact Form */}
+              <motion.div 
+                className="md:col-span-2"
+                initial={{ x: 50, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+              >
+                <div className="bg-white rounded-xl shadow-lg p-8">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-6">Send Message</h2>
                   
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 p-3 rounded-full">
-                      <FaMapMarkerAlt className="text-blue-600" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="font-medium text-gray-900">Office</h3>
-                      <p className="text-gray-600 mt-1">42 Galle Road, Colombo 03</p>
-                      <p className="text-gray-600">Sri Lanka</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-8">
-                  <h3 className="font-medium text-gray-900 mb-3">Follow Us</h3>
-                  <div className="flex space-x-4">
-                    <a 
-                      href="https://facebook.com" 
-                      className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors duration-300"
-                      aria-label="Facebook"
+                  {formSubmitted ? (
+                    <motion.div 
+                      className="bg-green-50 border border-green-200 rounded-lg p-6 text-center"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.4 }}
                     >
-                      <FaFacebookF />
-                    </a>
-                    <a 
-                      href="https://twitter.com" 
-                      className="bg-blue-400 text-white p-2 rounded-full hover:bg-blue-500 transition-colors duration-300"
-                      aria-label="Twitter"
-                    >
-                      <FaTwitter />
-                    </a>
-                    <a 
-                      href="https://instagram.com" 
-                      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-2 rounded-full hover:from-purple-600 hover:to-pink-600 transition-colors duration-300"
-                      aria-label="Instagram"
-                    >
-                      <FaInstagram />
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-            
-            {/* Contact Form */}
-            <motion.div 
-              className="md:col-span-2"
-              initial={{ x: 50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <div className="bg-white rounded-xl shadow-lg p-8">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">Send Message</h2>
-                
-                {formSubmitted ? (
-                  <motion.div 
-                    className="bg-green-50 border border-green-200 rounded-lg p-6 text-center"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4 }}
-                  >
-                    <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-                      <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-medium text-green-800 mb-2">Message sent successfully!</h3>
-                    <p className="text-green-700">Thank you for contacting us. We'll get back to you soon.</p>
-                  </motion.div>
-                ) : (
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="relative">
-                        <label htmlFor="username" className="text-sm font-medium text-gray-700 block mb-2">Your Name</label>
-                        <input
-                          type="text"
-                          id="username"
-                          name="username"
-                          value={formData.username}
-                          onChange={handleChange}
-                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm"
-                          required
-                          placeholder="John Doe"
-                        />
+                      <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                        <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium text-green-800 mb-2">Message sent successfully!</h3>
+                      <p className="text-green-700">Thank you for contacting us. We'll get back to you soon.</p>
+                    </motion.div>
+                  ) : (
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="relative">
+                          <label htmlFor="username" className="text-sm font-medium text-gray-700 block mb-2">Your Name</label>
+                          <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            value={formData.username}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm"
+                            required
+                            placeholder="John Doe"
+                          />
+                        </div>
+                        
+                        <div className="relative">
+                          <label htmlFor="email" className="text-sm font-medium text-gray-700 block mb-2">Email Address</label>
+                          <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm"
+                            required
+                            placeholder="john@example.com"
+                          />
+                        </div>
                       </div>
                       
                       <div className="relative">
-                        <label htmlFor="email" className="text-sm font-medium text-gray-700 block mb-2">Email Address</label>
-                        <input
-                          type="email"
-                          id="email"
-                          name="email"
-                          value={formData.email}
+                        <label htmlFor="description" className="text-sm font-medium text-gray-700 block mb-2">Your Message</label>
+                        <textarea
+                          id="description"
+                          name="description"
+                          value={formData.description}
                           onChange={handleChange}
-                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm"
+                          rows="6"
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm resize-none"
                           required
-                          placeholder="john@example.com"
-                        />
+                          placeholder="How can we help you?"
+                        ></textarea>
                       </div>
-                    </div>
-                    
-                    <div className="relative">
-                      <label htmlFor="description" className="text-sm font-medium text-gray-700 block mb-2">Your Message</label>
-                      <textarea
-                        id="description"
-                        name="description"
-                        value={formData.description}
-                        onChange={handleChange}
-                        rows="6"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm resize-none"
-                        required
-                        placeholder="How can we help you?"
-                      ></textarea>
-                    </div>
-                    
-                    <div className="flex justify-end">
-                      <motion.button
-                        type="submit"
-                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all duration-300"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <span className="flex items-center">
-                          Send Message
-                          <FaPaperPlane className="ml-2" />
-                        </span>
-                      </motion.button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            </motion.div>
+                      
+                      <div className="flex justify-end">
+                        <motion.button
+                          type="submit"
+                          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all duration-300"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <span className="flex items-center">
+                            Send Message
+                            <FaPaperPlane className="ml-2" />
+                          </span>
+                        </motion.button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </motion.div>
+            </div>
           </div>
+        </div>
+
+        {/* Map Section */}
+        <div className="w-full h-96 bg-gray-200 relative">
+          <iframe
+            className="w-full h-full"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63371.82624954921!2d79.82118336632216!3d6.921922517948811!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ae253d10f7a7003%3A0x320b2e4d32d3838d!2sColombo!5e0!3m2!1sen!2slk!4v1689842276536!5m2!1sen!2slk"
+            style={{ border: 0 }}
+            allowFullScreen=""
+            loading="lazy"
+            title="BuildMart Office Location"
+          ></iframe>
         </div>
       </div>
 
-      {/* Map Section */}
-      <div className="w-full h-96 bg-gray-200 relative">
-        <iframe
-          className="w-full h-full"
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63371.82624954921!2d79.82118336632216!3d6.921922517948811!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ae253d10f7a7003%3A0x320b2e4d32d3838d!2sColombo!5e0!3m2!1sen!2slk!4v1689842276536!5m2!1sen!2slk"
-          style={{ border: 0 }}
-          allowFullScreen=""
-          loading="lazy"
-          title="BuildMart Office Location"
-        ></iframe>
-      </div>
-
-      {/* Chatbot Button */}
+      {/* Chatbot Button - keep outside the pt-[72px] div for proper fixed positioning */}
       <motion.button
         onClick={handleChatToggle}
         className="fixed bottom-8 right-8 bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 rounded-full shadow-xl z-50"
@@ -338,7 +363,7 @@ const ContactUs = () => {
         {chatOpen ? <FaTimes size={24} /> : <FaComments size={24} />}
       </motion.button>
 
-      {/* Chatbot Modal */}
+      {/* Chatbot Modal - keep this part */}
       <AnimatePresence>
         {chatOpen && (
           <motion.div 
@@ -416,70 +441,6 @@ const ContactUs = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Footer */}
-      <footer className="bg-gradient-to-r from-gray-900 to-blue-900 text-white py-12">
-        <div className="container mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <img src={logo} alt="BuildMart" className="h-10 mb-4" />
-              <p className="mt-2 text-sm text-blue-200 max-w-md">
-                BuildMart connects contractors with clients for construction projects. Find qualified professionals or post your project for bidding.
-              </p>
-              <div className="mt-6 flex space-x-4">
-                <a href="https://facebook.com" className="text-blue-200 hover:text-white transition-colors">
-                  <FaFacebookF size={18} />
-                </a>
-                <a href="https://twitter.com" className="text-blue-200 hover:text-white transition-colors">
-                  <FaTwitter size={18} />
-                </a>
-                <a href="https://instagram.com" className="text-blue-200 hover:text-white transition-colors">
-                  <FaInstagram size={18} />
-                </a>
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
-              <ul className="space-y-2">
-                <li><Link to="/about-us" className="text-blue-200 hover:text-white transition-colors">About Us</Link></li>
-                <li><Link to="/auction" className="text-blue-200 hover:text-white transition-colors">Browse Projects</Link></li>
-                <li><Link to="/signup" className="text-blue-200 hover:text-white transition-colors">Register as Contractor</Link></li>
-                <li><Link to="/terms" className="text-blue-200 hover:text-white transition-colors">Terms & Conditions</Link></li>
-                <li><Link to="/privacy" className="text-blue-200 hover:text-white transition-colors">Privacy Policy</Link></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Newsletter</h3>
-              <p className="text-blue-200 mb-4">Subscribe to our newsletter for updates and tips</p>
-              <form className="flex">
-                <input 
-                  type="email" 
-                  placeholder="Your email" 
-                  className="px-4 py-2 rounded-l-md w-full focus:outline-none text-gray-900"
-                />
-                <button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-r-md transition-colors duration-300"
-                >
-                  <FaPaperPlane />
-                </button>
-              </form>
-            </div>
-          </div>
-          
-          <div className="border-t border-blue-800 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-sm text-blue-300">
-              &copy; {new Date().getFullYear()} BuildMart. All rights reserved.
-            </p>
-            <div className="mt-4 md:mt-0">
-              <Link to="/terms" className="text-sm text-blue-300 hover:text-white mx-3 transition-colors">Terms</Link>
-              <Link to="/privacy" className="text-sm text-blue-300 hover:text-white mx-3 transition-colors">Privacy</Link>
-              <Link to="/cookies" className="text-sm text-blue-300 hover:text-white mx-3 transition-colors">Cookies</Link>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
