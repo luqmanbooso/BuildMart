@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
-import { FiSearch, FiShoppingCart, FiX, FiChevronRight } from "react-icons/fi";
+import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence, LayoutGroup, useScroll, useTransform } from "framer-motion";
+import { FiSearch, FiShoppingCart, FiX, FiChevronRight, FiGrid, FiList, FiFilter, FiStar, FiArrowUp } from "react-icons/fi";
+import { BsArrowLeftCircleFill, BsArrowRightCircleFill } from "react-icons/bs";
 import cementImg from "../assets/images/cement.png";
 import ViewDetails from "./ViewDetails";
-import Cart from "./Cart"; // Import the Cart component
+import Cart from "./Cart";
 import EnhancedPaymentGateway from '../components/Payment';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -15,17 +16,17 @@ const formatCurrency = (amount) => {
 
 // Category colors for visual consistency
 const categoryColors = {
-  "Building Materials": "bg-blue-100 text-blue-800",
-  "Hardware": "bg-green-100 text-green-800",
-  "Tools": "bg-purple-100 text-purple-800",
-  "Plumbing": "bg-orange-100 text-orange-800",
-  "Electrical": "bg-yellow-100 text-yellow-800",
-  "Paint & Supplies": "bg-pink-100 text-pink-800",
-  "Flooring": "bg-indigo-100 text-indigo-800",
-  "Doors & Windows": "bg-teal-100 text-teal-800",
-  "Safety Equipment": "bg-red-100 text-red-800",
-  "Landscaping": "bg-lime-100 text-lime-800",
-  "Other": "bg-gray-100 text-gray-800"
+  "Building Materials": "bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800 border border-blue-200",
+  "Hardware": "bg-gradient-to-r from-green-50 to-green-100 text-green-800 border border-green-200",
+  "Tools": "bg-gradient-to-r from-purple-50 to-purple-100 text-purple-800 border border-purple-200",
+  "Plumbing": "bg-gradient-to-r from-orange-50 to-orange-100 text-orange-800 border border-orange-200",
+  "Electrical": "bg-gradient-to-r from-yellow-50 to-yellow-100 text-yellow-800 border border-yellow-200",
+  "Paint & Supplies": "bg-gradient-to-r from-pink-50 to-pink-100 text-pink-800 border border-pink-200",
+  "Flooring": "bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-800 border border-indigo-200",
+  "Doors & Windows": "bg-gradient-to-r from-teal-50 to-teal-100 text-teal-800 border border-teal-200",
+  "Safety Equipment": "bg-gradient-to-r from-red-50 to-red-100 text-red-800 border border-red-200",
+  "Landscaping": "bg-gradient-to-r from-lime-50 to-lime-100 text-lime-800 border border-lime-200",
+  "Other": "bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 border border-gray-200"
 };
 
 const Shop = () => {
@@ -37,9 +38,30 @@ const Shop = () => {
   const [checkoutAmount, setCheckoutAmount] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [products, setProducts] = useState([]);
+  const [isGridView, setIsGridView] = useState(true);
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [sortOption, setSortOption] = useState("featured");
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  
+  const scrollRef = useRef(null);
+  const { scrollYProgress } = useScroll();
+  const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
+  const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
+
+  // Handle scroll to top button visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 500);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const fetchProducts = async () => {
+      setIsLoading(true);
       try {
         const response = await axios.get('http://localhost:5000/products');
         if (response.data.success) {
@@ -49,95 +71,153 @@ const Shop = () => {
             price: product.price,
             category: product.category,
             description: product.description || `High-quality ${product.name} for your construction needs.`,
-            image: product.image || cementImg, // Default image fallback
+            image: product.image || cementImg,
             stock: product.stock,
-            sku: product.sku
+            sku: product.sku,
+            rating: Math.floor(Math.random() * 5) + 1, // Mock rating for demo
+            reviews: Math.floor(Math.random() * 100) // Mock reviews for demo
           }));
           setProducts(formattedProducts);
+          // Select 3 random products for featured section
+          const randomFeatured = [...formattedProducts]
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 3);
+          setFeaturedProducts(randomFeatured);
           console.log('Products loaded successfully:', formattedProducts);
         } else {
           console.error('Error from API:', response.data);
           toast.error('Error loading products');
-          loadSampleData(); // Fallback to sample data if API fails
+          loadSampleData();
         }
       } catch (error) {
         console.error('Error fetching products:', error);
         toast.error('Error connecting to product server');
-        loadSampleData(); // Fallback to sample data if connection fails
+        loadSampleData();
+      } finally {
+        // Simulate loading for demo purposes
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 800);
       }
     };
 
-    // Sample data function
     const loadSampleData = () => {
       const sampleProducts = [
         {
           id: '1',
-          name: 'Portland Cement',
+          name: 'Premium Portland Cement',
           price: 1250.00,
           category: 'Building Materials',
-          description: 'High-quality cement for construction projects.',
+          description: 'High-quality cement for construction projects with superior binding strength.',
           image: cementImg,
           stock: 25,
-          sku: 'CEM-001'
+          sku: 'CEM-001',
+          rating: 4.7,
+          reviews: 32
         },
         {
           id: '2',
           name: 'Steel Rebar (10mm)',
           price: 450.00,
           category: 'Building Materials',
-          description: 'Reinforcement steel bars for concrete structures.',
+          description: 'Reinforcement steel bars for concrete structures with high tensile strength.',
           image: cementImg,
           stock: 120,
-          sku: 'STL-010'
+          sku: 'STL-010',
+          rating: 4.5,
+          reviews: 18
         },
         {
           id: '3',
           name: 'PVC Pipes (1 inch)',
           price: 320.00,
           category: 'Plumbing',
-          description: 'Durable PVC pipes for water supply systems.',
+          description: 'Durable PVC pipes for water supply systems with leak-proof design.',
           image: cementImg,
           stock: 75,
-          sku: 'PVC-100'
+          sku: 'PVC-100',
+          rating: 4.2,
+          reviews: 24
         },
         {
           id: '4',
-          name: 'Cordless Drill',
+          name: 'Professional Cordless Drill',
           price: 8500.00,
           category: 'Tools',
-          description: 'Professional-grade cordless drill with battery pack.',
+          description: 'Professional-grade cordless drill with battery pack and variable speed control.',
           image: cementImg,
           stock: 8,
-          sku: 'TLS-DRL'
+          sku: 'TLS-DRL',
+          rating: 4.9,
+          reviews: 47
         },
         {
           id: '5',
-          name: 'Wall Paint (White)',
+          name: 'Premium Wall Paint (White)',
           price: 3200.00,
           category: 'Paint & Supplies',
-          description: 'Premium quality interior wall paint, 4L bucket.',
+          description: 'Premium quality interior wall paint, 4L bucket with stain-resistant formula.',
           image: cementImg,
           stock: 18,
-          sku: 'PNT-W4L'
+          sku: 'PNT-W4L',
+          rating: 4.6,
+          reviews: 29
         }
       ];
 
       setProducts(sampleProducts);
+      setFeaturedProducts(sampleProducts.slice(0, 3));
       console.log('Loaded sample products as fallback');
     };
 
-    loadSampleData(); // Load sample data initially for testing
+    fetchProducts();
   }, []);
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Apply sorting and filtering
+  const sortedAndFilteredProducts = React.useMemo(() => {
+    let result = [...products];
+    
+    // Filter by search and category
+    result = result.filter((product) => {
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          product.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+    
+    // Apply sorting
+    switch(sortOption) {
+      case "price-asc":
+        result.sort((a, b) => a.price - b.price);
+        break;
+      case "price-desc":
+        result.sort((a, b) => b.price - a.price);
+        break;
+      case "name-asc":
+        result.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "rating":
+        result.sort((a, b) => b.rating - a.rating);
+        break;
+      case "featured":
+      default:
+        // Keep original order for featured
+        break;
+    }
+    
+    return result;
+  }, [products, searchTerm, selectedCategory, sortOption]);
 
   const addToCart = (product) => {
     setCartItems((prev) => [...prev, product]);
-    setIsCartOpen(true); // Open the cart when an item is added
+    toast.success(`Added ${product.name} to cart`, {
+      position: "bottom-right",
+      autoClose: 2000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+    });
   };
 
   const removeFromCart = (index) => {
@@ -167,11 +247,219 @@ const Shop = () => {
   };
 
   const handleCheckoutComplete = () => {
-    setCartItems([]); // Clear cart
+    setCartItems([]);
+    setIsCheckingOut(false);
     toast.success('Payment completed successfully!');
   };
 
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
   const categories = ["All", "Building Materials", "Hardware", "Tools", "Plumbing", "Electrical", "Paint & Supplies", "Flooring", "Doors & Windows", "Safety Equipment", "Landscaping", "Other"];
+
+  const FeaturedCarousel = () => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    
+    const nextSlide = () => {
+      setCurrentIndex((prev) => (prev + 1) % featuredProducts.length);
+    };
+    
+    const prevSlide = () => {
+      setCurrentIndex((prev) => (prev - 1 + featuredProducts.length) % featuredProducts.length);
+    };
+
+    useEffect(() => {
+      const timer = setInterval(() => {
+        nextSlide();
+      }, 5000);
+      
+      return () => clearInterval(timer);
+    }, [currentIndex]);
+
+    return (
+      <div className="relative w-full h-96 overflow-hidden rounded-2xl shadow-xl">
+        <AnimatePresence initial={false}>
+          {featuredProducts.length > 0 && (
+            <motion.div
+              key={currentIndex}
+              className="absolute inset-0 flex"
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -100 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="relative w-full h-full bg-gradient-to-r from-indigo-900 to-purple-900">
+                <div className="absolute inset-0 opacity-20 mix-blend-overlay">
+                  <div className="w-full h-full bg-pattern-dot"></div>
+                </div>
+                <div className="absolute inset-0 flex items-center justify-between p-8">
+                  <div className="w-1/2 text-white space-y-4">
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs ${categoryColors[featuredProducts[currentIndex].category]}`}>
+                      {featuredProducts[currentIndex].category}
+                    </span>
+                    <h2 className="text-4xl font-bold">{featuredProducts[currentIndex].name}</h2>
+                    <p className="text-indigo-200">{featuredProducts[currentIndex].description}</p>
+                    <p className="text-3xl font-bold">{formatCurrency(featuredProducts[currentIndex].price)}</p>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => viewDetails(featuredProducts[currentIndex])}
+                      className="bg-white text-indigo-800 px-6 py-2 rounded-lg font-medium"
+                    >
+                      View Details
+                    </motion.button>
+                  </div>
+                  <div className="w-1/2 h-full flex items-center justify-center">
+                    <img 
+                      src={featuredProducts[currentIndex].image} 
+                      alt={featuredProducts[currentIndex].name} 
+                      className="max-h-72 max-w-full object-contain filter drop-shadow-2xl"
+                    />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        <button 
+          onClick={prevSlide}
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-white bg-black/30 hover:bg-black/50 p-2 rounded-full backdrop-blur-sm transition-colors"
+        >
+          <BsArrowLeftCircleFill size={24} />
+        </button>
+        
+        <button 
+          onClick={nextSlide}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-black/30 hover:bg-black/50 p-2 rounded-full backdrop-blur-sm transition-colors"
+        >
+          <BsArrowRightCircleFill size={24} />
+        </button>
+        
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
+          {featuredProducts.map((_, idx) => (
+            <button 
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              className={`w-3 h-3 rounded-full transition-colors ${idx === currentIndex ? 'bg-white' : 'bg-white/50'}`}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Product Card Component
+  const ProductCard = ({ product }) => {
+    const [isHovered, setIsHovered] = useState(false);
+    
+    return (
+      <motion.div
+        layoutId={`product-${product.id}`}
+        onHoverStart={() => setIsHovered(true)}
+        onHoverEnd={() => setIsHovered(false)}
+        className="group relative bg-white rounded-xl overflow-hidden transform transition-all duration-300 hover:shadow-2xl hover:-translate-y-1"
+      >
+        {/* Ribbon for low stock */}
+        {product.stock <= 5 && product.stock > 0 && (
+          <div className="absolute top-0 right-0 z-10">
+            <div className="bg-amber-500 text-white text-xs font-bold px-4 py-1 transform rotate-45 translate-x-6 -translate-y-1 shadow-md">
+              Low Stock
+            </div>
+          </div>
+        )}
+        
+        <div className="relative h-64 overflow-hidden bg-gray-50">
+          <motion.img
+            src={product.image || cementImg}
+            alt={product.name}
+            className="w-full h-full object-cover object-center"
+            animate={{ scale: isHovered ? 1.05 : 1 }}
+            transition={{ duration: 0.3 }}
+          />
+          
+          {/* Quick action overlay */}
+          <motion.div 
+            className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: isHovered ? 1 : 0 }}
+          >
+            <div className="flex flex-col space-y-3">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  viewDetails(product);
+                }}
+                className="bg-white text-indigo-800 px-4 py-2 rounded-lg font-medium"
+              >
+                View Details
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addToCart(product);
+                }}
+                disabled={product.stock <= 0}
+                className={`bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium ${
+                  product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {product.stock <= 0 ? 'Sold Out' : 'Add to Cart'}
+              </motion.button>
+            </div>
+          </motion.div>
+        </div>
+        
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryColors[product.category] || "bg-gray-100 text-gray-800"}`}>
+              {product.category}
+            </span>
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+              product.stock <= 0 
+                ? 'bg-red-100 text-red-800' 
+                : product.stock < 5 
+                  ? 'bg-amber-100 text-amber-800' 
+                  : 'bg-green-100 text-green-800'
+            }`}>
+              {product.stock <= 0 
+                ? 'Out of stock' 
+                : product.stock < 5 
+                  ? 'Low stock' 
+                  : 'In stock'}
+            </span>
+          </div>
+          
+          <h3 className="text-lg font-semibold text-gray-800 mb-1">
+            {product.name}
+          </h3>
+          
+          {product.sku && (
+            <p className="text-sm text-gray-500 mb-2">SKU: {product.sku}</p>
+          )}
+          
+          <p className="text-2xl font-bold text-indigo-600 mb-4">
+            {formatCurrency(product.price)}
+          </p>
+          
+          <div className="flex items-center space-x-1 mb-4">
+            {[...Array(5)].map((_, i) => (
+              <FiStar key={i} className={`text-yellow-400 ${i < product.rating ? 'fill-current' : 'stroke-current'}`} />
+            ))}
+            <span className="text-sm text-gray-500">({product.reviews} reviews)</span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
 
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
@@ -305,85 +593,21 @@ const Shop = () => {
         </motion.div>
       </div>
 
+      {/* Featured Products Carousel */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <FeaturedCarousel />
+      </div>
+
       {/* Products Grid */}
       <LayoutGroup>
         <motion.section
           className="max-w-7xl mx-auto px-6 pb-16"
         >
           <AnimatePresence>
-            {filteredProducts.length > 0 ? (
-              <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {filteredProducts.map((product) => (
-                  <motion.div
-                    key={product.id}
-                    layoutId={`product-${product.id}`}
-                    className="group relative bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300"
-                  >
-                    <div className="aspect-w-1 aspect-h-1 rounded-t-2xl overflow-hidden bg-gray-100">
-                      <img
-                        src={product.image || cementImg}
-                        alt={product.name}
-                        className="w-full h-64 object-contain transform group-hover:scale-105 transition-transform duration-300"
-                      />
-                    </div>
-                    
-                    <div className="p-6">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryColors[product.category] || "bg-gray-100 text-gray-800"}`}>
-                          {product.category}
-                        </span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          product.stock <= 0 
-                            ? 'bg-red-100 text-red-800' 
-                            : product.stock < 5 
-                              ? 'bg-amber-100 text-amber-800' 
-                              : 'bg-green-100 text-green-800'
-                        }`}>
-                          {product.stock <= 0 
-                            ? 'Out of stock' 
-                            : product.stock < 5 
-                              ? 'Low stock' 
-                              : 'In stock'}
-                        </span>
-                      </div>
-                      
-                      <h3 className="text-lg font-semibold text-gray-800 mb-1">
-                        {product.name}
-                      </h3>
-                      
-                      {product.sku && (
-                        <p className="text-sm text-gray-500 mb-2">SKU: {product.sku}</p>
-                      )}
-                      
-                      <p className="text-2xl font-bold text-indigo-600 mb-4">
-                        {formatCurrency(product.price)}
-                      </p>
-                      
-                      <div className="flex space-x-3">
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => viewDetails(product)}
-                          className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
-                        >
-                          Details
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => addToCart(product)}
-                          disabled={product.stock <= 0}
-                          className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
-                            product.stock <= 0 
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                          }`}
-                        >
-                          {product.stock <= 0 ? 'Sold Out' : 'Add to Cart'}
-                        </motion.button>
-                      </div>
-                    </div>
-                  </motion.div>
+            {sortedAndFilteredProducts.length > 0 ? (
+              <motion.div className={`grid ${isGridView ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1'} gap-8`}>
+                {sortedAndFilteredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
                 ))}
               </motion.div>
             ) : (
@@ -477,6 +701,18 @@ const Shop = () => {
             />
           </div>
         </div>
+      )}
+
+      {/* Scroll to Top Button */}
+      {showScrollTop && (
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={scrollToTop}
+          className="fixed bottom-4 right-4 z-50 p-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-colors"
+        >
+          <FiArrowUp size={24} />
+        </motion.button>
       )}
     </div>
   );
