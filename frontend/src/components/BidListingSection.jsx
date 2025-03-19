@@ -491,6 +491,9 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
                 {renderSortableHeader('Date', 'date')}
                 {renderSortableHeader('Score', 'score')}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -567,6 +570,22 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
                         {bidScore}
                       </div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`text-sm font-medium rounded-full px-3 py-1 inline-flex items-center
+                        ${bid.status === 'accepted' ? 'bg-green-100 text-green-800' : 
+                          bid.status === 'rejected' ? 'bg-red-100 text-red-800' : 
+                          'bg-yellow-100 text-yellow-800'}`}
+                      >
+                        <span className={`h-2 w-2 rounded-full mr-2 
+                          ${bid.status === 'accepted' ? 'bg-green-500' : 
+                            bid.status === 'rejected' ? 'bg-red-500' : 
+                            'bg-yellow-500'}`}
+                        ></span>
+                        {bid.status === 'accepted' ? 'Accepted' : 
+                         bid.status === 'rejected' ? 'Rejected' : 
+                         'Pending'}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex space-x-2">
                         <button 
@@ -599,6 +618,26 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
                             onClick={() => handleBidSelection(bidId)}
                           >
                             Accept
+                          </button>
+                        )}
+                        
+                        {/* Add View Agreement button for accepted bids */}
+                        {bid.status === 'accepted' && (
+                          <button 
+                            className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-indigo-700 bg-indigo-100 hover:bg-indigo-200"
+                            onClick={() => navigate(`/agreement/${jobId}/${bidId}`, {
+                              state: {
+                                jobDetails: null, // These will be fetched by the agreement page
+                                contractorDetails: null,
+                                bidDetails: null,
+                                bidAlreadyAccepted: true
+                              }
+                            })}
+                          >
+                            <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            View Agreement
                           </button>
                         )}
                       </div>

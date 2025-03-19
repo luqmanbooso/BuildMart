@@ -203,8 +203,15 @@ const AgreementForm = () => {
         alert("Warning: No milestones found in job details");
       }
       
-   
-      
+      // Add this before creating ongoingWorkData in handleSubmit function
+
+      // Calculate even distribution of price across milestones
+      const totalBidPrice = parseFloat(bidDetails.price) || 0;
+      const milestoneCount = jobDetails.milestones?.length || 0;
+
+      // Calculate per-milestone amount (equal distribution)
+      const pricePerMilestone = milestoneCount > 0 ? totalBidPrice / milestoneCount : 0;
+
       // Fix 2: Update the bid status with better error handling
       try {
         alert("Updating bid status...");
@@ -232,16 +239,16 @@ const AgreementForm = () => {
           clientId: localClientId,
           contractorId: localContractorId,
           workProgress: 0,
-          milestones: jobDetails.milestones?.map(milestone => ({
-            name: milestone.name || "Milestone",
-            amount: parseFloat(milestone.amount?.toString().replace(/,/g, '') || '0'),
+          milestones: jobDetails.milestones?.map((milestone, index) => ({
+            name: milestone.name || `Milestone ${index + 1}`,
+            // Assign equal amount to each milestone - convert to string as the model expects
+            amount: pricePerMilestone.toFixed(2).toString(),
             description: milestone.description || "",
-            // IMPORTANT FIX: Use the correct enum value from your schema
-            status: "In Progress", // Use the exact case as defined in your schema enum
+            status: "In Progress", 
             completedAt: null
           })) || [],
-          // IMPORTANT FIX: Also update this status to match your schema
-          jobStatus: 'In Progress' // Use "In Progress" instead of "in_progress"
+          jobStatus: 'In Progress',
+          totalPrice: totalBidPrice
         };
         
         alert(`Submitting ongoing work data: ${JSON.stringify(ongoingWorkData)}`);

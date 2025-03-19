@@ -3,6 +3,7 @@ const router = express.Router();
 const OngoingWork = require('../models/Ongoingworkmodel');
 const Job = require('../models/Job');
 
+
 // Get all ongoing works (admin only)
 router.get('/admin/all', async (req, res) => {
   try {
@@ -54,11 +55,16 @@ router.get('/:id', async (req, res) => {
 // Create a new ongoing work
 router.post('/', async (req, res) => {
   try {
-    const { jobId, clientId, contractorId, milestones } = req.body;
+    const { jobId, clientId, contractorId, milestones, totalPrice } = req.body;
     
     // Validate required fields
     if (!jobId || !clientId || !contractorId) {
       return res.status(400).json({ message: 'jobId, clientId, and contractorId are required fields' });
+    }
+    
+    // Validate totalPrice (required field)
+    if (totalPrice === undefined || totalPrice === null) {
+      return res.status(400).json({ message: 'totalPrice is a required field' });
     }
     
     // Check if job exists
@@ -81,6 +87,7 @@ router.post('/', async (req, res) => {
       contractorId,
       milestones: milestones || [],
       totalAmountPending,
+      totalPrice: Number(totalPrice),
       workProgress: 0,
       jobStatus: 'In Progress'
     });
@@ -100,7 +107,7 @@ router.post('/', async (req, res) => {
 // Update ongoing work details
 router.put('/:id', async (req, res) => {
   try {
-    const { workProgress, jobStatus, milestones } = req.body;
+    const { workProgress, jobStatus, milestones, totalPrice } = req.body;
     const ongoingWorkId = req.params.id;
     
     // Find the ongoing work
@@ -113,6 +120,7 @@ router.put('/:id', async (req, res) => {
     if (workProgress !== undefined) ongoingWork.workProgress = workProgress;
     if (jobStatus) ongoingWork.jobStatus = jobStatus;
     if (milestones) ongoingWork.milestones = milestones;
+    if (totalPrice !== undefined) ongoingWork.totalPrice = Number(totalPrice);
     
     // Recalculate amounts if milestones were updated
     if (milestones) {

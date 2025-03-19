@@ -51,6 +51,10 @@ const ongoingWorkSchema = new mongoose.Schema({
     type: Number,
     default: 0, // percentage of work completed
   },
+  totalPrice: {
+    type: Number,
+    required: true,
+  },
   totalAmountPaid: {
     type: Number,
     default: 0

@@ -29,7 +29,7 @@ function Ongoingworks() {
       setIsLoading(true);
       
       // Get token from localStorage
-      const token = localStorage.getItem('token'); // Assuming 'token' is your JWT token key
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token'); // Assuming 'token' is your JWT token key
       
       // If no token is found, redirect to login
       if (!token) {
