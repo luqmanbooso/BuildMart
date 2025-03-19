@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Calendar, Lock, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { formatLKR } from '../utils/formatters';
 
 const printStyles = `
   @media print {
@@ -32,7 +33,9 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
   // Update the amount state to use the prop
-  const [amount, setAmount] = useState(initialAmount || '0.00');
+  const [amount, setAmount] = useState(
+    initialAmount ? parseFloat(initialAmount).toFixed(2) : '0.00'
+  );
   const [name, setName] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -137,8 +140,11 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
       newErrors.cvv = `${cvvLength}-digit CVV is required`;
     }
     
-    if (!amount.trim() || parseFloat(amount) <= 0) {
-      newErrors.amount = "Valid amount is required";
+    const amountValue = parseFloat(amount);
+    if (isNaN(amountValue) || amountValue <= 0) {
+      newErrors.amount = "Please enter a valid amount";
+    } else if (amountValue > 1000000) {
+      newErrors.amount = "Amount cannot exceed LKR 1,000,000.00";
     }
     
     setErrors(newErrors);
@@ -215,6 +221,24 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
       setAmount(initialAmount);
     }
   }, [initialAmount]);
+
+  // Add this new function to handle amount changes
+  const handleAmountChange = (value) => {
+    // Remove any non-numeric characters except decimal point
+    const cleaned = value.replace(/[^\d.]/g, '');
+    
+    // Prevent multiple decimal points
+    const parts = cleaned.split('.');
+    if (parts.length > 2) return;
+    
+    // Limit decimal places to 2
+    if (parts[1]?.length > 2) return;
+    
+    // Maximum amount validation (e.g., 1 million)
+    if (parseFloat(cleaned) > 1000000) return;
+    
+    setAmount(cleaned);
+  };
 
   // Card logo components
   const CardLogo = ({ type }) => {
@@ -527,27 +551,25 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
             {/* Amount */}
             <div className="mb-6">
               <label className="block text-gray-700 text-sm font-medium mb-2">
-                Amount<span className="text-red-500">*</span>
+                Amount<span className="text-red-500">*</span><br></br>
               </label>
               <div className={`relative rounded-md shadow-sm`}>
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500">LKR</span>
+                  <span className="text-gray-500"></span>
                 </div>
-                <input 
-                  type="text" 
-                  className={`w-full p-3 border ${errors.amount ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 transition-all duration-200`} 
-                  value={amount} 
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^\d.]/g, '');
-                    setAmount(value);
-                  }} 
-                  placeholder="0.00"
-                  {...amountInputProps}
-                />
+                
+                {amount && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <span className="text-sm text-gray-500">
+                      <br></br>
+                      {parseFloat(amount) > 0 && formatLKR(parseFloat(amount))}
+                    </span>
+                  </div>
+                )}
               </div>
-              {errors.amount && <p className="mt-1 text-red-500 text-xs">{errors.amount}</p>}
+              
             </div>
-
+<br></br>
             {/* Security note */}
             <div className="mb-6 bg-gray-50 p-3 rounded-md border border-gray-200">
               <div className="flex items-center">
@@ -560,7 +582,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
             <button 
               type="submit" 
               className="w-full py-3 px-4 bg-[#002855] hover:bg-[#0057B7] text-white font-bold rounded-md shadow-md transition-all duration-300 transform hover:translate-y-[-2px] flex items-center justify-center" 
-              disabled={isProcessing}
+              disabled={isProcessing || parseFloat(amount) <= 0}
             >
               {isProcessing ? (
                 <>
@@ -571,7 +593,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
                   Processing...
                 </>
               ) : (
-                <>Pay LKR {parseFloat(amount || 0).toFixed(2)}</>
+                <>Pay {formatLKR(parseFloat(amount) || 0)}</>
               )}
             </button>
           </form>

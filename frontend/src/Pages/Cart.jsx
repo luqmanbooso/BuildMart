@@ -3,10 +3,6 @@ import { motion } from "framer-motion";
 import { FiX, FiTrash2 } from "react-icons/fi";
 import EnhancedPaymentGateway from '../components/Payment';
 
-const formatCurrency = (amount) => {
-  return `LKR ${amount.toFixed(2)}`;
-};
-
 const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
   const [showPayment, setShowPayment] = useState(false);
   const total = cartItems.reduce((sum, item) => sum + item.price, 0);
@@ -83,9 +79,7 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                         />
                         <div>
                           <h3 className="font-medium text-gray-800">{item.name}</h3>
-                          <p className="text-indigo-600 font-bold">
-                            {formatCurrency(item.price)}
-                          </p>
+                          <p className="text-indigo-600 font-bold">${item.price}</p>
                         </div>
                       </div>
                       <button
@@ -103,7 +97,7 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                 <div className="border-t border-gray-200 pt-4 mt-4">
                   <div className="flex justify-between text-lg font-semibold mb-6">
                     <span>Total:</span>
-                    <span>{formatCurrency(total)}</span>
+                    <span>${total.toFixed(2)}</span>
                   </div>
                   <button
                     onClick={handleCheckout}
