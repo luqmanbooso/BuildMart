@@ -93,9 +93,24 @@ const AgreementForm = () => {
         
         // CHANGE THIS: Auth route, not api/users
         // Fetch client details - correct endpoint from auth.js
-        const token = localStorage.getItem('token');
-        const userId = localStorage.getItem('userId');
         
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        if (!token) {
+          console.error('No authentication token found');
+          return;
+        }
+        
+        const decoded = jwtDecode(token);
+            const userId = decoded.id || decoded._id || decoded.userId;
+            
+            if (!userId) {
+              console.error('No user ID found in token');
+              return;
+            }
+            
+            // Store userId in localStorage for convenience
+            localStorage.setItem('userId', userId);
         if (token && userId) {
           // Instead of: `http://localhost:5000/api/users/${userId}`
           const clientResponse = await axios.get(`http://localhost:5000/auth/user/${userId}`, {

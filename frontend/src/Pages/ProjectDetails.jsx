@@ -7,6 +7,7 @@ import { FaHammer, FaUserCircle, FaClock, FaMoneyBillWave, FaTag, FaBell, FaTool
 import BidUpdate from "../components/BidUpdate";
 // Import jwtDecode for token handling
 import { jwtDecode } from "jwt-decode";
+import ContractorUserNav from "../components/ContractorUserNav";
 
 const ProjectDetails = () => {
   const { jobId } = useParams(); // Get jobId from URL params
@@ -289,54 +290,11 @@ const ProjectDetails = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Link to="/" className="flex items-center">
-                  <FaHammer className="h-8 w-8 text-blue-600" />
-                  <span className="ml-2 text-xl font-bold text-blue-900">BuildMart</span>
-                </Link>
-              </div>
-              <div className="hidden md:ml-6 md:flex md:space-x-8">
-                <Link to="/projects" className="border-transparent text-gray-500 hover:text-blue-700 hover:border-blue-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                  Projects
-                </Link>
-                <Link to="/contractors" className="border-transparent text-gray-500 hover:text-blue-700 hover:border-blue-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                  Contractors
-                </Link>
-                <Link to="/how-it-works" className="border-transparent text-gray-500 hover:text-blue-700 hover:border-blue-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                  How It Works
-                </Link>
-              </div>
-            </div>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="relative">
-                  <button className="p-1 rounded-full text-gray-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    <FaBell className="h-6 w-6" />
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">3</span>
-                  </button>
-                </div>
-              </div>
-              <div className="hidden md:ml-4 md:flex-shrink-0 md:flex md:items-center">
-                <div className="ml-3 relative">
-                  <div className="flex items-center space-x-3">
-                    <Link to="/profile" className="flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
-                      <FaUserCircle className="h-8 w-8 text-gray-400" />
-                      <span className="ml-1">Contractor Profile</span>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
+     <ContractorUserNav />
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <br /><br /><br /><br /><br /><br /><br />
+
           {/* Breadcrumbs */}
           <nav className="flex mb-6" aria-label="Breadcrumb">
             <ol className="flex items-center space-x-2">

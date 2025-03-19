@@ -26,9 +26,9 @@ import ContractorProfileSetup from './components/ContractorOnboarding'
 import ContractorViewDetails from './components/ContractorViewDetails'
 import BidUpdate from './components/BidUpdate'
 import AgreementForm from './Pages/AgreementForm'
-import Supply_LogisticDashboard from './Pages/Supply_LogisticDashboard'
+import OngoingProjects from './components/OngoingProjects'
 import InventoryDash from './Pages/InventoryDash'
-
+import Supply_LogisticDashboard from './Pages/Supply_LogisticDashboard'
 
 function App() {
   const sampleData = {
@@ -95,6 +95,7 @@ function App() {
         <Route path="/project/:jobId" element={<ProjectDetails />} />
         <Route path="/activejobs" element={<ActiveJob />} />
         <Route path="/contractorStart" element={<ContractorProfileSetup />} />
+        <Route path="/ongoingproject" element={<OngoingProjects />} />
           
           <Route path='/contractor/:contractorId/bid/:bidId/project/:projectId' element= {<ContractorViewDetails/>} />
 
