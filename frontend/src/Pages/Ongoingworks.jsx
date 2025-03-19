@@ -128,16 +128,24 @@ function Ongoingworks() {
   const handlePayment = async (workId, milestoneId) => {
     try {
       if (window.confirm('Proceed with payment for this milestone?')) {
-        // Make API call to update milestone status
-        await axios.patch(`/api/ongoingworks/${workId}/milestone/${milestoneId}`, {
-          status: 'Completed',
-          actualAmountPaid: parseFloat(ongoingWorks.find(w => w.id === workId)
-            .milestones.find(m => m.id === milestoneId).amount),
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const milestone = ongoingWorks.find(w => w.id === workId)
+          .milestones.find(m => m.id === milestoneId);
+        
+        // Make API call to update milestone status with proper URL
+        await axios.patch(`http://localhost:5000/api/ongoingworks/${workId}/milestone/${milestoneId}`, {
+          status: 'completed',
+          actualAmountPaid: parseFloat(milestone.amount),
           completedAt: new Date()
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         });
         
-        // Refresh data after update
+        // Fetch updated data after payment
         fetchOngoingWorks();
+        alert('Payment processed successfully');
       }
     } catch (err) {
       console.error('Error processing payment:', err);
@@ -149,29 +157,20 @@ function Ongoingworks() {
   const handleVerifyCompletion = async (workId, milestoneId) => {
     try {
       if (window.confirm('Confirm that this milestone has been completed?')) {
-        // Update the milestone status to ready for payment
-        // In a real application, this would make an API call
-        setOngoingWorks(prevWorks => 
-          prevWorks.map(work => {
-            if (work.id === workId) {
-              const updatedMilestones = work.milestones.map(milestone => {
-                if (milestone.id === milestoneId) {
-                  return {
-                    ...milestone,
-                    status: 'ready_for_payment'
-                  };
-                }
-                return milestone;
-              });
-              
-              return {
-                ...work,
-                milestones: updatedMilestones
-              };
-            }
-            return work;
-          })
-        );
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        // Make API call to update milestone status
+        await axios.patch(`http://localhost:5000/api/ongoingworks/${workId}/milestone/${milestoneId}`, {
+          status: 'ready_for_payment'
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        // Refresh data to get updated milestones from server
+        fetchOngoingWorks();
+        alert('Milestone verified successfully');
       }
     } catch (err) {
       console.error('Error verifying milestone completion:', err);
@@ -530,7 +529,7 @@ function Ongoingworks() {
                             </div>
                             
                             {/* Action buttons based on status */}
-                            {milestone.status === 'ready_for_payment' && (
+                            {(milestone.status === 'ready_for_payment' || milestone.status === 'Ready For Payment') && (
                               <button 
                                 onClick={() => handlePayment(activeWork.id, milestone.id)}
                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
@@ -542,7 +541,7 @@ function Ongoingworks() {
                               </button>
                             )}
                             
-                            {milestone.status === 'in_progress' && (
+                            {(milestone.status === 'in_progress' || milestone.status === 'In Progress') && (
                               <button 
                                 onClick={() => handleVerifyCompletion(activeWork.id, milestone.id)}
                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
@@ -554,7 +553,7 @@ function Ongoingworks() {
                               </button>
                             )}
                             
-                            {milestone.status === 'completed' && (
+                            {(milestone.status === 'completed' || milestone.status === 'Completed') && (
                               <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
                                 <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
