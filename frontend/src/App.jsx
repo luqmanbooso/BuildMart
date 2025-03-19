@@ -98,7 +98,6 @@ function App() {
 
           <Route path="/bids/:bidId/update" element={<BidUpdate />} />
         <Route path="/ongoingjobs" element={<OngoingJobs />} />
-        <Route path="/agreement/:jobId/:bidId" element={<AgreementForm />} />
       </Routes>
     </>
   )

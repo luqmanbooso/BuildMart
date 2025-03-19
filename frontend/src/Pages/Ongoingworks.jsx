@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import logo from '../assets/images/buildmart_logo1.png';
+import axios from 'axios'; // Make sure axios is installed
 
 function Ongoingworks() {
   const [ongoingWorks, setOngoingWorks] = useState([]);
@@ -8,215 +9,131 @@ function Ongoingworks() {
   const [error, setError] = useState(null);
   const [activeWorkId, setActiveWorkId] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
   
-  // Sample data for ongoing works
-  const sampleOngoingWorks = [
-    {
-      id: "w1",
-      title: "Modern Kitchen Renovation",
-      category: "Kitchen Remodel",
-      contractor: "John Carpenter",
-      contractorId: "c1",
-      contractorPhone: "+94771234567",
-      contractorEmail: "john@buildmart.com",
-      contractorImage: "https://randomuser.me/api/portraits/men/32.jpg",
-      location: "Colombo 7",
-      startDate: "15 Feb, 2025",
-      dueDate: "20 Apr, 2025",
-      description: "Complete renovation of kitchen with modern appliances, custom cabinetry, and marble countertops.",
-      milestones: [
-        {
-          id: "m1",
-          title: "Design and Planning",
-          description: "Finalize design plans and obtain necessary permits",
-          amount: 45000,
-          status: "completed",
-          completedDate: "25 Feb, 2025"
-        },
-        {
-          id: "m2",
-          title: "Demolition and Prep",
-          description: "Removal of existing cabinets, appliances, and preparation for new installation",
-          amount: 65000,
-          status: "completed",
-          completedDate: "15 Mar, 2025"
-        },
-        {
-          id: "m3",
-          title: "Cabinets and Countertops",
-          description: "Installation of new custom cabinets and countertops",
-          amount: 120000,
-          status: "in_progress",
-          completedDate: null
-        },
-        {
-          id: "m4",
-          title: "Appliance Installation",
-          description: "Installation of new appliances and final touches",
-          amount: 85000,
-          status: "pending",
-          completedDate: null
-        }
-      ]
-    },
-    {
-      id: "w2",
-      title: "Master Bathroom Remodeling",
-      category: "Bathroom",
-      contractor: "Sarah Williams",
-      contractorId: "c2",
-      contractorPhone: "+94772345678",
-      contractorEmail: "sarah@buildmart.com",
-      contractorImage: "https://randomuser.me/api/portraits/women/44.jpg",
-      location: "Dehiwala",
-      startDate: "01 Mar, 2025",
-      dueDate: "15 May, 2025",
-      description: "Complete renovation of master bathroom including new shower, bathtub, vanity, and fixtures.",
-      milestones: [
-        {
-          id: "m5",
-          title: "Design Phase",
-          description: "Finalize bathroom design and material selection",
-          amount: 30000,
-          status: "completed",
-          completedDate: "10 Mar, 2025"
-        },
-        {
-          id: "m6",
-          title: "Demolition",
-          description: "Remove existing fixtures and prepare space",
-          amount: 45000,
-          status: "ready_for_payment",
-          completedDate: null
-        },
-        {
-          id: "m7",
-          title: "Plumbing and Electrical",
-          description: "Update plumbing and electrical systems",
-          amount: 75000,
-          status: "pending",
-          completedDate: null
-        },
-        {
-          id: "m8",
-          title: "Fixtures and Finishing",
-          description: "Install new fixtures, tile, and finalize bathroom",
-          amount: 95000,
-          status: "pending",
-          completedDate: null
-        }
-      ]
-    },
-    {
-      id: "w3",
-      title: "Exterior House Painting",
-      category: "Painting",
-      contractor: "Mike Brush",
-      contractorId: "c3",
-      contractorPhone: "+94773456789",
-      contractorEmail: "mike@buildmart.com",
-      contractorImage: "https://randomuser.me/api/portraits/men/67.jpg",
-      location: "Nugegoda",
-      startDate: "10 Feb, 2025",
-      dueDate: "25 Mar, 2025",
-      description: "Complete exterior painting of the house including preparation, priming, and two coats of paint.",
-      milestones: [
-        {
-          id: "m9",
-          title: "Preparation and Cleaning",
-          description: "Clean and prepare all exterior surfaces",
-          amount: 35000,
-          status: "completed",
-          completedDate: "20 Feb, 2025"
-        },
-        {
-          id: "m10",
-          title: "Priming",
-          description: "Apply primer to all surfaces",
-          amount: 42000,
-          status: "completed",
-          completedDate: "05 Mar, 2025"
-        },
-        {
-          id: "m11",
-          title: "Main Painting",
-          description: "Apply first and second coat of paint",
-          amount: 78000,
-          status: "in_progress",
-          completedDate: null
-        }
-      ]
-    }
-  ];
-
   // Calculate progress for each work based on completed milestones
   const calculateProgress = (milestones) => {
     if (!milestones || milestones.length === 0) return 0;
     
     const completedMilestones = milestones.filter(m => 
-      m.status === 'completed' || m.status === 'paid'
+      m.status === 'Completed' || m.status === 'Paid'
     ).length;
     
     return Math.round((completedMilestones / milestones.length) * 100);
   };
 
-  // Initialize with sample data instead of fetching from API
-  useEffect(() => {
-    // Add progress to each work
-    const worksWithProgress = sampleOngoingWorks.map(work => ({
-      ...work,
-      progress: calculateProgress(work.milestones)
-    }));
-    
-    setOngoingWorks(worksWithProgress);
-    
-    // Set the first work as active if any exist
-    if (worksWithProgress.length > 0) {
-      setActiveWorkId(worksWithProgress[0].id);
-    }
-    
-    // Simulate loading delay
-    setTimeout(() => {
+  // Fetch ongoing works from the backend
+  const fetchOngoingWorks = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Get token from localStorage
+      const token = localStorage.getItem('token'); // Assuming 'token' is your JWT token key
+      
+      // If no token is found, redirect to login
+      if (!token) {
+        console.log("No token found, redirecting to login");
+        navigate('/login', { state: { from: location.pathname } });
+        return;
+      }
+      
+      // Extract userId from token
+      let userId;
+      try {
+        // Decode JWT token (split by dot, take the payload part (index 1), and decode)
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        userId = tokenPayload.userId || tokenPayload.id || tokenPayload._id;
+        
+        if (!userId) {
+          throw new Error('User ID not found in token');
+        }
+      } catch (tokenError) {
+        console.error('Invalid token:', tokenError);
+        // Token is invalid, redirect to login
+        navigate('/login', { state: { from: location.pathname } });
+        return;
+      }
+      
+      // Make API call to fetch ongoing works with the extracted userId
+      const response = await axios.get(`http://localhost:5000/api/ongoingworks/client/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}` // Include token in the authorization header
+        }
+      });
+      
+      // Transform and adapt the data to match the frontend format
+      const formattedWorks = response.data.map(work => ({
+        id: work._id,
+        title: work.jobId?.title || 'Untitled Project',
+        category: work.jobId?.category || 'General',
+        contractor: work.contractorId, // You might want to fetch contractor details separately
+        contractorId: work.contractorId,
+        contractorPhone: work.jobId?.contractorPhone || '',
+        contractorEmail: work.jobId?.contractorEmail || '',
+        contractorImage: work.jobId?.contractorImage || 'https://randomuser.me/api/portraits/lego/1.jpg',
+        location: work.jobId?.location || '',
+        startDate: new Date(work.createdAt).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        }),
+        dueDate: work.jobId?.dueDate ? new Date(work.jobId.dueDate).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        }) : 'Not specified',
+        description: work.jobId?.description || '',
+        progress: Math.round(work.workProgress) || calculateProgress(work.milestones),
+        milestones: work.milestones.map(milestone => ({
+          id: milestone._id,
+          title: milestone.name,
+          description: milestone.description,
+          amount: milestone.amount,
+          status: milestone.status.toLowerCase(),
+          completedDate: milestone.completedAt 
+            ? new Date(milestone.completedAt).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+              }) 
+            : null
+        }))
+      }));
+      
+      setOngoingWorks(formattedWorks);
+      
+      // Set the first work as active if any exist
+      if (formattedWorks.length > 0) {
+        setActiveWorkId(formattedWorks[0].id);
+      }
+      
+    } catch (err) {
+      console.error('Error fetching ongoing works:', err);
+      setError(err.message || 'Failed to fetch ongoing works');
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
+  };
+
+  // Fetch data when component mounts
+  useEffect(() => {
+    fetchOngoingWorks();
   }, []);
 
   // Handle payment for milestone
   const handlePayment = async (workId, milestoneId) => {
     try {
-      // In real implementation, show payment gateway/confirmation
       if (window.confirm('Proceed with payment for this milestone?')) {
-        // Update local state to reflect the change
-        setOngoingWorks(prevWorks => 
-          prevWorks.map(work => {
-            if (work.id === workId) {
-              const updatedMilestones = work.milestones.map(milestone => {
-                if (milestone.id === milestoneId) {
-                  return {
-                    ...milestone,
-                    status: 'completed',
-                    completedDate: new Date().toLocaleDateString('en-GB', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric'
-                    })
-                  };
-                }
-                return milestone;
-              });
-              
-              // Recalculate progress
-              const newProgress = calculateProgress(updatedMilestones);
-              
-              return {
-                ...work,
-                milestones: updatedMilestones,
-                progress: newProgress
-              };
-            }
-            return work;
-          })
-        );
+        // Make API call to update milestone status
+        await axios.patch(`/api/ongoingworks/${workId}/milestone/${milestoneId}`, {
+          status: 'Completed',
+          actualAmountPaid: parseFloat(ongoingWorks.find(w => w.id === workId)
+            .milestones.find(m => m.id === milestoneId).amount),
+          completedAt: new Date()
+        });
+        
+        // Refresh data after update
+        fetchOngoingWorks();
       }
     } catch (err) {
       console.error('Error processing payment:', err);
@@ -228,7 +145,8 @@ function Ongoingworks() {
   const handleVerifyCompletion = async (workId, milestoneId) => {
     try {
       if (window.confirm('Confirm that this milestone has been completed?')) {
-        // Update local state only
+        // Update the milestone status to ready for payment
+        // In a real application, this would make an API call
         setOngoingWorks(prevWorks => 
           prevWorks.map(work => {
             if (work.id === workId) {

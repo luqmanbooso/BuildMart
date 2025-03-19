@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const protectedRoutes = require('./routes/protected');
 const qualifyRoutes = require('./routes/Qualify');
 const ongoingWorksRoutes = require('./routes/ongoingworks');
+const paymentRoutes = require('./routes/PaymentRoutes'); // Add this line
 const app = express();
 
 // Middleware
@@ -24,12 +25,12 @@ app.use('/api/email', require('./routes/email'));
 
 // Use routes
 app.use('/api/ongoingworks', ongoingWorksRoutes);
+app.use('/api/payments', paymentRoutes); // Add this line
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
-
 
 // Routes
 app.get('/', (req, res) => {
