@@ -30,6 +30,18 @@ const ContractorProfileSetup = () => {
     'Kitchen Remodeling', 'Bathroom Remodeling'
   ];
 
+  const SRI_LANKA_PROVINCES = [
+    'Western Province',
+    'Central Province',
+    'Southern Province',
+    'Northern Province',
+    'Eastern Province',
+    'North Western Province',
+    'North Central Province',
+    'Uva Province',
+    'Sabaragamuwa Province'
+  ];
+
   const sections = [
     { name: 'Contact', icon: <FaPhoneAlt /> },
     { name: 'Business', icon: <FaBriefcase /> },
@@ -69,31 +81,111 @@ const ContractorProfileSetup = () => {
     });
   };
 
+  // Real-time field validation functions
+const validatePhone = (phone) => {
+  if (!phone) return { valid: false, message: 'Phone number is required' };
+  const digits = phone.replace(/[^0-9]/g, '');
+  if (digits.length < 10 || digits.length > 12) {
+    return { 
+      valid: false, 
+      message: 'Phone number should be 10-12 digits' 
+    };
+  }
+  return { valid: true, message: '' };
+};
+
+const validateAddress = (address) => {
+  if (!address) return { valid: false, message: 'Address is required' };
+  if (address.trim().length < 5) {
+    return { 
+      valid: false, 
+      message: 'Please enter a complete address' 
+    };
+  }
+  return { valid: true, message: '' };
+};
+
+const validateBio = (bio) => {
+  if (!bio) return { valid: false, message: 'Bio is required' };
+  if (bio.trim().length < 50) {
+    return { 
+      valid: false, 
+      message: 'Bio should be at least 50 characters' 
+    };
+  }
+  if (bio.length > 500) {
+    return { 
+      valid: false, 
+      message: 'Bio should not exceed 500 characters' 
+    };
+  }
+  return { valid: true, message: '' };
+};
+
   const validateForm = () => {
+    // Phone validation - should be a valid format
     if (!formData.phone) {
       toast.error('Phone number is required');
       setActiveSection(0);
       return false;
     }
-
-    if (!formData.address) {
-      toast.error('Address is required');
+    
+    // Phone format validation - check for at least 10 digits
+    const phoneRegex = /^[0-9]{10,12}$/;
+    if (!phoneRegex.test(formData.phone.replace(/[^0-9]/g, ''))) {
+      toast.error('Phone number should contain 10-12 digits');
       setActiveSection(0);
       return false;
     }
-
+  
+    // Address validation - minimum length
+    if (!formData.address || formData.address.trim().length < 5) {
+      toast.error('Please enter a complete address (at least 5 characters)');
+      setActiveSection(0);
+      return false;
+    }
+  
+    // Company name validation (if provided)
+    if (formData.companyName && formData.companyName.trim().length < 2) {
+      toast.error('Company name should be at least 2 characters');
+      setActiveSection(1);
+      return false;
+    }
+  
+    // Experience years validation
+    if (formData.experienceYears < 0) {
+      toast.error('Experience years cannot be negative');
+      setActiveSection(1);
+      return false;
+    }
+  
+    // Completed projects validation
+    if (formData.completedProjects < 0) {
+      toast.error('Completed projects cannot be negative');
+      setActiveSection(1);
+      return false;
+    }
+  
+    // Specialization validation
     if (formData.specialization.length === 0) {
       toast.error('Please select at least one specialization');
       setActiveSection(2);
       return false;
     }
-
-    if (!formData.bio) {
-      toast.error('Professional bio is required');
+  
+    // Bio validation - minimum and maximum length
+    if (!formData.bio || formData.bio.trim().length < 50) {
+      toast.error('Please provide a detailed bio (at least 50 characters)');
       setActiveSection(3);
       return false;
     }
-
+  
+    if (formData.bio.length > 500) {
+      toast.error('Bio is too long (maximum 500 characters)');
+      setActiveSection(3);
+      return false;
+    }
+  
     return true;
   };
 
@@ -276,12 +368,21 @@ const handleSubmit = async (e) => {
                           name="phone"
                           value={formData.phone}
                           onChange={handleChange}
-                          className="w-full border border-gray-300 rounded-md px-4 py-2 
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                            transition-all duration-200"
+                          className={`w-full border ${
+                            formData.phone && !validatePhone(formData.phone).valid
+                              ? 'border-red-300 focus:ring-red-500'
+                              : 'border-gray-300 focus:ring-blue-500'
+                          } rounded-md px-4 py-2 
+                            focus:outline-none focus:ring-2 focus:border-transparent
+                            transition-all duration-200`}
                           placeholder="e.g. 0771234567"
                           required
                         />
+                        {formData.phone && !validatePhone(formData.phone).valid && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {validatePhone(formData.phone).message}
+                          </p>
+                        )}
                       </motion.div>
 
                       <motion.div variants={itemVariants}>
@@ -535,21 +636,36 @@ const handleSubmit = async (e) => {
                         value={formData.bio}
                         onChange={handleChange}
                         rows="5"
-                        className="w-full border border-gray-300 rounded-md px-4 py-2 
-                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                          transition-all duration-200"
+                        className={`w-full border ${
+                          formData.bio && !validateBio(formData.bio).valid
+                            ? 'border-red-300 focus:ring-red-500'
+                            : 'border-gray-300 focus:ring-blue-500'
+                        } rounded-md px-4 py-2 
+                          focus:outline-none focus:ring-2 focus:border-transparent
+                          transition-all duration-200`}
                         placeholder="Describe your professional background, services offered, and what makes you stand out from other contractors..."
                         required
                       ></textarea>
                       <motion.div
-                        className="flex items-center justify-between text-xs text-gray-500 mt-2"
+                        className="flex items-center justify-between text-xs mt-2"
                         variants={itemVariants}
                       >
-                        <p>
+                        <p className={formData.bio && !validateBio(formData.bio).valid ? "text-red-500" : "text-gray-500"}>
                           <FaEdit className="inline mr-1" />
-                          This will be displayed on your public profile
+                          {formData.bio && !validateBio(formData.bio).valid 
+                            ? validateBio(formData.bio).message 
+                            : "This will be displayed on your public profile"}
                         </p>
-                        <p>{formData.bio.length}/500 characters</p>
+                        <p className={
+                          formData.bio.length > 500 
+                            ? "text-red-500" 
+                            : formData.bio.length < 50 && formData.bio.length > 0 
+                              ? "text-yellow-500" 
+                              : "text-gray-500"
+                        }>
+                          {formData.bio.length}/500 characters
+                          {formData.bio.length < 50 && formData.bio.length > 0 && " (minimum 50)"}
+                        </p>
                       </motion.div>
                     </motion.div>
                     

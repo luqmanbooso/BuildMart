@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useReactToPrint } from 'react-to-print';
@@ -9,6 +9,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
 const AgreementForm = () => {
+  const location = useLocation();
   const { jobId, bidId } = useParams();
   const navigate = useNavigate();
   const printRef = useRef();
@@ -36,6 +37,34 @@ const AgreementForm = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // FIRST CHECK: If we have data in location state, use it
+        if (location.state) {
+          console.log("Using data from navigation state:", location.state);
+          setJobDetails(location.state.jobDetails);
+          setContractorDetails(location.state.contractorDetails);
+          setBidDetails(location.state.bidDetails);
+          
+          // Set bidAlreadyAccepted based on state data
+          setBidAlreadyAccepted(location.state.bidAlreadyAccepted || false);
+          
+          // Get client details from localStorage
+          const clientName = localStorage.getItem('name') || 'Client';
+          setClientDetails({
+            name: clientName,
+            // other client details
+          });
+          
+          setLoading(false);
+          return; // Skip the API calls
+        }
+        
+        // SECOND CHECK: Validate jobId and bidId before making API calls
+        if (!jobId || jobId === 'undefined' || !bidId || bidId === 'undefined') {
+          throw new Error("Invalid job or bid ID. Please try again with valid parameters.");
+        }
+        
+        console.log("Fetching job details for:", { jobId, bidId });
+        
         // This endpoint is correct - keep as is
         const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`);
         setJobDetails(jobResponse.data);
@@ -100,79 +129,165 @@ const AgreementForm = () => {
     };
     
     fetchData();
-  }, [jobId, bidId]);
+  }, [jobId, bidId, location.state]);
   
   const handleSubmit = async (e) => {
+    alert("Button clicked - handleSubmit running");
     
     if (!agreementChecked) {
       toast.warning("Please confirm you agree to the terms and conditions");
       return;
     }
     
-    // Get user ID from localStorage as fallback
-    const userId = localStorage.getItem('userId');
+    // Declare userId at the beginning of the function
+    let userId = localStorage.getItem('userId');
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (token && !userId) {
+        // Try to extract userId from JWT token
+        const decoded = jwtDecode(token);
+        userId = decoded.id || decoded.userId || decoded._id;
+        
+        // Save it for future use
+        if (userId) {
+          localStorage.setItem('userId', userId);
+        }
+      }
+    } catch (e) {
+      console.error("Error extracting user ID from token:", e);
+    }
+  
+    // If still no userId, handle the error
     if (!userId) {
-      toast.error("You must be logged in to accept a bid");
+      toast.error("User ID not found. Please log in again.");
+      setTimeout(() => navigate('/login'), 2000);
       return;
     }
     
     setSubmitting(true);
     try {
-      console.log("Starting bid acceptance process...");
+      alert("Starting bid acceptance process...");
       
-      // CRITICAL FIX: Define these variables first before any API calls
-      // This ensures we don't try to access properties of null objects later
-      const localClientId = userId; // Always use userId instead of clientDetails._id
+      // Now userId is properly defined
+      const localClientId = userId;
       const localContractorId = bidDetails?.contractorId || 
                                bidDetails?.contractor || 
                                contractorDetails?._id;
       
+      alert(`Contractor ID: ${localContractorId || 'Not found'}`);
+      alert(`Job ID: ${jobId || 'Not found'}`);
+      alert(`Bid ID: ${bidId || 'Not found'}`);
+      
       if (!localContractorId) {
-        throw new Error("Could not determine contractor ID. Please try again.");
+        throw new Error("Could not determine contractor ID");
       }
       
-      console.log("Using client ID:", localClientId);
-      console.log("Using contractor ID:", localContractorId);
+      // Check for milestones
+      if (!jobDetails?.milestones || !jobDetails?.milestones.length) {
+        alert("Warning: No milestones found in job details");
+      }
       
-      // First update bid status
-      await axios.put(`http://localhost:5000/bids/${bidId}/status`, {
-        status: 'accepted'
-      });
+   
       
-      console.log("Bid status updated successfully");
+      // Fix 2: Update the bid status with better error handling
+      try {
+        alert("Updating bid status...");
+        const bidUpdateUrl = `http://localhost:5000/bids/${bidId}/status`;
+        alert(`Using bid update URL: ${bidUpdateUrl}`);
+        
+        const bidUpdateResponse = await axios.put(bidUpdateUrl, {
+          status: 'accepted'
+        });
+        
+        alert(`Bid status update successful: ${JSON.stringify(bidUpdateResponse.data)}`);
+      } catch (bidError) {
+        alert(`Bid status update failed: ${bidError.message}`);
+        throw bidError;
+      }
       
-      // Create minimal data object that matches backend OngoingWork model requirements
-      const ongoingWorkData = {
-        jobId: jobId,
-        bidId: bidId,
-        clientId: localClientId,
-        contractorId: localContractorId,
-        milestones: jobDetails.milestones?.map(milestone => ({
-          name: milestone.name || "Milestone",
-          amount: parseFloat(milestone.amount?.toString().replace(/,/g, '') || '0'),
-          description: milestone.description || "",
-          status: "Pending"
-        })) || [],
-        status: 'In Progress'
-      };
-      
-      console.log("Submitting ongoing work data:", ongoingWorkData);
-      
-      // Use the API endpoint as defined in your backend routes
-      const response = await axios.post('http://localhost:5000/api/ongoingworks', ongoingWorkData);
-      
-      console.log("Ongoing work created successfully:", response.data);
-      toast.success('Agreement successfully confirmed!');
-      
-      setShowSuccessModal(true);
-      
-      // Navigate after a successful creation
-      setTimeout(() => {
-        navigate('/ongoingjobs');
-      }, 3000);
+      // Fix 3: Create ongoing work with proper status values
+      try {
+        alert("Creating ongoing work...");
+        
+        // Fix: Use the correct enum values that match your backend schema
+        const ongoingWorkData = {
+          jobId: jobId,
+          bidId: bidId,
+          clientId: localClientId,
+          contractorId: localContractorId,
+          workProgress: 0,
+          milestones: jobDetails.milestones?.map(milestone => ({
+            name: milestone.name || "Milestone",
+            amount: parseFloat(milestone.amount?.toString().replace(/,/g, '') || '0'),
+            description: milestone.description || "",
+            // IMPORTANT FIX: Use the correct enum value from your schema
+            status: "In Progress", // Use the exact case as defined in your schema enum
+            completedAt: null
+          })) || [],
+          // IMPORTANT FIX: Also update this status to match your schema
+          jobStatus: 'In Progress' // Use "In Progress" instead of "in_progress"
+        };
+        
+        alert(`Submitting ongoing work data: ${JSON.stringify(ongoingWorkData)}`);
+        
+        const ongoingWorkUrl = 'http://localhost:5000/api/ongoingworks';
+        alert(`Using ongoing work URL: ${ongoingWorkUrl}`);
+        
+        // Log the exact data being sent
+        console.log("Sending data to create ongoing work:", ongoingWorkData);
+        
+        // Add headers that might be required
+        const token = localStorage.getItem('token');
+        const config = {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          }
+        };
+        
+        const response = await axios.post(ongoingWorkUrl, ongoingWorkData, config);
+        
+        alert(`Ongoing work created successfully: ${JSON.stringify(response.data)}`);
+        toast.success('Agreement successfully confirmed!');
+        
+        setShowSuccessModal(true);
+        
+        // Navigate after a successful creation
+        setTimeout(() => {
+          navigate('/ongoing-works');
+        }, 3000);
+      } catch (workError) {
+        console.error("Error creating ongoing work:", workError);
+        
+        // Capture detailed server error information
+        if (workError.response) {
+          console.error("Server response:", workError.response.data);
+          alert(`Server Error: ${JSON.stringify(workError.response.data)}`);
+        } else {
+          alert(`Ongoing work creation failed: ${workError.message}`);
+        }
+        
+        // If the user has developer console open, they can see this
+        console.log("Debug info - data sent:", {
+          jobId,
+          bidId,
+          clientId: localClientId,
+          contractorId: localContractorId,
+          milestones: jobDetails.milestones
+        });
+        
+        throw workError;
+      }
     } catch (err) {
+      alert(`Overall error: ${err.message}`);
       console.error("Error submitting agreement:", err);
-      console.error("Error details:", err.response?.data);
+      
+      // Show error details if available
+      if (err.response) {
+        alert(`Response error data: ${JSON.stringify(err.response.data)}`);
+      }
+      
       setError("Failed to process agreement: " + (err.response?.data?.message || err.message));
       toast.error("Failed to process agreement: " + (err.response?.data?.message || err.message));
     } finally {
