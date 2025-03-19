@@ -263,10 +263,11 @@ const BidForm = ({ sampleData }) => {
     return () => clearInterval(interval);
   };
 
-  // Extracted project details
-  const estimatedBudget = jobDetails?.budget || "Not specified";
-  const projectTitle = jobDetails?.title || "";
-  const projectDescription = jobDetails?.description || "";
+  // Extract min/max budget instead of a single budget value
+const minBudget = jobDetails?.minBudget || "0";
+const maxBudget = jobDetails?.maxBudget || "0";
+const projectTitle = jobDetails?.title || "";
+const projectDescription = jobDetails?.description || "";
   
   // Handle back to project details
   const handleBackToProject = () => {
@@ -431,9 +432,9 @@ const onSubmit = async (data) => {
               </div>
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm uppercase tracking-wide text-gray-500 font-medium">Budget</h4>
+                  <h4 className="text-sm uppercase tracking-wide text-gray-500 font-medium">Budget Range</h4>
                   <p className="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-sm font-medium inline-block">
-                    {estimatedBudget}
+                    LKR {minBudget} - {maxBudget}
                   </p>
                 </div>
                 <div>
@@ -594,13 +595,23 @@ const onSubmit = async (data) => {
                           message: "Please enter a valid number (e.g., 1000 or 1000.50)"
                         },
                         validate: {
-                          positive: v => parseFloat(v) > 0 || "Bid must be greater than 0"
+                          positive: v => parseFloat(v) > 0 || "Bid must be greater than 0",
+                          minBudgetCheck: v => {
+                            const bidValue = parseFloat(v);
+                            const minValue = parseFloat(minBudget);
+                            return !minValue || bidValue >= minValue || `Bid must be at least LKR ${minBudget}`;
+                          },
+                          maxBudgetCheck: v => {
+                            const bidValue = parseFloat(v);
+                            const maxValue = parseFloat(maxBudget);
+                            return !maxValue || bidValue <= maxValue || `Bid cannot exceed LKR ${maxBudget}`;
+                          }
                         },
                         onChange: (e) => {
                           // Only allow numbers and single decimal point
                           const value = e.target.value;
                           if (!/^[0-9]*\.?[0-9]*$/.test(value)) {
-                            e.target.value = value.slice(0, -1);
+                            e.target.value = value.replace(/[^0-9.]/g, '');
                           }
                         }
                       })}
@@ -620,7 +631,7 @@ const onSubmit = async (data) => {
                     </p>
                   )}
                   <p className="mt-1 text-xs text-gray-500">
-                    Enter amount in RS. Use decimal point for cents (e.g., 1000.50)
+                    Enter amount in RS between {minBudget} and {maxBudget}
                   </p>
                 </div>
 
@@ -783,25 +794,6 @@ const onSubmit = async (data) => {
         )}
       </div>
 
-      {/* Add a style tag for animations */}
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
-        }
-        
-        /* Pulse animation for the submit button */
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
-        }
-        .animate-pulse-slow {
-          animation: pulse 3s infinite;
-        }
-      `}</style>
     </div>
   );
 };

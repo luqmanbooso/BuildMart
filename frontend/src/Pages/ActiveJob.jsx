@@ -66,7 +66,8 @@ const ActiveJob = () => {
             id: jobData._id,
             title: jobData.title,
             description: jobData.description || 'No description provided',
-            budget: jobData.budget,
+            minBudget: jobData.minBudget || '0',
+            maxBudget: jobData.maxBudget || '0',
             location: jobData.area,
             category: jobData.category,
             createdAt: jobData.date,
@@ -727,15 +728,30 @@ const handleDeleteJob = async () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Budget</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Budget</label>
                     <div className="relative rounded-md shadow-sm">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <span className="text-gray-500 sm:text-sm">LKR</span>
                       </div>
                       <input
                         type="text"
-                        name="budget"
-                        value={editedJob.budget || ''}
+                        name="minBudget"
+                        value={editedJob.minBudget || ''}
+                        onChange={handleInputChange}
+                        className="block w-full pl-12 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Maximum Budget</label>
+                    <div className="relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">LKR</span>
+                      </div>
+                      <input
+                        type="text"
+                        name="maxBudget"
+                        value={editedJob.maxBudget || ''}
                         onChange={handleInputChange}
                         className="block w-full pl-12 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                       />
@@ -833,33 +849,31 @@ const handleDeleteJob = async () => {
                     
                     {/* Milestones section */}
                     <div className="mt-8">
-                      <h3 className="text-lg font-medium text-gray-900 mb-3">Payment Milestones</h3>
+                      <h3 className="text-lg font-medium text-gray-900 mb-3">Project Milestones</h3>
                       <div className="bg-gray-50 rounded-lg p-4">
                         <div className="relative overflow-x-auto">
                           <table className="w-full text-sm text-left">
                             <thead className="text-xs text-gray-700 uppercase bg-gray-100">
                               <tr>
                                 <th scope="col" className="px-4 py-3 rounded-l-lg">Name</th>
-                                <th scope="col" className="px-4 py-3">Description</th>
-                                <th scope="col" className="px-4 py-3 rounded-r-lg text-right">Amount</th>
+                                <th scope="col" className="px-4 py-3 rounded-r-lg">Description</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {job?.milestones?.map((milestone, index) => (
-                                <tr key={milestone.id} className="bg-white border-b">
-                                  <td className="px-4 py-3 font-medium text-gray-900">{milestone.name}</td>
-                                  <td className="px-4 py-3 text-gray-600">{milestone.description}</td>
-                                  <td className="px-4 py-3 text-right font-medium">LKR {milestone.amount}</td>
+                              {job?.milestones?.length > 0 ? (
+                                job.milestones.map((milestone, index) => (
+                                  <tr key={index} className="bg-white border-b">
+                                    <td className="px-4 py-3 font-medium text-gray-900">{milestone.name}</td>
+                                    <td className="px-4 py-3 text-gray-600">{milestone.description}</td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr className="bg-white border-b">
+                                  <td colSpan="2" className="px-4 py-3 text-gray-500 text-center">
+                                    No milestones have been defined yet.
+                                  </td>
                                 </tr>
-                              ))}
-                              <tr className="bg-gray-50">
-                                <td className="px-4 py-3 font-medium text-gray-900">Total</td>
-                                <td className="px-4 py-3"></td>
-                                <td className="px-4 py-3 text-right font-bold">
-                                  LKR {job?.milestones?.reduce((sum, m) => sum + parseInt(m.amount.replace(/,/g, ''), 10), 0).toLocaleString()}
-                                </td>
-                              </tr>
-
+                              )}
                             </tbody>
                           </table>
                         </div>
@@ -869,9 +883,13 @@ const handleDeleteJob = async () => {
                   
                   <div className="md:col-span-4">
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100">
-                      <div className="flex justify-between items-center mb-4">
-                        <p className="text-sm font-medium text-gray-500">Project Budget</p>
-                        <span className="text-2xl font-bold text-gray-800">LKR {job?.budget}</span>
+                      <div className="mb-4">
+                        <p className="text-sm font-medium text-gray-500">Estimated Budget</p>
+                        <div className="mt-1">
+                          <span className="text-2xl font-bold text-gray-800">
+                            LKR {job?.minBudget || '0'} - {job?.maxBudget || '0'}
+                          </span>
+                        </div>
                       </div>
                       
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${

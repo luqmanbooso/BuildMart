@@ -286,11 +286,10 @@ const ContractorViewDetails = () => {
                 </div>
               </div>
 
-              // Add the following section inside your component where appropriate:
 
 {/* Bid Update History */}
 {bid?.previousPrices && bid.previousPrices.length > 0 && (
-  <div className="mt-6 bg-white p-6 rounded-lg border border-gray-200">
+  <div className="mt-6 bg-white p-6 rounded-lg width-full">
     <h3 className="text-lg font-medium text-gray-900 mb-4">Bid Updates History</h3>
     <div className="space-y-4">
       {bid.previousPrices.map((prevBid, index) => (
