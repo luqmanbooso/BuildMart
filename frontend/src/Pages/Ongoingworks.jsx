@@ -88,20 +88,24 @@ function Ongoingworks() {
         }) : 'Not specified',
         description: work.jobId?.description || '',
         progress: Math.round(work.workProgress) || calculateProgress(work.milestones),
-        milestones: work.milestones.map(milestone => ({
-          id: milestone._id,
-          title: milestone.name,
-          description: milestone.description,
-          amount: milestone.amount,
-          status: milestone.status.toLowerCase(),
-          completedDate: milestone.completedAt 
-            ? new Date(milestone.completedAt).toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-              }) 
-            : null
-        }))
+        milestones: work.milestones.map(milestone => {
+          console.log("Original milestone status:", milestone.status); // For debugging
+          return {
+            id: milestone._id,
+            title: milestone.name,
+            description: milestone.description,
+            amount: milestone.amount,
+            // Normalize status to lowercase and clean format
+            status: (milestone.status || "").toLowerCase().replace(/_/g, ''),
+            completedDate: milestone.completedAt 
+              ? new Date(milestone.completedAt).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric'
+                }) 
+              : null
+          };
+        })
       }));
       
       setOngoingWorks(formattedWorks);
@@ -529,7 +533,7 @@ function Ongoingworks() {
                             </div>
                             
                             {/* Action buttons based on status */}
-                            {(milestone.status === 'ready_for_payment' || milestone.status === 'Ready For Payment') && (
+                            {(milestone.status === 'readyforpayment' || milestone.status.includes('ready')) && (
                               <button 
                                 onClick={() => handlePayment(activeWork.id, milestone.id)}
                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
@@ -540,8 +544,8 @@ function Ongoingworks() {
                                 Make Payment
                               </button>
                             )}
-                            
-                            {(milestone.status === 'in_progress' || milestone.status === 'In Progress') && (
+
+                            {(milestone.status === 'inprogress' || milestone.status.includes('progress')) && (
                               <button 
                                 onClick={() => handleVerifyCompletion(activeWork.id, milestone.id)}
                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
@@ -552,8 +556,8 @@ function Ongoingworks() {
                                 Verify Completion
                               </button>
                             )}
-                            
-                            {(milestone.status === 'completed' || milestone.status === 'Completed') && (
+
+                            {(milestone.status === 'completed' || milestone.status.includes('complet') || milestone.status.includes('paid')) && (
                               <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
                                 <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
