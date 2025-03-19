@@ -14,7 +14,8 @@ import {
   FiBell,
   FiImage,
   FiUpload,
-  FiX
+  FiX,
+  FiLogOut
 } from "react-icons/fi";
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
@@ -194,35 +195,77 @@ const InventoryDash = () => {
   };
 
   // Handle stock update
-  const handleStockUpdate = (type) => {
+  const handleStockUpdate = async (type) => {
     if (!stockUpdateItem) return;
     
-    const updatedInventory = inventory.map(item => {
-      if (item.id === stockUpdateItem.id) {
-        const newStock = type === 'add' 
-          ? item.stock + parseInt(updateQuantity) 
-          : Math.max(0, item.stock - parseInt(updateQuantity));
-        
-        const updatedItem = {
-          ...item,
+    const newStock = type === 'remove' 
+      ? Math.max(0, stockUpdateItem.stock - updateQuantity)
+      : stockUpdateItem.stock + updateQuantity;
+    
+    try {
+      // Show loading toast
+      const toastId = toast.loading("Updating stock...");
+      
+      // Make API request to update stock
+      const response = await axios.put(
+        `http://localhost:5000/product/products/${stockUpdateItem._id || stockUpdateItem.id}`,
+        {
+          name: stockUpdateItem.name,
+          sku: stockUpdateItem.sku,
+          category: stockUpdateItem.category,
+          price: stockUpdateItem.price,
           stock: newStock,
-          lastUpdated: new Date().toISOString().split('T')[0]
-        };
-
-        // Check if stock is below threshold
-        if (newStock < item.threshold) {
-          checkLowStock(updatedItem);
+          threshold: stockUpdateItem.threshold,
+          description: stockUpdateItem.description || '',
+          image: stockUpdateItem.image || ''
+        }
+      );
+      
+      if (response.data.success) {
+        // Update local state
+        const updatedInventory = inventory.map(item => {
+          if ((item._id && item._id === stockUpdateItem._id) || 
+              (item.id && item.id === stockUpdateItem.id)) {
+            return {...item, stock: newStock};
+          }
+          return item;
+        });
+        
+        setInventory(updatedInventory);
+        
+        // Check if stock falls below threshold
+        if (newStock < stockUpdateItem.threshold) {
+          checkLowStock({...stockUpdateItem, stock: newStock});
         }
         
-        return updatedItem;
+        // Update toast to success
+        toast.update(toastId, {
+          render: `Stock ${type === 'remove' ? 'decreased' : 'increased'} successfully`,
+          type: "success",
+          isLoading: false,
+          autoClose: 3000
+        });
+      } else {
+        toast.update(toastId, {
+          render: "Failed to update stock",
+          type: "error",
+          isLoading: false,
+          autoClose: 3000
+        });
       }
-      return item;
-    });
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      toast.error(`Failed to update stock: ${error.response?.data?.message || error.message}`);
+    }
     
-    setInventory(updatedInventory);
+    // Reset states
     setStockUpdateItem(null);
     setUpdateQuantity(0);
   };
+
+  const updatedInventory = inventory.map(item => {
+    return item; // This just returns the same item without changes
+  });
 
   // Replace the existing handleDeleteItem function with this improved version:
 
@@ -466,8 +509,23 @@ const handleEditProduct = async (editedProduct) => {
       <motion.header
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-white shadow-md"
+        className="bg-white shadow-md relative"
       >
+        <div className="absolute top-4 right-4">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              window.location.href = '/login';
+            }}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-md flex items-center space-x-1 text-sm"
+          >
+            <FiLogOut size={16} />
+            <span>Logout</span>
+          </motion.button>
+        </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold text-gray-900">Inventory Management</h1>
@@ -934,7 +992,7 @@ const handleEditProduct = async (editedProduct) => {
                 </div>
               </div>
             </div>
-            <div className="flex justify-end space-x-3">
+            
               <button
                 onClick={() => setEditingItem(null)}
                 className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
@@ -947,8 +1005,7 @@ const handleEditProduct = async (editedProduct) => {
               >
                 Save Changes
               </button>
-            </div>
-          </motion.div>
+            </motion.div>
         </div>
       )}
 
