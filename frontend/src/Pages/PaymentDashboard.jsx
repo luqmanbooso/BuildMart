@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
   ChevronDown, Search, LogOut, Filter, Download, 
   Plus, MoreHorizontal, Calendar, CreditCard, 
@@ -38,9 +39,20 @@ function PaymentDashboard() {
   const [showExpensesSubmenu, setShowExpensesSubmenu] = useState(false);
   const [expensesSubPage, setExpensesSubPage] = useState('');
 
+  // Add these state variables
+  const [adminSalaries, setAdminSalaries] = useState([]);
+  const [totalSalaryPaid, setTotalSalaryPaid] = useState(0);
+  const [totalSalaryPending, setTotalSalaryPending] = useState(0);
+
+  // Add these state variables at the top of your component
+  const [admins, setAdmins] = useState([]);
+  const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
+  const [adminError, setAdminError] = useState(null);
+
   // Keep existing paymentStats state
   const [paymentStats, setPaymentStats] = useState({
     totalAmount: 0,
+    inventorySalesTotal: 0, // New field for inventory sales
     completedCount: 0,
     pendingCount: 0,
     failedCount: 0,
@@ -245,7 +257,8 @@ function PaymentDashboard() {
   const processPaymentData = (data) => {
     // Initialize counters and arrays
     const stats = {
-      totalAmount: 0,
+      totalAmount: 0,        // Only for service provider payments
+      inventorySalesTotal: 0, // New field for inventory sales
       completedCount: 0,
       pendingCount: 0,
       failedCount: 0,
@@ -266,9 +279,6 @@ function PaymentDashboard() {
 
     // Process each payment
     data.forEach(payment => {
-      // Calculate total amount
-      stats.totalAmount += payment.amount;
-      
       // Format the payment for display
       const formattedPayment = {
         id: payment._id,
@@ -300,17 +310,17 @@ function PaymentDashboard() {
         cardTypes[payment.cardType]++;
       }
 
-      // For demo purposes, let's categorize payments by a simple rule:
-      // If the cardholder name contains "Provider" or amount > 5000, it's a service provider
-      // Otherwise it's an inventory item
+      // Separate service provider payments from inventory sales
       if (payment.cardholderName.includes('Provider') || payment.amount > 5000) {
         stats.activeProviders.add(payment.cardholderName);
+        stats.totalAmount += payment.amount; // Only add to total if it's a service provider payment
         serviceProviders.push({
           ...formattedPayment,
           providerName: payment.cardholderName
         });
       } else {
         stats.itemsPurchased++;
+        stats.inventorySalesTotal += payment.amount; // Add to inventory sales total
         inventoryItems.push({
           ...formattedPayment,
           itemName: `Item ${payment.lastFourDigits}` // In a real app, you'd have actual item names
@@ -387,6 +397,62 @@ function PaymentDashboard() {
       fetchSupplierPayments();
     }
   }, [expensesSubPage]);
+
+  // Add this to useEffect
+  useEffect(() => {
+    fetchAdminSalaries();
+  }, []);
+
+  // Add this function to fetch admin salaries
+  const fetchAdminSalaries = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/auth/admins');
+      const admins = response.data;
+      
+      let paidAmount = 0;
+      let pendingAmount = 0;
+      
+      const formattedSalaries = admins.map(admin => {
+        if (admin.salary.paymentStatus === 'Paid') {
+          paidAmount += admin.salary.amount;
+        } else {
+          pendingAmount += admin.salary.amount;
+        }
+        
+        return {
+          id: admin._id,
+          name: admin.username,
+          email: admin.email,
+          salary: admin.salary.amount,
+          lastPaid: admin.salary.lastPaid ? new Date(admin.salary.lastPaid).toLocaleDateString() : 'Never',
+          status: admin.salary.paymentStatus
+        };
+      });
+      
+      setAdminSalaries(formattedSalaries);
+      setTotalSalaryPaid(paidAmount);
+      setTotalSalaryPending(pendingAmount);
+    } catch (error) {
+      console.error('Error fetching admin salaries:', error);
+      setError(error.message);
+    }
+  };
+
+  const handleSalaryPayment = async (adminId) => {
+    try {
+      const response = await axios.post(`http://localhost:5000/api/payments/salary/${adminId}`, {
+        date: new Date().toISOString()
+      });
+      
+      if (response.status === 200) {
+        showNotificationMessage('success', 'Salary payment processed successfully');
+        fetchAdminSalaries(); // Refresh the data
+      }
+    } catch (error) {
+      console.error('Error processing salary payment:', error);
+      showNotificationMessage('error', 'Failed to process salary payment');
+    }
+  };
 
   const toggleSelectAll = () => {
     setIsAllSelected(!isAllSelected);
@@ -567,17 +633,17 @@ function PaymentDashboard() {
   // Updated stats based on API data
   const stats = [
     {
-      title: "Total Payments",
+      title: "Service Provider Payments",
       value: `Rs. ${paymentStats.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-      change: "+12.5%", // In a real app, you would calculate this from historical data
+      change: "+12.5%",
       icon: <DollarSign className="h-6 w-6 text-blue-600" />,
       trend: "up"
     },
     {
-      title: "Active Providers",
-      value: paymentStats.activeProviders.toString(),
-      change: "+5.6%",
-      icon: <Users className="h-6 w-6 text-green-600" />,
+      title: "Inventory Sales",
+      value: `Rs. ${paymentStats.inventorySalesTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+      change: "+8.2%",
+      icon: <ShoppingCart className="h-6 w-6 text-green-600" />,
       trend: "up"
     },
     {
@@ -1074,47 +1140,150 @@ function PaymentDashboard() {
   
       // ... rest of your cases remain the same
       case 'Wages':
-        // Your existing Wages case content
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-semibold">Employee Wages</h2>
-                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
-                  <Plus size={16} className="mr-2" />
-                  New Payment
-                </button>
+                <h2 className="text-lg font-semibold">Admin Monthly Salaries</h2>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={fetchAdminSalaries}
+                    className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100"
+                  >
+                    <RefreshCw size={16} className="mr-2" />
+                    Refresh
+                  </button>
+                  <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
+                    <Plus size={16} className="mr-2" />
+                    Process Payments
+                  </button>
+                </div>
               </div>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hours</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {[
-                    { name: 'John Doe', position: 'Mason', hours: 40, rate: 'Rs. 200/hr', total: 'Rs. 8,000', status: 'Succeeded' },
-                    { name: 'Jane Smith', position: 'Carpenter', hours: 35, rate: 'Rs. 180/hr', total: 'Rs. 6,300', status: 'Pending' },
-                    { name: 'Mike Johnson', position: 'Electrician', hours: 45, rate: 'Rs. 250/hr', total: 'Rs. 11,250', status: 'Pending' }
-                  ].map((employee, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{employee.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.position}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.hours}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.rate}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.total}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(employee.status)}
-                      </td>
+
+              {/* Salary Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-600 font-medium">Total Monthly Salaries</p>
+                  <p className="text-2xl font-bold text-blue-700">
+                    Rs. {(totalSalaryPaid + totalSalaryPending).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">Paid This Month</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    Rs. {totalSalaryPaid.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <p className="text-sm text-yellow-600 font-medium">Pending Payments</p>
+                  <p className="text-2xl font-bold text-yellow-700">
+                    Rs. {totalSalaryPending.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Add this before the table */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-600 font-medium">Total Basic Salaries</p>
+                  <p className="text-2xl font-bold text-blue-700">
+                    Rs. {adminSalaries.reduce((sum, admin) => sum + (admin.salary || 30000), 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <p className="text-sm text-red-600 font-medium">Total EPF (Employee)</p>
+                  <p className="text-2xl font-bold text-red-700">
+                    Rs. {(adminSalaries.reduce((sum, admin) => sum + (admin.salary || 30000), 0) * 0.08).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">Total EPF (Employer)</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    Rs. {(adminSalaries.reduce((sum, admin) => sum + (admin.salary || 30000), 0) * 0.12).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-600 font-medium">Total ETF</p>
+                  <p className="text-2xl font-bold text-blue-700">
+                    Rs. {(adminSalaries.reduce((sum, admin) => sum + (admin.salary || 30000), 0) * 0.03).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Admin Salary Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Basic Salary</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">EPF (8%)</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">EPF (12%)</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ETF (3%)</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Net Salary</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Paid</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {adminSalaries.map((admin) => {
+                      // Calculate EPF and ETF
+                      const basicSalary = admin.salary || 30000; // Default or actual salary
+                      const epfEmployee = basicSalary * 0.08; // 8% EPF from employee
+                      const epfEmployer = basicSalary * 0.12; // 12% EPF from employer
+                      const etf = basicSalary * 0.03; // 3% ETF
+                      const netSalary = basicSalary - epfEmployee; // Net salary after EPF deduction
+      
+                      return (
+                        <tr key={admin.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {admin.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {admin.email}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            Rs. {basicSalary.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                            Rs. {epfEmployee.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                            Rs. {epfEmployer.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                            Rs. {etf.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            Rs. {netSalary.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {admin.lastPaid}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {getStatusBadge(admin.status)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button 
+                              onClick={() => handleSalaryPayment(admin.id)}
+                              className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                admin.status === 'Paid' 
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                              }`}
+                              disabled={admin.status === 'Paid'}
+                            >
+                              {admin.status === 'Paid' ? 'Paid' : 'Pay Now'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         );
