@@ -37,6 +37,13 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
     experience: 15
   });
 
+  // Add a new state to store sorted bids
+  const [sortedBids, setSortedBids] = useState([]);
+  const [isLoadingBids, setIsLoadingBids] = useState(false);
+
+  // Add a state to store pre-calculated bid scores
+  const [bidScores, setBidScores] = useState({});
+
   // Navigate to agreement form instead of direct acceptance
   const handleBidSelection = (bidId) => {
     navigate(`/payment/${jobId}/${bidId}`);
@@ -122,40 +129,98 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
     setFilteredBids(bids);
   };
 
-  // Calculate bid score based on weightings
-  const calculateBidScore = (bid) => {
-    // Find min and max values for normalization
-    const allPrices = bids.map(b => parseFloat(b.price));
-    const minPrice = Math.min(...allPrices);
-    const maxPrice = Math.max(...allPrices);
-    
-    const allTimelines = bids.map(b => parseInt(b.timeline));
-    const minTimeline = Math.min(...allTimelines);
-    const maxTimeline = Math.max(...allTimelines);
-    
-    // Normalize values to score between 0-100 (lower is better for price and timeline)
-    const priceRange = maxPrice - minPrice;
-    const priceScore = priceRange === 0 ? 100 : 100 - ((parseFloat(bid.price) - minPrice) / priceRange * 100);
-    
-    const timelineRange = maxTimeline - minTimeline;
-    const timelineScore = timelineRange === 0 ? 100 : 100 - ((parseInt(bid.timeline) - minTimeline) / timelineRange * 100);
-    
-    const rating = bid.contractor?.rating || 0;
-    const ratingScore = (rating / 5) * 100;
-    
-    const experience = bid.contractor?.experience || bid.experience || 0;
-    const experienceScore = Math.min(experience * 10, 100); // Cap at 10 years = 100%
-    
-    // Calculate weighted score
-    const totalScore = (
-      (priceScore * (weightings.price / 100)) +
-      (timelineScore * (weightings.timeline / 100)) +
-      (ratingScore * (weightings.rating / 100)) +
-      (experienceScore * (weightings.experience / 100))
-    );
-    
-    return totalScore.toFixed(1);
+  // Enhanced bid score calculation with qualification data
+const calculateBidScore = async (bid) => {
+  // Get basic scoring as before
+  const allPrices = bids.map(b => parseFloat(b.price));
+  const minPrice = Math.min(...allPrices);
+  const maxPrice = Math.max(...allPrices);
+  
+  const allTimelines = bids.map(b => parseInt(b.timeline));
+  const minTimeline = Math.min(...allTimelines);
+  const maxTimeline = Math.max(...allTimelines);
+  
+  // Price and timeline scores with minimum threshold
+  const priceRange = maxPrice - minPrice;
+  const priceScore = priceRange === 0 
+    ? 100 
+    : 20 + 80 * (1 - ((parseFloat(bid.price) - minPrice) / priceRange));
+  
+  const timelineRange = maxTimeline - minTimeline;
+  const timelineScore = timelineRange === 0 
+    ? 100 
+    : 20 + 80 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
+  
+  // Rating and experience scores with minimum threshold
+  const rating = bid.contractor?.rating || 0;
+  const ratingScore = 20 + (rating / 5) * 80;
+  
+  const experience = bid.contractor?.experience || bid.experience || 0;
+  const experienceScore = 20 + Math.min(experience * 8, 80);
+  
+  // Additional qualification score component
+  let qualificationScore = 0;
+  
+  try {
+    // Fetch contractor qualifications from backend
+    if (bid.contractorId) {
+      const response = await axios.get(`http://localhost:5000/qualify/user/${bid.contractorId}`);
+      const qualifications = response.data;
+      
+      if (qualifications && qualifications.length > 0) {
+        // Calculate qualification score based on:
+        // 1. Number of qualifications (max 50 points)
+        const qualCount = Math.min(qualifications.length, 5); // Cap at 5 qualifications
+        const countScore = qualCount * 10; // 10 points per qualification, max 50
+        
+        // 2. Verification status (max 30 points)
+        let verificationScore = 0;
+        const verifiedQuals = qualifications.filter(q => q.verificationStatus === 'verified').length;
+        verificationScore = Math.min((verifiedQuals / qualCount) * 30, 30);
+        
+        // 3. Recency of qualifications (max 20 points)
+        let recencyScore = 0;
+        const currentYear = new Date().getFullYear();
+        const qualYears = qualifications
+          .map(q => parseInt(q.year))
+          .filter(year => !isNaN(year));
+          
+        if (qualYears.length > 0) {
+          const avgYear = qualYears.reduce((sum, year) => sum + year, 0) / qualYears.length;
+          // More recent qualifications get higher scores
+          recencyScore = Math.min(20, ((avgYear - (currentYear - 10)) / 10) * 20);
+          recencyScore = Math.max(0, recencyScore); // Ensure non-negative
+        }
+        
+        qualificationScore = countScore + verificationScore + recencyScore;
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching qualification data:', error);
+    // Default to zero qual score if fetch fails
+    qualificationScore = 0;
+  }
+  
+  // Adjust weightings to include qualifications
+  const adjustedWeightings = {
+    price: weightings.price * 0.8,
+    timeline: weightings.timeline * 0.8,
+    rating: weightings.rating * 0.8,
+    experience: weightings.experience * 0.8,
+    qualification: 20 // 20% weight for qualifications
   };
+  
+  // Calculate weighted score
+  const totalScore = (
+    (priceScore * (adjustedWeightings.price / 100)) +
+    (timelineScore * (adjustedWeightings.timeline / 100)) +
+    (ratingScore * (adjustedWeightings.rating / 100)) +
+    (experienceScore * (adjustedWeightings.experience / 100)) +
+    (qualificationScore)
+  );
+  
+  return totalScore.toFixed(1);
+};
 
   // Handle sorting changes
   const handleSort = (field) => {
@@ -167,42 +232,133 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
     }
   };
 
-  // Get bids sorted by current criteria
-  const getSortedBids = () => {
-    if (!filteredBids || !filteredBids.length) return [];
+  // Add this useEffect to update the sorted bids when needed
+  useEffect(() => {
+    const updateSortedBids = async () => {
+      setIsLoadingBids(true);
+      try {
+        if (!filteredBids || !filteredBids.length) {
+          setSortedBids([]);
+          return;
+        }
+        
+        // Calculate scores for all bids
+        const bidsWithScores = await Promise.all(
+          filteredBids.map(async bid => {
+            const score = await calculateBidScore(bid);
+            return { ...bid, calculatedScore: score };
+          })
+        );
+        
+        // Sort using the pre-calculated scores
+        const sorted = bidsWithScores.sort((a, b) => {
+          let comparison = 0;
+          
+          switch (sortField) {
+            case 'price':
+              comparison = parseFloat(a.price) - parseFloat(b.price);
+              break;
+            case 'timeline':
+              comparison = parseInt(a.timeline) - parseInt(b.timeline);
+              break;
+            case 'date':
+              comparison = new Date(a.createdAt) - new Date(b.createdAt);
+              break;
+            case 'contractor':
+              comparison = (a.contractor?.name || a.contractorname || '').localeCompare(b.contractor?.name || b.contractorname || '');
+              break;
+            case 'rating':
+              comparison = (a.contractor?.rating || 0) - (b.contractor?.rating || 0);
+              break;
+            case 'experience':
+              comparison = (a.contractor?.experience || a.experience || 0) - (b.contractor?.experience || b.experience || 0);
+              break;
+            case 'score':
+              comparison = parseFloat(b.calculatedScore) - parseFloat(a.calculatedScore);
+              break;
+            default:
+              comparison = 0;
+          }
+          
+          return sortDirection === 'asc' ? comparison : -comparison;
+        });
+        
+        setSortedBids(sorted);
+      } catch (error) {
+        console.error("Error sorting bids:", error);
+        setSortedBids(filteredBids); // Fall back to unsorted
+      } finally {
+        setIsLoadingBids(false);
+      }
+    };
     
-    return [...filteredBids].sort((a, b) => {
-      let comparison = 0;
+    updateSortedBids();
+  }, [filteredBids, sortField, sortDirection]);
+
+  // Create a sync function to get a bid score from the state
+  const getBidScore = (bid) => {
+    const bidId = bid.id || bid._id;
+    return bidScores[bidId] || '...';
+  };
+
+  // Add this useEffect to calculate scores separately from the render cycle
+  useEffect(() => {
+    const calculateScores = async () => {
+      if (!filteredBids || filteredBids.length === 0) return;
       
-      switch (sortField) {
-        case 'price':
-          comparison = parseFloat(a.price) - parseFloat(b.price);
-          break;
-        case 'timeline':
-          comparison = parseInt(a.timeline) - parseInt(b.timeline);
-          break;
-        case 'date':
-          comparison = new Date(a.createdAt) - new Date(b.createdAt);
-          break;
-        case 'contractor':
-          comparison = (a.contractor?.name || a.contractorname || '').localeCompare(b.contractor?.name || b.contractorname || '');
-          break;
-        case 'rating':
-          comparison = (a.contractor?.rating || 0) - (b.contractor?.rating || 0);
-          break;
-        case 'experience':
-          comparison = (a.contractor?.experience || a.experience || 0) - (b.contractor?.experience || b.experience || 0);
-          break;
-        case 'score':
-          comparison = calculateBidScore(b) - calculateBidScore(a);
-          break;
-        default:
-          comparison = 0;
+      const scores = {};
+      for (const bid of filteredBids) {
+        const bidId = bid.id || bid._id;
+        try {
+          // Calculate basic scores without API calls for better performance
+          const allPrices = bids.map(b => parseFloat(b.price));
+          const minPrice = Math.min(...allPrices);
+          const maxPrice = Math.max(...allPrices);
+          
+          const allTimelines = bids.map(b => parseInt(b.timeline));
+          const minTimeline = Math.min(...allTimelines);
+          const maxTimeline = Math.max(...allTimelines);
+          
+          // Price score (20-100 scale)
+          const priceRange = maxPrice - minPrice;
+          const priceScore = priceRange === 0 
+            ? 100 
+            : 20 + 80 * (1 - ((parseFloat(bid.price) - minPrice) / priceRange));
+          
+          // Timeline score (20-100 scale)
+          const timelineRange = maxTimeline - minTimeline;
+          const timelineScore = timelineRange === 0 
+            ? 100 
+            : 20 + 80 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
+          
+          // Rating score (20-100 scale)
+          const rating = bid.contractor?.rating || 0;
+          const ratingScore = 20 + (rating / 5) * 80;
+          
+          // Experience score (20-100 scale)
+          const experience = bid.contractor?.experience || bid.experience || 0;
+          const experienceScore = 20 + Math.min(experience * 8, 80);
+          
+          // Calculate weighted score without qualifications for now
+          const weightedScore = (
+            (priceScore * (weightings.price / 100)) +
+            (timelineScore * (weightings.timeline / 100)) +
+            (ratingScore * (weightings.rating / 100)) +
+            (experienceScore * (weightings.experience / 100))
+          );
+          
+          scores[bidId] = weightedScore.toFixed(1);
+        } catch (error) {
+          console.error(`Error calculating score for bid ${bidId}:`, error);
+          scores[bidId] = "N/A";
+        }
       }
       
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-  };
+      setBidScores(scores);
+    };
+    
+    calculateScores();
+  }, [filteredBids, weightings]);
 
   // Handle filter input changes
   const handleFilterChange = (e) => {
@@ -499,11 +655,13 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {getSortedBids().map((bid) => {
+              {isLoadingBids ? (
+                <tr><td colSpan="9" className="px-6 py-4 text-center text-gray-500">Calculating scores...</td></tr>
+              ) : sortedBids.map((bid) => {
                 const bidId = bid.id || bid._id;
                 const isSelected = selectedBids.includes(bidId);
                 const isShortlisted = shortlistedBids.includes(bidId);
-                const bidScore = calculateBidScore(bid);
+                const bidScore = getBidScore(bid);
                 
                 return (
                   <tr key={bidId} className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''} ${isShortlisted ? 'border-l-4 border-green-400' : ''}`}>
