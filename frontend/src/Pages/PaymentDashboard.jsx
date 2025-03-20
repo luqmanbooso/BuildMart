@@ -54,6 +54,7 @@ function PaymentDashboard() {
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [incrementAmount, setIncrementAmount] = useState(0);
   const [incrementType, setIncrementType] = useState('fixed'); // 'fixed' or 'percentage'
+  const [salaryChangeType, setSalaryChangeType] = useState('increment'); // Add this for increment/decrement
 
   // Keep existing paymentStats state
   const [paymentStats, setPaymentStats] = useState({
@@ -459,18 +460,32 @@ function PaymentDashboard() {
     }
   };
 
-  const handleSalaryIncrement = async () => {
+  const handleSalaryUpdate = async () => {
     try {
       if (!selectedAdmin) return;
       
       const currentSalary = selectedAdmin.salary || 30000;
       let newSalary = currentSalary;
+      let actualChange = 0;
       
+      // Calculate change based on increment or decrement
       if (incrementType === 'fixed') {
-        newSalary = currentSalary + Number(incrementAmount);
+        actualChange = Number(incrementAmount);
+        newSalary = salaryChangeType === 'increment' ? 
+          currentSalary + actualChange : 
+          currentSalary - actualChange;
       } else {
-        // Percentage increase
-        newSalary = currentSalary + (currentSalary * Number(incrementAmount) / 100);
+        // Percentage change
+        actualChange = (currentSalary * Number(incrementAmount) / 100);
+        newSalary = salaryChangeType === 'increment' ? 
+          currentSalary + actualChange : 
+          currentSalary - actualChange;
+      }
+      
+      // Prevent negative salary
+      if (newSalary < 0) {
+        alert('Salary cannot be negative. Operation cancelled.');
+        return;
       }
       
       // Round to 2 decimal places
@@ -482,7 +497,9 @@ function PaymentDashboard() {
         currentSalary,
         newSalary,
         incrementType,
-        incrementAmount
+        incrementAmount,
+        salaryChangeType,
+        actualChange: salaryChangeType === 'increment' ? actualChange : -actualChange
       });
       
       const response = await axios.patch(`http://localhost:5000/auth/admins/${selectedAdmin.id}/salary`, {
@@ -492,8 +509,9 @@ function PaymentDashboard() {
       console.log('Response:', response.data);
       
       if (response.data) {
-        // Show success notification
-        alert('Salary updated successfully!');
+        // Show success notification with increment/decrement info
+        const changeText = salaryChangeType === 'increment' ? 'increased' : 'decreased';
+        alert(`Salary ${changeText} successfully! New salary: Rs. ${newSalary.toLocaleString()}`);
         
         // Refresh admin salaries data
         fetchAdminSalaries();
@@ -505,7 +523,6 @@ function PaymentDashboard() {
       }
     } catch (error) {
       console.error('Error updating salary:', error);
-      // More detailed error message
       const errorMessage = error.response ? 
         `Failed to update salary: ${error.response.status} - ${error.response.data?.message || error.message}` :
         `Failed to update salary: ${error.message}`;
@@ -1345,7 +1362,7 @@ function PaymentDashboard() {
                                 }}
                                 className="px-3 py-1 rounded-md text-sm font-medium bg-green-50 text-green-600 hover:bg-green-100 flex items-center"
                               >
-                                <TrendingUp size={14} className="mr-1" /> Increment
+                                <TrendingUp size={14} className="mr-1" /> Update Salary
                               </button>
                             </div>
                           </td>
@@ -1688,14 +1705,61 @@ function PaymentDashboard() {
                 />
               </div>
               
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Change Type
+                </label>
+                <div className="flex space-x-4">
+                  <label className="inline-flex items-center">
+                    <input 
+                      type="radio" 
+                      className="form-radio" 
+                      name="salaryChangeType" 
+                      value="increment" 
+                      checked={salaryChangeType === 'increment'}
+                      onChange={() => setSalaryChangeType('increment')}
+                    />
+                    <span className="ml-2">Increment</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input 
+                      type="radio" 
+                      className="form-radio" 
+                      name="salaryChangeType" 
+                      value="decrement" 
+                      checked={salaryChangeType === 'decrement'}
+                      onChange={() => setSalaryChangeType('decrement')}
+                    />
+                    <span className="ml-2">Decrement</span>
+                  </label>
+                </div>
+              </div>
+              
               <div className="bg-blue-50 p-4 rounded-lg">
                 <p className="text-sm font-medium text-blue-800 mb-1">New Salary</p>
                 <p className="text-xl font-bold text-blue-900">
                   Rs. {(incrementType === 'fixed' 
-                    ? (selectedAdmin.salary || 30000) + Number(incrementAmount || 0)
-                    : (selectedAdmin.salary || 30000) * (1 + Number(incrementAmount || 0) / 100)
+                    ? (selectedAdmin.salary || 30000) + (salaryChangeType === 'increment' ? Number(incrementAmount || 0) : -Number(incrementAmount || 0))
+                    : (selectedAdmin.salary || 30000) * (1 + (salaryChangeType === 'increment' ? Number(incrementAmount || 0) / 100 : -Number(incrementAmount || 0) / 100))
                   ).toLocaleString()}
                 </p>
+              </div>
+              
+              <div className="mb-4 p-3 bg-gray-50 rounded-md">
+                <p className="text-sm text-gray-700">
+                  Current Salary: <span className="font-medium">Rs. {(selectedAdmin?.salary || 30000).toLocaleString()}</span>
+                </p>
+                {incrementAmount > 0 && (
+                  <p className="text-sm text-gray-700 mt-1">
+                    {salaryChangeType === 'increment' ? 'New' : 'New'} Salary: 
+                    <span className={`font-medium ${salaryChangeType === 'increment' ? 'text-green-600' : 'text-red-600'}`}>
+                      {' '}Rs. {salaryChangeType === 'increment' 
+                        ? (selectedAdmin?.salary + (incrementType === 'fixed' ? Number(incrementAmount) : (selectedAdmin?.salary * Number(incrementAmount) / 100))).toLocaleString()
+                        : (selectedAdmin?.salary - (incrementType === 'fixed' ? Number(incrementAmount) : (selectedAdmin?.salary * Number(incrementAmount) / 100))).toLocaleString()
+                      }
+                    </span>
+                  </p>
+                )}
               </div>
               
               <div className="flex justify-end space-x-3 pt-4">
@@ -1709,11 +1773,10 @@ function PaymentDashboard() {
                   Cancel
                 </button>
                 <button
-                  onClick={handleSalaryIncrement}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
+                  onClick={handleSalaryUpdate}
+                  className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
-                  <Check size={16} className="mr-2" />
-                  Update Salary
+                  {salaryChangeType === 'increment' ? 'Increase' : 'Decrease'} Salary
                 </button>
               </div>
             </div>
