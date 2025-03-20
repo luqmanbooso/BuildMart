@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { FaTruck, FaCheckCircle, FaCalendarAlt } from "react-icons/fa";
+import { FaTruck, FaCalendarAlt } from "react-icons/fa";
 
 const ShipmentArrangementForm = ({ orders, onArrangeShipment }) => {
   const [selectedOrder, setSelectedOrder] = useState("");
-  const [shipmentStatus, setShipmentStatus] = useState("Pending");
   const [driverName, setDriverName] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [estimatedDelivery, setEstimatedDelivery] = useState("");
@@ -17,7 +16,6 @@ const ShipmentArrangementForm = ({ orders, onArrangeShipment }) => {
 
     const shipmentData = {
       orderId: selectedOrder,
-      status: shipmentStatus,
       driver: driverName,
       vehicle: vehicleNumber,
       eta: estimatedDelivery,
@@ -52,23 +50,6 @@ const ShipmentArrangementForm = ({ orders, onArrangeShipment }) => {
                 {order.id} - {order.customer} (Rs. {order.value.toLocaleString()})
               </option>
             ))}
-          </select>
-        </div>
-
-        {/* Shipment Status */}
-        <div className="flex flex-col space-y-2">
-          <label className="text-gray-600 flex items-center">
-            <FaCheckCircle className="mr-2 text-green-500" /> Shipment Status:
-          </label>
-          <select
-            className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-            value={shipmentStatus}
-            onChange={(e) => setShipmentStatus(e.target.value)}
-            required
-          >
-            <option value="Pending">Pending</option>
-            <option value="In Transit">In Transit</option>
-            <option value="Delivered">Delivered</option>
           </select>
         </div>
 
