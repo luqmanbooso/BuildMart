@@ -1,7 +1,20 @@
-import React from "react";
+import React, { useState } from "react";
 import { FaTruck, FaCheckCircle, FaCalendarAlt } from "react-icons/fa";
 
-const ShippingTracking = ({ shipmentId, shipmentStatus, deliveryProgress, estimatedDelivery }) => {
+const ShippingTracking = ({
+  shipmentId,
+  shipmentStatus,
+  deliveryProgress,
+  estimatedDelivery,
+  onUpdateStatus,
+}) => {
+  const [status, setStatus] = useState(shipmentStatus);
+
+  const handleStatusUpdate = (newStatus) => {
+    setStatus(newStatus);
+    onUpdateStatus(newStatus);
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-8 bg-gradient-to-br from-blue-50 to-purple-50 shadow-2xl rounded-2xl border border-gray-100">
       <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
@@ -21,7 +34,15 @@ const ShippingTracking = ({ shipmentId, shipmentStatus, deliveryProgress, estima
           <span className="text-gray-600 flex items-center">
             <FaCheckCircle className="mr-2 text-green-500" /> Status:
           </span>
-          <span className="font-semibold text-blue-600">{shipmentStatus}</span>
+          <select
+            className="px-2 py-1 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+            value={status}
+            onChange={(e) => handleStatusUpdate(e.target.value)}
+          >
+            <option value="Pending">Pending</option>
+            <option value="In Transit">In Transit</option>
+            <option value="Delivered">Delivered</option>
+          </select>
         </div>
 
         {/* Delivery Progress */}

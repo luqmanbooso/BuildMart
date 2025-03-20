@@ -115,8 +115,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-
-
 // GET request to fetch user data by userId
 router.get('/user/:userId', async (req, res) => {
   try {
@@ -144,6 +142,18 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-
+// GET request to fetch all users (for admin only)
+router.get('/users', async (req, res) => {
+  try {
+    // Fetch all users from the database
+    const users = await User.find({}, '-password'); // Exclude password field
+    
+    // Return the list of users
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
 
 module.exports = router;
