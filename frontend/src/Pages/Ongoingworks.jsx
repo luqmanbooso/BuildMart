@@ -4,6 +4,8 @@ import logo from '../assets/images/buildmart_logo1.png';
 import axios from 'axios'; // Make sure axios is installed
 import ClientNavBar from '../components/ClientNavBar';
 import { jwtDecode } from 'jwt-decode';
+import EnhancedPaymentGateway from '../components/Payment';
+import { X } from 'react-feather'; // or from '@heroicons/react/outline'
 
 function Ongoingworks() {
   const [ongoingWorks, setOngoingWorks] = useState([]);
@@ -14,6 +16,30 @@ function Ongoingworks() {
   const location = useLocation();
   const navigate = useNavigate();
   
+  // Add these state variables at the top with other states
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedMilestone, setSelectedMilestone] = useState(null); // Fixed typo
+  
+  // Add this function after other state declarations
+  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+
+  const showNotificationMessage = (type, message) => {
+    setNotification({
+      show: true,
+      type,
+      message
+    });
+    
+    // Hide notification after 3 seconds
+    setTimeout(() => {
+      setNotification({
+        show: false,
+        type: '',
+        message: ''
+      });
+    }, 3000);
+  };
+
   // Calculate progress for each work based on completed milestones
   const calculateProgress = (milestones) => {
     if (!milestones || milestones.length === 0) return 0;
@@ -192,54 +218,43 @@ function Ongoingworks() {
 
   // Handle payment for milestone
   const handlePayment = async (workId, milestoneId) => {
+    const work = ongoingWorks.find(w => w.id === workId);
+    const milestone = work.milestones.find(m => m.id === milestoneId);
+    
+    setSelectedMilestone(milestone);
+    setShowPaymentModal(true);
+  };
+
+  // Add a new function to handle successful payments
+  const handlePaymentSuccess = async (paymentData) => {
     try {
-      if (window.confirm('Confirm payment for this milestone?')) {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        
-        // Find the work and milestone
-        const work = ongoingWorks.find(w => w.id === workId);
-        const milestone = work.milestones.find(m => m.id === milestoneId);
-        const milestoneIndex = work.milestones.findIndex(m => m.id === milestoneId);
-        
-        if (milestoneIndex === -1) {
-          throw new Error('Milestone not found');
-        }
-        
-        // Use index in the URL, not ID
-        await axios.patch(`http://localhost:5000/api/ongoingworks/${workId}/milestone/${milestoneIndex}`, {
-          status: 'Completed', // This is a valid enum value in your schema
-          actualAmountPaid: parseFloat(milestone.amount),
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const work = ongoingWorks.find(w => w.id === activeWorkId);
+      const milestoneIndex = work.milestones.findIndex(m => m.id === selectedMilestone.id);
+  
+      // Update milestone status
+      await axios.patch(
+        `http://localhost:5000/api/ongoingworks/${activeWorkId}/milestone/${milestoneIndex}`,
+        {
+          status: 'Completed',
+          actualAmountPaid: parseFloat(selectedMilestone.amount),
           completedAt: new Date()
-        }, {
+        },
+        {
           headers: {
             Authorization: `Bearer ${token}`
           }
-        });
-        
-        // Calculate new progress (your backend does this automatically!)
-        const totalMilestones = work.milestones.length;
-        const completedMilestones = work.milestones.filter(m => 
-          m.status === 'completed' || m.status === 'Completed' || m.id === milestoneId
-        ).length;
-        
-        const newProgress = Math.round((completedMilestones / totalMilestones) * 100);
-        
-        // Update work progress
-        await axios.put(`http://localhost:5000/api/ongoingworks/${workId}`, {
-          workProgress: newProgress
-        }, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        
-        // Refresh the data
-        fetchOngoingWorks();
-        alert('Payment completed successfully!');
-      }
+        }
+      );
+  
+      // Refresh data
+      fetchOngoingWorks();
+      setShowPaymentModal(false);
+      setSelectedMilestone(null);
+      showNotificationMessage('success', 'Payment completed successfully!');
     } catch (err) {
-      console.error('Error processing payment:', err);
-      alert('Failed to process payment. Please try again.');
+      console.error('Error updating milestone status:', err);
+      showNotificationMessage('error', 'Failed to update milestone status');
     }
   };
 
@@ -254,7 +269,7 @@ function Ongoingworks() {
         const milestoneIndex = work.milestones.findIndex(m => m.id === milestoneId);
         
         if (milestoneIndex === -1) {
-          throw new Error('Milestone not found');
+          throw new Error('Mileston2e not found');
         }
         
         // Use the index, not the ID in the URL
@@ -352,6 +367,34 @@ function Ongoingworks() {
       </div>
     );
   }
+
+  // Add this component before the main return statement
+  const PaymentModal = ({ milestone, onClose, onSuccess }) => {
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-black opacity-50"></div>
+        <div className="relative min-h-screen flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-lg w-full max-w-4xl">
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+            >
+              <X size={24} />
+            </button>
+            <EnhancedPaymentGateway
+              amount={milestone.amount}
+              onSuccess={(paymentData) => {
+                onSuccess(paymentData);
+                onClose();
+              }}
+              onCancel={onClose}
+              context="milestone"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Rest of your component remains unchanged...
   return (
@@ -663,8 +706,8 @@ function Ongoingworks() {
                                 onClick={() => handlePayment(activeWork.id, milestone.id)}
                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
                               >
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                                 </svg>
                                 Make Payment
                               </button>
@@ -714,6 +757,16 @@ function Ongoingworks() {
           )}
         </div>
       </div>
+      {showPaymentModal && selectedMilestone && (
+        <PaymentModal
+          milestone={selectedMilestone}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedMilestone(null);
+          }}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 }

@@ -17,12 +17,41 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['Client', 'Service Provider'],
+    enum: ['Client', 'Service Provider', 'Admin'],
     default: 'Client',
   },
   profilePic: {
     type: String,
   },
+  // Add salary information
+  salary: {
+    amount: {
+      type: Number,
+      default: 0
+    },
+    epf: {
+      employee: {
+        type: Number,
+        default: 0
+      },
+      employer: {
+        type: Number,
+        default: 0
+      }
+    },
+    etf: {
+      type: Number,
+      default: 0
+    },
+    lastPaid: {
+      type: Date
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['Paid', 'Pending'],
+      default: 'Pending'
+    }
+  }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
