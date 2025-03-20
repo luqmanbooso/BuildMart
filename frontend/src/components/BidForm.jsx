@@ -274,8 +274,7 @@ const projectDescription = jobDetails?.description || "";
     navigate(jobId ? `/project/${jobId}` : `/project-details`);
   };
 
-  // Updated onSubmit function to match the bids.js route requirements
-// Update the onSubmit function to include contractorname with correct lowercase spelling
+  // Updated onSubmit function with better error handling for duplicate prices
 
 const onSubmit = async (data) => {
   if (timeLeft.timeUp) {
@@ -291,16 +290,14 @@ const onSubmit = async (data) => {
       throw new Error("Authentication required. Please log in again.");
     }
     
-    // Create bid data exactly matching what the backend expects in bidModel.js
+    // Create bid data exactly matching what the backend expects
     const bidData = {
       projectId: jobId,
       contractorId: userInfo.userId,
-      // IMPORTANT: Use lowercase 'contractorname' to match the model schema exactly
       contractorname: contractorInfo?.companyName || userInfo?.username || "Anonymous Contractor",
       price: parseFloat(data.yourBid),
       timeline: parseInt(data.timeline),
       qualifications: `Experience: ${contractorInfo?.experienceYears || data.experience} years. ${data.additionalDetails || ""}`,
-      // Optional fields from contractor profile
       rating: contractorInfo?.rating || null,
       completedProjects: contractorInfo?.completedProjects || userInfo?.completedProjects || 0
     };
@@ -313,15 +310,29 @@ const onSubmit = async (data) => {
     if (response.status === 201) {
       alert("Bid Submitted Successfully!");
       navigate(`/project/${jobId}`);
-    } else {
-      throw new Error(response.data.error || "You have already submitted a bid for this project.");
     }
   } catch (error) {
     console.error("Error submitting bid:", error);
-    // Handle duplicate bid error specifically
-    if (error.response && error.response.status === 400 && 
-        error.response.data.error === 'You have already submitted a bid for this project') {
-      setSubmissionError("You have already submitted a bid for this project.");
+    
+    // Handle specific error types
+    if (error.response && error.response.data) {
+      const errorData = error.response.data;
+      
+      if (errorData.error === 'Duplicate bid') {
+        setSubmissionError("You have already submitted a bid for this project.");
+      } 
+      // Handle duplicate price error specifically
+      else if (errorData.error === 'Duplicate price') {
+        setSubmissionError(errorData.message);
+        
+        // Update the form field with suggested value
+        if (errorData.suggestedPrice) {
+          setValue("yourBid", errorData.suggestedPrice.toString());
+        }
+      }
+      else {
+        setSubmissionError(errorData.message || "Failed to submit bid. Please try again.");
+      }
     } else {
       setSubmissionError(error.message || "Failed to submit bid. Please try again.");
     }

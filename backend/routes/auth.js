@@ -115,8 +115,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-
-
 // GET request to fetch user data by userId
 router.get('/user/:userId', async (req, res) => {
   try {
@@ -144,21 +142,6 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-// Add this new route to get all admin users
-router.get('/admins', async (req, res) => {
-  try {
-    const admins = await User.find({ role: 'Admin' });
-    res.json(admins.map(admin => ({
-      id: admin._id,
-      username: admin.username,
-      email: admin.email,
-      salary: admin.salary,
-      profilePic: admin.profilePic
-    })));
-  } catch (error) {
-    console.error('Error fetching admin users:', error);
-    res.status(500).json({ message: 'Error fetching admin users' });
-  }
-});
+
 
 module.exports = router;

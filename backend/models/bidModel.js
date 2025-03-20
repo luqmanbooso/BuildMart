@@ -64,6 +64,8 @@ const bidSchema = new mongoose.Schema({
   timestamps: true // Adds updatedAt field automatically
 });
 
+// Add this index right before creating the model
+bidSchema.index({ projectId: 1, price: 1 }, { unique: true });
 
 const Bid = mongoose.model('Bid', bidSchema);
 

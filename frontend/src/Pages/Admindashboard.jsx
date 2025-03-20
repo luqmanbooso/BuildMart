@@ -3,7 +3,7 @@ import {
   FaUser, FaClipboardList, FaSearch, FaBell, FaSignOutAlt, 
   FaChartLine, FaUsers, FaBuilding, FaTasks, FaBoxOpen,
   FaTruckMoving, FaWrench, FaChevronRight, FaEllipsisH, 
-  FaCircle, FaAngleDown, FaCalendar
+  FaCircle, FaAngleDown, FaCalendar, FaCheck, FaClock, FaTimes
 } from 'react-icons/fa';
 import axios from 'axios';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
@@ -46,6 +46,7 @@ function Admindashboard() {
     { name: 'Dashboard', icon: <FaChartLine /> },
     { name: 'Users', icon: <FaUsers /> },
     { name: 'Client\'s Requests', icon: <FaClipboardList /> },
+    { name: 'Bids Management', icon: <FaBoxOpen /> },
     { name: 'Messages', icon: <FaWrench /> },
     { name: 'Inquiries', icon: <FaBuilding /> },
   ];
@@ -53,6 +54,52 @@ function Admindashboard() {
   // Add this new state for client requests/jobs
   const [allJobs, setAllJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(true);
+
+  // Add states for bids management
+  const [allBids, setAllBids] = useState([]);
+  const [bidsLoading, setBidsLoading] = useState(true);
+  const [bidStats, setBidStats] = useState({
+    total: 0,
+    accepted: 0,
+    pending: 0,
+    rejected: 0
+  });
+
+  // Function to handle viewing bid details
+  const [selectedBid, setSelectedBid] = useState(null);
+
+  const handleViewBidDetails = (bid) => {
+    setSelectedBid(bid);
+  };
+
+  // Function to handle bid status changes
+  const handleBidStatusChange = async (bidId, newStatus) => {
+    try {
+      await axios.put(`http://localhost:5000/bids/${bidId}/status`, { status: newStatus });
+      
+      // Update local state to reflect the change
+      setAllBids(prevBids => 
+        prevBids.map(bid => 
+          bid._id === bidId ? { ...bid, status: newStatus } : bid
+        )
+      );
+      
+      // Update statistics
+      setBidStats(prev => {
+        const bid = allBids.find(b => b._id === bidId);
+        const oldStatus = bid ? bid.status : 'pending';
+        
+        return {
+          ...prev,
+          [oldStatus]: prev[oldStatus] - 1,
+          [newStatus]: prev[newStatus] + 1
+        };
+      });
+      
+    } catch (error) {
+      console.error("Failed to update bid status:", error);
+    }
+  };
 
   // Check for admin token when component mounts
   useEffect(() => {
@@ -182,6 +229,39 @@ function Admindashboard() {
     fetchAllJobs();
   }, []);
 
+  // Fetch bids data
+  useEffect(() => {
+    const fetchBids = async () => {
+      setBidsLoading(true);
+      try {
+        const response = await axios.get('http://localhost:5000/bids');
+        const bidsData = response.data;
+        
+        setAllBids(bidsData);
+        
+        // Calculate bid statistics
+        const total = bidsData.length;
+        const accepted = bidsData.filter(bid => bid.status === 'accepted').length;
+        const pending = bidsData.filter(bid => bid.status === 'pending').length;
+        const rejected = bidsData.filter(bid => bid.status === 'rejected').length;
+        
+        setBidStats({
+          total,
+          accepted,
+          pending,
+          rejected
+        });
+        
+      } catch (error) {
+        console.error("Failed to fetch bids data:", error);
+      } finally {
+        setBidsLoading(false);
+      }
+    };
+    
+    fetchBids();
+  }, []);
+
   // Handler for logout
   const handleLogout = () => {
     // Clear tokens
@@ -291,6 +371,8 @@ function Admindashboard() {
         return renderUsersContent();
       case 'Client\'s Requests':
         return renderClientRequestsContent();
+      case 'Bids Management':
+        return renderBidsManagementContent();
       case 'Messages':
         return renderMessagesContent();
       case 'Inquiries':
@@ -1097,6 +1179,309 @@ function Admindashboard() {
         <div className="text-center py-10 text-gray-500">
           Inquiries feature coming soon
         </div>
+      </div>
+    );
+  };
+
+  // Render Bids Management content
+  const renderBidsManagementContent = () => {
+    return (
+      <div>
+        <div className="mb-6">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">Bids Overview</h2>
+          <p className="text-gray-600">Monitor all bids across projects</p>
+        </div>
+        
+        {/* Bid Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center">
+              <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white shadow-lg">
+                <FaBoxOpen size={22} />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Total Bids</p>
+                <div className="flex items-end">
+                  <h2 className="text-2xl font-bold text-gray-800">{bidStats.total}</h2>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center">
+              <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center text-white shadow-lg">
+                <FaCheck size={22} />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Accepted Bids</p>
+                <div className="flex items-end">
+                  <h2 className="text-2xl font-bold text-gray-800">{bidStats.accepted}</h2>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center">
+              <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center text-white shadow-lg">
+                <FaClock size={22} />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Pending Bids</p>
+                <div className="flex items-end">
+                  <h2 className="text-2xl font-bold text-gray-800">{bidStats.pending}</h2>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center">
+              <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg">
+                <FaTimes size={22} />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Rejected Bids</p>
+                <div className="flex items-end">
+                  <h2 className="text-2xl font-bold text-gray-800">{bidStats.rejected}</h2>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Search and Filter */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="relative w-72">
+            <input
+              type="text"
+              placeholder="Search bids..."
+              className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
+            <FaSearch className="absolute left-3 top-2.5 text-gray-400" />
+          </div>
+          <div className="flex space-x-3">
+            <select className="text-sm border border-gray-300 rounded-md px-3 py-2">
+              <option value="all">All Status</option>
+              <option value="accepted">Accepted</option>
+              <option value="pending">Pending</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <select className="text-sm border border-gray-300 rounded-md px-3 py-2">
+              <option>Sort By: Newest</option>
+              <option>Sort By: Price (High-Low)</option>
+              <option>Sort By: Price (Low-High)</option>
+            </select>
+          </div>
+        </div>
+        
+        {/* Bids Table */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contractor</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timeline</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {bidsLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">Loading bids data...</td>
+                </tr>
+              ) : allBids.length > 0 ? (
+                allBids.map(bid => (
+                  <tr key={bid._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          <FaUser className="text-gray-500" />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{bid.contractorname}</div>
+                          <div className="text-xs text-gray-500">ID: {bid.contractorId.substring(0, 8)}...</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">{bid.projectId}</div>
+                      <div className="text-xs text-gray-500">ID: {bid.projectId.substring(0, 8)}...</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">Rs. {bid.price.toLocaleString()}</div>
+                      {bid.updateCount > 0 && (
+                        <div className="text-xs text-gray-500">
+                          Updated {bid.updateCount} time{bid.updateCount !== 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">{bid.timeline} days</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${bid.status === 'accepted' ? 'bg-green-100 text-green-800' : 
+                          bid.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-red-100 text-red-800'}`}>
+                        {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(bid.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                      <button 
+                        className="text-blue-600 hover:text-blue-900"
+                        onClick={() => handleViewBidDetails(bid)}
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">No bids found</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Pagination */}
+        {allBids.length > 0 && (
+          <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Previous
+              </button>
+              <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium">1</span> to <span className="font-medium">{Math.min(10, allBids.length)}</span> of{" "}
+                  <span className="font-medium">{allBids.length}</span> results
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    Previous
+                  </button>
+                  <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    1
+                  </button>
+                  <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    Next
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* View-only Bid Details Modal */}
+        {selectedBid && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 mx-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-800">Bid Details</h3>
+                <button 
+                  onClick={() => setSelectedBid(null)} 
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-sm text-gray-500">Contractor</p>
+                  <p className="font-medium text-gray-800">{selectedBid.contractorname}</p>
+                  <p className="text-xs text-gray-500">ID: {selectedBid.contractorId}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Project ID</p>
+                  <p className="font-medium text-gray-800">{selectedBid.projectId}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Bid Amount</p>
+                  <p className="font-medium text-gray-800">Rs. {selectedBid.price.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Timeline</p>
+                  <p className="font-medium text-gray-800">{selectedBid.timeline} days</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Status</p>
+                  <p className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                    ${selectedBid.status === 'accepted' ? 'bg-green-100 text-green-800' : 
+                    selectedBid.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                    'bg-red-100 text-red-800'}`}>
+                    {selectedBid.status.charAt(0).toUpperCase() + selectedBid.status.slice(1)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Date Submitted</p>
+                  <p className="font-medium text-gray-800">
+                    {new Date(selectedBid.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-sm text-gray-500 mb-1">Qualifications</p>
+                <p className="text-gray-800 bg-gray-50 p-3 rounded">{selectedBid.qualifications}</p>
+              </div>
+              
+              {selectedBid.updateCount > 0 && selectedBid.previousPrices && (
+                <div className="mb-4">
+                  <p className="text-sm text-gray-500 mb-1">Price History</p>
+                  <div className="bg-gray-50 p-3 rounded">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-gray-500">
+                          <th className="pb-2">Date</th>
+                          <th className="pb-2">Price</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedBid.previousPrices.map((priceRecord, index) => (
+                          <tr key={index}>
+                            <td className="py-1">{new Date(priceRecord.updatedAt).toLocaleString()}</td>
+                            <td className="py-1">Rs. {priceRecord.price.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        <tr className="font-medium">
+                          <td className="py-1">Current</td>
+                          <td className="py-1">Rs. {selectedBid.price.toLocaleString()}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setSelectedBid(null)}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
