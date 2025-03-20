@@ -12,6 +12,8 @@ import {
 import { Link } from 'react-router-dom';
 import EnhancedPaymentGateway from '../components/Payment';
 import { useSupplierPayments } from '../context/SupplierPaymentContext';
+import ShipmentArrangementForm from '../components/ShipmentArrangementForm';
+import ShippingTracking from './ShippingTracking';
 
 // Mock data for the dashboard
 const inventoryData = [
@@ -754,50 +756,57 @@ function Supply_LogisticDashboard() {
             </div>
           )}
 
-          {activeTab === 'shipments' && (
-            <div className="space-y-6">
-              {/* Active Shipments Section */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">Active Shipments</h3>
-                  <div className="flex items-center space-x-2">
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Filter className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Download className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <MoreHorizontal className="h-5 w-5 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {activeShipments.map(shipment => (
-                    <div key={shipment.id} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-lg font-medium text-gray-800">{shipment.id}</h4>
-                          <p className="text-sm text-gray-600">{shipment.origin} to {shipment.destination}</p>
-                          <p className="text-sm text-gray-600">Driver: {shipment.driver}</p>
-                          <p className="text-sm text-gray-600">Vehicle: {shipment.vehicle}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className={`text-sm font-medium ${shipment.status === 'In Transit' ? 'text-blue-600' : 'text-gray-600'}`}>{shipment.status}</span>
-                          <span className="text-sm text-gray-600">{shipment.eta}</span>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <div className="h-2 bg-gray-200 rounded-full">
-                          <div className={`h-2 rounded-full ${shipment.status === 'In Transit' ? 'bg-blue-600' : 'bg-gray-600'}`} style={{ width: `${shipment.progress}%` }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+{activeTab === 'shipments' && (
+  <div className="space-y-6">
+    {/* Shipment Arrangement Form */}
+    <ShipmentArrangementForm
+      orders={orders}
+      onArrangeShipment={(shipmentData) => {
+        // Add the new shipment to the activeShipments list
+        const newShipment = {
+          id: `SHP-${Math.floor(Math.random() * 10000)}`, // Generate a random ID
+          origin: "Colombo Warehouse", // Default origin
+          destination: "Customer Site", // Default destination
+          driver: shipmentData.driver,
+          vehicle: shipmentData.vehicle,
+          status: shipmentData.status,
+          progress: shipmentData.status === "Delivered" ? 100 : 0,
+          eta: shipmentData.eta,
+        };
+        setActiveShipments((prev) => [...prev, newShipment]);
+      }}
+    />
+
+    {/* Shipment Tracking Section */}
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-medium text-gray-800">Active Shipments</h3>
+        <div className="flex items-center space-x-2">
+          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+            <Filter className="h-5 w-5 text-gray-600" />
+          </button>
+          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+            <Download className="h-5 w-5 text-gray-600" />
+          </button>
+          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+            <MoreHorizontal className="h-5 w-5 text-gray-600" />
+          </button>
+        </div>
+      </div>
+      <div className="space-y-4">
+        {activeShipments.map((shipment) => (
+          <ShippingTracking
+            key={shipment.id}
+            shipmentId={shipment.id}
+            shipmentStatus={shipment.status}
+            deliveryProgress={shipment.progress}
+            estimatedDelivery={shipment.eta}
+          />
+        ))}
+      </div>
+    </div>
+  </div>
+)}
 
           {activeTab === 'orders' && (
             <div className="space-y-6">
