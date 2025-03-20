@@ -87,6 +87,69 @@ router.get('/admins', async (req, res) => {
   }
 });
 
+// Add this route to update admin salary
+router.patch('/admins/:id/salary', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { salary } = req.body;
+    
+    if (!salary || typeof salary !== 'number' || salary <= 0) {
+      return res.status(400).json({ message: 'Invalid salary amount' });
+    }
+    
+    const admin = await User.findById(id);
+    
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    
+    if (admin.role !== 'Admin') {
+      return res.status(400).json({ message: 'User is not an admin' });
+    }
+    
+    // Initialize the salary object if it doesn't exist
+    if (!admin.salary) {
+      admin.salary = {
+        amount: 0,
+        epf: {
+          employee: 0,
+          employer: 0
+        },
+        etf: 0,
+        paymentStatus: 'Pending'
+      };
+    }
+    
+    // Update salary amount
+    admin.salary.amount = salary;
+    
+    // Update EPF and ETF calculations
+    admin.salary.epf.employee = salary * 0.08;
+    admin.salary.epf.employer = salary * 0.12;
+    admin.salary.etf = salary * 0.03;
+    
+    // Reset payment status when salary changes
+    admin.salary.paymentStatus = 'Pending';
+    
+    await admin.save();
+    
+    res.json({
+      message: 'Salary updated successfully',
+      admin: {
+        id: admin._id,
+        username: admin.username,
+        email: admin.email,
+        salary: admin.salary.amount,
+        status: admin.salary.paymentStatus,
+        lastPaid: admin.salary.lastPaid
+      }
+    });
+  } catch (error) {
+    console.error('Error updating admin salary:', error);
+    res.status(500).json({ message: 'Error updating salary', error: error.message });
+  }
+});
+
 // POST request to login a user
 router.post('/login', async (req, res) => {
   const { emailUsername, password } = req.body;

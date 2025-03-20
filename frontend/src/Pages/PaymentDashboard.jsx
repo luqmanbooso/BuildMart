@@ -49,6 +49,12 @@ function PaymentDashboard() {
   const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
   const [adminError, setAdminError] = useState(null);
 
+  // Add these state variables at the top of your component
+  const [showSalaryModal, setShowSalaryModal] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState(null);
+  const [incrementAmount, setIncrementAmount] = useState(0);
+  const [incrementType, setIncrementType] = useState('fixed'); // 'fixed' or 'percentage'
+
   // Keep existing paymentStats state
   const [paymentStats, setPaymentStats] = useState({
     totalAmount: 0,
@@ -407,34 +413,33 @@ function PaymentDashboard() {
   const fetchAdminSalaries = async () => {
     try {
       const response = await axios.get('http://localhost:5000/auth/admins');
-      const admins = response.data;
       
-      let paidAmount = 0;
-      let pendingAmount = 0;
+      // Transform the data to match the format expected by the component
+      const processedSalaries = response.data.map(admin => ({
+        id: admin.id,
+        name: admin.username,
+        email: admin.email,
+        salary: admin.salary?.amount || 30000, // Access salary amount or use default
+        status: admin.salary?.paymentStatus || 'Pending',
+        lastPaid: admin.salary?.lastPaid ? new Date(admin.salary.lastPaid).toLocaleDateString() : 'Never'
+      }));
       
-      const formattedSalaries = admins.map(admin => {
-        if (admin.salary.paymentStatus === 'Paid') {
-          paidAmount += admin.salary.amount;
-        } else {
-          pendingAmount += admin.salary.amount;
-        }
+      setAdminSalaries(processedSalaries);
+      
+      // Calculate totals for stats display
+      const totalPaid = processedSalaries
+        .filter(admin => admin.status === 'Paid')
+        .reduce((sum, admin) => sum + admin.salary, 0);
         
-        return {
-          id: admin._id,
-          name: admin.username,
-          email: admin.email,
-          salary: admin.salary.amount,
-          lastPaid: admin.salary.lastPaid ? new Date(admin.salary.lastPaid).toLocaleDateString() : 'Never',
-          status: admin.salary.paymentStatus
-        };
-      });
+      const totalPending = processedSalaries
+        .filter(admin => admin.status !== 'Paid')
+        .reduce((sum, admin) => sum + admin.salary, 0);
       
-      setAdminSalaries(formattedSalaries);
-      setTotalSalaryPaid(paidAmount);
-      setTotalSalaryPending(pendingAmount);
+      setTotalSalaryPaid(totalPaid);
+      setTotalSalaryPending(totalPending);
     } catch (error) {
       console.error('Error fetching admin salaries:', error);
-      setError(error.message);
+      alert('Failed to load admin salary data. Please try again.');
     }
   };
 
@@ -451,6 +456,60 @@ function PaymentDashboard() {
     } catch (error) {
       console.error('Error processing salary payment:', error);
       showNotificationMessage('error', 'Failed to process salary payment');
+    }
+  };
+
+  const handleSalaryIncrement = async () => {
+    try {
+      if (!selectedAdmin) return;
+      
+      const currentSalary = selectedAdmin.salary || 30000;
+      let newSalary = currentSalary;
+      
+      if (incrementType === 'fixed') {
+        newSalary = currentSalary + Number(incrementAmount);
+      } else {
+        // Percentage increase
+        newSalary = currentSalary + (currentSalary * Number(incrementAmount) / 100);
+      }
+      
+      // Round to 2 decimal places
+      newSalary = Math.round(newSalary * 100) / 100;
+      
+      // Log the data being sent
+      console.log('Updating salary:', {
+        adminId: selectedAdmin.id,
+        currentSalary,
+        newSalary,
+        incrementType,
+        incrementAmount
+      });
+      
+      const response = await axios.patch(`http://localhost:5000/auth/admins/${selectedAdmin.id}/salary`, {
+        salary: newSalary
+      });
+      
+      console.log('Response:', response.data);
+      
+      if (response.data) {
+        // Show success notification
+        alert('Salary updated successfully!');
+        
+        // Refresh admin salaries data
+        fetchAdminSalaries();
+        
+        // Close modal
+        setShowSalaryModal(false);
+        setSelectedAdmin(null);
+        setIncrementAmount(0);
+      }
+    } catch (error) {
+      console.error('Error updating salary:', error);
+      // More detailed error message
+      const errorMessage = error.response ? 
+        `Failed to update salary: ${error.response.status} - ${error.response.data?.message || error.message}` :
+        `Failed to update salary: ${error.message}`;
+      alert(errorMessage);
     }
   };
 
@@ -1160,7 +1219,7 @@ function PaymentDashboard() {
                 </div>
               </div>
 
-              {/* Salary Statistics */}
+              {/* Salary Statistics - keep existing code */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="text-sm text-blue-600 font-medium">Total Monthly Salaries</p>
@@ -1182,7 +1241,6 @@ function PaymentDashboard() {
                 </div>
               </div>
 
-              {/* Add this before the table */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="text-sm text-blue-600 font-medium">Total Basic Salaries</p>
@@ -1266,17 +1324,30 @@ function PaymentDashboard() {
                             {getStatusBadge(admin.status)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <button 
-                              onClick={() => handleSalaryPayment(admin.id)}
-                              className={`px-3 py-1 rounded-md text-sm font-medium ${
-                                admin.status === 'Paid' 
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                              }`}
-                              disabled={admin.status === 'Paid'}
-                            >
-                              {admin.status === 'Paid' ? 'Paid' : 'Pay Now'}
-                            </button>
+                            <div className="flex space-x-2">
+                              <button 
+                                onClick={() => handleSalaryPayment(admin.id)}
+                                className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                  admin.status === 'Paid' 
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                                }`}
+                                disabled={admin.status === 'Paid'}
+                              >
+                                {admin.status === 'Paid' ? 'Paid' : 'Pay Now'}
+                              </button>
+                              
+                              {/* Add Salary Increment Button */}
+                              <button 
+                                onClick={() => {
+                                  setSelectedAdmin(admin);
+                                  setShowSalaryModal(true);
+                                }}
+                                className="px-3 py-1 rounded-md text-sm font-medium bg-green-50 text-green-600 hover:bg-green-100 flex items-center"
+                              >
+                                <TrendingUp size={14} className="mr-1" /> Increment
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1544,6 +1615,111 @@ function PaymentDashboard() {
           </div>
         </main>
       </div>
+
+      {/* Salary Increment Modal */}
+      {showSalaryModal && selectedAdmin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Salary Increment - {selectedAdmin.name}
+              </h3>
+              <button 
+                onClick={() => {
+                  setShowSalaryModal(false);
+                  setSelectedAdmin(null);
+                  setIncrementAmount(0);
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Current Salary</p>
+                <p className="text-xl font-bold text-gray-900">
+                  Rs. {(selectedAdmin.salary || 30000).toLocaleString()}
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Increment Type
+                </label>
+                <div className="flex space-x-4">
+                  <label className="inline-flex items-center">
+                    <input 
+                      type="radio" 
+                      className="form-radio" 
+                      name="incrementType" 
+                      value="fixed" 
+                      checked={incrementType === 'fixed'}
+                      onChange={() => setIncrementType('fixed')}
+                    />
+                    <span className="ml-2">Fixed Amount</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input 
+                      type="radio" 
+                      className="form-radio" 
+                      name="incrementType" 
+                      value="percentage" 
+                      checked={incrementType === 'percentage'}
+                      onChange={() => setIncrementType('percentage')}
+                    />
+                    <span className="ml-2">Percentage</span>
+                  </label>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {incrementType === 'fixed' ? 'Increment Amount (Rs.)' : 'Increment Percentage (%)'}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step={incrementType === 'fixed' ? '1000' : '0.5'}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={incrementAmount}
+                  onChange={(e) => setIncrementAmount(e.target.value)}
+                />
+              </div>
+              
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm font-medium text-blue-800 mb-1">New Salary</p>
+                <p className="text-xl font-bold text-blue-900">
+                  Rs. {(incrementType === 'fixed' 
+                    ? (selectedAdmin.salary || 30000) + Number(incrementAmount || 0)
+                    : (selectedAdmin.salary || 30000) * (1 + Number(incrementAmount || 0) / 100)
+                  ).toLocaleString()}
+                </p>
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowSalaryModal(false);
+                    setSelectedAdmin(null);
+                  }}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSalaryIncrement}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
+                >
+                  <Check size={16} className="mr-2" />
+                  Update Salary
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
