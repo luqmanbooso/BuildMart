@@ -25,8 +25,8 @@ const printStyles = `
   }
 `;
 
-// Update the component declaration to accept props
-const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) => {
+// Add a new prop for payment context
+const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, context = 'customer' }) => {
   // State management
   const [activeCard, setActiveCard] = useState('visa');
   const [cardNumber, setCardNumber] = useState('');
@@ -446,6 +446,12 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
     ? { readOnly: true, className: 'bg-gray-50' }
     : {};
 
+  // Modify the header text based on context
+  const getHeaderText = () => {
+    return context === 'supplier' ? 'Supplier Payment' : 'Payment Gateway';
+  };
+
+  // Add context-specific text in the payment form
   return (
     <>
       <style>{printStyles}</style>
@@ -479,7 +485,9 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
         <div className="bg-white rounded-lg shadow-2xl p-6 md:p-8 max-w-3xl w-full mx-auto max-h-[90vh] overflow-y-auto">
           {/* Header with more spacing */}
           <div className="flex flex-col md:flex-row items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-4 md:mb-0">Payment Gateway</h1>
+            <h1 className="text-3xl font-bold text-gray-800 mb-4 md:mb-0">
+              {getHeaderText()}
+            </h1>
             <div className="flex space-x-3">
               <CardLogo type="visa" />
               <CardLogo type="mastercard" />
@@ -487,6 +495,15 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel }) 
               <CardLogo type="discover" />
             </div>
           </div>
+
+          {/* Add context indicator if needed */}
+          {context === 'supplier' && (
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                Processing payment for supplier services and materials.
+              </p>
+            </div>
+          )}
 
           {/* Form with improved layout for wider container */}
           <form onSubmit={handlePayment} className="space-y-6">
