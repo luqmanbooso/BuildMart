@@ -3,12 +3,14 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import logo from '../assets/images/buildmart_logo1.png';
 import axios from 'axios'; // Make sure axios is installed
 import ClientNavBar from '../components/ClientNavBar';
+import { jwtDecode } from 'jwt-decode';
 
 function Ongoingworks() {
   const [ongoingWorks, setOngoingWorks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeWorkId, setActiveWorkId] = useState(null);
+  const [clientDetails, setClientDetails] = useState(null); // Add this state
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -38,24 +40,42 @@ function Ongoingworks() {
         return;
       }
       
-      // Extract userId from token
+      // Declare userId at this scope, so it's accessible throughout the function
       let userId;
+      
+      // Extract userId and client details from token
       try {
-        // Decode JWT token (split by dot, take the payload part (index 1), and decode)
-        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-        userId = tokenPayload.userId || tokenPayload.id || tokenPayload._id;
+        const tokenPayload = jwtDecode(token);
+        console.log("Token payload:", tokenPayload); // For debugging
+        
+        userId = tokenPayload._id || tokenPayload.userId || tokenPayload.id;
         
         if (!userId) {
           throw new Error('User ID not found in token');
         }
+        
+        // Set client details from token
+        setClientDetails({
+          id: userId,
+          name: tokenPayload.name || tokenPayload.username || 'Client',
+          email: tokenPayload.email || tokenPayload.username,
+          role: tokenPayload.role || 'Client'
+        });
+        
+        console.log("Client details extracted from token:", {
+          id: userId,
+          name: tokenPayload.name || tokenPayload.username,
+          email: tokenPayload.email || tokenPayload.username,
+          role: tokenPayload.role
+        });
+        
       } catch (tokenError) {
         console.error('Invalid token:', tokenError);
-        // Token is invalid, redirect to login
         navigate('/login', { state: { from: location.pathname } });
         return;
       }
       
-      // Make API call to fetch ongoing works with the extracted userId
+      // Now userId is available here for the API call
       const response = await axios.get(`http://localhost:5000/api/ongoingworks/client/${userId}`, {
         headers: {
           Authorization: `Bearer ${token}` // Include token in the authorization header
@@ -108,11 +128,14 @@ function Ongoingworks() {
         })
       }));
       
-      setOngoingWorks(formattedWorks);
+      // Fetch contractor details for each ongoing work
+      const updatedWorks = await fetchContractorDetails(formattedWorks, token);
+      
+      setOngoingWorks(updatedWorks);
       
       // Set the first work as active if any exist
-      if (formattedWorks.length > 0) {
-        setActiveWorkId(formattedWorks[0].id);
+      if (updatedWorks.length > 0) {
+        setActiveWorkId(updatedWorks[0].id);
       }
       
     } catch (err) {
@@ -123,6 +146,45 @@ function Ongoingworks() {
     }
   };
 
+  // Fetch contractor details for each ongoing work
+  const fetchContractorDetails = async (formattedWorks, token) => {
+    const updatedWorks = [...formattedWorks];
+    
+    // Fetch contractor details for each work
+    for (let i = 0; i < updatedWorks.length; i++) {
+      try {
+        const work = updatedWorks[i];
+        // Skip if no contractor ID
+        if (!work.contractorId) continue;
+        
+        // Fetch contractor details from API
+        const response = await axios.get(
+          `http://localhost:5000/api/contractors/user/${work.contractorId}`, 
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        
+        // Get contractor data
+        const contractorData = response.data;
+        const userData = contractorData.userId || {};
+        
+        // Update work with contractor details
+        updatedWorks[i] = {
+          ...work,
+          contractor: userData.username || contractorData.companyName || 'Contractor',
+          contractorPhone: contractorData.phone || 'N/A',
+          contractorEmail: userData.email || 'N/A',
+          contractorImage: userData.profilePic || 'https://randomuser.me/api/portraits/lego/1.jpg'
+        };
+      } catch (err) {
+        console.error(`Error fetching contractor details for work ${updatedWorks[i].id}:`, err);
+      }
+    }
+    
+    return updatedWorks;
+  };
+
   // Fetch data when component mounts
   useEffect(() => {
     fetchOngoingWorks();
@@ -131,14 +193,21 @@ function Ongoingworks() {
   // Handle payment for milestone
   const handlePayment = async (workId, milestoneId) => {
     try {
-      if (window.confirm('Proceed with payment for this milestone?')) {
+      if (window.confirm('Confirm payment for this milestone?')) {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const milestone = ongoingWorks.find(w => w.id === workId)
-          .milestones.find(m => m.id === milestoneId);
         
-        // Make API call to update milestone status with proper URL
-        await axios.patch(`http://localhost:5000/api/ongoingworks/${workId}/milestone/${milestoneId}`, {
-          status: 'completed',
+        // Find the work and milestone
+        const work = ongoingWorks.find(w => w.id === workId);
+        const milestone = work.milestones.find(m => m.id === milestoneId);
+        const milestoneIndex = work.milestones.findIndex(m => m.id === milestoneId);
+        
+        if (milestoneIndex === -1) {
+          throw new Error('Milestone not found');
+        }
+        
+        // Use index in the URL, not ID
+        await axios.patch(`http://localhost:5000/api/ongoingworks/${workId}/milestone/${milestoneIndex}`, {
+          status: 'Completed', // This is a valid enum value in your schema
           actualAmountPaid: parseFloat(milestone.amount),
           completedAt: new Date()
         }, {
@@ -147,9 +216,26 @@ function Ongoingworks() {
           }
         });
         
-        // Fetch updated data after payment
+        // Calculate new progress (your backend does this automatically!)
+        const totalMilestones = work.milestones.length;
+        const completedMilestones = work.milestones.filter(m => 
+          m.status === 'completed' || m.status === 'Completed' || m.id === milestoneId
+        ).length;
+        
+        const newProgress = Math.round((completedMilestones / totalMilestones) * 100);
+        
+        // Update work progress
+        await axios.put(`http://localhost:5000/api/ongoingworks/${workId}`, {
+          workProgress: newProgress
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        // Refresh the data
         fetchOngoingWorks();
-        alert('Payment processed successfully');
+        alert('Payment completed successfully!');
       }
     } catch (err) {
       console.error('Error processing payment:', err);
@@ -160,21 +246,48 @@ function Ongoingworks() {
   // Handle verification of milestone completion
   const handleVerifyCompletion = async (workId, milestoneId) => {
     try {
-      if (window.confirm('Confirm that this milestone has been completed?')) {
+      if (window.confirm('Ready to make payment for this milestone?')) {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
-        // Make API call to update milestone status
-        await axios.patch(`http://localhost:5000/api/ongoingworks/${workId}/milestone/${milestoneId}`, {
-          status: 'ready_for_payment'
+        // Find the work and milestone
+        const work = ongoingWorks.find(w => w.id === workId);
+        const milestoneIndex = work.milestones.findIndex(m => m.id === milestoneId);
+        
+        if (milestoneIndex === -1) {
+          throw new Error('Milestone not found');
+        }
+        
+        // Use the index, not the ID in the URL
+        await axios.patch(`http://localhost:5000/api/ongoingworks/${workId}/milestone/${milestoneIndex}`, {
+          // Skip the status update - we'll handle this in the UI instead
+          // Just mark it ready for payment in the UI
         }, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
         
-        // Refresh data to get updated milestones from server
-        fetchOngoingWorks();
-        alert('Milestone verified successfully');
+        // Update local state to show payment button
+        const updatedWorks = ongoingWorks.map(w => {
+          if (w.id === workId) {
+            return {
+              ...w,
+              milestones: w.milestones.map((m, idx) => {
+                if (m.id === milestoneId) {
+                  return {
+                    ...m,
+                    status: 'readyforpayment' // Local UI state only
+                  };
+                }
+                return m;
+              })
+            };
+          }
+          return w;
+        });
+        
+        setOngoingWorks(updatedWorks);
+        alert('Milestone ready for payment');
       }
     } catch (err) {
       console.error('Error verifying milestone completion:', err);
@@ -402,12 +515,13 @@ function Ongoingworks() {
                         </button>
                         <button 
                           onClick={() => {
-                            // Create full agreement data object
+                            // Create full agreement data object with client details from state
                             const agreementData = {
                               jobDetails: {
                                 title: activeWork.title,
                                 description: activeWork.description,
                                 location: activeWork.location,
+                                _id: activeWork.jobId,
                                 milestones: activeWork.milestones.map(m => ({
                                   name: m.title,
                                   description: m.description,
@@ -419,17 +533,28 @@ function Ongoingworks() {
                                 email: activeWork.contractorEmail,
                                 phone: activeWork.contractorPhone
                               },
+                              // Add client details from state
+                              clientDetails: clientDetails || {
+                                name: "Client",
+                                email: "client@example.com"
+                              },
                               bidDetails: {
                                 price: activeWork.milestones.reduce((sum, m) => sum + parseFloat(m.amount || 0), 0),
                                 timeline: `${activeWork.startDate} to ${activeWork.dueDate}`,
-                                status: "accepted" // Add this "accepted" status
+                                status: "accepted",
+                                contractorname: activeWork.contractor
                               },
-                              // Add this important flag
-                              bidAlreadyAccepted: true
+                              paymentSchedule: activeWork.milestones.map((m, index) => ({
+                                milestone: m.title,
+                                description: m.description,
+                                date: new Date(Date.now() + (index + 1) * 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+                                percentage: Math.round(100 / activeWork.milestones.length),
+                                amount: parseFloat(m.amount)
+                              }))
                             };
                             
-                            // Navigate with state
-                            navigate(`/agreement/${activeWork.jobId}/${activeWork.bidId}`, { 
+                            // Navigate to the AcceptedAgreementView route with complete data
+                            navigate(`/accepted-agreement/${activeWork.jobId}/${activeWork.bidId}`, { 
                               state: agreementData 
                             });
                           }}

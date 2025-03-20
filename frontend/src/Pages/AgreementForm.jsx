@@ -1,18 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { useReactToPrint } from 'react-to-print';
 import logo from '../assets/images/buildmart_logo1.png';
 import { jwtDecode } from 'jwt-decode';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 
 const AgreementForm = () => {
   const location = useLocation();
   const { jobId, bidId } = useParams();
   const navigate = useNavigate();
-  const printRef = useRef();
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -26,12 +22,7 @@ const AgreementForm = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [bidAlreadyAccepted, setBidAlreadyAccepted] = useState(false);
   
-  // Setup print handler
-  const handlePrint = useReactToPrint({
-    content: () => printRef.current,
-    documentTitle: `Project_Agreement_${jobId}`,
-    onAfterPrint: () => toast.success('Agreement printed successfully')
-  });
+ 
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,12 +31,19 @@ const AgreementForm = () => {
         // FIRST CHECK: If we have data in location state, use it
         if (location.state) {
           console.log("Using data from navigation state:", location.state);
+          
+          // If the bid is already accepted, redirect to AcceptedAgreementView
+          if (location.state.bidAlreadyAccepted) {
+            navigate(`/accepted-agreement/${jobId}/${bidId}`, { 
+              state: location.state 
+            });
+            return; // Stop further processing
+          }
+          
+          // Continue with normal processing for non-accepted bids
           setJobDetails(location.state.jobDetails);
           setContractorDetails(location.state.contractorDetails);
           setBidDetails(location.state.bidDetails);
-          
-          // Set bidAlreadyAccepted based on state data
-          setBidAlreadyAccepted(location.state.bidAlreadyAccepted || false);
           
           // Get client details from localStorage
           const clientName = localStorage.getItem('name') || 'Client';
@@ -144,7 +142,7 @@ const AgreementForm = () => {
     };
     
     fetchData();
-  }, [jobId, bidId, location.state]);
+  }, [jobId, bidId, location.state, navigate]);
   
   const handleSubmit = async (e) => {
     alert("Button clicked - handleSubmit running");
@@ -402,148 +400,9 @@ const AgreementForm = () => {
   
   const paymentSchedule = calculatePaymentSchedule();
   
-  // Alternative simple PDF generation approach
-
-const handleDownloadPdf = async () => {
-  toast.info("Generating agreement PDF...");
-  
-  try {
-    // Create a simple PDF with text only - avoiding html2canvas completely
-    const pdf = new jsPDF();
-    
-    // Add title
-    pdf.setFontSize(22);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(`Project Agreement: ${jobDetails?.title || 'Project'}`, 20, 20);
-    
-    // Add date
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "normal");
-    pdf.text(`Date: ${new Date().toLocaleDateString()}`, 20, 30);
-    
-    // Add parties
-    pdf.setFontSize(16);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Agreement Between:", 20, 40);
-    
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "normal");
-    pdf.text(`Client: ${clientDetails?.name || clientDetails?.username || 'Client'}`, 20, 50);
-    pdf.text(`Contractor: ${contractorDetails?.name || bidDetails?.contractorname || 'Contractor'}`, 20, 60);
-    
-    // Add project details
-    pdf.setFontSize(16);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Project Details:", 20, 75);
-    
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "normal");
-    pdf.text(`Project: ${jobDetails?.title || 'Project Title'}`, 20, 85);
-    pdf.text(`Bid Amount: LKR ${parseFloat(bidDetails?.price).toLocaleString() || 'N/A'}`, 20, 95);
-    pdf.text(`Timeline: ${bidDetails?.timeline || 'N/A'} days`, 20, 105);
-    
-    // Add description - handle text wrapping
-    pdf.setFontSize(16);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Project Description:", 20, 120);
-    
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "normal");
-    const description = jobDetails?.description || 'No description provided';
-    const splitDescription = pdf.splitTextToSize(description, 170);
-    pdf.text(splitDescription, 20, 130);
-    
-    // Add payment details
-    let yPosition = 130 + splitDescription.length * 7;
-    
-    pdf.setFontSize(16);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Payment Details:", 20, yPosition);
-    
-    // Add signature lines
-    yPosition = Math.min(yPosition + 100, 250);
-    
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Signatures:", 20, yPosition);
-    
-    pdf.setFont("helvetica", "normal");
-    pdf.text("Client Signature: _______________________", 20, yPosition + 20);
-    pdf.text(`Name: ${clientDetails?.name || clientDetails?.username || ''}`, 20, yPosition + 30);
-    
-    pdf.text("Contractor Signature: _______________________", 120, yPosition + 20);
-    pdf.text(`Name: ${contractorDetails?.name || bidDetails?.contractorname || ''}`, 120, yPosition + 30);
-    
-    pdf.save(`${jobDetails?.title || 'Project'}_Agreement.pdf`);
-    toast.success("Agreement PDF downloaded successfully");
-  } catch (err) {
-    console.error("Error generating PDF:", err);
-    toast.error(`Could not generate PDF: ${err.message}`);
-  }
-};
-  
-  const sendAgreementEmail = async () => {
-    if (!contractorDetails?.email) {
-      toast.error("Contractor email not found");
-      return;
-    }
-    
-    try {
-      toast.info("Sending agreement to contractor...");
-      
-      // Prepare the data
-      const emailData = {
-        recipientEmail: contractorDetails.email,
-        subject: `Project Agreement: ${jobDetails?.title}`,
-        projectTitle: jobDetails?.title,
-        clientName: clientDetails?.name || clientDetails?.username,
-        contractorName: contractorDetails?.name || bidDetails?.contractorname,
-        agreementId: jobId,
-        bidAmount: parseFloat(bidDetails?.price).toLocaleString()
-      };
-      
-      console.log("Sending email with data:", emailData);
-      
-      // Make API request
-      const response = await axios.post('http://localhost:5000/api/email/send-agreement', emailData);
-      
-      console.log("Email API response:", response.data);
-      
-      toast.success("Agreement sent to contractor's email!");
-      
-      // If using Ethereal for testing, open the preview URL
-      if (response.data.previewUrl) {
-        window.open(response.data.previewUrl, '_blank');
-      }
-    } catch (error) {
-      console.error("Error sending email:", error);
-      
-      // Fallback to mailto if API fails
-      const fallbackToMailto = window.confirm(
-        "Email service is currently unavailable. Would you like to open your email client instead?"
-      );
-      
-      if (fallbackToMailto) {
-        const subject = encodeURIComponent(`Project Agreement: ${jobDetails?.title || 'Project'}`);
-        const body = encodeURIComponent(
-          `Dear ${contractorDetails?.name || bidDetails?.contractorname},\n\n` +
-          `I'm sending you the agreement for the project "${jobDetails?.title}". ` +
-          `The bid amount is LKR ${parseFloat(bidDetails?.price).toLocaleString()} ` +
-          `with a timeline of ${bidDetails?.timeline} days.\n\n` +
-          `Please review the agreement details. You can access the full agreement at: ` +
-          `${window.location.href}\n\n` +
-          `Regards,\n${clientDetails?.name || clientDetails?.username}`
-        );
-        
-        window.location.href = `mailto:${contractorDetails.email}?subject=${subject}&body=${body}`;
-      } else {
-        toast.error("Failed to send email. Please try again later.");
-      }
-    }
-  };
-  
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Success Modal */}
+      {/* Success Modal */} 
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
@@ -570,27 +429,7 @@ const handleDownloadPdf = async () => {
         </div>
       )}
     
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div className="flex items-center">
-            <img src={logo} alt="BuildMart Logo" className="h-10" />
-            <h1 className="ml-4 text-xl font-bold text-gray-900">Project Agreement</h1>
-          </div>
-          <div>
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              Print
-            </button>
-          </div>
-        </div>
-      </header>
-      
+     
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <nav className="mb-5">
           <ol className="flex items-center space-x-2 text-sm text-gray-500">
@@ -612,8 +451,7 @@ const handleDownloadPdf = async () => {
               <p className="text-sm text-gray-500 mt-1">Review the agreement details below</p>
             </div>
             
-            {/* Printable Content */}
-            <div ref={printRef} className="print-content">
+            <div className="print-content">
               <div className="border-t border-gray-200 pt-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Contract Agreement</h3>
                 
@@ -706,23 +544,7 @@ const handleDownloadPdf = async () => {
                   </ul>
                 </div>
                 
-                {/* Signature Section (for print only) */}
-                <div className="hidden print:block mt-8 pt-8 border-t border-gray-200">
-                  <div className="grid grid-cols-2 gap-8">
-                    <div>
-                      <p className="font-bold mb-8">Client Signature:</p>
-                      <div className="border-b border-gray-400 w-48"></div>
-                      <p className="mt-2">{clientDetails?.name || clientDetails?.username}</p>
-                      <p>Date: {new Date().toLocaleDateString()}</p>
-                    </div>
-                    <div>
-                      <p className="font-bold mb-8">Contractor Signature:</p>
-                      <div className="border-b border-gray-400 w-48"></div>
-                      <p className="mt-2">{contractorDetails?.name || bidDetails?.contractorname}</p>
-                      <p>Date: {new Date().toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                </div>
+               
               </div>
             </div>
             
@@ -802,7 +624,6 @@ const handleDownloadPdf = async () => {
               )}
             </div>
             
-            {/* Action Buttons - Not shown in print */}
             <div className="print:hidden mt-8 flex justify-end space-x-3">
               <button
                 type="button"
@@ -812,37 +633,6 @@ const handleDownloadPdf = async () => {
                 Back to Project
               </button>
               
-              {/* Download PDF Button - shown when bid is already accepted */}
-              {bidAlreadyAccepted && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleDownloadPdf}
-                    className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Download PDF
-                  </button>
-                  
-                  {/* Email Agreement Button - if contractor has email */}
-                  {contractorDetails?.email && (
-                    <button
-                      type="button"
-                      onClick={sendAgreementEmail}
-                      className="px-4 py-2 border border-indigo-300 shadow-sm text-sm font-medium rounded-md text-indigo-700 bg-white hover:bg-indigo-50"
-                    >
-                      <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      Email to Contractor
-                    </button>
-                  )}
-                </>
-              )}
-              
-              {/* Submit Button - only shown when bid is not accepted yet */}
               {!bidAlreadyAccepted && (
                 <button
                   type="button"
@@ -867,24 +657,7 @@ const handleDownloadPdf = async () => {
               )}
             </div>
             
-            {/* If bid is already accepted, show a status banner */}
-            {bidAlreadyAccepted && (
-              <div className="mt-6 bg-green-50 border border-green-200 rounded-md p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-green-800">Agreement Accepted</h3>
-                    <p className="text-sm text-green-700 mt-1">
-                      This agreement has been accepted and the project is in progress. You can download the agreement as a PDF or send it via email.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+           
           </div>
         </div>
       </div>

@@ -29,6 +29,7 @@ import AgreementForm from './Pages/AgreementForm'
 import OngoingProjects from './components/OngoingProjects'
 import InventoryDash from './Pages/InventoryDash'
 import Supply_LogisticDashboard from './Pages/Supply_LogisticDashboard'
+import AcceptedAgreementView from './components/AcceptedAgreementView';
 
 function App() {
   const sampleData = {
@@ -104,6 +105,10 @@ function App() {
         <Route path="/agreement/:jobId/:bidId" element={<AgreementForm />} />
         <Route path="/inventoryDash" element={<InventoryDash />} />
         <Route path="/supply-logistics" element={<Supply_LogisticDashboard />} />
+        <Route 
+          path="/accepted-agreement/:jobId/:bidId" 
+          element={<AcceptedAgreementView />} 
+        />
       </Routes>
     </>
   )
