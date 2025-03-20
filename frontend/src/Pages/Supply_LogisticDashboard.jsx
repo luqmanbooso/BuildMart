@@ -11,6 +11,7 @@ import {
 } from 'recharts'; 
 import { Link } from 'react-router-dom';
 import EnhancedPaymentGateway from '../components/Payment';
+import { useSupplierPayments } from '../context/SupplierPaymentContext';
 
 // Mock data for the dashboard
 const inventoryData = [
@@ -25,8 +26,8 @@ const inventoryData = [
 ];
 
 const recentOrders = [
-  { id: 'ORD-7892', customer: 'Colombo Builders', items: 8, value: 145000, status: 'Delivered', date: '2025-03-15' },
-  { id: 'ORD-7891', customer: 'Highland Construction', items: 12, value: 230000, status: 'In Transit', date: '2025-03-17' },
+  { id: 'ORD-7892', customer: 'Colombo Builders', items: 8, value: 145000, status: 'Delivered', paymentStatus: 'Pending', date: '2025-03-15' },
+  { id: 'ORD-7891', customer: 'Highland Construction', items: 12, value: 230000, status: 'In Transit', paymentStatus: null, date: '2025-03-17' },
   { id: 'ORD-7890', customer: 'Kandy Developers', items: 5, value: 87000, status: 'Processing', date: '2025-03-18' },
   { id: 'ORD-7889', customer: 'Galle Projects', items: 15, value: 315000, status: 'Pending', date: '2025-03-18' },
   { id: 'ORD-7888', customer: 'Mountain Builders', items: 3, value: 45000, status: 'Delivered', date: '2025-03-14' },
@@ -117,6 +118,8 @@ function Supply_LogisticDashboard() {
   const [showShipmentDetails, setShowShipmentDetails] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const { addSupplierPayment } = useSupplierPayments();
+  const [orders, setOrders] = useState(recentOrders);
 
   // Simulating data loading
   useEffect(() => {
@@ -152,9 +155,29 @@ function Supply_LogisticDashboard() {
   const pendingOrders = recentOrders.filter(order => order.status === 'Pending' || order.status === 'Processing').length;
   
   const handlePaymentSuccess = (paymentData) => {
-    // Update order status or handle success
+    const supplier = inventoryData.find(item => 
+      item.supplier === selectedOrder.customer
+    )?.supplier || selectedOrder.customer;
+
+    addSupplierPayment({
+      supplierName: supplier,
+      invoiceNumber: selectedOrder.id,
+      amount: selectedOrder.value,
+      paymentDate: new Date().toISOString(),
+      status: 'Completed',
+      paymentDetails: paymentData
+    });
+
+    // Update order's payment status
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === selectedOrder.id 
+          ? { ...order, paymentStatus: 'Completed' }
+          : order
+      )
+    );
+
     setShowPaymentModal(false);
-    // You could add a success notification here
   };
 
   if (loading) {
@@ -709,7 +732,7 @@ function Supply_LogisticDashboard() {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  {recentOrders.map(order => (
+                  {orders.map(order => (
                     <div key={order.id} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
                       <div className="flex items-center justify-between">
                         <div>
@@ -720,25 +743,38 @@ function Supply_LogisticDashboard() {
                           <p className="text-sm text-gray-600">Date: {order.date}</p>
                         </div>
                         <div className="flex flex-col items-end space-y-2">
-                          <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                            order.status === 'Delivered' ? 'bg-green-100 text-green-600' : 
-                            order.status === 'In Transit' ? 'bg-blue-100 text-blue-600' : 
-                            order.status === 'Processing' ? 'bg-amber-100 text-amber-600' : 
-                            'bg-gray-100 text-gray-600'
-                          }`}>
-                            {order.status}
-                          </span>
-                          {order.status === 'Delivered' && (
-                            <button
-                              onClick={() => {
-                                setSelectedOrder(order);
-                                setShowPaymentModal(true);
-                              }}
-                              className="flex items-center space-x-1 text-sm font-medium text-blue-600 hover:text-blue-800"
-                            >
-      
-                              <span>Process Payment</span>
-                            </button>
+                          <div className="flex flex-col items-end space-y-1">
+                            <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                              order.status === 'Delivered' ? 'bg-green-100 text-green-600' : 
+                              order.status === 'In Transit' ? 'bg-blue-100 text-blue-600' : 
+                              order.status === 'Processing' ? 'bg-amber-100 text-amber-600' : 
+                              'bg-gray-100 text-gray-600'
+                            }`}>
+                              {order.status}
+                            </span>
+                            {order.status === 'Delivered' && (
+                              order.paymentStatus === 'Completed' ? (
+                                <span className="flex items-center text-sm font-medium text-green-600">
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Payment Completed
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setShowPaymentModal(true);
+                                  }}
+                                  className="flex items-center space-x-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+                                >
+                                  <span>Process Payment</span>
+                                </button>
+                              )
+                            )}
+                          </div>
+                          {order.paymentStatus === 'Completed' && (
+                            <p className="text-xs text-gray-500">
+                              Paid on {new Date().toLocaleDateString()}
+                            </p>
                           )}
                         </div>
                       </div>
