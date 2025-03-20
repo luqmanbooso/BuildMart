@@ -35,468 +35,319 @@ const AcceptedAgreementView = () => {
   });
 
   // Replace the entire handleDownloadPdf function with this approach that doesn't use html2canvas
-
-const handleDownloadPdf = async () => {
-  toast.info("Generating agreement PDF...");
-  
-  try {
-    // Create a new PDF document with A4 dimensions
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
+  const handleDownloadPdf = async () => {
+    toast.info("Generating agreement PDF...");
     
-    // Define constants for positioning
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 20;
-    let yPosition = margin;
-    
-    // Helper function to add a title with proper spacing
-    const addTitle = (text, size, isBold = false, marginBottom = 5) => {
-      pdf.setFontSize(size);
-      pdf.setFont("helvetica", isBold ? "bold" : "normal");
-      pdf.text(text, pageWidth / 2, yPosition, { align: "center" });
-      yPosition += marginBottom;
-    };
-    
-    // Helper function to add text with wrapping
-    const addText = (text, x, y, maxWidth) => {
-      if (!text) return y;
-      const lines = pdf.splitTextToSize(text, maxWidth);
-      pdf.text(lines, x, y);
-      return y + (lines.length * 5);
-    };
-    
-    // Add logo and title
-    addTitle("BuildMart", 22, true, 10);
-    addTitle("Project Agreement", 18, true, 15);
-    addTitle(jobDetails?.title || "Project", 16, true, 15);
-    
-    // Add date
-    pdf.setFontSize(10);
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, margin, yPosition);
-    yPosition += 15;
-    
-    // Client and contractor section
-    pdf.setFontSize(14);
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Client", margin, yPosition);
-    pdf.text("Contractor", pageWidth - margin - 40, yPosition);
-    
-    yPosition += 7;
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "normal");
-    
-    // Client details
-    pdf.text(clientDetails?.name || clientDetails?.username || "Client", margin, yPosition);
-    yPosition += 5;
-    pdf.setFontSize(10);
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(clientDetails?.email || "No email provided", margin, yPosition);
-    
-    // Contractor details
-    pdf.setFontSize(12);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(contractorDetails?.name || bidDetails?.contractorname || "Contractor", pageWidth - margin - 40, yPosition - 5);
-    pdf.setFontSize(10);
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(contractorDetails?.email || "", pageWidth - margin - 40, yPosition);
-    
-    yPosition += 15;
-    
-    // Add project details
-    pdf.setFontSize(14);
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Project Details", margin, yPosition);
-    yPosition += 7;
-    
-    // Draw a horizontal line
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(margin, yPosition, pageWidth - margin, yPosition);
-    yPosition += 7;
-    
-    // Project details - in a grid layout
-    pdf.setFontSize(10);
-    pdf.setTextColor(100, 100, 100);
-    pdf.text("Bid Amount", margin, yPosition);
-    pdf.text("Timeline", margin + 60, yPosition);
-    pdf.text("Start Date", margin + 140, yPosition);
-    
-    yPosition += 5;
-    pdf.setFontSize(12);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(`LKR ${parseFloat(bidDetails?.price || 0).toLocaleString()}`, margin, yPosition);
-    pdf.text(`${bidDetails?.timeline || "N/A"} days`, margin + 60, yPosition);
-    pdf.text(`${new Date().toLocaleDateString()}`, margin + 140, yPosition);
-    
-    yPosition += 15;
-    
-    // Project description
-    pdf.setFontSize(14);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Project Description", margin, yPosition);
-    yPosition += 7;
-    
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11);
-    
-    // Add a light gray background for the description
-    pdf.setFillColor(245, 245, 245);
-    pdf.rect(margin, yPosition, pageWidth - (margin * 2), 30, 'F');
-    
-    // Add description text with wrapping
-    yPosition = addText(jobDetails?.description || "No description provided", 
-                        margin + 3, yPosition + 5, pageWidth - (margin * 2) - 6);
-    
-    yPosition += 10;
-    
-    // Check if we need a new page for payment schedule
-    if (yPosition > pageHeight - 100) {
-      pdf.addPage();
-      yPosition = margin;
-    }
-    
-    // Payment schedule
-    pdf.setFontSize(14);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Payment Schedule", margin, yPosition);
-    yPosition += 7;
-    
-    // Draw a horizontal line
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(margin, yPosition, pageWidth - margin, yPosition);
-    yPosition += 7;
-    
-    // Table headers for payment schedule
-    pdf.setFillColor(240, 240, 240);
-    pdf.rect(margin, yPosition, pageWidth - (margin * 2), 8, 'F');
-    
-    pdf.setFontSize(9);
-    pdf.setTextColor(80, 80, 80);
-    pdf.setFont("helvetica", "bold");
-    
-    // Column positions
-    const col1 = margin + 2;
-    const col2 = margin + 40;
-    const col3 = pageWidth - margin - 65;
-    const col4 = pageWidth - margin - 35;
-    
-    pdf.text("Milestone", col1, yPosition + 5);
-    pdf.text("Description", col2, yPosition + 5);
-    pdf.text("Due Date", col3, yPosition + 5);
-    pdf.text("Amount", col4, yPosition + 5);
-    
-    yPosition += 8;
-    
-    // Table rows
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(0, 0, 0);
-    
-    // Determine if we have payment schedule items
-    if (paymentSchedule && paymentSchedule.length > 0) {
-      let alternateRow = false;
-      
-      for (const payment of paymentSchedule) {
-        // Check if we need a new page
-        if (yPosition > pageHeight - 20) {
-          pdf.addPage();
-          yPosition = margin;
-          
-          // Repeat table headers on new page
-          pdf.setFillColor(240, 240, 240);
-          pdf.rect(margin, yPosition, pageWidth - (margin * 2), 8, 'F');
-          
-          pdf.setFontSize(9);
-          pdf.setTextColor(80, 80, 80);
-          pdf.setFont("helvetica", "bold");
-          
-          pdf.text("Milestone", col1, yPosition + 5);
-          pdf.text("Description", col2, yPosition + 5);
-          pdf.text("Due Date", col3, yPosition + 5);
-          pdf.text("Amount", col4, yPosition + 5);
-          
-          yPosition += 8;
-          pdf.setFont("helvetica", "normal");
-          pdf.setTextColor(0, 0, 0);
-        }
-        
-        // Alternate row backgrounds
-        if (alternateRow) {
-          pdf.setFillColor(248, 248, 248);
-          pdf.rect(margin, yPosition, pageWidth - (margin * 2), 7, 'F');
-        }
-        alternateRow = !alternateRow;
-        
-        // Add row data
-        pdf.text(payment.milestone || "", col1, yPosition + 4, { maxWidth: 35 });
-        
-        // Truncate description if too long
-        const desc = payment.description || "";
-        const shortDesc = desc.length > 30 ? desc.substring(0, 27) + "..." : desc;
-        pdf.text(shortDesc, col2, yPosition + 4, { maxWidth: pageWidth - col2 - 70 });
-        
-        pdf.text(payment.date || "", col3, yPosition + 4);
-        pdf.text(`LKR ${payment.amount.toLocaleString()}`, col4, yPosition + 4, { align: 'right' });
-        
-        yPosition += 7;
-      }
-      
-      // Total row
-      pdf.setFillColor(240, 240, 240);
-      pdf.rect(margin, yPosition, pageWidth - (margin * 2), 8, 'F');
-      
-      pdf.setFont("helvetica", "bold");
-      pdf.text("Total", col1, yPosition + 5);
-      pdf.text(`LKR ${parseFloat(bidDetails?.price || 0).toLocaleString()}`, col4, yPosition + 5, { align: 'right' });
-      
-      yPosition += 15;
-    } else {
-      pdf.text("No payment schedule items available", margin, yPosition + 5);
-      yPosition += 10;
-    }
-    
-    // Check if we need a new page for terms
-    if (yPosition > pageHeight - 80) {
-      pdf.addPage();
-      yPosition = margin;
-    }
-    
-    // Terms and conditions
-    pdf.setFontSize(14);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Terms & Conditions", margin, yPosition);
-    yPosition += 10;
-    
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
-    
-    const terms = [
-      "Work shall be carried out according to industry standards and local building codes.",
-      "Changes to the project scope require written approval from both parties.",
-      "The Contractor shall obtain all necessary permits and approvals before work begins.",
-      "All materials used shall be new and of good quality unless otherwise specified.",
-      "The Contractor shall maintain insurance coverage throughout the project.",
-      "The Client agrees to provide access to the work site as needed.",
-      "Payment shall be made according to the payment schedule upon completion of each milestone.",
-      "Either party may terminate this agreement with written notice if the other fails to comply with its terms."
-    ];
-    
-    terms.forEach((term, index) => {
-      // Check if we need a new page
-      if (yPosition > pageHeight - 15) {
-        pdf.addPage();
-        yPosition = margin;
-      }
-      
-      pdf.text(`${index + 1}. ${term}`, margin, yPosition, { 
-        maxWidth: pageWidth - (margin * 2) 
+    try {
+      // Create a new PDF document with A4 dimensions
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
       });
+      
+      // Define constants for positioning with better spacing
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 14; 
+      let yPosition = margin;
+      
+      // Helper functions
+      const addTitle = (text, size, isBold = false, marginBottom = 5) => {
+        pdf.setFontSize(size);
+        pdf.setFont("helvetica", isBold ? "bold" : "normal");
+        pdf.text(text, pageWidth / 2, yPosition, { align: "center" });
+        yPosition += marginBottom;
+      };
+      
+      const addText = (text, x, y, maxWidth) => {
+        if (!text) return y;
+        const lines = pdf.splitTextToSize(text, maxWidth);
+        pdf.text(lines, x, y);
+        return y + (lines.length * 4.5);
+      };
+      
+      // Add logo and title
+      addTitle("BuildMart", 18, true, 7);
+      addTitle("Project Agreement", 16, true, 7);
+      addTitle(jobDetails?.title || "Project", 13, true, 7);
+      
+      // Add date
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, margin, yPosition);
+      yPosition += 10;
+      
+      // Client and contractor section
+      pdf.setFontSize(11);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Client", margin, yPosition);
+      pdf.text("Contractor", pageWidth - margin - 30, yPosition);
+      
+      yPosition += 5;
+      
+      // Client details
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(clientDetails?.name || clientDetails?.username || "Client", margin, yPosition);
+      yPosition += 4;
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(clientDetails?.email || '', margin, yPosition);
+      
+      // Contractor details
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(contractorDetails?.name || bidDetails?.contractorname || "Contractor", pageWidth - margin - 30, yPosition - 4);
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(contractorDetails?.email || bidDetails?.email || '', pageWidth - margin - 30, yPosition);
+      
+      yPosition += 10;
+      
+      // Add project details
+      pdf.setFontSize(11);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Project Details", margin, yPosition);
+      yPosition += 5;
+      
+      // Draw a horizontal line
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 6;
+      
+      // Project details
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text("Bid Amount", margin, yPosition);
+      pdf.text("Timeline", margin + 50, yPosition);
+      pdf.text("Start Date", margin + 120, yPosition);
+      
+      yPosition += 4;
+      pdf.setFontSize(9);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`LKR ${parseFloat(bidDetails?.price || 0).toLocaleString()}`, margin, yPosition);
+      pdf.text(`${bidDetails?.timeline || "N/A"} days`, margin + 50, yPosition);
+      pdf.text(`${new Date().toLocaleDateString()}`, margin + 120, yPosition);
+      
+      yPosition += 10;
+      
+      // Project description
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Project Description", margin, yPosition);
+      yPosition += 6;
+      
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      
+      // Add a light gray background for the description
+      pdf.setFillColor(245, 245, 245);
+      pdf.rect(margin, yPosition, pageWidth - (margin * 2), 22, 'F');
+      
+      // Add description text with wrapping
+      yPosition = addText(jobDetails?.description || "No description provided", 
+                          margin + 2, yPosition + 4, pageWidth - (margin * 2) - 4);
+      
+      yPosition += 8;
+      
+      // Payment schedule
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Payment Schedule", margin, yPosition);
+      yPosition += 6;
+      
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 6;
+      
+      // Table headers for payment schedule
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(margin, yPosition, pageWidth - (margin * 2), 7, 'F');
+      
+      pdf.setFontSize(7);
+      pdf.setTextColor(80, 80, 80);
+      pdf.setFont("helvetica", "bold");
+      
+      // Column positions with better spacing
+      const col1 = margin + 2;
+      const col2 = margin + 35;
+      const col3 = pageWidth - margin - 55;
+      const col4 = pageWidth - margin - 25;
+      
+      pdf.text("Milestone", col1, yPosition + 4.5);
+      pdf.text("Description", col2, yPosition + 4.5);
+      pdf.text("Due Date", col3, yPosition + 4.5);
+      pdf.text("Amount", col4, yPosition + 4.5);
+      
       yPosition += 7;
-    });
-    
-    // Check if we need a new page for signatures
-    if (yPosition > pageHeight - 50) {
-      pdf.addPage();
-      yPosition = margin;
-    }
-    
-    // Add signature section
-    yPosition += 10;
-    pdf.setFontSize(14);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Signatures", margin, yPosition);
-    yPosition += 10;
-    
-    // Client signature
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Client:", margin, yPosition);
-    pdf.line(margin, yPosition + 15, margin + 70, yPosition + 15);
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
-    pdf.text(clientDetails?.name || clientDetails?.username || "", margin, yPosition + 20); // Move name down
-    pdf.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPosition + 25); // Add date below name
-
-    // Contractor signature
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Contractor:", pageWidth - margin - 70, yPosition);
-    pdf.line(pageWidth - margin - 70, yPosition + 15, pageWidth - margin, yPosition + 15);;
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
-    pdf.text(contractorDetails?.name || bidDetails?.contractorname || "", pageWidth - margin - 70, yPosition + 20); // Move name down
-    pdf.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth - margin - 70, yPosition + 25); // Add date below name
-
-    yPosition += 35; // Increase the spacing after signatures
-    
-    // Save the PDF
-    pdf.save(`${jobDetails?.title || 'Project'}_Agreement.pdf`);
-    toast.success("Agreement PDF downloaded successfully");
-  } catch (err) {
-    console.error("Error generating PDF:", err);
-    // Fall back to browser print
-    toast.error(`Could not generate PDF: ${err.message}`);
-    toast.info("Trying alternative print method...");
-    handlePrint();
-  }
-};
-
-// Add these state variables if not already present
-const [projectData, setProjectData] = useState(null);
-const [bidData, setBidData] = useState(null);
-const [clientData, setClientData] = useState(null);
-
-// In your useEffect, make sure to properly extract data from location state or fetch it
-useEffect(() => {
-  // Extract data from location state if available
-  if (location.state) {
-    const { project, bid, client } = location.state;
-    
-    if (project) setProjectData(project);
-    if (bid) setBidData(bid);
-    if (client) setClientData(client);
-  } else {
-    // Fetch data if not in state
-    const fetchData = async () => {
-      try {
-        // Fetch project details
-        const projectResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`);
-        setProjectData(projectResponse.data);
+      
+      // Table rows
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(0, 0, 0);
+      
+      // Determine if we have payment schedule items
+      if (paymentSchedule && paymentSchedule.length > 0) {
+        let alternateRow = false;
         
-        // Fetch bid details if you have bid ID
-        if (bidId) {
-          const bidResponse = await axios.get(`http://localhost:5000/bids/${bidId}`);
-          setBidData(bidResponse.data);
+        for (const payment of paymentSchedule) {
+          // Add row data with alternating background
+          if (alternateRow) {
+            pdf.setFillColor(248, 248, 248);
+            pdf.rect(margin, yPosition, pageWidth - (margin * 2), 6, 'F');
+          }
+          alternateRow = !alternateRow;
+          
+          // Add row data
+          pdf.text(payment.milestone || "", col1, yPosition + 4, { maxWidth: 30 });
+          
+          // Truncate description if too long
+          const desc = payment.description || "";
+          const shortDesc = desc.length > 25 ? desc.substring(0, 22) + "..." : desc;
+          pdf.text(shortDesc, col2, yPosition + 4, { maxWidth: pageWidth - col2 - 60 });
+          
+          pdf.text(payment.date || "", col3, yPosition + 4);
+          pdf.text(`LKR ${payment.amount.toLocaleString()}`, col4, yPosition + 4, { align: 'right' });
+          
+          yPosition += 6;
         }
         
-        // Fetch client details if you have client ID
-        if (projectResponse.data?.clientId) {
-          const clientResponse = await axios.get(`http://localhost:5000/api/clients/${projectResponse.data.clientId}`);
-          setClientData(clientResponse.data);
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        toast.error("Failed to load some project data");
+        // Total row
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(margin, yPosition, pageWidth - (margin * 2), 7, 'F');
+        
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Total", col1, yPosition + 4.5);
+        pdf.text(`LKR ${parseFloat(bidDetails?.price || 0).toLocaleString()}`, col4, yPosition + 4.5, { align: 'right' });
+        
+        yPosition += 10;
+      } else {
+        pdf.text("No payment schedule items available", margin, yPosition + 4);
+        yPosition += 8;
       }
-    };
-    
-    fetchData();
-  }
-}, [location.state, jobId, bidId]);
+      
+      // Terms and conditions
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Terms & Conditions", margin, yPosition);
+      yPosition += 6;
+      
+      pdf.setFontSize(8);
+      pdf.setFont("helvetica", "normal");
+      
+      const terms = [
+        "Work shall be carried out according to industry standards and local building codes.",
+        "Changes to the project scope require written approval from both parties.",
+        "The Contractor shall obtain all necessary permits and approvals before work begins.",
+        "All materials used shall be new and of good quality unless otherwise specified.",
+        "The Contractor shall maintain insurance coverage throughout the project.",
+        "The Client agrees to provide access to the work site as needed.",
+        "Payment shall be made according to the payment schedule upon completion of each milestone.",
+        "Either party may terminate this agreement with written notice if the other fails to comply with its terms."
+      ];
+      
+      // Use a more compact, two-column approach for terms
+      const leftTerms = terms.slice(0, 4);
+      const rightTerms = terms.slice(4);
+      
+      let leftY = yPosition;
+      let rightY = yPosition;
+      const colWidth = (pageWidth - (margin * 2) - 10) / 2;
+      
+      leftTerms.forEach((term, index) => {
+        const formattedTerm = `${index + 1}. ${term}`;
+        const lines = pdf.splitTextToSize(formattedTerm, colWidth);
+        pdf.text(lines, margin, leftY + 4);
+        leftY += lines.length * 3.5 + 1.5;
+      });
+      
+      rightTerms.forEach((term, index) => {
+        const formattedTerm = `${index + 5}. ${term}`;
+        const lines = pdf.splitTextToSize(formattedTerm, colWidth);
+        pdf.text(lines, margin + colWidth + 10, rightY + 4);
+        rightY += lines.length * 3.5 + 1.5;
+      });
+      
+      yPosition = Math.max(leftY, rightY) + 6;
+      
+      // Add signature section
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Signatures", margin, yPosition);
+      yPosition += 6;
+      
+      // Client signature
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.text("Client:", margin, yPosition);
+      pdf.line(margin, yPosition + 10, margin + 60, yPosition + 10);
+      pdf.setFontSize(8);
+      pdf.text(clientDetails?.name || clientDetails?.username || "", margin, yPosition + 14);
+      pdf.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPosition + 18);
 
-// Update the sendAgreementEmail function
-const sendAgreementEmail = async () => {
-  if (!contractorDetails?.email) {
-    toast.error("Contractor email not found");
-    return;
-  }
-  
-  // Gather email data
-  const emailData = {
-    recipientEmail: contractorDetails.email,
-    subject: `Project Agreement: ${projectData?.title || jobDetails?.title || 'Project'}`,
-    projectTitle: projectData?.title || jobDetails?.title || 'Project',
-    clientName: clientData?.name || clientData?.username || clientDetails?.name || clientDetails?.username || 'Client',
-    contractorName: contractorDetails?.name || bidDetails?.contractorname || bidData?.contractorname || 'Contractor',
-    agreementId: jobId,
-    bidAmount: bidData?.price || bidDetails?.price || 0,
-    timeline: bidData?.timeline || bidDetails?.timeline || 0
-  };
-  
-  try {
-    toast.info("Preparing email...");
-    
-    // Get prepared email content from server
-    const response = await axios.post('http://localhost:5000/api/email/send-agreement', emailData);
-    
-    // Open email client with pre-populated content
-    if (response.data.useMailto) {
-      const encodedSubject = encodeURIComponent(response.data.mailtoSubject);
-      const encodedBody = encodeURIComponent(response.data.mailtoBody);
-      const mailtoUrl = `mailto:${response.data.recipientEmail}?subject=${encodedSubject}&body=${encodedBody}`;
-      
-      toast.success("Opening your email client...");
-      window.location.href = mailtoUrl;
-      
-      // Show additional guidance
-      setTimeout(() => {
-        toast.info("Complete sending from your email application", {
-          autoClose: 10000
-        });
-      }, 1500);
+      // Contractor signature
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.text("Contractor:", pageWidth - margin - 60, yPosition);
+      pdf.line(pageWidth - margin - 60, yPosition + 10, pageWidth - margin, yPosition + 10);
+      pdf.setFontSize(8);
+      pdf.text(contractorDetails?.name || bidDetails?.contractorname || "", pageWidth - margin - 60, yPosition + 14);
+      pdf.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth - margin - 60, yPosition + 18);
+
+      // Save the PDF
+      pdf.save(`${jobDetails?.title || 'Project'}_Agreement.pdf`);
+      toast.success("Agreement PDF downloaded successfully");
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+      toast.error(`Could not generate PDF: ${err.message}`);
+      toast.info("Trying alternative print method...");
+      handlePrint();
     }
-  } catch (error) {
-    console.error("Email preparation error:", error);
-    toast.error("Error preparing email content");
-    
-    // Direct fallback as last resort
-    const subject = encodeURIComponent(`Project Agreement: ${projectData?.title || jobDetails?.title || 'Project'}`);
-    const body = encodeURIComponent(`Dear ${contractorDetails?.name || 'Contractor'},\n\nThe project agreement has been confirmed.\n\nRegards,\n${clientData?.name || clientDetails?.name || 'Client'}`);
-    window.location.href = `mailto:${contractorDetails.email}?subject=${subject}&body=${body}`;
-  }
-};
+  };
 
-// Add this new function to handle PDF email process
-const sendPdfByEmail = async () => {
-  if (!contractorDetails?.email) {
-    toast.error("Contractor email not found");
-    return;
-  }
+  // Add these state variables if not already present
+  const [projectData, setProjectData] = useState(null);
+  const [bidData, setBidData] = useState(null);
+  const [clientData, setClientData] = useState(null);
 
-  // Show step-by-step guidance
-  toast.info("Step 1: Downloading the PDF...");
-
-  try {
-    // First download the PDF
-    await handleDownloadPdf();
-
-    // After PDF is downloaded, prepare the email
-    setTimeout(() => {
-      toast.info("Step 2: Opening email composer...");
-
-      // Create email subject and body with instructions to attach the PDF
-      const subject = `Project Agreement: ${projectData?.title || jobDetails?.title || 'Project'}`;
-      const body = `Dear ${contractorDetails?.name || bidDetails?.contractorname || 'Contractor'},
-
-I've attached the official agreement for the project "${projectData?.title || jobDetails?.title || 'Project'}".
-
-Project Details:
-- Bid Amount: LKR ${parseFloat(bidData?.price || bidDetails?.price || 0).toLocaleString()}
-- Timeline: ${bidData?.timeline || bidDetails?.timeline || 0} days
-- Start Date: ${new Date().toLocaleDateString()}
-- Project ID: ${jobId}
-
-IMPORTANT: Please attach the PDF agreement file that was just downloaded before sending this email.
-
-Please review the attached agreement and let me know if you have any questions.
-
-Regards,
-${clientData?.name || clientData?.username || clientDetails?.name || clientDetails?.username || 'Client'}`;
-
-      // Open email client
-      const encodedSubject = encodeURIComponent(subject);
-      const encodedBody = encodeURIComponent(body);
-      window.location.href = `mailto:${contractorDetails.email}?subject=${encodedSubject}&body=${encodedBody}`;
-
-      // Show prominent reminder about attaching the PDF
-      setTimeout(() => {
-        toast.info("📎 Remember to attach the PDF that was just downloaded!", {
-          autoClose: false,
-          closeButton: true,
-          icon: "📎"
-        });
-      }, 1500);
-    }, 1200); // Wait a moment for the PDF to download
-  } catch (error) {
-    console.error("Error in PDF email process:", error);
-    toast.error("Failed to prepare PDF for email");
-  }
-};
+  // In your useEffect, make sure to properly extract data from location state or fetch it
+  useEffect(() => {
+    // Extract data from location state if available
+    if (location.state) {
+      const { project, bid, client } = location.state;
+      
+      if (project) setProjectData(project);
+      if (bid) setBidData(bid);
+      if (client) setClientData(client);
+    } else {
+      // Fetch data if not in state
+      const fetchData = async () => {
+        try {
+          // Fetch project details
+          const projectResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`);
+          setProjectData(projectResponse.data);
+          
+          // Fetch bid details if you have bid ID
+          if (bidId) {
+            const bidResponse = await axios.get(`http://localhost:5000/bids/${bidId}`);
+            setBidData(bidResponse.data);
+          }
+          
+          // Fetch client details if you have client ID
+          if (projectResponse.data?.clientId) {
+            const clientResponse = await axios.get(`http://localhost:5000/api/clients/${projectResponse.data.clientId}`);
+            setClientData(clientResponse.data);
+          }
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          toast.error("Failed to load some project data");
+        }
+      };
+      
+      fetchData();
+    }
+  }, [location.state, jobId, bidId]);
 
   const handleBackNavigation = () => {
     try {
@@ -527,13 +378,10 @@ ${clientData?.name || clientData?.username || clientDetails?.name || clientDetai
 
   return (
     <div className="min-h-screen bg-gray-50">
-        
-      
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Action buttons placed before the printable area */}
         <div className="mb-6 flex justify-end space-x-3">
-          
-        <button
+          <button
             onClick={handleBackNavigation}
             className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
@@ -551,29 +399,6 @@ ${clientData?.name || clientData?.username || clientDetails?.name || clientDetai
             </svg>
             Download PDF
           </button>
-          {contractorDetails?.email && (
-            <>
-              <button
-                onClick={sendAgreementEmail}
-                className="px-4 py-2 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50"
-              >
-                <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                Email Text Only
-              </button>
-              
-              <button
-                onClick={sendPdfByEmail}
-                className="px-4 py-2 bg-indigo-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Email with PDF
-              </button>
-            </>
-          )}
         </div>
         
         {/* Agreement Status Banner */}
@@ -614,15 +439,13 @@ ${clientData?.name || clientData?.username || clientDetails?.name || clientDetai
                     <p className="text-md font-medium text-gray-900">
                       {clientDetails?.name || clientDetails?.username || 'Client'}
                     </p>
-                    <p className="text-sm text-gray-500">
-                      {clientDetails?.email || 'No email provided'}
-                    </p>
+                    <p className="text-sm text-gray-500">{clientDetails?.email || ''}</p>
                   </div>
                   
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Contractor:</h4>
                     <p className="text-md font-medium text-gray-900">{contractorDetails?.name || bidDetails?.contractorname}</p>
-                    <p className="text-sm text-gray-500">{contractorDetails?.email}</p>
+                    <p className="text-sm text-gray-500">{contractorDetails?.email || bidDetails?.email || ''}</p>
                   </div>
                 </div>
                 

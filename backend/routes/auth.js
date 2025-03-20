@@ -222,6 +222,25 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
+router.get('/users', async (req, res) => {
+  try {
+    const users = await User.find({});
+    // Format the response to exclude sensitive information like passwords
+    const formattedUsers = users.map(user => ({
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      profilePic: user.profilePic,
+      createdAt: user.createdAt
+    }));
+    
+    res.json(formattedUsers);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ message: 'Error fetching users', error: error.message });
+  }
+});
 
 
 module.exports = router;
