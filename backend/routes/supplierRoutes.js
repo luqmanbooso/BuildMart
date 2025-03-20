@@ -12,6 +12,29 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get active suppliers only
+router.get('/active', async (req, res) => {
+  try {
+    const suppliers = await Supplier.find({ active: true });
+    res.json(suppliers);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get suppliers by category
+router.get('/category/:category', async (req, res) => {
+  try {
+    const suppliers = await Supplier.find({ 
+      category: req.params.category,
+      active: true 
+    });
+    res.json(suppliers);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Get a single supplier
 router.get('/:id', async (req, res) => {
   try {
@@ -32,8 +55,21 @@ router.post('/', async (req, res) => {
     value: req.body.value,
     contact: req.body.contact,
     email: req.body.email,
+    phone: req.body.phone,
     address: req.body.address,
-    category: req.body.category
+    city: req.body.city,
+    country: req.body.country,
+    category: req.body.category,
+    website: req.body.website,
+    paymentTerms: req.body.paymentTerms,
+    minimumOrder: req.body.minimumOrder,
+    leadTime: req.body.leadTime,
+    taxId: req.body.taxId,
+    rating: req.body.rating,
+    preferredPayment: req.body.preferredPayment,
+    notes: req.body.notes,
+    active: req.body.active !== undefined ? req.body.active : true,
+    productCategories: req.body.productCategories || []
   });
 
   try {
@@ -52,13 +88,19 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Supplier not found' });
     }
 
-    // Update only provided fields
-    if (req.body.name) supplier.name = req.body.name;
-    if (req.body.value !== undefined) supplier.value = req.body.value;
-    if (req.body.contact !== undefined) supplier.contact = req.body.contact;
-    if (req.body.email !== undefined) supplier.email = req.body.email;
-    if (req.body.address !== undefined) supplier.address = req.body.address;
-    if (req.body.category !== undefined) supplier.category = req.body.category;
+    // Update fields if they exist in the request body
+    const updateFields = [
+      'name', 'value', 'contact', 'email', 'phone', 'address', 
+      'city', 'country', 'category', 'website', 'paymentTerms', 
+      'minimumOrder', 'leadTime', 'taxId', 'rating', 
+      'preferredPayment', 'notes', 'active', 'productCategories'
+    ];
+
+    updateFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        supplier[field] = req.body[field];
+      }
+    });
     
     supplier.updatedAt = Date.now();
     
@@ -79,6 +121,43 @@ router.delete('/:id', async (req, res) => {
     
     await supplier.deleteOne();
     res.json({ message: 'Supplier deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Mark supplier as inactive (soft delete)
+router.patch('/:id/deactivate', async (req, res) => {
+  try {
+    const supplier = await Supplier.findById(req.params.id);
+    if (!supplier) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+    
+    supplier.active = false;
+    supplier.updatedAt = Date.now();
+    await supplier.save();
+    
+    res.json({ message: 'Supplier deactivated' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get products by supplier category match
+router.get('/:id/products', async (req, res) => {
+  try {
+    const supplier = await Supplier.findById(req.params.id);
+    if (!supplier) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+    
+    const Product = require('../models/Product');
+    const products = await Product.find({ 
+      category: { $in: [supplier.category, ...supplier.productCategories || []] } 
+    });
+    
+    res.json(products);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

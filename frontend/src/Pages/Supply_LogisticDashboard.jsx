@@ -5,6 +5,9 @@ import {
   ChevronDown, ChevronRight, Calendar, Activity, Loader, AlertTriangle,
   Map, Navigation, CheckCircle, XCircle, Clock as ClockIcon, X, DollarSign
 } from 'lucide-react';
+import axios from 'axios'; // Add axios import
+import { toast, ToastContainer } from 'react-toastify'; // Add toast for notifications
+import 'react-toastify/dist/ReactToastify.css'; // Import toast styles
 import { Link } from 'react-router-dom';
 import EnhancedPaymentGateway from '../components/Payment';
 import { useSupplierPayments } from '../context/SupplierPaymentContext';
@@ -176,7 +179,9 @@ function Supply_LogisticDashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const { addSupplierPayment } = useSupplierPayments();
   const [orders, setOrders] = useState(recentOrders);
-  const [inventory, setInventory] = useState(inventoryData);
+  const [inventory, setInventory] = useState([]);
+  const [inventoryLoading, setInventoryLoading] = useState(true);
+  const [inventoryError, setInventoryError] = useState(null);
   const [suppliers, setSuppliers] = useState([]);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [currentSupplier, setCurrentSupplier] = useState(null);
@@ -189,6 +194,75 @@ function Supply_LogisticDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Fetch inventory data from the API
+  useEffect(() => {
+    const fetchInventory = async () => {
+      setInventoryLoading(true);
+      try {
+        const response = await axios.get('http://localhost:5000/product/products');
+        if (response.data.success) {
+          // Map the product data to match our frontend structure
+          const mappedInventory = response.data.products.map(product => ({
+            name: product.name,
+            stock: product.stock,
+            threshold: product.threshold,
+            status: getStockStatus(product.stock, product.threshold),
+            supplier: getSupplierForProduct(product.category),
+            restockRequested: false, // This would need to come from a restock request API
+            paymentStatus: 'Pending', // This would need to come from a payment API
+            deliveryStatus: 'Pending', // This would need to come from a delivery API
+            _id: product._id, // Keep the MongoDB ID for reference
+            sku: product.sku,
+            category: product.category,
+            price: product.price,
+            image: product.image
+          }));
+          
+          setInventory(mappedInventory);
+          setInventoryError(null);
+        } else {
+          console.error('Error from API:', response.data);
+          setInventoryError('Failed to load inventory data from server');
+        }
+      } catch (error) {
+        console.error('Error fetching inventory:', error);
+        setInventoryError('Failed to connect to the inventory server');
+      } finally {
+        setInventoryLoading(false);
+        setLoading(false);
+      }
+    };
+
+    // Helper function to determine stock status based on stock level and threshold
+    const getStockStatus = (stock, threshold) => {
+      if (stock <= 0) return 'Critical';
+      if (stock < threshold) return 'Low Stock';
+      return 'In Stock';
+    };
+    
+    // Helper function to assign supplier based on category (in a real app, this would be from database relation)
+    const getSupplierForProduct = (category) => {
+      const supplierMap = {
+        'Cement': 'Lanka Cement Ltd',
+        'Steel': 'Melwa Steel',
+        'Bricks': 'Clay Masters',
+        'Sand': 'Ceylon Aggregates',
+        'Concrete': 'Ready Mix Ltd',
+        'Wood': 'Timber Lanka',
+        'PVC': 'PVC Solutions',
+        'Roofing': 'Roof Masters',
+        'Building Materials': 'Jayasekara Suppliers',
+        'Hardware': 'Tool Masters',
+        'Plumbing': 'Water Systems Ltd',
+        'Electrical': 'Power Solutions'
+      };
+      
+      return supplierMap[category] || 'General Supplier';
+    };
+
+    fetchInventory();
+  }, []);
+  
   // Simulating data loading
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -204,11 +278,13 @@ function Supply_LogisticDashboard() {
       try {
         setIsLoading(true);
         const data = await supplierService.getAllSuppliers();
+        console.log("Fetched suppliers:", data);
         setSuppliers(data);
         setError(null);
       } catch (error) {
+        console.error("Error fetching suppliers:", error);
         setError('Failed to fetch suppliers. Using sample data instead.');
-        setSuppliers(topSuppliers); // Fallback to mock data
+        // You might want to set some fallback supplier data here
       } finally {
         setIsLoading(false);
       }
@@ -224,7 +300,7 @@ function Supply_LogisticDashboard() {
     if (searchTerm) {
       filtered = filtered.filter(item => 
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.supplier.toLowerCase().includes(searchTerm.toLowerCase())
+        (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
     
@@ -236,30 +312,99 @@ function Supply_LogisticDashboard() {
   };
 
   // Handle restock request
-  const handleRestockRequest = (itemName) => {
-    setInventory(prevInventory =>
-      prevInventory.map(item =>
-        item.name === itemName ? { ...item, restockRequested: true } : item
-      )
-    );
+  const handleRestockRequest = async (itemName) => {
+    try {
+      const product = inventory.find(item => item.name === itemName);
+      if (!product) return;
+      
+      // Update UI optimistically
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.name === itemName ? { ...item, restockRequested: true } : item
+        )
+      );
+      
+      // Send request to backend
+      await axios.post('http://localhost:5000/api/orders/restock-request', {
+        productId: product._id,
+        productName: product.name,
+        productSku: product.sku,
+        currentStock: product.stock,
+        threshold: product.threshold,
+        quantity: product.threshold - product.stock + 10, // Order enough to be above threshold plus buffer
+        priority: product.stock === 0 ? 'urgent' : product.stock < (product.threshold / 2) ? 'high' : 'medium',
+        notes: `Automatic restock request for ${product.name}`
+      });
+      
+      toast.success(`Restock request for ${itemName} sent successfully`);
+    } catch (error) {
+      console.error("Error submitting restock request:", error);
+      
+      // Revert optimistic update
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.name === itemName ? { ...item, restockRequested: false } : item
+        )
+      );
+      
+      toast.error(`Failed to send restock request for ${itemName}`);
+    }
   };
 
   // Handle payment status update
-  const handlePaymentStatusUpdate = (itemName, status) => {
-    setInventory(prevInventory =>
-      prevInventory.map(item =>
-        item.name === itemName ? { ...item, paymentStatus: status } : item
-      )
-    );
+  const handlePaymentStatusUpdate = async (itemName, status) => {
+    try {
+      // Update UI optimistically
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.name === itemName ? { ...item, paymentStatus: status } : item
+        )
+      );
+      
+      // In a real app, you'd make an API call here to update payment status
+      // await axios.put(`/api/inventory/${itemId}/payment`, { status });
+      
+      toast.success(`Payment status updated for ${itemName}`);
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      
+      // Revert optimistic update
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.name === itemName ? { ...item, paymentStatus: 'Pending' } : item
+        )
+      );
+      
+      toast.error(`Failed to update payment status for ${itemName}`);
+    }
   };
 
   // Handle delivery status update
-  const handleDeliveryStatusUpdate = (itemName, status) => {
-    setInventory(prevInventory =>
-      prevInventory.map(item =>
-        item.name === itemName ? { ...item, deliveryStatus: status } : item
-      )
-    );
+  const handleDeliveryStatusUpdate = async (itemName, status) => {
+    try {
+      // Update UI optimistically
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.name === itemName ? { ...item, deliveryStatus: status } : item
+        )
+      );
+      
+      // In a real app, you'd make an API call here to update delivery status
+      // await axios.put(`/api/inventory/${itemId}/delivery`, { status });
+      
+      toast.success(`Delivery status updated for ${itemName}`);
+    } catch (error) {
+      console.error("Error updating delivery status:", error);
+      
+      // Revert optimistic update
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.name === itemName ? { ...item, deliveryStatus: 'Pending' } : item
+        )
+      );
+      
+      toast.error(`Failed to update delivery status for ${itemName}`);
+    }
   };
 
   // Supplier management functions
@@ -545,7 +690,13 @@ function Supply_LogisticDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Total Inventory</p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{inventory.length} Items</h3>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {inventoryLoading ? (
+                          <Loader className="h-6 w-6 text-blue-600 animate-spin" />
+                        ) : (
+                          `${inventory.length} Items`
+                        )}
+                      </h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
                       <Box className="h-6 w-6 text-blue-600" />
@@ -563,7 +714,13 @@ function Supply_LogisticDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Low Stock Alerts</p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{inventory.filter(item => item.status === 'Low Stock' || item.status === 'Critical').length} Items</h3>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {inventoryLoading ? (
+                          <Loader className="h-6 w-6 text-amber-600 animate-spin" />
+                        ) : (
+                          `${inventory.filter(item => item.status === 'Low Stock' || item.status === 'Critical').length} Items`
+                        )}
+                      </h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
                       <AlertTriangle className="h-6 w-6 text-amber-600" />
@@ -687,7 +844,23 @@ function Supply_LogisticDashboard() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                  <button 
+                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                    onClick={() => {
+                      const csvContent = 'data:text/csv;charset=utf-8,' + 
+                        'Item,Stock,Threshold,Status,Supplier,Payment Status,Delivery Status\n' +
+                        getFilteredInventory().map(item => 
+                          `"${item.name}",${item.stock},${item.threshold},"${item.status}","${item.supplier}","${item.paymentStatus}","${item.deliveryStatus}"`
+                        ).join('\n');
+                      const encodedUri = encodeURI(csvContent);
+                      const link = document.createElement('a');
+                      link.setAttribute('href', encodedUri);
+                      link.setAttribute('download', 'inventory_report.csv');
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                  >
                     <Download className="h-5 w-5 text-gray-600" />
                   </button>
                   <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
@@ -698,74 +871,109 @@ function Supply_LogisticDashboard() {
 
               {/* Inventory Table */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr>
-                      <th className="px-4 py-2 border-b border-gray-200">Item</th>
-                      <th className="px-4 py-2 border-b border-gray-200">Stock</th>
-                      <th className="px-4 py-2 border-b border-gray-200">Threshold</th>
-                      <th className="px-4 py-2 border-b border-gray-200">Status</th>
-                      <th className="px-4 py-2 border-b border-gray-200">Supplier</th>
-                      <th className="px-4 py-2 border-b border-gray-200">Restock Request</th>
-                      <th className="px-4 py-2 border-b border-gray-200">Payment Status</th>
-                      <th className="px-4 py-2 border-b border-gray-200">Delivery Status</th>
-                      <th className="px-4 py-2 border-b border-gray-200">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredInventory().map(item => (
-                      <tr key={item.name}>
-                        <td className="px-4 py-2 border-b border-gray-200">{item.name}</td>
-                        <td className="px-4 py-2 border-b border-gray-200">{item.stock}</td>
-                        <td className="px-4 py-2 border-b border-gray-200">{item.threshold}</td>
-                        <td className="px-4 py-2 border-b border-gray-200">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.status === 'In Stock' ? 'bg-green-100 text-green-600' : item.status === 'Low Stock' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>
-                            {item.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 border-b border-gray-200">{item.supplier}</td>
-                        <td className="px-4 py-2 border-b border-gray-200">
-                          {item.restockRequested ? (
-                            <span className="text-sm text-green-600">Requested</span>
-                          ) : (
-                            <button
-                              onClick={() => handleRestockRequest(item.name)}
-                              className="text-sm text-blue-600 hover:text-blue-800"
-                            >
-                              Request Restock
-                            </button>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 border-b border-gray-200">
-                          <span className={`text-sm font-medium ${item.paymentStatus === 'Paid' ? 'text-green-600' : 'text-amber-600'}`}>
-                            {item.paymentStatus}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 border-b border-gray-200">
-                          <span className={`text-sm font-medium ${item.deliveryStatus === 'Delivered' ? 'text-green-600' : item.deliveryStatus === 'In Transit' ? 'text-blue-600' : 'text-amber-600'}`}>
-                            {item.deliveryStatus}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 border-b border-gray-200">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => handlePaymentStatusUpdate(item.name, 'Paid')}
-                              className="text-sm text-blue-600 hover:text-blue-800"
-                            >
-                              Mark Paid
-                            </button>
-                            <button
-                              onClick={() => handleDeliveryStatusUpdate(item.name, 'Delivered')}
-                              className="text-sm text-blue-600 hover:text-blue-800"
-                            >
-                              Mark Delivered
-                            </button>
-                          </div>
-                        </td>
+                {inventoryLoading ? (
+                  <div className="flex justify-center items-center py-10">
+                    <Loader className="h-10 w-10 text-blue-600 animate-spin" />
+                    <p className="ml-2 text-gray-600">Loading inventory data...</p>
+                  </div>
+                ) : inventoryError ? (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                    <p>{inventoryError}</p>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr>
+                        <th className="px-4 py-2 border-b border-gray-200">Item</th>
+                        <th className="px-4 py-2 border-b border-gray-200">Stock</th>
+                        <th className="px-4 py-2 border-b border-gray-200">Threshold</th>
+                        <th className="px-4 py-2 border-b border-gray-200">Status</th>
+                        <th className="px-4 py-2 border-b border-gray-200">Supplier</th>
+                        <th className="px-4 py-2 border-b border-gray-200">Restock Request</th>
+                        <th className="px-4 py-2 border-b border-gray-200">Payment Status</th>
+                        <th className="px-4 py-2 border-b border-gray-200">Delivery Status</th>
+                        <th className="px-4 py-2 border-b border-gray-200">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {getFilteredInventory().length > 0 ? (
+                        getFilteredInventory().map(item => (
+                          <tr key={item._id || item.name}>
+                            <td className="px-4 py-2 border-b border-gray-200">
+                              <div className="font-medium">{item.name}</div>
+                              <div className="text-xs text-gray-500">SKU: {item.sku}</div>
+                            </td>
+                            <td className="px-4 py-2 border-b border-gray-200">{item.stock}</td>
+                            <td className="px-4 py-2 border-b border-gray-200">{item.threshold}</td>
+                            <td className="px-4 py-2 border-b border-gray-200">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                item.status === 'In Stock' ? 'bg-green-100 text-green-600' : 
+                                item.status === 'Low Stock' ? 'bg-amber-100 text-amber-600' : 
+                                'bg-red-100 text-red-600'
+                              }`}>
+                                {item.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 border-b border-gray-200">{item.supplier}</td>
+                            <td className="px-4 py-2 border-b border-gray-200">
+                              {item.restockRequested ? (
+                                <span className="text-sm text-green-600">Requested</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleRestockRequest(item.name)}
+                                  className="text-sm text-blue-600 hover:text-blue-800"
+                                  disabled={item.status === 'In Stock'}
+                                >
+                                  Request Restock
+                                </button>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 border-b border-gray-200">
+                              <span className={`text-sm font-medium ${item.paymentStatus === 'Paid' ? 'text-green-600' : 'text-amber-600'}`}>
+                                {item.paymentStatus}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 border-b border-gray-200">
+                              <span className={`text-sm font-medium ${item.deliveryStatus === 'Delivered' ? 'text-green-600' : item.deliveryStatus === 'In Transit' ? 'text-blue-600' : 'text-amber-600'}`}>
+                                {item.deliveryStatus}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 border-b border-gray-200">
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => handlePaymentStatusUpdate(item.name, 'Paid')}
+                                  className="text-sm text-blue-600 hover:text-blue-800"
+                                  disabled={item.paymentStatus === 'Paid'}
+                                >
+                                  Mark Paid
+                                </button>
+                                <button
+                                  onClick={() => handleDeliveryStatusUpdate(item.name, 'Delivered')}
+                                  className="text-sm text-blue-600 hover:text-blue-800"
+                                  disabled={item.deliveryStatus === 'Delivered'}
+                                >
+                                  Mark Delivered
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="9" className="px-4 py-10 text-center text-gray-500">
+                            No inventory items found matching your criteria.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           )}
@@ -1201,6 +1409,7 @@ function Supply_LogisticDashboard() {
           )}
         </main>
       </div>
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 }
