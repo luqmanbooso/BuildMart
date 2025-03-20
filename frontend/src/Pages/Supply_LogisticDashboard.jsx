@@ -15,14 +15,86 @@ import { useSupplierPayments } from '../context/SupplierPaymentContext';
 
 // Mock data for the dashboard
 const inventoryData = [
-  { name: 'Cement', stock: 452, threshold: 200, status: 'In Stock', supplier: 'Lanka Cement Ltd' },
-  { name: 'Steel Bars', stock: 120, threshold: 100, status: 'Low Stock', supplier: 'Melwa Steel' },
-  { name: 'Bricks', stock: 8500, threshold: 5000, status: 'In Stock', supplier: 'Clay Masters' },
-  { name: 'Sand (cubic m)', stock: 75, threshold: 100, status: 'Low Stock', supplier: 'Ceylon Aggregates' },
-  { name: 'Concrete Blocks', stock: 1240, threshold: 1000, status: 'In Stock', supplier: 'Block World' },
-  { name: 'Wood Panels', stock: 68, threshold: 80, status: 'Critical', supplier: 'Timber Lanka' },
-  { name: 'PVC Pipes', stock: 320, threshold: 250, status: 'In Stock', supplier: 'PVC Solutions' },
-  { name: 'Roof Tiles', stock: 580, threshold: 500, status: 'In Stock', supplier: 'Roof Masters' },
+  { 
+    name: 'Cement', 
+    stock: 452, 
+    threshold: 200, 
+    status: 'In Stock', 
+    supplier: 'Lanka Cement Ltd',
+    restockRequested: false,
+    paymentStatus: 'Paid',
+    deliveryStatus: 'Delivered'
+  },
+  { 
+    name: 'Steel Bars', 
+    stock: 120, 
+    threshold: 100, 
+    status: 'Low Stock', 
+    supplier: 'Melwa Steel',
+    restockRequested: true,
+    paymentStatus: 'Pending',
+    deliveryStatus: 'In Transit'
+  },
+  { 
+    name: 'Bricks', 
+    stock: 8500, 
+    threshold: 5000, 
+    status: 'In Stock', 
+    supplier: 'Clay Masters',
+    restockRequested: false,
+    paymentStatus: 'Paid',
+    deliveryStatus: 'Delivered'
+  },
+  { 
+    name: 'Sand (cubic m)', 
+    stock: 75, 
+    threshold: 100, 
+    status: 'Low Stock', 
+    supplier: 'Ceylon Aggregates',
+    restockRequested: true,
+    paymentStatus: 'Pending',
+    deliveryStatus: 'Pending'
+  },
+  { 
+    name: 'Concrete Blocks', 
+    stock: 1240, 
+    threshold: 1000, 
+    status: 'In Stock', 
+    supplier: 'Block World',
+    restockRequested: false,
+    paymentStatus: 'Paid',
+    deliveryStatus: 'Delivered'
+  },
+  { 
+    name: 'Wood Panels', 
+    stock: 68, 
+    threshold: 80, 
+    status: 'Critical', 
+    supplier: 'Timber Lanka',
+    restockRequested: true,
+    paymentStatus: 'Pending',
+    deliveryStatus: 'Pending'
+  },
+  { 
+    name: 'PVC Pipes', 
+    stock: 320, 
+    threshold: 250, 
+    status: 'In Stock', 
+    supplier: 'PVC Solutions',
+    restockRequested: false,
+    paymentStatus: 'Paid',
+    deliveryStatus: 'Delivered'
+  },
+  { 
+    name: 'Roof Tiles', 
+    stock: 580, 
+    threshold: 500, 
+    status: 'In Stock', 
+    supplier: 'Roof Masters',
+    restockRequested: false,
+    paymentStatus: 'Paid',
+    deliveryStatus: 'Delivered'
+  },
 ];
 
 const recentOrders = [
@@ -120,6 +192,7 @@ function Supply_LogisticDashboard() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const { addSupplierPayment } = useSupplierPayments();
   const [orders, setOrders] = useState(recentOrders);
+  const [inventory, setInventory] = useState(inventoryData);
 
   // Simulating data loading
   useEffect(() => {
@@ -132,7 +205,7 @@ function Supply_LogisticDashboard() {
   
   // Function to filter inventory data
   const getFilteredInventory = () => {
-    let filtered = inventoryData;
+    let filtered = inventory;
     
     if (searchTerm) {
       filtered = filtered.filter(item => 
@@ -148,36 +221,31 @@ function Supply_LogisticDashboard() {
     return filtered;
   };
 
-  // Calculate KPI statistics
-  const totalInventoryItems = inventoryData.length;
-  const lowStockItems = inventoryData.filter(item => item.status === 'Low Stock' || item.status === 'Critical').length;
-  const inventoryValue = inventoryData.reduce((total, item) => total + (item.stock * (item.name === 'Sand (cubic m)' ? 7500 : 2500)), 0);
-  const pendingOrders = recentOrders.filter(order => order.status === 'Pending' || order.status === 'Processing').length;
-  
-  const handlePaymentSuccess = (paymentData) => {
-    const supplier = inventoryData.find(item => 
-      item.supplier === selectedOrder.customer
-    )?.supplier || selectedOrder.customer;
-
-    addSupplierPayment({
-      supplierName: supplier,
-      invoiceNumber: selectedOrder.id,
-      amount: selectedOrder.value,
-      paymentDate: new Date().toISOString(),
-      status: 'Completed',
-      paymentDetails: paymentData
-    });
-
-    // Update order's payment status
-    setOrders(prevOrders => 
-      prevOrders.map(order => 
-        order.id === selectedOrder.id 
-          ? { ...order, paymentStatus: 'Completed' }
-          : order
+  // Handle restock request
+  const handleRestockRequest = (itemName) => {
+    setInventory(prevInventory =>
+      prevInventory.map(item =>
+        item.name === itemName ? { ...item, restockRequested: true } : item
       )
     );
+  };
 
-    setShowPaymentModal(false);
+  // Handle payment status update
+  const handlePaymentStatusUpdate = (itemName, status) => {
+    setInventory(prevInventory =>
+      prevInventory.map(item =>
+        item.name === itemName ? { ...item, paymentStatus: status } : item
+      )
+    );
+  };
+
+  // Handle delivery status update
+  const handleDeliveryStatusUpdate = (itemName, status) => {
+    setInventory(prevInventory =>
+      prevInventory.map(item =>
+        item.name === itemName ? { ...item, deliveryStatus: status } : item
+      )
+    );
   };
 
   if (loading) {
@@ -369,7 +437,7 @@ function Supply_LogisticDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Total Inventory</p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{totalInventoryItems} Items</h3>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{inventory.length} Items</h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
                       <Box className="h-6 w-6 text-blue-600" />
@@ -387,7 +455,7 @@ function Supply_LogisticDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Low Stock Alerts</p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{lowStockItems} Items</h3>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{inventory.filter(item => item.status === 'Low Stock' || item.status === 'Critical').length} Items</h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
                       <AlertTriangle className="h-6 w-6 text-amber-600" />
@@ -405,7 +473,7 @@ function Supply_LogisticDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Inventory Value</p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">Rs. {(inventoryValue).toLocaleString()}</h3>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">Rs. {inventory.reduce((total, item) => total + (item.stock * (item.name === 'Sand (cubic m)' ? 7500 : 2500)), 0).toLocaleString()}</h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
                       <Activity className="h-6 w-6 text-green-600" />
@@ -423,7 +491,7 @@ function Supply_LogisticDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Pending Orders</p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{pendingOrders}</h3>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{orders.filter(order => order.status === 'Pending' || order.status === 'Processing').length}</h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
                       <ShoppingCart className="h-6 w-6 text-purple-600" />
@@ -622,6 +690,10 @@ function Supply_LogisticDashboard() {
                       <th className="px-4 py-2 border-b border-gray-200">Threshold</th>
                       <th className="px-4 py-2 border-b border-gray-200">Status</th>
                       <th className="px-4 py-2 border-b border-gray-200">Supplier</th>
+                      <th className="px-4 py-2 border-b border-gray-200">Restock Request</th>
+                      <th className="px-4 py-2 border-b border-gray-200">Payment Status</th>
+                      <th className="px-4 py-2 border-b border-gray-200">Delivery Status</th>
+                      <th className="px-4 py-2 border-b border-gray-200">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -636,6 +708,44 @@ function Supply_LogisticDashboard() {
                           </span>
                         </td>
                         <td className="px-4 py-2 border-b border-gray-200">{item.supplier}</td>
+                        <td className="px-4 py-2 border-b border-gray-200">
+                          {item.restockRequested ? (
+                            <span className="text-sm text-green-600">Requested</span>
+                          ) : (
+                            <button
+                              onClick={() => handleRestockRequest(item.name)}
+                              className="text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              Request Restock
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 border-b border-gray-200">
+                          <span className={`text-sm font-medium ${item.paymentStatus === 'Paid' ? 'text-green-600' : 'text-amber-600'}`}>
+                            {item.paymentStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 border-b border-gray-200">
+                          <span className={`text-sm font-medium ${item.deliveryStatus === 'Delivered' ? 'text-green-600' : item.deliveryStatus === 'In Transit' ? 'text-blue-600' : 'text-amber-600'}`}>
+                            {item.deliveryStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 border-b border-gray-200">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handlePaymentStatusUpdate(item.name, 'Paid')}
+                              className="text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              Mark Paid
+                            </button>
+                            <button
+                              onClick={() => handleDeliveryStatusUpdate(item.name, 'Delivered')}
+                              className="text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              Mark Delivered
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
