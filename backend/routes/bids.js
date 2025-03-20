@@ -68,7 +68,7 @@ router.post('/submit', async (req, res) => {
       
     if (job && job.minBudget && price < job.minBudget) {
       return res.status(400).json({
-        error: 'below_min_budget',
+        error: 'below Min Budget',
         message: `Your bid cannot be lower than the project minimum budget of LKR ${job.minBudget.toLocaleString()}`,
         minBudget: job.minBudget
       });

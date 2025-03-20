@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -346,60 +346,157 @@ const handleDownloadPdf = async () => {
   }
 };
 
-  // Send agreement via email
-  const sendAgreementEmail = async () => {
-    if (!contractorDetails?.email) {
-      toast.error("Contractor email not found");
-      return;
-    }
+// Add these state variables if not already present
+const [projectData, setProjectData] = useState(null);
+const [bidData, setBidData] = useState(null);
+const [clientData, setClientData] = useState(null);
+
+// In your useEffect, make sure to properly extract data from location state or fetch it
+useEffect(() => {
+  // Extract data from location state if available
+  if (location.state) {
+    const { project, bid, client } = location.state;
     
-    try {
-      toast.info("Sending agreement to contractor...");
-      
-      // Prepare the data
-      const emailData = {
-        recipientEmail: contractorDetails.email,
-        subject: `Project Agreement: ${jobDetails?.title}`,
-        projectTitle: jobDetails?.title,
-        clientName: clientDetails?.name || clientDetails?.username,
-        contractorName: contractorDetails?.name || bidDetails?.contractorname,
-        agreementId: jobDetails?._id,
-        bidAmount: parseFloat(bidDetails?.price).toLocaleString()
-      };
-      
-      // Make API request
-      const response = await axios.post('http://localhost:5000/api/email/send-agreement', emailData);
-      toast.success("Agreement sent to contractor's email!");
-      
-      // If using Ethereal for testing, open the preview URL
-      if (response.data.previewUrl) {
-        window.open(response.data.previewUrl, '_blank');
-      }
-    } catch (error) {
-      console.error("Error sending email:", error);
-      
-      // Fallback to mailto if API fails
-      const fallbackToMailto = window.confirm(
-        "Email service is currently unavailable. Would you like to open your email client instead?"
-      );
-      
-      if (fallbackToMailto) {
-        const subject = encodeURIComponent(`Project Agreement: ${jobDetails?.title || 'Project'}`);
-        const body = encodeURIComponent(
-          `Dear ${contractorDetails?.name || bidDetails?.contractorname},\n\n` +
-          `I'm sending you the agreement for the project "${jobDetails?.title}". ` +
-          `The bid amount is LKR ${parseFloat(bidDetails?.price).toLocaleString()} ` +
-          `with a timeline of ${bidDetails?.timeline} days.\n\n` +
-          `Please review the agreement details.\n\n` +
-          `Regards,\n${clientDetails?.name || clientDetails?.username}`
-        );
+    if (project) setProjectData(project);
+    if (bid) setBidData(bid);
+    if (client) setClientData(client);
+  } else {
+    // Fetch data if not in state
+    const fetchData = async () => {
+      try {
+        // Fetch project details
+        const projectResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`);
+        setProjectData(projectResponse.data);
         
-        window.location.href = `mailto:${contractorDetails.email}?subject=${subject}&body=${body}`;
-      } else {
-        toast.error("Failed to send email. Please try again later.");
+        // Fetch bid details if you have bid ID
+        if (bidId) {
+          const bidResponse = await axios.get(`http://localhost:5000/bids/${bidId}`);
+          setBidData(bidResponse.data);
+        }
+        
+        // Fetch client details if you have client ID
+        if (projectResponse.data?.clientId) {
+          const clientResponse = await axios.get(`http://localhost:5000/api/clients/${projectResponse.data.clientId}`);
+          setClientData(clientResponse.data);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast.error("Failed to load some project data");
       }
-    }
+    };
+    
+    fetchData();
+  }
+}, [location.state, jobId, bidId]);
+
+// Update the sendAgreementEmail function
+const sendAgreementEmail = async () => {
+  if (!contractorDetails?.email) {
+    toast.error("Contractor email not found");
+    return;
+  }
+  
+  // Gather email data
+  const emailData = {
+    recipientEmail: contractorDetails.email,
+    subject: `Project Agreement: ${projectData?.title || jobDetails?.title || 'Project'}`,
+    projectTitle: projectData?.title || jobDetails?.title || 'Project',
+    clientName: clientData?.name || clientData?.username || clientDetails?.name || clientDetails?.username || 'Client',
+    contractorName: contractorDetails?.name || bidDetails?.contractorname || bidData?.contractorname || 'Contractor',
+    agreementId: jobId,
+    bidAmount: bidData?.price || bidDetails?.price || 0,
+    timeline: bidData?.timeline || bidDetails?.timeline || 0
   };
+  
+  try {
+    toast.info("Preparing email...");
+    
+    // Get prepared email content from server
+    const response = await axios.post('http://localhost:5000/api/email/send-agreement', emailData);
+    
+    // Open email client with pre-populated content
+    if (response.data.useMailto) {
+      const encodedSubject = encodeURIComponent(response.data.mailtoSubject);
+      const encodedBody = encodeURIComponent(response.data.mailtoBody);
+      const mailtoUrl = `mailto:${response.data.recipientEmail}?subject=${encodedSubject}&body=${encodedBody}`;
+      
+      toast.success("Opening your email client...");
+      window.location.href = mailtoUrl;
+      
+      // Show additional guidance
+      setTimeout(() => {
+        toast.info("Complete sending from your email application", {
+          autoClose: 10000
+        });
+      }, 1500);
+    }
+  } catch (error) {
+    console.error("Email preparation error:", error);
+    toast.error("Error preparing email content");
+    
+    // Direct fallback as last resort
+    const subject = encodeURIComponent(`Project Agreement: ${projectData?.title || jobDetails?.title || 'Project'}`);
+    const body = encodeURIComponent(`Dear ${contractorDetails?.name || 'Contractor'},\n\nThe project agreement has been confirmed.\n\nRegards,\n${clientData?.name || clientDetails?.name || 'Client'}`);
+    window.location.href = `mailto:${contractorDetails.email}?subject=${subject}&body=${body}`;
+  }
+};
+
+// Add this new function to handle PDF email process
+const sendPdfByEmail = async () => {
+  if (!contractorDetails?.email) {
+    toast.error("Contractor email not found");
+    return;
+  }
+
+  // Show step-by-step guidance
+  toast.info("Step 1: Downloading the PDF...");
+
+  try {
+    // First download the PDF
+    await handleDownloadPdf();
+
+    // After PDF is downloaded, prepare the email
+    setTimeout(() => {
+      toast.info("Step 2: Opening email composer...");
+
+      // Create email subject and body with instructions to attach the PDF
+      const subject = `Project Agreement: ${projectData?.title || jobDetails?.title || 'Project'}`;
+      const body = `Dear ${contractorDetails?.name || bidDetails?.contractorname || 'Contractor'},
+
+I've attached the official agreement for the project "${projectData?.title || jobDetails?.title || 'Project'}".
+
+Project Details:
+- Bid Amount: LKR ${parseFloat(bidData?.price || bidDetails?.price || 0).toLocaleString()}
+- Timeline: ${bidData?.timeline || bidDetails?.timeline || 0} days
+- Start Date: ${new Date().toLocaleDateString()}
+- Project ID: ${jobId}
+
+IMPORTANT: Please attach the PDF agreement file that was just downloaded before sending this email.
+
+Please review the attached agreement and let me know if you have any questions.
+
+Regards,
+${clientData?.name || clientData?.username || clientDetails?.name || clientDetails?.username || 'Client'}`;
+
+      // Open email client
+      const encodedSubject = encodeURIComponent(subject);
+      const encodedBody = encodeURIComponent(body);
+      window.location.href = `mailto:${contractorDetails.email}?subject=${encodedSubject}&body=${encodedBody}`;
+
+      // Show prominent reminder about attaching the PDF
+      setTimeout(() => {
+        toast.info("📎 Remember to attach the PDF that was just downloaded!", {
+          autoClose: false,
+          closeButton: true,
+          icon: "📎"
+        });
+      }, 1500);
+    }, 1200); // Wait a moment for the PDF to download
+  } catch (error) {
+    console.error("Error in PDF email process:", error);
+    toast.error("Failed to prepare PDF for email");
+  }
+};
 
   const handleBackNavigation = () => {
     try {
@@ -455,15 +552,27 @@ const handleDownloadPdf = async () => {
             Download PDF
           </button>
           {contractorDetails?.email && (
-            <button
-              onClick={sendAgreementEmail}
-              className="px-4 py-2 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50"
-            >
-              <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              Email to Contractor
-            </button>
+            <>
+              <button
+                onClick={sendAgreementEmail}
+                className="px-4 py-2 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50"
+              >
+                <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Email Text Only
+              </button>
+              
+              <button
+                onClick={sendPdfByEmail}
+                className="px-4 py-2 bg-indigo-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Email with PDF
+              </button>
+            </>
           )}
         </div>
         

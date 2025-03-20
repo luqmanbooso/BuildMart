@@ -46,9 +46,36 @@ router.get('/', async (req, res) => {
 
 router.get('/:userId', async (req, res) => {
   try {
-    // Fetch the contractor by userId, assuming userId is stored as ObjectId
-    const contractor = await Contractor.findOne({ userId: req.params.userId })
-      .populate('userId', 'username email profilePic'); // Populating user info
+    const { userId } = req.params;
+    
+    // Add this special case handler
+    if (userId === 'profile') {
+      // If you need to get the authenticated user's profile
+      // Extract the ID from authentication token
+      const token = req.headers.authorization?.split(' ')[1];
+      
+      if (!token) {
+        return res.status(401).json({ error: 'No token, authorization denied' });
+      }
+      
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const authUserId = decoded.id || decoded.userId;
+        
+        const contractor = await Contractor.findOne({ userId: authUserId });
+        
+        if (!contractor) {
+          return res.status(404).json({ error: 'Contractor profile not found' });
+        }
+        
+        return res.json(contractor);
+      } catch (err) {
+        return res.status(401).json({ error: 'Token is not valid' });
+      }
+    }
+    
+    // Regular ObjectId lookup
+    const contractor = await Contractor.findOne({ userId });
     
     if (!contractor) {
       return res.status(404).json({ error: 'Contractor not found' });
@@ -57,11 +84,6 @@ router.get('/:userId', async (req, res) => {
     res.json(contractor);
   } catch (error) {
     console.error('Error fetching contractor:', error);
-    
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ error: 'Contractor not found' });
-    }
-    
     res.status(500).json({ error: 'Server error' });
   }
 });
