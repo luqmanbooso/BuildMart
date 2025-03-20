@@ -146,6 +146,7 @@ const ContractorProfile = () => {
       {/* Navigation */}
       <ContractorUserNav />
       
+      <br /><br /><br /><br />
       {/* Header section */}
       <div className="bg-gradient-to-r from-gray-800 to-blue-900 text-white p-6">
         <div className="container mx-auto max-w-6xl">

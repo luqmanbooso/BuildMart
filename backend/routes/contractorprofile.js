@@ -32,11 +32,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/contractors
- * @desc    Get all contractors
- * @access  Public
- */
 router.get('/', async (req, res) => {
   try {
     const contractors = await Contractor.find()
@@ -48,11 +43,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/contractors/:id
- * @desc    Get contractor by ID
- * @access  Public
- */
+
 router.get('/:userId', async (req, res) => {
   try {
     // Fetch the contractor by userId, assuming userId is stored as ObjectId
@@ -75,11 +66,7 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/contractors/user/:userId
- * @desc    Get contractor by user ID
- * @access  Public
- */
+
 router.get('/user/:userId', async (req, res) => {
   try {
     const contractor = await Contractor.findOne({ userId: req.params.userId })
@@ -101,11 +88,7 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-/**
- * @route   PUT /api/contractors/:id
- * @desc    Update contractor profile
- * @access  Public
- */
+
 router.put('/:id', async (req, res) => {
   try {
     let contractor = await Contractor.findById(req.params.id);
@@ -143,11 +126,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-/**
- * @route   DELETE /api/contractors/:id
- * @desc    Delete contractor profile
- * @access  Public
- */
+
 router.delete('/:id', async (req, res) => {
   try {
     const contractor = await Contractor.findById(req.params.id);
@@ -170,11 +149,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-/**
- * @route   PUT /api/contractors/verify/:id
- * @desc    Verify a contractor
- * @access  Public
- */
+
 router.put('/verify/:id', async (req, res) => {
   try {
     const contractor = await Contractor.findById(req.params.id);
@@ -196,11 +171,6 @@ router.put('/verify/:id', async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/contractors/search/filters
- * @desc    Search contractors by specialization, name, or location
- * @access  Public
- */
 router.get('/search/filters', async (req, res) => {
   try {
     const { specialization, location, verified } = req.query;
