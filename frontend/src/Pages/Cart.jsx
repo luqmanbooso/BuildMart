@@ -110,7 +110,8 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
 
   const handleInvoiceClose = () => {
     setShowInvoice(false);
-    onCheckout(total); // Call the original onCheckout handler when invoice is closed
+    // Pass payment details and items to onCheckout
+    onCheckout(total, paymentDetails, uniqueItems);
     onClose();
   };
   

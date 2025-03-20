@@ -254,10 +254,72 @@ const Shop = () => {
     setIsCheckingOut(true);
   };
 
-  const handleCheckoutComplete = () => {
-    setCartItems([]);
-    setIsCheckingOut(false);
-    toast.success('Payment completed successfully!');
+  const submitOrder = async (items, paymentDetails, total) => {
+    try {
+      // Format order items for the backend
+      const orderItems = items.map(item => ({
+        productId: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.price,
+        totalPrice: item.price * item.quantity
+      }));
+      
+      // Create order payload
+      const orderData = {
+        items: orderItems,
+        totalAmount: total,
+        paymentDetails: {
+          method: paymentDetails.cardType || 'Credit Card',
+          transactionId: `TXN-${Date.now()}`,
+          lastFourDigits: paymentDetails.lastFourDigits || '****',
+          cardholderName: paymentDetails.cardholderName || 'Customer',
+          date: new Date().toISOString()
+        },
+        shippingAddress: {
+          address: "Customer Address", // This would come from a form in a real app
+          city: "Customer City",
+          postalCode: "10000"
+        }
+      };
+      
+      // Send order to backend
+      const response = await axios.post('http://localhost:5000/api/orders', orderData);
+      
+      console.log('Order submission response:', response.data);
+      
+      if (response.data.success) {
+        toast.success('Order has been placed successfully!');
+        return true;
+      } else {
+        toast.error('Failed to place order. Please contact support.');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error submitting order:', error);
+      toast.error('Error processing your order. Please try again.');
+      return false;
+    }
+  };
+
+  const handleCheckoutComplete = (total, paymentDetails, items) => {
+    // Submit the order to backend
+    submitOrder(items, paymentDetails, total)
+      .then(success => {
+        if (success) {
+          setCartItems([]);
+          setIsCheckingOut(false);
+          toast.success('Payment completed and order placed successfully!');
+        } else {
+          setIsCheckingOut(false);
+          toast.warning('Payment completed, but your order was not recorded. Please contact support.');
+        }
+      })
+      .catch(err => {
+        console.error('Order processing error:', err);
+        setIsCheckingOut(false);
+        toast.error('Error processing your order. Please contact support.');
+      });
   };
 
   const scrollToTop = () => {

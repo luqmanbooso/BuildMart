@@ -740,4 +740,19 @@ const handlePaymentSuccess = async (paymentResult) => {
   }
 };
 
+const handlePaymentSubmit = (e) => {
+  e.preventDefault();
+  
+  // Process payment
+  
+  // If successful, pass payment details to parent
+  onSuccess({
+    cardholderName: cardholderName,
+    cardType: getCardType(cardNumber), // Implement this function to detect card type
+    lastFourDigits: cardNumber.slice(-4),
+    expiryDate: `${expiryMonth}/${expiryYear}`,
+    date: new Date().toISOString()
+  });
+};
+
 export default EnhancedPaymentGateway;
