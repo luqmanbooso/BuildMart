@@ -10,6 +10,7 @@ const ongoingWorksRoutes = require('./routes/ongoingworks');
 const paymentRoutes = require('./routes/PaymentRoutes'); // Add this line
 const productRoutes = require('./routes/productRoutes');
 const path = require('path'); // Add this line
+const supplierRoutes = require('./routes/supplierRoutes'); // Add this line
 const app = express();
 const restockRoutes = require('./routes/restockRoutes');
 
@@ -32,6 +33,7 @@ app.use('/api/orders', restockRoutes);
 // Use routes
 app.use('/api/ongoingworks', ongoingWorksRoutes);
 app.use('/api/payments', paymentRoutes); // Add this line
+app.use('/api/suppliers', supplierRoutes); // Add this line
 
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Add this line

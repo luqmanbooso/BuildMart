@@ -5,15 +5,12 @@ import {
   ChevronDown, ChevronRight, Calendar, Activity, Loader, AlertTriangle,
   Map, Navigation, CheckCircle, XCircle, Clock as ClockIcon, X, DollarSign
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, AreaChart, Area, PieChart, Pie, Cell
-} from 'recharts'; 
 import { Link } from 'react-router-dom';
 import EnhancedPaymentGateway from '../components/Payment';
 import { useSupplierPayments } from '../context/SupplierPaymentContext';
 import ShipmentArrangementForm from '../components/ShipmentArrangementForm';
 import ShippingTracking from './ShippingTracking';
+import { supplierService } from '../services/supplierService';
 
 // Mock data for the dashboard
 const inventoryData = [
@@ -107,21 +104,6 @@ const recentOrders = [
   { id: 'ORD-7888', customer: 'Mountain Builders', items: 3, value: 45000, status: 'Delivered', date: '2025-03-14' },
 ];
 
-const monthlyRevenue = [
-  { month: 'Jan', revenue: 280000 },
-  { month: 'Feb', revenue: 320000 },
-  { month: 'Mar', revenue: 450000 },
-  { month: 'Apr', revenue: 420000 },
-  { month: 'May', revenue: 500000 },
-  { month: 'Jun', revenue: 480000 },
-  { month: 'Jul', revenue: 520000 },
-  { month: 'Aug', revenue: 580000 },
-  { month: 'Sep', revenue: 620000 },
-  { month: 'Oct', revenue: 670000 },
-  { month: 'Nov', revenue: 710000 },
-  { month: 'Dec', revenue: 780000 },
-];
-
 const deliveryPerformance = [
   { month: 'Jan', onTime: 92, late: 8 },
   { month: 'Feb', onTime: 88, late: 12 },
@@ -195,6 +177,17 @@ function Supply_LogisticDashboard() {
   const { addSupplierPayment } = useSupplierPayments();
   const [orders, setOrders] = useState(recentOrders);
   const [inventory, setInventory] = useState(inventoryData);
+  const [suppliers, setSuppliers] = useState([]);
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
+  const [currentSupplier, setCurrentSupplier] = useState(null);
+  const [supplierName, setSupplierName] = useState('');
+  const [supplierContact, setSupplierContact] = useState('');
+  const [supplierEmail, setSupplierEmail] = useState('');
+  const [supplierAddress, setSupplierAddress] = useState('');
+  const [supplierCategory, setSupplierCategory] = useState('');
+  const [supplierValue, setSupplierValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Simulating data loading
   useEffect(() => {
@@ -205,6 +198,25 @@ function Supply_LogisticDashboard() {
     return () => clearTimeout(timer);
   }, []);
   
+  // Fetch suppliers on component mount
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      try {
+        setIsLoading(true);
+        const data = await supplierService.getAllSuppliers();
+        setSuppliers(data);
+        setError(null);
+      } catch (error) {
+        setError('Failed to fetch suppliers. Using sample data instead.');
+        setSuppliers(topSuppliers); // Fallback to mock data
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchSuppliers();
+  }, []);
+
   // Function to filter inventory data
   const getFilteredInventory = () => {
     let filtered = inventory;
@@ -248,6 +260,100 @@ function Supply_LogisticDashboard() {
         item.name === itemName ? { ...item, deliveryStatus: status } : item
       )
     );
+  };
+
+  // Supplier management functions
+  const handleAddSupplier = async () => {
+    try {
+      setIsLoading(true);
+      const newSupplier = {
+        name: supplierName,
+        value: parseInt(supplierValue) || 0,
+        contact: supplierContact,
+        email: supplierEmail,
+        address: supplierAddress,
+        category: supplierCategory
+      };
+      
+      const createdSupplier = await supplierService.createSupplier(newSupplier);
+      setSuppliers([...suppliers, createdSupplier]);
+      resetForm();
+      setError(null);
+    } catch (error) {
+      setError('Failed to add supplier. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateSupplier = async () => {
+    if (!currentSupplier) return;
+    
+    try {
+      setIsLoading(true);
+      const updatedSupplierData = {
+        name: supplierName, 
+        value: parseInt(supplierValue) || 0, 
+        contact: supplierContact, 
+        email: supplierEmail, 
+        address: supplierAddress,
+        category: supplierCategory
+      };
+      
+      await supplierService.updateSupplier(currentSupplier.id, updatedSupplierData);
+      
+      setSuppliers(suppliers.map(supplier => 
+        supplier.id === currentSupplier.id 
+          ? { ...supplier, ...updatedSupplierData } 
+          : supplier
+      ));
+      
+      resetForm();
+      setError(null);
+    } catch (error) {
+      setError('Failed to update supplier. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteSupplier = async (supplierId) => {
+    const confirmed = window.confirm("Are you sure you want to delete this supplier?");
+    
+    if (confirmed) {
+      try {
+        setIsLoading(true);
+        await supplierService.deleteSupplier(supplierId);
+        setSuppliers(suppliers.filter(supplier => supplier.id !== supplierId));
+        setError(null);
+      } catch (error) {
+        setError('Failed to delete supplier. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const editSupplier = (supplier) => {
+    setCurrentSupplier(supplier);
+    setSupplierName(supplier.name);
+    setSupplierValue(supplier.value?.toString() || '');
+    setSupplierContact(supplier.contact || '');
+    setSupplierEmail(supplier.email || '');
+    setSupplierAddress(supplier.address || '');
+    setSupplierCategory(supplier.category || '');
+    setShowSupplierForm(true);
+  };
+
+  const resetForm = () => {
+    setCurrentSupplier(null);
+    setSupplierName('');
+    setSupplierValue('');
+    setSupplierContact('');
+    setSupplierEmail('');
+    setSupplierAddress('');
+    setSupplierCategory('');
+    setShowSupplierForm(false);
   };
 
   if (loading) {
@@ -508,136 +614,44 @@ function Supply_LogisticDashboard() {
                 </div>
               </div>
 
-              {/* Charts Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Revenue Trend */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium text-gray-800">Monthly Revenue</h3>
-                    <div className="flex items-center space-x-2">
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <Filter className="h-5 w-5 text-gray-600" />
-                      </button>
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <Download className="h-5 w-5 text-gray-600" />
-                      </button>
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <MoreHorizontal className="h-5 w-5 text-gray-600" />
-                      </button>
-                    </div>
+              {/* Active Shipments */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium text-gray-800">Active Shipments</h3>
+                  <div className="flex items-center space-x-2">
+                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                      <Filter className="h-5 w-5 text-gray-600" />
+                    </button>
+                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                      <Download className="h-5 w-5 text-gray-600" />
+                    </button>
+                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                      <MoreHorizontal className="h-5 w-5 text-gray-600" />
+                    </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={monthlyRevenue}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="revenue" stroke="#8884d8" activeDot={{ r: 8 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
                 </div>
-
-                {/* Delivery Performance */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium text-gray-800">Delivery Performance</h3>
-                    <div className="flex items-center space-x-2">
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <Filter className="h-5 w-5 text-gray-600" />
-                      </button>
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <Download className="h-5 w-5 text-gray-600" />
-                      </button>
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <MoreHorizontal className="h-5 w-5 text-gray-600" />
-                      </button>
-                    </div>
-                  </div>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={deliveryPerformance}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="onTime" fill="#82ca9d" />
-                      <Bar dataKey="late" fill="#8884d8" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Pie Chart Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Top Suppliers */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium text-gray-800">Top Suppliers</h3>
-                    <div className="flex items-center space-x-2">
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <Filter className="h-5 w-5 text-gray-600" />
-                      </button>
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <Download className="h-5 w-5 text-gray-600" />
-                      </button>
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <MoreHorizontal className="h-5 w-5 text-gray-600" />
-                      </button>
-                    </div>
-                  </div>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie data={topSuppliers} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="#8884d8">
-                        {topSuppliers.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Active Shipments */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium text-gray-800">Active Shipments</h3>
-                    <div className="flex items-center space-x-2">
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <Filter className="h-5 w-5 text-gray-600" />
-                      </button>
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <Download className="h-5 w-5 text-gray-600" />
-                      </button>
-                      <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                        <MoreHorizontal className="h-5 w-5 text-gray-600" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    {activeShipments.map(shipment => (
-                      <div key={shipment.id} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="text-lg font-medium text-gray-800">{shipment.id}</h4>
-                            <p className="text-sm text-gray-600">{shipment.origin} to {shipment.destination}</p>
-                            <p className="text-sm text-gray-600">Driver: {shipment.driver}</p>
-                            <p className="text-sm text-gray-600">Vehicle: {shipment.vehicle}</p>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <span className={`text-sm font-medium ${shipment.status === 'In Transit' ? 'text-blue-600' : 'text-gray-600'}`}>{shipment.status}</span>
-                            <span className="text-sm text-gray-600">{shipment.eta}</span>
-                          </div>
+                <div className="space-y-4">
+                  {activeShipments.map(shipment => (
+                    <div key={shipment.id} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-lg font-medium text-gray-800">{shipment.id}</h4>
+                          <p className="text-sm text-gray-600">{shipment.origin} to {shipment.destination}</p>
+                          <p className="text-sm text-gray-600">Driver: {shipment.driver}</p>
+                          <p className="text-sm text-gray-600">Vehicle: {shipment.vehicle}</p>
                         </div>
-                        <div className="mt-4">
-                          <div className="h-2 bg-gray-200 rounded-full">
-                            <div className={`h-2 rounded-full ${shipment.status === 'In Transit' ? 'bg-blue-600' : 'bg-gray-600'}`} style={{ width: `${shipment.progress}%` }}></div>
-                          </div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`text-sm font-medium ${shipment.status === 'In Transit' ? 'text-blue-600' : 'text-gray-600'}`}>{shipment.status}</span>
+                          <span className="text-sm text-gray-600">{shipment.eta}</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                      <div className="mt-4">
+                        <div className="h-2 bg-gray-200 rounded-full">
+                          <div className={`h-2 rounded-full ${shipment.status === 'In Transit' ? 'bg-blue-600' : 'bg-gray-600'}`} style={{ width: `${shipment.progress}%` }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -756,57 +770,57 @@ function Supply_LogisticDashboard() {
             </div>
           )}
 
-{activeTab === 'shipments' && (
-  <div className="space-y-6">
-    {/* Shipment Arrangement Form */}
-    <ShipmentArrangementForm
-      orders={orders}
-      onArrangeShipment={(shipmentData) => {
-        // Add the new shipment to the activeShipments list
-        const newShipment = {
-          id: `SHP-${Math.floor(Math.random() * 10000)}`, // Generate a random ID
-          origin: "Colombo Warehouse", // Default origin
-          destination: "Customer Site", // Default destination
-          driver: shipmentData.driver,
-          vehicle: shipmentData.vehicle,
-          status: shipmentData.status,
-          progress: shipmentData.status === "Delivered" ? 100 : 0,
-          eta: shipmentData.eta,
-        };
-        setActiveShipments((prev) => [...prev, newShipment]);
-      }}
-    />
+          {activeTab === 'shipments' && (
+            <div className="space-y-6">
+              {/* Shipment Arrangement Form */}
+              <ShipmentArrangementForm
+                orders={orders}
+                onArrangeShipment={(shipmentData) => {
+                  // Add the new shipment to the activeShipments list
+                  const newShipment = {
+                    id: `SHP-${Math.floor(Math.random() * 10000)}`, // Generate a random ID
+                    origin: "Colombo Warehouse", // Default origin
+                    destination: "Customer Site", // Default destination
+                    driver: shipmentData.driver,
+                    vehicle: shipmentData.vehicle,
+                    status: shipmentData.status,
+                    progress: shipmentData.status === "Delivered" ? 100 : 0,
+                    eta: shipmentData.eta,
+                  };
+                  setActiveShipments((prev) => [...prev, newShipment]);
+                }}
+              />
 
-    {/* Shipment Tracking Section */}
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium text-gray-800">Active Shipments</h3>
-        <div className="flex items-center space-x-2">
-          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-            <Filter className="h-5 w-5 text-gray-600" />
-          </button>
-          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-            <Download className="h-5 w-5 text-gray-600" />
-          </button>
-          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-            <MoreHorizontal className="h-5 w-5 text-gray-600" />
-          </button>
-        </div>
-      </div>
-      <div className="space-y-4">
-        {activeShipments.map((shipment) => (
-          <ShippingTracking
-            key={shipment.id}
-            shipmentId={shipment.id}
-            shipmentStatus={shipment.status}
-            deliveryProgress={shipment.progress}
-            estimatedDelivery={shipment.eta}
-          />
-        ))}
-      </div>
-    </div>
-  </div>
-)}
+              {/* Shipment Tracking Section */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium text-gray-800">Active Shipments</h3>
+                  <div className="flex items-center space-x-2">
+                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                      <Filter className="h-5 w-5 text-gray-600" />
+                    </button>
+                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                      <Download className="h-5 w-5 text-gray-600" />
+                    </button>
+                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                      <MoreHorizontal className="h-5 w-5 text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {activeShipments.map((shipment) => (
+                    <ShippingTracking
+                      key={shipment.id}
+                      shipmentId={shipment.id}
+                      shipmentStatus={shipment.status}
+                      deliveryProgress={shipment.progress}
+                      estimatedDelivery={shipment.eta}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {activeTab === 'orders' && (
             <div className="space-y-6">
@@ -906,33 +920,256 @@ function Supply_LogisticDashboard() {
 
           {activeTab === 'suppliers' && (
             <div className="space-y-6">
-              {/* Supplier Directory Section */}
+              {/* Show error messages if any */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                  <p>{error}</p>
+                </div>
+              )}
+              
+              {/* Add Supplier Button */}
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-gray-800">Supplier Management</h2>
+                <button 
+                  onClick={() => setShowSupplierForm(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Processing...' : 'Add New Supplier'}
+                </button>
+              </div>
+
+              {/* Supplier Form Modal */}
+              {showSupplierForm && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+                  <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold">
+                        {currentSupplier ? 'Update Supplier' : 'Add New Supplier'}
+                      </h3>
+                      <button 
+                        onClick={resetForm}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <X className="h-6 w-6" />
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Supplier Name *
+                        </label>
+                        <input 
+                          type="text" 
+                          value={supplierName}
+                          onChange={(e) => setSupplierName(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter supplier name"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Contact Person
+                        </label>
+                        <input 
+                          type="text" 
+                          value={supplierContact}
+                          onChange={(e) => setSupplierContact(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Contact person name"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email Address
+                        </label>
+                        <input 
+                          type="email" 
+                          value={supplierEmail}
+                          onChange={(e) => setSupplierEmail(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Email address"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Address
+                        </label>
+                        <textarea 
+                          value={supplierAddress}
+                          onChange={(e) => setSupplierAddress(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Physical address"
+                          rows="2"
+                        ></textarea>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Category
+                        </label>
+                        <select
+                          value={supplierCategory}
+                          onChange={(e) => setSupplierCategory(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select a category</option>
+                          <option value="Cement">Cement</option>
+                          <option value="Steel">Steel</option>
+                          <option value="Bricks">Bricks</option>
+                          <option value="Sand">Sand</option>
+                          <option value="Concrete">Concrete</option>
+                          <option value="Wood">Wood</option>
+                          <option value="PVC">PVC</option>
+                          <option value="Roofing">Roofing</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Value Percentage
+                        </label>
+                        <input 
+                          type="number" 
+                          value={supplierValue}
+                          onChange={(e) => setSupplierValue(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Value percentage"
+                          min="0"
+                          max="100"
+                        />
+                      </div>
+                      
+                      <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                        <button 
+                          onClick={resetForm}
+                          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+                          disabled={isLoading}
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          onClick={currentSupplier ? handleUpdateSupplier : handleAddSupplier}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center"
+                          disabled={isLoading || !supplierName}
+                        >
+                          {isLoading && <Loader className="animate-spin h-4 w-4 mr-2" />}
+                          {currentSupplier ? 'Update Supplier' : 'Add Supplier'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Supplier List */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">Supplier Directory</h3>
+                  <h3 className="text-lg font-medium text-gray-800">
+                    Supplier Directory {isLoading && <Loader className="inline-block animate-spin h-4 w-4 ml-2" />}
+                  </h3>
                   <div className="flex items-center space-x-2">
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                        placeholder="Search suppliers..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
+                    </div>
                     <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                       <Filter className="h-5 w-5 text-gray-600" />
                     </button>
                     <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                       <Download className="h-5 w-5 text-gray-600" />
                     </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <MoreHorizontal className="h-5 w-5 text-gray-600" />
-                    </button>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  {topSuppliers.map(supplier => (
-                    <div key={supplier.name} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-lg font-medium text-gray-800">{supplier.name}</h4>
-                          <p className="text-sm text-gray-600">Value: {supplier.value}%</p>
-                        </div>
-                      </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead>
+                      <tr>
+                        <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Supplier Name
+                        </th>
+                        <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Contact
+                        </th>
+                        <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Value %
+                        </th>
+                        <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {suppliers
+                        .filter(supplier => 
+                          supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                          (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                        )
+                        .map((supplier) => (
+                          <tr key={supplier.id || supplier.name} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="font-medium text-gray-900">{supplier.name}</div>
+                              {supplier.email && (
+                                <div className="text-sm text-gray-500">{supplier.email}</div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                {supplier.category || 'General'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {supplier.contact || 'Not specified'}
+                              {supplier.address && (
+                                <div className="text-xs text-gray-400 truncate max-w-xs">
+                                  {supplier.address}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {supplier.value}%
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => editSupplier(supplier)}
+                                className="text-blue-600 hover:text-blue-900 mr-4"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSupplier(supplier.id || supplier.name)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+
+                  {suppliers.length === 0 && (
+                    <div className="text-center py-6 text-gray-500">
+                      No suppliers found. Add a new supplier to get started.
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
