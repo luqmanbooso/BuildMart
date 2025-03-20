@@ -4,7 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { FaSort, FaSortUp, FaSortDown, FaStar, FaFilter, FaCheck, FaClipboardList, FaChartBar, FaExchangeAlt } from 'react-icons/fa';
 
-const BidListingSection = ({ bids, jobId, refreshBids }) => {
+const BidListingSection = ({ bids, jobId, refreshBids, job }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -242,6 +242,22 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
 
   return (
     <div className="mt-10">
+      {job?.minBudget && (
+        <div className="mb-4 bg-gray-50 border-l-4 border-gray-500 p-4 rounded-md">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-gray-700">
+                This project has a minimum budget of <strong>LKR {job.minBudget.toLocaleString()}</strong>. Bids below this amount will not be accepted.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex justify-between items-center mb-4 pb-2 border-b">
         <h3 className="text-lg font-bold text-gray-900">
           Bids 

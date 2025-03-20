@@ -269,8 +269,34 @@ const AgreementForm = () => {
         const response = await axios.post(ongoingWorkUrl, ongoingWorkData, config);
         
         alert(`Ongoing work created successfully: ${JSON.stringify(response.data)}`);
-        toast.success('Agreement successfully confirmed!');
         
+        // NEW CODE: Update job status to close the auction
+        try {
+          const jobUpdateUrl = `http://localhost:5000/api/jobs/${jobId}/auction-status`;
+          await axios.put(jobUpdateUrl, {
+            status: 'Closed'
+          }, config);
+          
+          console.log("Successfully closed auction after agreement finalization");
+        } catch (jobError) {
+          console.error("Failed to update job status, but agreement was created:", jobError);
+          // Don't throw error here - we want to continue even if this fails
+        }
+        
+        // NEW CODE: Update all other bids for this job to 'rejected'
+        try {
+          const rejectOtherBidsUrl = `http://localhost:5000/bids/project/${jobId}/reject-others`;
+          await axios.put(rejectOtherBidsUrl, {
+            acceptedBidId: bidId
+          }, config);
+          
+          console.log("Successfully rejected other bids");
+        } catch (rejectError) {
+          console.error("Failed to reject other bids:", rejectError);
+          // Don't throw error here - continue with the process
+        }
+        
+        toast.success('Agreement successfully confirmed!');
         setShowSuccessModal(true);
         
         // Navigate after a successful creation
