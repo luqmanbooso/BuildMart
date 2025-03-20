@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 import logo from '../assets/images/buildmart_logo1.png';
 import {  useLocation, useNavigate, useParams } from 'react-router-dom';
+import {jwtDecode} from 'jwt-decode';
 
 const AcceptedAgreementView = () => {
   // Get data from location state
@@ -400,6 +401,33 @@ const handleDownloadPdf = async () => {
     }
   };
 
+  const handleBackNavigation = () => {
+    try {
+      // Get the token from localStorage
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      if (token) {
+        // Use jwt-decode to decode the token
+        const tokenData = jwtDecode(token);
+        
+        // Navigate based on role
+        if (tokenData.role === 'Service Provider') {
+          navigate('/ongoingproject');
+        } else {
+          // Default to client path
+          navigate('/ongoing-works');
+        }
+      } else {
+        // Default navigation if no token
+        navigate('/ongoing-works');
+      }
+    } catch (error) {
+      // If any errors in token parsing, use default navigation
+      console.error("Error determining user role:", error);
+      navigate('/ongoing-works');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
         
@@ -409,13 +437,13 @@ const handleDownloadPdf = async () => {
         <div className="mb-6 flex justify-end space-x-3">
           
         <button
-            onClick={() => navigate('/ongoing-works')}
+            onClick={handleBackNavigation}
             className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Back to Ongoing Works
+            Back to Dashboard
           </button>
           <button
             onClick={handleDownloadPdf}
