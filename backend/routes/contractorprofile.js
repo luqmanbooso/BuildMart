@@ -32,11 +32,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/contractors
- * @desc    Get all contractors
- * @access  Public
- */
 router.get('/', async (req, res) => {
   try {
     const contractors = await Contractor.find()
@@ -48,11 +43,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/contractors/:id
- * @desc    Get contractor by ID
- * @access  Public
- */
+
 router.get('/:userId', async (req, res) => {
   try {
     // Fetch the contractor by userId, assuming userId is stored as ObjectId

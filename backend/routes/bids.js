@@ -1,5 +1,6 @@
 const express = require('express');
 const Bid = require('../models/bidModel');
+const Job = require('../models/Job');
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ router.post('/submit', async (req, res) => {
       });
     }
 
-    // Check if this contractor has already bid on this project
+    // Enhanced validation - check if this contractor has already bid on this project
     const existingBid = await Bid.findOne({ 
       projectId: projectId,
       contractorId: contractorId
@@ -25,7 +26,13 @@ router.post('/submit', async (req, res) => {
 
     if (existingBid) {
       return res.status(400).json({ 
-        error: 'You have already submitted a bid for this project'
+        error: 'Duplicate bid',
+        message: 'You have already submitted a bid for this project',
+        existingBid: {
+          id: existingBid._id,
+          submittedAt: existingBid.createdAt,
+          status: existingBid.status
+        }
       });
     }
 
@@ -33,7 +40,7 @@ router.post('/submit', async (req, res) => {
     const newBid = new Bid({
       projectId,
       contractorId,
-      contractorname: contractorname || "Anonymous Contractor",
+      contractorname: contractorname || 'Anonymous',
       price,
       timeline,
       qualifications: qualifications || `Experience: ${req.body.experience || 'Not specified'} years`,
@@ -50,21 +57,13 @@ router.post('/submit', async (req, res) => {
 
   } catch (error) {
     console.error('Bid submission error:', error);
-    
-    // Check if error is a MongoDB duplicate key error
-    if (error.code === 11000) {
-      return res.status(400).json({ 
-        error: 'Duplicate bid error',
-        message: 'You have already submitted a bid for this project'
-      });
-    }
-    
     res.status(500).json({ 
       error: 'Error submitting bid', 
       message: error.message 
     });
   }
 });
+
 // 2. Get all bids
 router.get('/', async (req, res) => {
   try {
@@ -192,31 +191,8 @@ router.get('/contractor/:contractorId', async (req, res) => {
     
     const bids = await Bid.find({ contractorId });
     
-    // Enhance with project details if possible
-    const enhancedBids = await Promise.all(bids.map(async (bid) => {
-      try {
-        const bidObj = bid.toObject();
-        // Try to get job details for each bid
-        const job = await Job.findById(bid.projectId);
-        if (job) {
-          bidObj.projectName = job.title;
-          
-          // Try to get client details
-          if (job.clientId) {
-            const client = await User.findById(job.clientId);
-            if (client) {
-              bidObj.clientName = client.name;
-            }
-          }
-        }
-        return bidObj;
-      } catch (err) {
-        console.log(`Error fetching details for bid ${bid._id}:`, err);
-        return bid.toObject();
-      }
-    }));
+    res.json(bids);
     
-    res.json(enhancedBids);
   } catch (error) {
     console.error('Error fetching contractor bids:', error);
     res.status(500).json({ error: 'Error fetching contractor bids' });
