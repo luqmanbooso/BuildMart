@@ -32,6 +32,10 @@ const AgreementForm = () => {
         if (location.state) {
           console.log("Using data from navigation state:", location.state);
           
+          // Check if payment was completed
+          const paymentCompleted = location.state.paymentCompleted;
+          setPaymentMethod(location.state.paymentMethod || 'creditCard');
+          
           // If the bid is already accepted, redirect to AcceptedAgreementView
           if (location.state.bidAlreadyAccepted) {
             navigate(`/accepted-agreement/${jobId}/${bidId}`, { 
