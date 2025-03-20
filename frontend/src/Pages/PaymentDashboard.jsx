@@ -7,6 +7,7 @@ import {
   ArrowDownRight, ArrowUpRight, Loader, RefreshCw, 
   FileText, Check, X, ChevronRight, BarChart2
 } from 'lucide-react';
+import { useSupplierPayments } from '../context/SupplierPaymentContext';
 
 function PaymentDashboard() {
   // Keep existing state variables
@@ -35,7 +36,6 @@ function PaymentDashboard() {
   
   // Add these state variables
   const [showExpensesSubmenu, setShowExpensesSubmenu] = useState(false);
-  const [supplierPayments, setSupplierPayments] = useState([]);
   const [expensesSubPage, setExpensesSubPage] = useState('');
 
   // Keep existing paymentStats state
@@ -54,6 +54,8 @@ function PaymentDashboard() {
     { method: 'Mastercard', percentage: 0 },
     { method: 'Other', percentage: 0 }
   ]);
+
+  const { supplierPayments } = useSupplierPayments();
 
   // Enhanced fetch payments with filtering and sorting
   const fetchPayments = async () => {
@@ -1153,10 +1155,6 @@ function PaymentDashboard() {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-lg font-semibold">Supplier Payment Records</h2>
                   <div className="flex space-x-2">
-                    <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
-                      <Plus size={16} className="mr-2" />
-                      New Payment
-                    </button>
                     <button className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg">
                       <Download size={16} className="mr-2" />
                       Export
@@ -1198,7 +1196,7 @@ function PaymentDashboard() {
                         </tr>
                       ) : (
                         supplierPayments.map((payment, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
+                          <tr key={payment.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {payment.supplierName}
                             </td>
@@ -1215,7 +1213,10 @@ function PaymentDashboard() {
                               {getStatusBadge(payment.status)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <button className="text-blue-600 hover:text-blue-800">
+                              <button 
+                                onClick={() => viewPaymentDetails(payment)}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
                                 View Details
                               </button>
                             </td>

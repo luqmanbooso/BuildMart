@@ -3,13 +3,15 @@ import {
   LayoutDashboard, Truck, Box, ShoppingCart, Users, RefreshCw, Clock, 
   Settings, LogOut, Bell, Search, Filter, Download, MoreHorizontal,
   ChevronDown, ChevronRight, Calendar, Activity, Loader, AlertTriangle,
-  Map, Navigation, CheckCircle, XCircle, Clock as ClockIcon
+  Map, Navigation, CheckCircle, XCircle, Clock as ClockIcon, X, DollarSign
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts'; 
 import { Link } from 'react-router-dom';
+import EnhancedPaymentGateway from '../components/Payment';
+import { useSupplierPayments } from '../context/SupplierPaymentContext';
 
 // Mock data for the dashboard
 const inventoryData = [
@@ -24,8 +26,8 @@ const inventoryData = [
 ];
 
 const recentOrders = [
-  { id: 'ORD-7892', customer: 'Colombo Builders', items: 8, value: 145000, status: 'Delivered', date: '2025-03-15' },
-  { id: 'ORD-7891', customer: 'Highland Construction', items: 12, value: 230000, status: 'In Transit', date: '2025-03-17' },
+  { id: 'ORD-7892', customer: 'Colombo Builders', items: 8, value: 145000, status: 'Delivered', paymentStatus: 'Pending', date: '2025-03-15' },
+  { id: 'ORD-7891', customer: 'Highland Construction', items: 12, value: 230000, status: 'In Transit', paymentStatus: null, date: '2025-03-17' },
   { id: 'ORD-7890', customer: 'Kandy Developers', items: 5, value: 87000, status: 'Processing', date: '2025-03-18' },
   { id: 'ORD-7889', customer: 'Galle Projects', items: 15, value: 315000, status: 'Pending', date: '2025-03-18' },
   { id: 'ORD-7888', customer: 'Mountain Builders', items: 3, value: 45000, status: 'Delivered', date: '2025-03-14' },
@@ -114,6 +116,10 @@ function Supply_LogisticDashboard() {
   const [inventoryFilter, setInventoryFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [showShipmentDetails, setShowShipmentDetails] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const { addSupplierPayment } = useSupplierPayments();
+  const [orders, setOrders] = useState(recentOrders);
 
   // Simulating data loading
   useEffect(() => {
@@ -148,6 +154,32 @@ function Supply_LogisticDashboard() {
   const inventoryValue = inventoryData.reduce((total, item) => total + (item.stock * (item.name === 'Sand (cubic m)' ? 7500 : 2500)), 0);
   const pendingOrders = recentOrders.filter(order => order.status === 'Pending' || order.status === 'Processing').length;
   
+  const handlePaymentSuccess = (paymentData) => {
+    const supplier = inventoryData.find(item => 
+      item.supplier === selectedOrder.customer
+    )?.supplier || selectedOrder.customer;
+
+    addSupplierPayment({
+      supplierName: supplier,
+      invoiceNumber: selectedOrder.id,
+      amount: selectedOrder.value,
+      paymentDate: new Date().toISOString(),
+      status: 'Completed',
+      paymentDetails: paymentData
+    });
+
+    // Update order's payment status
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === selectedOrder.id 
+          ? { ...order, paymentStatus: 'Completed' }
+          : order
+      )
+    );
+
+    setShowPaymentModal(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -659,6 +691,30 @@ function Supply_LogisticDashboard() {
 
           {activeTab === 'orders' && (
             <div className="space-y-6">
+              {/* Payment Modal */}
+              {showPaymentModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+                  <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4">
+                    <div className="flex justify-between items-center p-4 border-b">
+                      <h3 className="text-lg font-semibold">Process Supplier Payment</h3>
+                      <button 
+                        onClick={() => setShowPaymentModal(false)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <X className="h-6 w-6" />
+                      </button>
+                    </div>
+                    <div className="p-4">
+                      <EnhancedPaymentGateway 
+                        amount={selectedOrder?.value}
+                        onSuccess={handlePaymentSuccess}
+                        onCancel={() => setShowPaymentModal(false)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Recent Orders Section */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <div className="flex justify-between items-center mb-4">
@@ -676,7 +732,7 @@ function Supply_LogisticDashboard() {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  {recentOrders.map(order => (
+                  {orders.map(order => (
                     <div key={order.id} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
                       <div className="flex items-center justify-between">
                         <div>
@@ -686,8 +742,40 @@ function Supply_LogisticDashboard() {
                           <p className="text-sm text-gray-600">Value: Rs. {order.value.toLocaleString()}</p>
                           <p className="text-sm text-gray-600">Date: {order.date}</p>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className={`text-sm font-medium ${order.status === 'Delivered' ? 'text-green-600' : order.status === 'In Transit' ? 'text-blue-600' : order.status === 'Processing' ? 'text-amber-600' : 'text-gray-600'}`}>{order.status}</span>
+                        <div className="flex flex-col items-end space-y-2">
+                          <div className="flex flex-col items-end space-y-1">
+                            <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                              order.status === 'Delivered' ? 'bg-green-100 text-green-600' : 
+                              order.status === 'In Transit' ? 'bg-blue-100 text-blue-600' : 
+                              order.status === 'Processing' ? 'bg-amber-100 text-amber-600' : 
+                              'bg-gray-100 text-gray-600'
+                            }`}>
+                              {order.status}
+                            </span>
+                            {order.status === 'Delivered' && (
+                              order.paymentStatus === 'Completed' ? (
+                                <span className="flex items-center text-sm font-medium text-green-600">
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Payment Completed
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setShowPaymentModal(true);
+                                  }}
+                                  className="flex items-center space-x-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+                                >
+                                  <span>Process Payment</span>
+                                </button>
+                              )
+                            )}
+                          </div>
+                          {order.paymentStatus === 'Completed' && (
+                            <p className="text-xs text-gray-500">
+                              Paid on {new Date().toLocaleDateString()}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -30,6 +30,7 @@ import OngoingProjects from './components/OngoingProjects'
 import InventoryDash from './Pages/InventoryDash'
 import Supply_LogisticDashboard from './Pages/Supply_LogisticDashboard'
 import AcceptedAgreementView from './components/AcceptedAgreementView';
+import { SupplierPaymentProvider } from './context/SupplierPaymentContext';
 
 function App() {
   const sampleData = {
@@ -63,7 +64,7 @@ function App() {
   };
 
   return (
-    <>
+    <SupplierPaymentProvider>
       <Routes>
         <Route path='/' element={<Home/>} />
         <Route path='/bid-form/:jobId' element={<BidForm
@@ -110,7 +111,7 @@ function App() {
           element={<AcceptedAgreementView />} 
         />
       </Routes>
-    </>
+    </SupplierPaymentProvider>
   )
 }
 
