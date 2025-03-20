@@ -707,4 +707,37 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
   );
 };
 
+const handlePaymentSuccess = async (paymentResult) => {
+  try {
+    // Update milestone status and payment details
+    const { workId, milestoneId } = location.state;
+    
+    const response = await axios.patch(
+      `/api/ongoing-works/${workId}/milestone/${milestoneId}`,
+      {
+        status: 'completed',
+        actualAmountPaid: paymentResult.amount,
+        completedAt: new Date(),
+        paymentId: paymentResult.id
+      }
+    );
+
+    if (response.data) {
+      setIsComplete(true);
+      setInvoiceData({
+        id: paymentResult.id,
+        ...location.state,
+        paymentDate: new Date(),
+      });
+      
+      if (onSuccess) {
+        onSuccess(paymentResult);
+      }
+    }
+  } catch (error) {
+    console.error('Error updating milestone payment:', error);
+    showNotificationMessage('error', 'Payment recorded but milestone update failed');
+  }
+};
+
 export default EnhancedPaymentGateway;

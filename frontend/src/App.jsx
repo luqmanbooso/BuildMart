@@ -31,6 +31,7 @@ import InventoryDash from './Pages/InventoryDash'
 import Supply_LogisticDashboard from './Pages/Supply_LogisticDashboard'
 import AcceptedAgreementView from './components/AcceptedAgreementView';
 import { SupplierPaymentProvider } from './context/SupplierPaymentContext';
+import EnhancedPaymentGateway from './components/Payment';
 
 function App() {
   const sampleData = {
@@ -109,6 +110,27 @@ function App() {
         <Route 
           path="/accepted-agreement/:jobId/:bidId" 
           element={<AcceptedAgreementView />} 
+        />
+        <Route 
+          path="/payment-gateway" 
+          element={
+            <EnhancedPaymentGateway 
+              onSuccess={(paymentResult) => {
+                // Handle successful payment
+                const { state } = useLocation();
+                if (state?.returnUrl) {
+                  navigate(state.returnUrl);
+                }
+              }}
+              onCancel={() => {
+                // Handle payment cancellation
+                const { state } = useLocation();
+                if (state?.returnUrl) {
+                  navigate(state.returnUrl);
+                }
+              }}
+            />
+          } 
         />
       </Routes>
     </SupplierPaymentProvider>

@@ -192,4 +192,62 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+// Add this new route to handle milestone payments
+router.post('/milestone-payment', async (req, res) => {
+  try {
+    const {
+      workId,
+      milestoneId,
+      amount,
+      paymentDetails
+    } = req.body;
+
+    // Create payment record
+    const payment = new Payment({
+      ...paymentDetails,
+      amount: parseFloat(amount),
+      status: 'completed',
+      type: 'milestone',
+      workId,
+      milestoneId
+    });
+
+    await payment.save();
+
+    // Update the milestone status
+    await OngoingWork.findOneAndUpdate(
+      { 
+        _id: workId,
+        'milestones._id': milestoneId 
+      },
+      {
+        $set: {
+          'milestones.$.status': 'completed',
+          'milestones.$.actualAmountPaid': amount,
+          'milestones.$.completedAt': new Date(),
+          'milestones.$.paymentId': payment._id
+        }
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Milestone payment processed successfully',
+      payment: {
+        id: payment._id,
+        amount: payment.amount,
+        status: payment.status
+      }
+    });
+
+  } catch (error) {
+    console.error('Milestone payment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Payment processing failed',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
