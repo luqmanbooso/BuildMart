@@ -254,7 +254,29 @@ const Shop = () => {
     setIsCheckingOut(true);
   };
 
-  const submitOrder = async (items, paymentDetails, total) => {
+  // Update handleCheckoutComplete to accept shipping details
+  const handleCheckoutComplete = (total, paymentDetails, items, shippingDetails) => {
+    // Submit the order to backend with shipping details
+    submitOrder(items, paymentDetails, total, shippingDetails)
+      .then(success => {
+        if (success) {
+          setCartItems([]);
+          setIsCheckingOut(false);
+          toast.success('Payment completed and order placed successfully!');
+        } else {
+          setIsCheckingOut(false);
+          toast.warning('Payment completed, but your order was not recorded. Please contact support.');
+        }
+      })
+      .catch(err => {
+        console.error('Order processing error:', err);
+        setIsCheckingOut(false);
+        toast.error('Error processing your order. Please contact support.');
+      });
+  };
+
+  // Update submitOrder to include shipping details
+  const submitOrder = async (items, paymentDetails, total, shippingDetails) => {
     try {
       // Format order items for the backend
       const orderItems = items.map(item => ({
@@ -276,14 +298,22 @@ const Shop = () => {
           cardholderName: paymentDetails.cardholderName || 'Customer',
           date: new Date().toISOString()
         },
+        customer: {
+          name: shippingDetails.fullName,
+          email: shippingDetails.email,
+          // You can add userId here if the user is logged in
+        },
         shippingAddress: {
-          address: "Customer Address", // This would come from a form in a real app
-          city: "Customer City",
-          postalCode: "10000"
+          address: shippingDetails.address,
+          city: shippingDetails.city,
+          postalCode: shippingDetails.postalCode,
+          phone: shippingDetails.phone,
+          notes: shippingDetails.notes
         }
       };
       
       // Send order to backend
+      console.log('Submitting order data:', orderData);
       const response = await axios.post('http://localhost:5000/api/orders', orderData);
       
       console.log('Order submission response:', response.data);
@@ -300,26 +330,6 @@ const Shop = () => {
       toast.error('Error processing your order. Please try again.');
       return false;
     }
-  };
-
-  const handleCheckoutComplete = (total, paymentDetails, items) => {
-    // Submit the order to backend
-    submitOrder(items, paymentDetails, total)
-      .then(success => {
-        if (success) {
-          setCartItems([]);
-          setIsCheckingOut(false);
-          toast.success('Payment completed and order placed successfully!');
-        } else {
-          setIsCheckingOut(false);
-          toast.warning('Payment completed, but your order was not recorded. Please contact support.');
-        }
-      })
-      .catch(err => {
-        console.error('Order processing error:', err);
-        setIsCheckingOut(false);
-        toast.error('Error processing your order. Please contact support.');
-      });
   };
 
   const scrollToTop = () => {

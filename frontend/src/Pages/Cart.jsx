@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiX, FiTrash2, FiMinus, FiPlus, FiChevronRight, FiArrowLeft, FiBox, FiShoppingBag, FiCreditCard } from "react-icons/fi";
+import { FiX, FiTrash2, FiMinus, FiPlus, FiChevronRight, FiArrowLeft, FiBox, FiShoppingBag, FiCreditCard, FiUser, FiMapPin, FiMail, FiPhone } from "react-icons/fi";
 import { HiOutlineShieldCheck, HiOutlineTruck } from "react-icons/hi";
 import EnhancedPaymentGateway from '../components/Payment';
 import Invoice from '../components/Invoice'; // Import the Invoice component
@@ -17,6 +17,16 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
   const [step, setStep] = useState('cart'); // 'cart', 'shipping', 'payment'
   const [itemQuantities, setItemQuantities] = useState({});
   const [animateItems, setAnimateItems] = useState(false);
+  const [shippingDetails, setShippingDetails] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    postalCode: "",
+    notes: ""
+  });
+  const [shippingErrors, setShippingErrors] = useState({});
 
   // Calculate quantities for items
   useEffect(() => {
@@ -86,8 +96,54 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
     }
   };
 
+  const validateShipping = () => {
+    const errors = {};
+    if (!shippingDetails.fullName.trim()) errors.fullName = "Name is required";
+    if (!shippingDetails.email.trim()) errors.email = "Email is required";
+    if (!/^\S+@\S+\.\S+$/.test(shippingDetails.email) && shippingDetails.email.trim())
+      errors.email = "Email is invalid";
+    if (!shippingDetails.phone.trim()) errors.phone = "Phone is required";
+    if (!shippingDetails.address.trim()) errors.address = "Address is required";
+    if (!shippingDetails.city.trim()) errors.city = "City is required";
+    if (!shippingDetails.postalCode.trim()) errors.postalCode = "Postal code is required";
+    
+    return errors;
+  };
+
   const handleCheckout = () => {
-    setShowPayment(true);
+    if (step === 'cart') {
+      setStep('shipping');
+      return;
+    }
+    
+    if (step === 'shipping') {
+      // Validate shipping details
+      const errors = validateShipping();
+      if (Object.keys(errors).length > 0) {
+        setShippingErrors(errors);
+        return;
+      }
+      
+      setStep('payment');
+      setShowPayment(true);
+      return;
+    }
+  };
+
+  const handleShippingChange = (e) => {
+    const { name, value } = e.target;
+    setShippingDetails(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Clear error when user starts typing
+    if (shippingErrors[name]) {
+      setShippingErrors(prev => ({
+        ...prev,
+        [name]: null
+      }));
+    }
   };
 
   const handlePaymentSuccess = (paymentData) => {
@@ -97,7 +153,8 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
       cardholderName: paymentData?.name || "Card Holder",
       cardType: paymentData?.cardType || "visa",
       lastFourDigits: cardNumber.slice(-4),
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      shippingDetails: shippingDetails // Add shipping details to paymentDetails
     });
     
     setShowPayment(false);
@@ -110,8 +167,8 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
 
   const handleInvoiceClose = () => {
     setShowInvoice(false);
-    // Pass payment details and items to onCheckout
-    onCheckout(total, paymentDetails, uniqueItems);
+    // Pass both payment and shipping details
+    onCheckout(total, paymentDetails, uniqueItems, shippingDetails);
     onClose();
   };
   
@@ -353,6 +410,182 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                     </div>
                   </AnimatePresence>
                 )}
+
+                {step === 'shipping' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-6"
+                  >
+                    <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100">
+                      <h3 className="font-semibold text-lg text-gray-800 mb-4">Shipping Information</h3>
+
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Full Name
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <FiUser className="text-gray-400" />
+                              </div>
+                              <input
+                                type="text"
+                                name="fullName"
+                                value={shippingDetails.fullName}
+                                onChange={handleShippingChange}
+                                className={`pl-10 w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                                  shippingErrors.fullName ? 'border-red-500' : 'border-gray-300'
+                                }`}
+                                placeholder="John Doe"
+                              />
+                            </div>
+                            {shippingErrors.fullName && (
+                              <p className="mt-1 text-sm text-red-600">{shippingErrors.fullName}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Email
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <FiMail className="text-gray-400" />
+                              </div>
+                              <input
+                                type="email"
+                                name="email"
+                                value={shippingDetails.email}
+                                onChange={handleShippingChange}
+                                className={`pl-10 w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                                  shippingErrors.email ? 'border-red-500' : 'border-gray-300'
+                                }`}
+                                placeholder="john@example.com"
+                              />
+                            </div>
+                            {shippingErrors.email && (
+                              <p className="mt-1 text-sm text-red-600">{shippingErrors.email}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Phone Number
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <FiPhone className="text-gray-400" />
+                            </div>
+                            <input
+                              type="tel"
+                              name="phone"
+                              value={shippingDetails.phone}
+                              onChange={handleShippingChange}
+                              className={`pl-10 w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                                shippingErrors.phone ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                              placeholder="+94 XX XXX XXXX"
+                            />
+                          </div>
+                          {shippingErrors.phone && (
+                            <p className="mt-1 text-sm text-red-600">{shippingErrors.phone}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Delivery Address
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <FiMapPin className="text-gray-400" />
+                            </div>
+                            <input
+                              type="text"
+                              name="address"
+                              value={shippingDetails.address}
+                              onChange={handleShippingChange}
+                              className={`pl-10 w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                                shippingErrors.address ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                              placeholder="123 Main St"
+                            />
+                          </div>
+                          {shippingErrors.address && (
+                            <p className="mt-1 text-sm text-red-600">{shippingErrors.address}</p>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              City
+                            </label>
+                            <input
+                              type="text"
+                              name="city"
+                              value={shippingDetails.city}
+                              onChange={handleShippingChange}
+                              className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                                shippingErrors.city ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                              placeholder="Colombo"
+                            />
+                            {shippingErrors.city && (
+                              <p className="mt-1 text-sm text-red-600">{shippingErrors.city}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Postal Code
+                            </label>
+                            <input
+                              type="text"
+                              name="postalCode"
+                              value={shippingDetails.postalCode}
+                              onChange={handleShippingChange}
+                              className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                                shippingErrors.postalCode ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                              placeholder="10000"
+                            />
+                            {shippingErrors.postalCode && (
+                              <p className="mt-1 text-sm text-red-600">{shippingErrors.postalCode}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Special Notes (Optional)
+                          </label>
+                          <textarea
+                            name="notes"
+                            value={shippingDetails.notes}
+                            onChange={handleShippingChange}
+                            rows="3"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Delivery instructions or other information"
+                          ></textarea>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {step === 'cart' && (
+                  <>
+                    {/* Cart Items */}
+                    <div className="space-y-5 mb-10">
+                      {/* Existing cart items */}
+                    </div>
+                    {/* Rest of the cart content */}
+                  </>
+                )}
               </div>
               
               {/* Bottom Actions Bar - Fixed at bottom */}
@@ -364,7 +597,11 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                     onClick={handleCheckout}
                     className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-4 px-6 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2 shadow-md"
                   >
-                    <span>Proceed to Checkout</span>
+                    <span>
+                      {step === 'cart' && 'Continue to Shipping'}
+                      {step === 'shipping' && 'Continue to Payment'}
+                      {step === 'payment' && 'Complete Payment'}
+                    </span>
                     <FiChevronRight size={18} />
                   </motion.button>
                   
