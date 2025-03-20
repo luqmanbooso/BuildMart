@@ -32,6 +32,7 @@ import Supply_LogisticDashboard from './Pages/Supply_LogisticDashboard'
 import AcceptedAgreementView from './components/AcceptedAgreementView';
 import { SupplierPaymentProvider } from './context/SupplierPaymentContext';
 import EnhancedPaymentGateway from './components/Payment';
+import InitialPayment from './components/InitialPayment'
 
 function App() {
   const sampleData = {
@@ -132,6 +133,7 @@ function App() {
             />
           } 
         />
+        <Route path="/payment/:jobId/:bidId" element={<InitialPayment />} />
       </Routes>
     </SupplierPaymentProvider>
   )

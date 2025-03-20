@@ -39,7 +39,7 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
 
   // Navigate to agreement form instead of direct acceptance
   const handleBidSelection = (bidId) => {
-    navigate(`/agreement/${jobId}/${bidId}`);
+    navigate(`/payment/${jobId}/${bidId}`);
   };
 
   // Initialize filtered bids
