@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { FaSort, FaSortUp, FaSortDown, FaStar, FaFilter, FaCheck, FaClipboardList, FaChartBar, FaExchangeAlt } from 'react-icons/fa';
+import {jwtDecode} from 'jwt-decode';
 
 const BidListingSection = ({ bids, jobId, refreshBids }) => {
   const navigate = useNavigate();
@@ -46,6 +47,22 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
 
   // Navigate to agreement form instead of direct acceptance
   const handleBidSelection = (bidId) => {
+    // Get client details from token before navigating
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    try {
+      if (token) {
+        const decoded = jwtDecode(token);
+        
+        // Store client info in localStorage for use in next screens
+        localStorage.setItem('clientName', decoded.username || '');
+        localStorage.setItem('clientEmail', decoded.email || '');
+      }
+    } catch (error) {
+      console.error('Error decoding token:', error);
+    }
+    
+    // Continue with navigation
     navigate(`/payment/${jobId}/${bidId}`);
   };
 

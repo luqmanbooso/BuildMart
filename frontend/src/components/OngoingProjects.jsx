@@ -31,44 +31,54 @@ const OngoingProjects = () => {
   useEffect(() => {
     const getContractorInfo = () => {
       try {
-        // First try to get from localStorage
-        let userId = localStorage.getItem('userId');
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+          toast.error("Please login first");
+          navigate('/login');
+          return null;
+        }
+    
+        // Log the token (partially) for debugging
+        console.log("Found token:", token.substring(0, 15) + "...");
+    
+        // Decode token and log the structure
+        const decoded = jwtDecode(token);
+        console.log("Decoded token data:", decoded);
         
-        // If not in localStorage, try getting from token
+        // Try all possible ID fields - notice the order matters
+        const userId = decoded.id || decoded._id || decoded.userId;
+        console.log("Extracted user ID:", userId);
+        
         if (!userId) {
-          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-          if (token) {
-            const decoded = jwtDecode(token);
-            userId = decoded.id || decoded.userId || decoded._id;
-            
-            if (userId) {
-              localStorage.setItem('userId', userId);
-              setContractorData({
-                id: userId,
-                name: localStorage.getItem('name') || decoded.name || 'Contractor'
-              });
-              return userId;
-            }
-          }
-        } else {
-          setContractorData({
-            id: userId,
-            name: localStorage.getItem('name') || 'Contractor'
-          });
-          return userId;
+          console.error("No user ID found in token");
+          toast.error("Authentication error - please login again");
+          navigate('/login');
+          return null;
         }
         
-        // If still no userId, show error
-        toast.error("Please login first");
-        navigate('/login');
-        return null;
+        // Save to component state and localStorage
+        localStorage.setItem('userId', userId);
+        setContractorData({
+          id: userId,
+          name: decoded.username || localStorage.getItem('name') || 'Contractor'
+        });
+        
+        console.log("Set contractor data:", {
+          id: userId,
+          name: decoded.username || localStorage.getItem('name') || 'Contractor'
+        });
+        
+        return userId;
       } catch (error) {
         console.error("Error getting contractor info:", error);
+        toast.error("Authentication error - " + error.message);
+        navigate('/login');
         return null;
       }
     };
     
-    getContractorInfo();
+    const contractorId = getContractorInfo();
+    console.log("Contractor ID for fetching projects:", contractorId);
   }, [navigate]);
   
   // Fetch ongoing works for this contractor
@@ -86,6 +96,8 @@ const OngoingProjects = () => {
           }
         });
         
+        console.log("RAW API RESPONSE FROM BACKEND:", JSON.stringify(response.data[0], null, 2));
+
         const formattedProjects = await Promise.all(response.data.map(async project => {
           // Try to fetch client details using clientId
           let clientName = 'Client';
@@ -109,8 +121,8 @@ const OngoingProjects = () => {
               
               // Access the user object in the response
               if (clientResponse.data && clientResponse.data.user) {
-                clientName = clientResponse.data.user.username || clientResponse.data.user.name || 'Client';
-                clientEmail = clientResponse.data.user.email || '';
+                clientName = clientResponse.data.user.username;
+                clientEmail = clientResponse.data.user.email;
                 console.log("Successfully fetched client name:", clientName, "email:", clientEmail);
               }
             }
@@ -119,9 +131,35 @@ const OngoingProjects = () => {
             // Continue with default values if client fetch fails
           }
           
-          // Get timeline from job details if available
-          const timeline = project.jobId.timeline || 
-                         (project.milestones?.length ? project.milestones.length * 7 : 30);
+          // Get timeline from job details if available - improve extraction logic
+          let timeline;
+          // First check if there's a direct timeline value in the API response
+          if (project.timeline) {
+            timeline = parseInt(project.timeline);
+            console.log(`USING DIRECT API TIMELINE VALUE: ${timeline} days`);
+          } 
+          // Then check job details
+          else if (project.jobId.timeline) {
+            timeline = parseInt(project.jobId.timeline);
+            console.log(`USING JOB DETAILS TIMELINE: ${timeline} days`);
+          } 
+          // As last resort, calculate based on milestones
+          else {
+            // Calculate based on milestones - customize this number as needed
+            timeline = project.milestones.length * 14;
+            console.log(`NO TIMELINE IN API - CALCULATING FROM ${project.milestones.length} MILESTONES: ${timeline} days`);
+          }
+          
+          // Log the resulting timeline for debugging
+          console.log(`Project "${project.jobId.title}" timeline set to ${timeline} days`);
+          
+          // Add detailed console logs to verify timeline and date calculations
+
+          // First in the timeline extraction around line 127 where you get the timeline:
+          console.log(`[TIMELINE DEBUG] For project ${project.jobId.title}:`);
+          console.log(`- Raw timeline values: project.jobId.timeline=${project.jobId.timeline}, project.timeline=${project.timeline}`);
+          console.log(`- Number of milestones: ${project.milestones?.length || 0}`);
+          console.log(`- Final timeline value chosen: ${timeline} days`);
           
           return {
             id: project._id,
@@ -629,7 +667,35 @@ const OngoingProjects = () => {
                             <div className="text-right">
                               <div className="text-xs text-gray-500">Estimated Completion</div>
                               <div className="font-medium text-blue-600">
-                                {new Date(new Date(activeProject.startDate).getTime() + (parseInt(activeProject.timeline) * 24 * 60 * 60 * 1000)).toLocaleDateString()}
+                                {/* Calculate end date based on start date and timeline */}
+                                {(() => {
+                                  try {
+                                    // Get the raw start date string for debugging
+                                    const rawStartDate = activeProject.startDate;
+                                    console.log(`[DATE DEBUG] Calculating end date for ${activeProject.title}:`);
+                                    console.log(`- Raw start date string: "${rawStartDate}"`);
+                                    
+                                    // Try to parse the date
+                                    const startDate = new Date(rawStartDate);
+                                    console.log(`- Parsed start date object: ${startDate}`);
+                                    console.log(`- Is valid date? ${!isNaN(startDate.getTime())}`);
+                                    
+                                    // Get the timeline value
+                                    const timelineDays = parseInt(activeProject.timeline) || 30;
+                                    console.log(`- Using timeline value: ${timelineDays} days`);
+                                    
+                                    // Calculate end date
+                                    const endDate = new Date(startDate);
+                                    endDate.setDate(startDate.getDate() + timelineDays);
+                                    console.log(`- Calculated end date: ${endDate}`);
+                                    console.log(`- Formatted end date: ${endDate.toLocaleDateString()}`);
+                                    
+                                    return endDate.toLocaleDateString();
+                                  } catch (error) {
+                                    console.error(`[DATE ERROR] Failed to calculate end date:`, error);
+                                    return "Date calculation error";
+                                  }
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -667,6 +733,16 @@ const OngoingProjects = () => {
                         <div className="mt-6">
                           <button 
                             onClick={() => {
+                              // Enhanced debugging to see what client email value is being used
+                              console.log("Using client email:", activeProject.clientEmail);
+                              
+                              // Calculate the end date
+                              const startDate = new Date(activeProject.startDate);
+                              const timelineDays = parseInt(activeProject.timeline) || 30;
+                              const endDate = new Date(startDate);
+                              endDate.setDate(endDate.getDate() + timelineDays);
+                              const endDateString = endDate.toLocaleDateString();
+                              
                               // Create agreement data object with all necessary details
                               const agreementData = {
                                 jobDetails: {
@@ -674,22 +750,33 @@ const OngoingProjects = () => {
                                   title: activeProject.title,
                                   description: activeProject.description,
                                   category: activeProject.category,
-                                  area: activeProject.location
+                                  area: activeProject.location,
+                                  // Add timeline and end date to jobDetails object where it belongs
+                                  timeline: activeProject.timeline || 30,
+                                  startDate: activeProject.startDate,
+                                  endDate: endDateString
                                 },
                                 bidDetails: {
                                   price: activeProject.budget,
-                                  timeline: activeProject.milestones.length > 0 ? 
-                                    `${activeProject.milestones.length * 7} days` : '30 days',
-                                  contractorname: contractorData.name
+                                  // Fix timeline format - REMOVE the word "days" since it's added in the display
+                                  timeline: parseInt(activeProject.timeline) || 30, // Just the numeric value
+                                  contractorname: contractorData.name,
+                                  // Include formatted timeline string with dates - this is what will be displayed
+                                  timelineDisplay: `${activeProject.startDate} to ${endDateString}`
                                 },
                                 clientDetails: {
-                                  name: activeProject.clientName,
-                                  username: activeProject.clientName,
+                                  // Ensure we use all available client info
+                                  name: activeProject.clientName || 'Client',
+                                  username: activeProject.clientName || 'Client',
+                                  email: activeProject.clientEmail || '', // Make sure email is included
+                                  id: activeProject.clientId // Include client ID
                                 },
                                 contractorDetails: {
                                   name: contractorData.name,
-                                  email: localStorage.getItem('email') || ''
+                                  email: localStorage.getItem('email') || '',
+                                  id: contractorData.id
                                 },
+                                bidAlreadyAccepted: true, // Flag to indicate this is a view-only agreement
                                 paymentSchedule: activeProject.milestones.map(milestone => ({
                                   milestone: milestone.name,
                                   description: milestone.description,
@@ -698,6 +785,9 @@ const OngoingProjects = () => {
                                   amount: parseFloat(milestone.amount)
                                 }))
                               };
+                              
+                              // Log the full client details being passed
+                              console.log("Client details being sent to agreement:", agreementData.clientDetails);
                               
                               // Navigate to the agreement view with the data
                               navigate(`/accepted-agreement/${activeProject.jobId}/${activeProject.id}`, {

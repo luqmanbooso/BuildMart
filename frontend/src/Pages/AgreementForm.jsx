@@ -49,12 +49,19 @@ const AgreementForm = () => {
           setContractorDetails(location.state.contractorDetails);
           setBidDetails(location.state.bidDetails);
           
-          // Get client details from localStorage
-          const clientName = localStorage.getItem('name') || 'Client';
-          setClientDetails({
-            name: clientName,
-            // other client details
-          });
+          // Use client details from state if available (NEW CODE)
+          if (location.state.clientDetails) {
+            setClientDetails(location.state.clientDetails);
+            console.log("Client details from navigation:", location.state.clientDetails);
+          } else {
+            // Get client details from localStorage as fallback
+            const clientName = localStorage.getItem('clientName') || 'Client';
+            const clientEmail = localStorage.getItem('clientEmail') || 'Email not available';
+            setClientDetails({
+              name: clientName,
+              email: clientEmail
+            });
+          }
           
           setLoading(false);
           return; // Skip the API calls
@@ -71,6 +78,56 @@ const AgreementForm = () => {
         const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`);
         setJobDetails(jobResponse.data);
         console.log("Job details:", jobResponse.data);
+        
+        // NEW CODE: Get client info directly from jobDetails.userid
+        const jobUserId = jobResponse.data.userid;
+        console.log("Job's client userId:", jobUserId);
+
+        if (jobUserId) {
+          try {
+            // Get token for authentication
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            
+            // Make API call to get client data using the job's userid field
+            const clientResponse = await axios.get(
+              `http://localhost:5000/auth/user/${jobUserId}`, 
+              { headers: { Authorization: `Bearer ${token}` }}
+            );
+            
+            console.log('CLIENT API RESPONSE:', clientResponse.data);
+            
+            // Extract client data from response
+            const userData = clientResponse.data.user;
+            
+            if (userData) {
+              // Set client details with correct field mapping from API
+              setClientDetails({
+                name: userData.username,  // API returns username as shown in auth.js
+                email: userData.email     // API returns email
+              });
+              
+              console.log('Client details set from job userid API call', {
+                name: userData.username,
+                email: userData.email
+              });
+            }
+          } catch (apiError) {
+            console.error('Client API call failed:', apiError);
+            
+            // Fallback to using username from job
+            setClientDetails({
+              name: jobResponse.data.username || 'Client',
+              email: 'Email not available'
+            });
+            console.log("Using fallback client name from job:", jobResponse.data.username);
+          }
+        } else {
+          console.error("No userid found in job details");
+          setClientDetails({
+            name: jobResponse.data.username || 'Client',
+            email: 'Email not available'
+          });
+        }
         
         // CHANGE THIS: No direct endpoint for individual bid - need to fetch by project then filter
         // Instead of: const bidResponse = await axios.get(`http://localhost:5000/api/bids/${bidId}`);
@@ -93,34 +150,69 @@ const AgreementForm = () => {
         // Contractor ID from bid
         const contractor = matchingBid.contractorId || matchingBid.contractor;
         
-        // CHANGE THIS: Auth route, not api/users
-        // Fetch client details - correct endpoint from auth.js
+
+// Get token for authentication
+const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        
-        if (!token) {
-          console.error('No authentication token found');
-          return;
-        }
-        
-        const decoded = jwtDecode(token);
-            const userId = decoded.id || decoded._id || decoded.userId;
-            
-            if (!userId) {
-              console.error('No user ID found in token');
-              return;
-            }
-            
-            // Store userId in localStorage for convenience
-            localStorage.setItem('userId', userId);
-        if (token && userId) {
-          // Instead of: `http://localhost:5000/api/users/${userId}`
-          const clientResponse = await axios.get(`http://localhost:5000/auth/user/${userId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          setClientDetails(clientResponse.data.user || clientResponse.data);
-          console.log("Client details:", clientResponse.data);
-        }
+if (!token) {
+  console.error('No authentication token found');
+  return;
+}
+
+try {
+  // Decode token - make sure we log the EXACT structure
+  const decoded = jwtDecode(token);
+  console.log('FULL TOKEN DATA:', JSON.stringify(decoded));
+  
+  // Extract client ID first 
+  const userId = decoded.id || decoded._id || decoded.userId;
+  console.log('User ID from token:', userId);
+  
+  if (!userId) {
+    console.error('No user ID found in token');
+    throw new Error('User ID not found');
+  }
+  
+  // Make direct API call to get client data
+  try {
+    const clientResponse = await axios.get(
+      `http://localhost:5000/auth/user/${userId}`, 
+      { headers: { Authorization: `Bearer ${token}` }}
+    );
+    
+    console.log('CLIENT API RESPONSE:', clientResponse.data);
+    
+    // Extract user data based on actual API response structure
+    const userData = clientResponse.data.user;
+    
+    if (userData) {
+      // Set client details with correct field mapping
+      setClientDetails({
+        name: userData.username,  // API returns username
+        email: userData.email     // API returns email
+      });
+      
+      console.log('Client details set from API call', {
+        name: userData.username,
+        email: userData.email
+      });
+    }
+  } catch (apiError) {
+    console.error('API call failed:', apiError);
+    
+    // Fall back to token data
+    setClientDetails({
+      name: decoded.username || 'Client',
+      email: decoded.email || 'Email not available'
+    });
+  }
+} catch (tokenError) {
+  console.error('Token decode error:', tokenError);
+  setClientDetails({
+    name: localStorage.getItem('name') || 'Client',
+    email: 'Email not available'
+  });
+}
         
         // CHANGE THIS: Fetch contractor details - correct endpoint
         if (contractor) {
@@ -235,12 +327,18 @@ const AgreementForm = () => {
         alert("Creating ongoing work...");
         
         // Fix: Use the correct enum values that match your backend schema
+        // Get timeline from bidDetails
+        const timeline = parseInt(bidDetails.timeline) || 30;
+        console.log(`Using timeline for ongoing work: ${timeline} days`);
+
+        // Create ongoing work data with timeline
         const ongoingWorkData = {
           jobId: jobId,
           bidId: bidId,
           clientId: localClientId,
           contractorId: localContractorId,
           workProgress: 0,
+          timeline: timeline, // Add timeline from bid
           milestones: jobDetails.milestones?.map((milestone, index) => ({
             name: milestone.name || `Milestone ${index + 1}`,
             // Assign equal amount to each milestone - convert to string as the model expects
@@ -252,6 +350,12 @@ const AgreementForm = () => {
           jobStatus: 'In Progress',
           totalPrice: totalBidPrice
         };
+
+        // Log timeline data for debugging
+        console.log(`Timeline data being sent to create ongoing work:`, {
+          rawTimeline: bidDetails.timeline,
+          parsedTimeline: timeline
+        });
         
         alert(`Submitting ongoing work data: ${JSON.stringify(ongoingWorkData)}`);
         
@@ -488,8 +592,16 @@ const AgreementForm = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Client:</h4>
-                    <p className="text-md font-medium text-gray-900">{clientDetails?.name || clientDetails?.username}</p>
-                    <p className="text-sm text-gray-500">{clientDetails?.email}</p>
+                    <p className="text-md font-medium text-gray-900">
+                      {clientDetails?.name || 'Client Name Not Available'}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {clientDetails?.email || 'Email Not Available'}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {(!clientDetails?.name || !clientDetails?.email) && 
+                        '(Profile information incomplete - please update your profile)'}
+                    </p>
                   </div>
                   
                   <div>
@@ -578,55 +690,8 @@ const AgreementForm = () => {
               </div>
             </div>
             
-            {/* Payment Method - Not shown in print */}
-            <div className="print:hidden mt-8 pt-6 border-t border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Method</h3>
-              <p className="text-sm text-gray-500 mb-4">
-                Select your preferred payment method for the initial milestone payment.
-              </p>
-              
-              <div className="mt-4 space-y-4">
-                <div className="flex items-center">
-                  <input
-                    id="paymentMethod-card"
-                    name="paymentMethod"
-                    type="radio"
-                    checked={paymentMethod === 'creditCard'}
-                    onChange={() => setPaymentMethod('creditCard')}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <label htmlFor="paymentMethod-card" className="ml-3 block text-sm font-medium text-gray-700">
-                    Credit/Debit Card
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    id="paymentMethod-bank"
-                    name="paymentMethod"
-                    type="radio"
-                    checked={paymentMethod === 'bankTransfer'}
-                    onChange={() => setPaymentMethod('bankTransfer')}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <label htmlFor="paymentMethod-bank" className="ml-3 block text-sm font-medium text-gray-700">
-                    Bank Transfer
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    id="paymentMethod-cash"
-                    name="paymentMethod"
-                    type="radio"
-                    checked={paymentMethod === 'cash'}
-                    onChange={() => setPaymentMethod('cash')}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <label htmlFor="paymentMethod-cash" className="ml-3 block text-sm font-medium text-gray-700">
-                    Cash on Start
-                  </label>
-                </div>
-              </div>
-              
+            <div className="mt-8 pt-6 border-t border-gray-200">
+            
               {/* Agreement Checkbox - Only show when bid is not accepted */}
               {!bidAlreadyAccepted && (
                 <div className="mt-6">

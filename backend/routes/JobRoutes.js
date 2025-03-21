@@ -8,7 +8,7 @@ router.post('/', async (req, res) => {
   const { 
     userid, 
     title, 
-    category, 
+    categories,  // Changed from category to categories
     area,
     description,
     minBudget,
@@ -27,7 +27,7 @@ router.post('/', async (req, res) => {
       userid,
       username,
       title,
-      category,
+      categories,  // Changed from category to categories
       area,
       description,
       minBudget,
@@ -171,38 +171,6 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Add this route to handle milestone creation after bid acceptance
-router.put('/:id/milestones', async (req, res) => {
-  try {
-    const { milestones } = req.body;
-    const job = await Job.findById(req.params.id);
-    
-    if (!job) {
-      return res.status(404).json({ error: 'Job not found' });
-    }
-    
-    // Verify user is the job owner
-    // This would need proper auth middleware
-    // if (job.userid !== req.user.id) {
-    //   return res.status(403).json({ error: 'Not authorized to add milestones' });
-    // }
-    
-    // Verify job has an accepted bid
-    if (!job.acceptedBid) {
-      return res.status(400).json({ error: 'Cannot set milestones until a bid is accepted' });
-    }
-    
-    // Update milestones
-    job.milestones = milestones;
-    await job.save();
-    
-    res.status(200).json({ message: 'Milestones saved successfully', milestones: job.milestones });
-  } catch (err) {
-    console.error('Error saving milestones:', err);
-    res.status(500).json({ error: 'Error saving milestones' });
-  }
-});
-
 // Add this route to handle bid acceptance with milestones in one operation
 router.put('/:id/accept-bid', async (req, res) => {
   try {
@@ -228,6 +196,58 @@ router.put('/:id/accept-bid', async (req, res) => {
   } catch (err) {
     console.error('Error accepting bid:', err);
     res.status(500).json({ error: 'Error accepting bid' });
+  }
+});
+
+// Add this route for updating job details
+router.put('/:id', async (req, res) => {
+  try {
+    const { 
+      title, 
+      categories,
+      area,
+      description,
+      minBudget,
+      maxBudget,
+      biddingStartTime, 
+      biddingEndTime,
+      milestones
+    } = req.body;
+
+    // Find the job by ID
+    const job = await Job.findById(req.params.id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Optional: Check if user is authorized to update this job
+    // if (job.userid !== req.userId) {
+    //   return res.status(403).json({ error: 'Not authorized to update this job' });
+    // }
+    
+    // Update job fields
+    job.title = title || job.title;
+    job.categories = categories || job.categories;
+    job.area = area || job.area;
+    job.description = description || job.description;
+    job.minBudget = minBudget || job.minBudget;
+    job.maxBudget = maxBudget || job.maxBudget;
+    job.biddingStartTime = biddingStartTime || job.biddingStartTime;
+    job.biddingEndTime = biddingEndTime || job.biddingEndTime;
+    
+    // Only update milestones if provided
+    if (milestones) {
+      job.milestones = milestones;
+    }
+    
+    // Save the updated job
+    await job.save();
+    
+    res.status(200).json({ message: 'Job updated successfully', job });
+  } catch (err) {
+    console.error('Error updating job:', err);
+    res.status(500).json({ error: 'Error updating job' });
   }
 });
 

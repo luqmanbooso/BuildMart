@@ -555,43 +555,78 @@ function Ongoingworks() {
                         
                         <button 
                           onClick={() => {
-                            // Create full agreement data object with client details from state
+                            // Calculate end date properly based on timeline and start date
+                            const startDate = new Date(activeWork.startDate.split(' ').join(' '));
+                            
+                            // Get timeline in days - extract from the model or calculate based on milestones
+                            const timelineDays = activeWork.milestones.length * 7; // 7 days per milestone
+                            
+                            // Calculate end date by adding timeline days to start date
+                            const endDate = new Date(startDate);
+                            endDate.setDate(startDate.getDate() + timelineDays);
+                            
+                            // Format end date consistently
+                            const endDateString = endDate.toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            });
+                            
+                            console.log("Timeline calculation:", {
+                              startDate: activeWork.startDate,
+                              timelineDays,
+                              calculatedEndDate: endDateString
+                            });
+                            
+                            // Create agreement data object with properly structured values
                             const agreementData = {
                               jobDetails: {
                                 title: activeWork.title,
                                 description: activeWork.description,
                                 location: activeWork.location,
                                 _id: activeWork.jobId,
-                                milestones: activeWork.milestones.map(m => ({
-                                  name: m.title,
-                                  description: m.description,
-                                  amount: m.amount,
-                                }))
+                                // Add numeric timeline value
+                                timeline: timelineDays
                               },
                               contractorDetails: {
                                 name: activeWork.contractor,
                                 email: activeWork.contractorEmail,
                                 phone: activeWork.contractorPhone
                               },
-                              // Add client details from state
-                              clientDetails: clientDetails || {
-                                name: "Client",
-                                email: "client@example.com"
+                              // Ensure client details are properly set
+                              clientDetails: {
+                                name: clientDetails?.name || "Client",
+                                email: clientDetails?.email || localStorage.getItem('email') || "",
+                                id: clientDetails?.id
                               },
                               bidDetails: {
                                 price: activeWork.milestones.reduce((sum, m) => sum + parseFloat(m.amount || 0), 0),
-                                timeline: `${activeWork.startDate} to ${activeWork.dueDate}`,
-                                status: "accepted",
+                                // Provide numeric value for timeline (days)
+                                timeline: timelineDays,
+                                // Provide a formatted display string for the date range
+                                timelineDisplay: `${activeWork.startDate} to ${endDateString}`,
                                 contractorname: activeWork.contractor
                               },
                               paymentSchedule: activeWork.milestones.map((m, index) => ({
                                 milestone: m.title,
                                 description: m.description,
-                                date: new Date(Date.now() + (index + 1) * 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+                                // Calculate milestone dates proportionally within timeline
+                                date: (() => {
+                                  const milestoneDate = new Date(startDate);
+                                  milestoneDate.setDate(startDate.getDate() + Math.round(timelineDays * (index + 1) / activeWork.milestones.length));
+                                  return milestoneDate.toLocaleDateString();
+                                })(),
                                 percentage: Math.round(100 / activeWork.milestones.length),
-                                amount: parseFloat(m.amount)
+                                amount: parseFloat(m.amount || 0)
                               }))
                             };
+                            
+                            // Log what we're passing to verify the structure
+                            console.log("Sending to agreement view:", {
+                              clientDetails: agreementData.clientDetails,
+                              timeline: agreementData.bidDetails.timeline,
+                              timelineDisplay: agreementData.bidDetails.timelineDisplay
+                            });
                             
                             // Navigate to the AcceptedAgreementView route with complete data
                             navigate(`/accepted-agreement/${activeWork.jobId}/${activeWork.bidId}`, { 

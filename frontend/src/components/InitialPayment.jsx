@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { FaCreditCard, FaMoneyBillWave, FaUniversity } from 'react-icons/fa';
+import {jwtDecode} from 'jwt-decode';
 
 const InitialPayment = () => {
   const { jobId, bidId } = useParams();
@@ -25,6 +26,7 @@ const InitialPayment = () => {
   });
   const [processingPayment, setProcessingPayment] = useState(false);
   const [error, setError] = useState(null);
+  const [clientDetails, setClientDetails] = useState(null);
 
   // Fetch job and bid details
   useEffect(() => {
@@ -50,6 +52,36 @@ const InitialPayment = () => {
           const contractorResponse = await axios.get(`http://localhost:5000/auth/user/${matchingBid.contractorId}`);
           setContractorDetails(contractorResponse.data.user || contractorResponse.data);
         }
+
+        // Add client details from localStorage or token
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        let clientName = localStorage.getItem('clientName');
+        let clientEmail = localStorage.getItem('clientEmail');
+        
+        // If not in localStorage, try to get from token
+        if (token && (!clientName || !clientEmail)) {
+          try {
+            const decoded = jwtDecode(token);
+            clientName = decoded.username || clientName;
+            clientEmail = decoded.email || clientEmail;
+            
+            // Save for future use
+            localStorage.setItem('clientName', clientName || '');
+            localStorage.setItem('clientEmail', clientEmail || '');
+          } catch (error) {
+            console.error('Error decoding token:', error);
+          }
+        }
+        
+        // Create client details object
+        const clientDetails = {
+          name: clientName || 'Client',
+          email: clientEmail || 'Email not available'
+        };
+        
+        // Store in component state if needed
+        setClientDetails(clientDetails);
+
       } catch (err) {
         console.error("Error fetching payment data:", err);
         setError("Failed to load payment data. Please try again.");
@@ -448,7 +480,11 @@ const InitialPayment = () => {
                               paymentAmount: calculateInitialPayment(),
                               jobDetails, 
                               bidDetails,
-                              contractorDetails // Add the contractor details here
+                              contractorDetails,
+                              clientDetails: {
+                                name: localStorage.getItem('clientName') || 'Client',
+                                email: localStorage.getItem('clientEmail') || 'Email not available'
+                              }
                             }
                           });
                     }}

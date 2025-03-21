@@ -6,7 +6,7 @@ const AddJobForm = ({ onClose, onJobAdded }) => {
   const [formStep, setFormStep] = useState(1);
   const [newJob, setNewJob] = useState({
     title: '',
-    category: '',
+    categories: [],  // Changed from category to categories array
     area: '',
     minBudget: '',
     maxBudget: '',
@@ -85,7 +85,7 @@ const AddJobForm = ({ onClose, onJobAdded }) => {
       const userId = decoded.userId;
       
       // Validate form
-      if (!newJob.title || !newJob.category || !newJob.area || 
+      if (!newJob.title || !newJob.categories.length === 0 || !newJob.area || 
           !newJob.minBudget || !newJob.maxBudget || 
           !newJob.biddingStartTime || !newJob.biddingEndTime) {
         alert('Please fill all required fields including budgets and bidding times.');
@@ -108,7 +108,7 @@ const AddJobForm = ({ onClose, onJobAdded }) => {
       const jobData = {
         userid: userId,
         title: newJob.title,
-        category: newJob.category,
+        categories: newJob.categories,
         area: newJob.area,
         minBudget: newJob.minBudget,
         maxBudget: newJob.maxBudget,
@@ -133,7 +133,7 @@ const AddJobForm = ({ onClose, onJobAdded }) => {
       const newJobRequest = {
         id: data.job._id || Date.now().toString(),
         title: data.job.title,
-        category: data.job.category,
+        categories: data.job.categories,
         area: data.job.area,
         budget: `LKR ${data.job.minBudget} - ${data.job.maxBudget}`,
         status: data.job.status || 'Pending',
@@ -267,37 +267,39 @@ const AddJobForm = ({ onClose, onJobAdded }) => {
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Category <span className="text-red-500">*</span>
+                            Categories <span className="text-red-500">*</span>
                           </label>
-                          <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                              </svg>
-                            </div>
-                            <select
-                              value={newJob.category}
-                              onChange={(e) => setNewJob({ ...newJob, category: e.target.value })}
-                              className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none text-gray-900"
-                              required
-                              >
-                              <option value="" disabled>Select a category</option>
-                              <option value="Plumbing">Plumbing</option>
-                              <option value="Electrical">Electrical</option>
-                              <option value="Carpentry">Carpentry</option>
-                              <option value="Masonry">Masonry</option>
-                              <option value="Painting">Painting</option>
-                              <option value="Roofing">Roofing</option>
-                              <option value="Landscaping">Landscaping</option>
-                              <option value="Flooring">Flooring</option>
-                              <option value="Interior Design">Interior Design</option>
-                            </select>
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                              </svg>
+                          <div className="mt-2 border border-gray-300 rounded-lg p-4 bg-white max-h-60 overflow-y-auto">
+                            <div className="space-y-2">
+                              {['Plumbing', 'Electrical', 'Carpentry', 'Masonry', 'Painting', 'Roofing', 'Landscaping', 'Flooring', 'Interior Design'].map(category => (
+                                <div key={category} className="flex items-center">
+                                  <input
+                                    id={`category-${category}`}
+                                    type="checkbox"
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    checked={newJob.categories.includes(category)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setNewJob({
+                                          ...newJob,
+                                          categories: [...newJob.categories, category]
+                                        });
+                                      } else {
+                                        setNewJob({
+                                          ...newJob,
+                                          categories: newJob.categories.filter(cat => cat !== category)
+                                        });
+                                      }
+                                    }}
+                                  />
+                                  <label htmlFor={`category-${category}`} className="ml-2 block text-sm text-gray-700">
+                                    {category}
+                                  </label>
+                                </div>
+                              ))}
                             </div>
                           </div>
+                          <p className="mt-1.5 text-xs text-gray-500">Select all categories that apply to your project</p>
                         </div>
 
                         <div>
@@ -311,15 +313,27 @@ const AddJobForm = ({ onClose, onJobAdded }) => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                               </svg>
                             </div>
-                            <input
-                              type="text"
+                            <select
                               value={newJob.area}
                               onChange={(e) => setNewJob({ ...newJob, area: e.target.value })}
-                              className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
-                              placeholder="City, District, or Region"
+                              className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900 bg-white"
                               required
-                            />
+                            >
+                              <option value="" disabled>Select a district</option>
+                              {[
+                                'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 
+                                'Galle', 'Gampaha', 'Hambantota', 'Jaffna', 'Kalutara', 
+                                'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala', 'Mannar', 
+                                'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya', 
+                                'Polonnaruwa', 'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
+                              ].map(district => (
+                                <option key={district} value={district}>
+                                  {district}
+                                </option>
+                              ))}
+                            </select>
                           </div>
+                          <p className="mt-1.5 text-xs text-gray-500">Select the district where your project is located</p>
                         </div>
 
                         <div className="col-span-2">
@@ -594,12 +608,12 @@ const AddJobForm = ({ onClose, onJobAdded }) => {
                       type="button"
                       onClick={nextStep}
                       disabled={
-                        (formStep === 1 && (!newJob.title || !newJob.category || !newJob.area || !newJob.description)) ||
+                        (formStep === 1 && (!newJob.title || !newJob.categories.length || !newJob.area || !newJob.description)) ||
                         (formStep === 2 && (!newJob.minBudget || !newJob.maxBudget || !newJob.biddingStartTime || !newJob.biddingEndTime || 
                                           parseFloat(newJob.minBudget) >= parseFloat(newJob.maxBudget)))
                       }
                       className={`px-8 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
-                        ((formStep === 1 && (!newJob.title || !newJob.category || !newJob.area || !newJob.description)) ||
+                        ((formStep === 1 && (!newJob.title || !newJob.categories.length || !newJob.area || !newJob.description)) ||
                         (formStep === 2 && (!newJob.minBudget || !newJob.maxBudget || !newJob.biddingStartTime || !newJob.biddingEndTime ||
                                           parseFloat(newJob.minBudget) >= parseFloat(newJob.maxBudget))))
                           ? 'bg-gray-400 cursor-not-allowed'

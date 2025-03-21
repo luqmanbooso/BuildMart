@@ -31,6 +31,11 @@ const ongoingWorkSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
+  timeline: {
+    type: Number,
+    default: 30, // Default to 30 days if not specified
+    required: true
+  },
   contractorId: { 
     type: String, 
     required: true 

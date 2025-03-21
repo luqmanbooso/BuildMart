@@ -55,7 +55,7 @@ router.get('/:id', async (req, res) => {
 // Create a new ongoing work
 router.post('/', async (req, res) => {
   try {
-    const { jobId, clientId, contractorId, milestones, totalPrice } = req.body;
+    const { jobId, clientId, contractorId, milestones, totalPrice, timeline } = req.body;
     
     // Validate required fields
     if (!jobId || !clientId || !contractorId) {
@@ -73,6 +73,10 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ message: 'Job not found' });
     }
     
+    // Parse timeline as number with fallback
+    const parsedTimeline = parseInt(timeline) || 30;
+    console.log(`Creating ongoing work with timeline: ${parsedTimeline} days`);
+    
     // Calculate initial totalAmountPending
     let totalAmountPending = 0;
     if (milestones && milestones.length > 0) {
@@ -89,6 +93,7 @@ router.post('/', async (req, res) => {
       totalAmountPending,
       totalPrice: Number(totalPrice),
       workProgress: 0,
+      timeline: parsedTimeline, // Add timeline field
       jobStatus: 'In Progress'
     });
     

@@ -457,7 +457,16 @@ const AcceptedAgreementView = () => {
                   
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Timeline:</h4>
-                    <p className="text-md font-medium text-gray-900">{bidDetails?.timeline} days</p>
+                    <p className="text-md font-medium text-gray-900">
+                      {/* Fix timeline display logic to avoid "days days" */}
+                      {bidDetails?.timelineDisplay ? (
+                        bidDetails.timelineDisplay  // This will use "startDate to endDate" format
+                      ) : (
+                        typeof bidDetails?.timeline === 'number' ? 
+                        `${bidDetails.timeline} days` : // Add "days" only if we have a number
+                        bidDetails?.timeline || '30 days' // Use as-is if already formatted or fallback
+                      )}
+                    </p>
                   </div>
                   
                   <div>
