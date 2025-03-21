@@ -71,11 +71,13 @@ const SignUp = () => {
       
       console.log('User registered as:', userRole); // Debug log
 
-      // Navigate based on role from token, not from form selection
+      // After successful signup but before navigation:
       if (userRole === "Service Provider") {
+        // For contractors, set a flag in localStorage
+        localStorage.setItem('contractorProfileComplete', 'false');
         navigate('/contractorStart');
       } else {
-        // Default to home for Client role
+        // For regular clients, no additional profile is needed
         navigate('/');
       }
 
@@ -252,6 +254,14 @@ const SignUp = () => {
               >
                 Register
               </motion.button>
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-600">
+                  Already have an account?{' '}
+                  <a href="/login" className="text-blue-500 hover:underline transition-all duration-300">
+                    Sign In
+                  </a>
+                </p>
+              </div>
             </form>
           </div>
 
