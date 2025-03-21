@@ -11,4 +11,7 @@ router.get('/', orderController.getOrders);
 // Get a specific order
 router.get('/:id', orderController.getOrderById);
 
+// Update order status
+router.patch('/:id/status', orderController.updateOrderStatus);
+
 module.exports = router;

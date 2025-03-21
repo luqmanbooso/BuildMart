@@ -33,7 +33,21 @@ const paymentSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  paymentType: {
+    type: String,
+    enum: ['inventory', 'service', 'other'],
+    default: 'other'
+  },
+  items: [{
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Product'
+    },
+    quantity: Number,
+    price: Number,
+    name: String
+  }]
 });
 
 module.exports = mongoose.model('Payment', paymentSchema);

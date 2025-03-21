@@ -193,6 +193,9 @@ function Supply_LogisticDashboard() {
   const [supplierValue, setSupplierValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [realOrders, setRealOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState(null);
 
   // Fetch inventory data from the API
   useEffect(() => {
@@ -292,6 +295,106 @@ function Supply_LogisticDashboard() {
     
     fetchSuppliers();
   }, []);
+
+  // Fetch real orders from the backend API
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setOrdersLoading(true);
+      try {
+        console.log('Fetching orders from:', 'http://localhost:5000/api/orders');
+        
+        const response = await axios.get('http://localhost:5000/api/orders');
+        console.log('API Response:', response.data);
+        
+        if (response.data && response.data.success) {
+          // Transform the backend data to match our frontend structure
+          const transformedOrders = response.data.orders.map(order => ({
+            id: order._id,
+            customer: order.customer?.name || 'Unknown Customer',
+            items: order.items?.length || 0,
+            value: order.totalAmount || 0,
+            status: mapOrderStatus(order.orderStatus || 'placed'),
+            paymentStatus: order.paymentDetails?.transactionId ? 'Completed' : 'Pending',
+            date: new Date(order.orderDate || Date.now()).toISOString().split('T')[0],
+            shippingAddress: order.shippingAddress || {},
+            rawOrder: order // Keep the raw data for reference
+          }));
+          
+          console.log('Transformed Orders:', transformedOrders);
+          setOrders(transformedOrders);
+          setOrdersError(null);
+        } else {
+          console.error('API returned unsuccessful response:', response.data);
+          setOrdersError('Failed to fetch orders data');
+          toast.error('Could not load orders. Using sample data instead.');
+        }
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        setOrdersError(`Failed to connect to the orders server: ${error.message}`);
+        toast.error('Could not load orders. Using sample data instead.');
+      } finally {
+        setOrdersLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
+
+  // Map backend order status to frontend display status
+  const mapOrderStatus = (status) => {
+    const statusMap = {
+      'placed': 'Pending',
+      'processing': 'Processing',
+      'shipped': 'In Transit',
+      'delivered': 'Delivered',
+      'cancelled': 'Cancelled'
+    };
+    return statusMap[status] || status;
+  };
+
+  // Create shipment from order
+  const createShipmentFromOrder = (order) => {
+    const newShipment = {
+      id: `SHP-${Math.floor(10000 + Math.random() * 90000)}`,
+      origin: 'Colombo Warehouse',
+      destination: `${order.shippingAddress?.city || 'Customer'} Site`,
+      driver: 'Assigned Driver',
+      vehicle: 'Pending Assignment',
+      status: 'Pending',
+      progress: 0,
+      eta: '24 hours',
+      orderId: order.id
+    };
+
+    // Add to active shipments
+    setActiveShipments(prev => [...prev, newShipment]);
+    
+    // Update order status
+    const updatedOrders = orders.map(o => {
+      if (o.id === order.id) {
+        return { ...o, status: 'Processing' };
+      }
+      return o;
+    });
+    setOrders(updatedOrders);
+
+    // Show success notification
+    toast.success(`Shipment ${newShipment.id} created for order ${order.id}`);
+
+    // In a real app, you'd make an API call to update the order status
+    updateOrderStatus(order.id, 'processing');
+  };
+
+  // Update order status via API call
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      await axios.patch(`http://localhost:5000/api/orders/${orderId}/status`, {
+        status: newStatus
+      });
+    } catch (error) {
+      console.error('Error updating order status:', error);
+    }
+  };
 
   // Function to filter inventory data
   const getFilteredInventory = () => {
@@ -512,6 +615,84 @@ function Supply_LogisticDashboard() {
     );
   }
   
+  // Rendering the orders table component
+  const renderOrdersTable = () => {
+    if (ordersLoading) {
+      return (
+        <div className="flex justify-center items-center py-10">
+          <Loader className="h-10 w-10 text-blue-600 animate-spin" />
+          <p className="ml-2 text-gray-600">Loading orders data...</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {orders.map(order => (
+          <div key={order.id} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-lg font-medium text-gray-800">{order.id}</h4>
+                <p className="text-sm text-gray-600">Customer: {order.customer}</p>
+                <p className="text-sm text-gray-600">Items: {order.items}</p>
+                <p className="text-sm text-gray-600">Value: Rs. {order.value.toLocaleString()}</p>
+                <p className="text-sm text-gray-600">Date: {order.date}</p>
+                {order.shippingAddress && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Ship to: {order.shippingAddress.address}, {order.shippingAddress.city}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col items-end space-y-2">
+                <div className="flex flex-col items-end space-y-1">
+                  <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                    order.status === 'Delivered' ? 'bg-green-100 text-green-600' : 
+                    order.status === 'In Transit' ? 'bg-blue-100 text-blue-600' : 
+                    order.status === 'Processing' ? 'bg-amber-100 text-amber-600' : 
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {order.status}
+                  </span>
+                  {order.status === 'Delivered' && (
+                    order.paymentStatus === 'Completed' ? (
+                      <span className="flex items-center text-sm font-medium text-green-600">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Payment Completed
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setShowPaymentModal(true);
+                        }}
+                        className="flex items-center space-x-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        <span>Process Payment</span>
+                      </button>
+                    )
+                  )}
+                </div>
+                {order.paymentStatus === 'Completed' && (
+                  <p className="text-xs text-gray-500">
+                    Paid on {new Date().toLocaleDateString()}
+                  </p>
+                )}
+                {order.status === 'Pending' && (
+                  <button
+                    onClick={() => createShipmentFromOrder(order)}
+                    className="mt-2 px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Create Shipment
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -982,20 +1163,37 @@ function Supply_LogisticDashboard() {
             <div className="space-y-6">
               {/* Shipment Arrangement Form */}
               <ShipmentArrangementForm
-                orders={orders}
+                orders={orders.filter(order => order.status === 'Pending')}
                 onArrangeShipment={(shipmentData) => {
                   // Add the new shipment to the activeShipments list
                   const newShipment = {
-                    id: `SHP-${Math.floor(Math.random() * 10000)}`, // Generate a random ID
-                    origin: "Colombo Warehouse", // Default origin
-                    destination: "Customer Site", // Default destination
+                    id: `SHP-${Math.floor(Math.random() * 10000)}`,
+                    origin: "Colombo Warehouse",
+                    destination: shipmentData.destination || "Customer Site",
                     driver: shipmentData.driver,
                     vehicle: shipmentData.vehicle,
                     status: shipmentData.status,
                     progress: shipmentData.status === "Delivered" ? 100 : 0,
                     eta: shipmentData.eta,
+                    orderId: shipmentData.orderId
                   };
                   setActiveShipments((prev) => [...prev, newShipment]);
+                  
+                  // Update order status if an order is associated
+                  if (shipmentData.orderId) {
+                    const updatedOrders = orders.map(o => {
+                      if (o.id === shipmentData.orderId) {
+                        return { ...o, status: 'In Transit' };
+                      }
+                      return o;
+                    });
+                    setOrders(updatedOrders);
+                    
+                    // Update order status in backend
+                    updateOrderStatus(shipmentData.orderId, 'shipped');
+                  }
+                  
+                  toast.success(`New shipment ${newShipment.id} has been created`);
                 }}
               />
 
@@ -1010,9 +1208,6 @@ function Supply_LogisticDashboard() {
                     <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                       <Download className="h-5 w-5 text-gray-600" />
                     </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <MoreHorizontal className="h-5 w-5 text-gray-600" />
-                    </button>
                   </div>
                 </div>
                 <div className="space-y-4">
@@ -1023,6 +1218,34 @@ function Supply_LogisticDashboard() {
                       shipmentStatus={shipment.status}
                       deliveryProgress={shipment.progress}
                       estimatedDelivery={shipment.eta}
+                      handleStatusUpdate={(newStatus) => {
+                        // Update shipment status
+                        const updatedShipments = activeShipments.map(s => {
+                          if (s.id === shipment.id) {
+                            const progress = newStatus === 'Delivered' ? 100 : 
+                                          newStatus === 'In Transit' ? 65 : 25;
+                            
+                            // If delivered, update the associated order
+                            if (newStatus === 'Delivered' && s.orderId) {
+                              const updatedOrders = orders.map(o => {
+                                if (o.id === s.orderId) {
+                                  return { ...o, status: 'Delivered' };
+                                }
+                                return o;
+                              });
+                              setOrders(updatedOrders);
+                              
+                              // Update order status in backend
+                              updateOrderStatus(s.orderId, 'delivered');
+                            }
+                            
+                            return { ...s, status: newStatus, progress };
+                          }
+                          return s;
+                        });
+                        setActiveShipments(updatedShipments);
+                        toast.success(`Updated status of shipment ${shipment.id} to ${newStatus}`);
+                      }}
                     />
                   ))}
                 </div>
@@ -1056,72 +1279,129 @@ function Supply_LogisticDashboard() {
                 </div>
               )}
 
+              {/* Orders stats */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Total Orders</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{orders.length}</h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+                      <ShoppingCart className="h-6 w-6 text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Delivered Orders</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{orders.filter(order => order.status === 'Delivered').length}</h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">In Transit Orders</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{orders.filter(order => order.status === 'In Transit').length}</h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+                      <Truck className="h-6 w-6 text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Pending Orders</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{orders.filter(order => order.status === 'Pending' || order.status === 'Processing').length}</h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
+                      <ShoppingCart className="h-6 w-6 text-purple-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Recent Orders Section */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-gray-800">Recent Orders</h3>
                   <div className="flex items-center space-x-2">
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Filter className="h-5 w-5 text-gray-600" />
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                        placeholder="Search orders..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
+                    </div>
+                    <button 
+                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                      onClick={() => {
+                        // Refresh orders data
+                        setOrdersLoading(true);
+                        axios.get('http://localhost:5000/api/orders')
+                          .then(response => {
+                            if (response.data.success) {
+                              const transformedOrders = response.data.orders.map(order => ({
+                                id: order._id,
+                                customer: order.customer.name || 'Unknown Customer',
+                                items: order.items.length,
+                                value: order.totalAmount,
+                                status: mapOrderStatus(order.orderStatus),
+                                paymentStatus: order.paymentDetails ? 'Completed' : 'Pending',
+                                date: new Date(order.orderDate).toISOString().split('T')[0],
+                                shippingAddress: order.shippingAddress,
+                                rawOrder: order
+                              }));
+                              setOrders(transformedOrders);
+                              toast.success("Orders data refreshed");
+                            }
+                          })
+                          .catch(error => {
+                            console.error("Error refreshing orders:", error);
+                            toast.error("Failed to refresh orders data");
+                          })
+                          .finally(() => {
+                            setOrdersLoading(false);
+                          });
+                      }}
+                    >
+                      <RefreshCw className="h-5 w-5 text-gray-600" />
                     </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <button 
+                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                      onClick={() => {
+                        // Export orders data as CSV
+                        const csvContent = 'data:text/csv;charset=utf-8,' + 
+                          'Order ID,Customer,Items,Value,Status,Payment Status,Date\n' +
+                          orders.map(order => 
+                            `"${order.id}","${order.customer}",${order.items},${order.value},"${order.status}","${order.paymentStatus || 'Pending'}","${order.date}"`
+                          ).join('\n');
+                        const encodedUri = encodeURI(csvContent);
+                        const link = document.createElement('a');
+                        link.setAttribute('href', encodedUri);
+                        link.setAttribute('download', 'orders_report.csv');
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                    >
                       <Download className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <MoreHorizontal className="h-5 w-5 text-gray-600" />
                     </button>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  {orders.map(order => (
-                    <div key={order.id} className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-lg font-medium text-gray-800">{order.id}</h4>
-                          <p className="text-sm text-gray-600">Customer: {order.customer}</p>
-                          <p className="text-sm text-gray-600">Items: {order.items}</p>
-                          <p className="text-sm text-gray-600">Value: Rs. {order.value.toLocaleString()}</p>
-                          <p className="text-sm text-gray-600">Date: {order.date}</p>
-                        </div>
-                        <div className="flex flex-col items-end space-y-2">
-                          <div className="flex flex-col items-end space-y-1">
-                            <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                              order.status === 'Delivered' ? 'bg-green-100 text-green-600' : 
-                              order.status === 'In Transit' ? 'bg-blue-100 text-blue-600' : 
-                              order.status === 'Processing' ? 'bg-amber-100 text-amber-600' : 
-                              'bg-gray-100 text-gray-600'
-                            }`}>
-                              {order.status}
-                            </span>
-                            {order.status === 'Delivered' && (
-                              order.paymentStatus === 'Completed' ? (
-                                <span className="flex items-center text-sm font-medium text-green-600">
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Payment Completed
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setSelectedOrder(order);
-                                    setShowPaymentModal(true);
-                                  }}
-                                  className="flex items-center space-x-1 text-sm font-medium text-blue-600 hover:text-blue-800"
-                                >
-                                  <span>Process Payment</span>
-                                </button>
-                              )
-                            )}
-                          </div>
-                          {order.paymentStatus === 'Completed' && (
-                            <p className="text-xs text-gray-500">
-                              Paid on {new Date().toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {renderOrdersTable()}
               </div>
             </div>
           )}

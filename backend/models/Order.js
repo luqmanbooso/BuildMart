@@ -47,7 +47,9 @@ const orderSchema = new mongoose.Schema({
   shippingAddress: {
     address: String,
     city: String,
-    postalCode: String
+    postalCode: String,
+    phone: String,
+    notes: String
   },
   orderStatus: {
     type: String,
