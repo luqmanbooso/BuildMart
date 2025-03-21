@@ -9,6 +9,8 @@ import EnhancedPaymentGateway from '../components/Payment';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import ContractorUserNav from "../components/ContractorUserNav";
+import ClientUserNav from "../components/ClientNavBar";
+import { jwtDecode } from "jwt-decode";
 
 // Helper function for currency formatting
 const formatCurrency = (amount) => {
@@ -33,6 +35,11 @@ const categoryColors = {
 };
 
 const Shop = () => {
+  // Add user role state
+  const [userRole, setUserRole] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  // Existing state variables
   const [searchTerm, setSearchTerm] = useState("");
   const [cartItems, setCartItems] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -175,6 +182,42 @@ const Shop = () => {
 
     fetchProducts();
   }, []);
+
+  // Determine user role and authentication status
+  useEffect(() => {
+    const checkAuthStatus = () => {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      if (token) {
+        try {
+          const decoded = jwtDecode(token);
+          setUserRole(decoded.role);
+          setIsLoggedIn(true);
+        } catch (error) {
+          console.error('Error decoding token:', error);
+          setIsLoggedIn(false);
+          setUserRole(null);
+        }
+      } else {
+        setIsLoggedIn(false);
+        setUserRole(null);
+      }
+    };
+    
+    checkAuthStatus();
+  }, []);
+  
+  // Function to render the appropriate navbar based on user role
+  const renderNavbar = () => {    
+    switch(userRole) {
+      case 'Service Provider':
+        return <ContractorUserNav />;
+      case 'Client':
+        return <ClientUserNav />;
+            default:
+        return <ClientUserNav />;
+    }
+  };
 
   // Apply sorting and filtering
   const sortedAndFilteredProducts = React.useMemo(() => {
@@ -538,7 +581,8 @@ const Shop = () => {
 
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      <ContractorUserNav />
+      {/* Replace the fixed ContractorUserNav with dynamic navbar */}
+      {renderNavbar()}
       <br /><br /><br /><br />
       <motion.section
         initial={{ opacity: 0 }}
