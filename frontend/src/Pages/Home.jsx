@@ -18,6 +18,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { jwtDecode } from 'jwt-decode';
 import ClientNavBar from "../components/ClientNavBar";
 import ContractorUserNav from "../components/ContractorUserNav";
+import axios from 'axios';
 
 // Enhanced component for animated section headings
 const SectionHeading = ({ title, accent, description, align = "center" }) => (
@@ -35,6 +36,10 @@ const SectionHeading = ({ title, accent, description, align = "center" }) => (
 );
 
 const Home = () => {
+  const [auctions, setAuctions] = useState([]);
+  const [isLoadingAuctions, setIsLoadingAuctions] = useState(true);
+  const [auctionError, setAuctionError] = useState(null);
+  
   const [userRole,setUserRole] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -208,69 +213,6 @@ const handleLogout = () => {
     },
   ];
 
-  const auctions = [
-    {
-      type: "Construction",
-      category: "",
-      title: "Modern House Construction Estimate",
-      name: "Mr.S.S.Perera",
-      area: "Colombo",
-      budget: "20million - 40million",
-      endDate: "14.6.2022 10:00:00 GMT+8",
-      active: true,
-      bids: 7,
-      image: heroBg,
-    },
-    {
-      type: "Construction",
-      category: "Plumbing",
-      title: "Full Home Plumbing Renovation",
-      name: "Mr.S.S.Perera",
-      area: "Colombo",
-      budget: "20million - 40million",
-      endDate: "14.6.2022 10:00:00 GMT+8",
-      active: false,
-      bids: 4,
-      image: blueprint_bg,
-    },
-    {
-      type: "Construction",
-      category: "Electrical",
-      title: "Complete Rewiring Project",
-      name: "Mr.S.S.Perera",
-      area: "Colombo",
-      budget: "20million - 40million",
-      endDate: "6.6.2022 10:00:00 GMT+8",
-      active: true,
-      bids: 9,
-      image: heroBg,
-    },
-    {
-      type: "Landscaping",
-      category: "Design",
-      title: "Modern Garden Landscape Design",
-      name: "Mr.S.S.Perera",
-      area: "Colombo",
-      budget: "20million - 40million",
-      endDate: "14.6.2022 10:00:00 GMT+8",
-      active: true,
-      bids: 5,
-      image: blueprint_bg,
-    },
-    {
-      type: "Construction",
-      category: "Electrical",
-      title: "Complete Rewiring Project",
-      name: "Mr.S.S.Perera",
-      area: "Colombo",
-      budget: "20million - 40million",
-      endDate: "6.6.2022 10:00:00 GMT+8",
-      active: true,
-      bids: 9,
-      image: heroBg,
-    },
-  ];
-
   const professionals = [
     {
       name: "XYZ CONSTRUCTORS",
@@ -428,6 +370,111 @@ const handleLogout = () => {
     return (
       <div className="flex space-x-1">{stars}</div>
     );
+  };
+
+  useEffect(() => {
+    const fetchAuctions = async () => {
+      setIsLoadingAuctions(true);
+      setAuctionError(null);
+      
+      try {
+        // Make API call to get jobs/auctions from backend
+        const response = await axios.get('http://localhost:5000/api/jobs');
+        
+        if (!response.data || response.data.length === 0) {
+          setAuctions([]);
+          return;
+        }
+        
+        // Map the backend data structure to match the frontend component
+        const formattedAuctions = response.data
+          // Take only the first 4 auctions for the home page
+          .slice(0, 4)
+          .map(job => {
+            // Determine if the auction is active based on status and times
+            const now = new Date().getTime();
+            const startTime = new Date(job.biddingStartTime || job.date).getTime();
+            const endTime = new Date(job.biddingEndTime || '').getTime();
+            const isActive = job.status === 'Active' || (now >= startTime && (!job.biddingEndTime || now <= endTime));
+            
+            return {
+              id: job._id,
+              title: job.title || 'Untitled Project',
+              type: job.category || 'Construction', 
+              category: job.subCategory || '',
+              name: job.username || 'Unknown User',
+              area: job.area || 'Not specified',
+              budget: job.budget ? `LKR ${job.budget}` : 'Not specified',
+              startTime: job.biddingStartTime,
+              endDate: job.biddingEndTime,
+              active: isActive,
+              bids: job.bids?.length || 0,
+              image: job.imageUrl || blueprint_bg, // Use job image if available, else default
+              description: job.description || 'No description provided'
+            };
+          });
+        
+        console.log('Auctions fetched for homepage:', formattedAuctions);
+        setAuctions(formattedAuctions);
+      } catch (error) {
+        console.error('Error fetching auctions for homepage:', error);
+        setAuctionError("Failed to load latest projects");
+      } finally {
+        setIsLoadingAuctions(false);
+      }
+    };
+    
+    fetchAuctions();
+  }, []);
+
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productError, setProductError] = useState(null);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  // Add this function outside the useEffect
+  const fetchProducts = async () => {
+    setIsLoadingProducts(true);
+    setProductError(null);
+    
+    try {
+      console.log('Fetching products from:', 'http://localhost:5000/product/products');
+      const response = await axios.get('http://localhost:5000/product/products');
+      console.log('Raw API response:', response);
+      
+      if (response.data.success) {
+        // Take only the first 4 products for the featured section
+        const formattedProducts = response.data.products
+          .slice(0, 4)
+          .map(product => ({
+            id: product._id,
+            name: product.name,
+            description: product.description || `High-quality ${product.name} for construction needs`,
+            price: product.price,
+            active: product.stock > 0,
+            image: product.image ? `http://localhost:5000${product.image}` : construction_tools,
+            stock: product.stock
+          }));
+        
+        console.log('Products fetched for homepage:', formattedProducts);
+        setFeaturedProducts(formattedProducts);
+      } else {
+        console.error('Error fetching products:', response.data);
+        setProductError("Failed to load product data");
+      }
+    } catch (error) {
+      console.error('Error details:', error.response || error.message || error);
+      setProductError(`Failed to connect: ${error.message}`);
+    } finally {
+      setIsLoadingProducts(false);
+    }
   };
 
   return (
@@ -635,78 +682,153 @@ const handleLogout = () => {
         <div className="container mx-auto px-4">
           <SectionHeading 
             title="Latest" 
-            accent="Auctions" 
-            description="Browse our most recent projects and submit your competitive bids"
+            accent="Projects" 
+            description="Browse our most recent construction projects and submit your competitive bids"
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {auctions.map((auction, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300"
-              >
-                <div className="h-40 overflow-hidden relative">
-                  <img 
-                    src={auction.image} 
-                    alt={auction.title} 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-0 left-0 p-3 flex gap-2">
-                    <span className="bg-gray-900 text-white px-3 py-1 text-xs font-medium rounded-full">
-                      {auction.type}
-                    </span>
-                    {auction.category && (
-                      <span className="bg-blue-600 text-white px-3 py-1 text-xs font-medium rounded-full">
-                        {auction.category}
-                      </span>
-                    )}
+          {isLoadingAuctions ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="bg-white rounded-xl overflow-hidden shadow-md animate-pulse">
+                  <div className="h-40 bg-gray-300"></div>
+                  <div className="p-5">
+                    <div className="h-4 bg-gray-300 rounded w-3/4 mb-4"></div>
+                    <div className="h-3 bg-gray-300 rounded w-1/2 mb-3"></div>
+                    <div className="h-3 bg-gray-300 rounded w-1/3 mb-4"></div>
+                    <div className="h-4 bg-gray-300 rounded w-full mb-4"></div>
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="h-3 bg-gray-300 rounded w-1/4"></div>
+                      <div className="h-3 bg-gray-300 rounded w-1/4"></div>
+                    </div>
+                    <div className="h-8 bg-blue-300 rounded w-full"></div>
                   </div>
                 </div>
+              ))}
+            </div>
+          ) : auctionError ? (
+            <div className="text-center py-10">
+              <div className="flex justify-center">
+                <div className="h-20 w-20 bg-red-50 rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="text-xl font-medium text-gray-800 mt-5">{auctionError}</h3>
+              <button
+                onClick={() => {
+                  setIsLoadingAuctions(true);
+                  fetchAuctions();
+                }}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : auctions.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {auctions.map((auction, index) => (
+                <motion.div
+                  key={auction.id || index}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300"
+                >
+                  <div className="h-40 overflow-hidden relative">
+                    <img 
+                      src={auction.image || blueprint_bg} 
+                      alt={auction.title} 
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-0 left-0 p-3 flex gap-2">
+                      <span className="bg-gray-900 text-white px-3 py-1 text-xs font-medium rounded-full">
+                        {auction.type || "Construction"}
+                      </span>
+                      {auction.category && (
+                        <span className="bg-blue-600 text-white px-3 py-1 text-xs font-medium rounded-full">
+                          {auction.category}
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-                <div className="p-5">
-                  <h3 className="font-bold text-lg mb-1 line-clamp-1">{auction.title}</h3>
-                  
-                  <div className="flex items-center mb-3">
-                    <FaUserCircle className="mr-2 text-gray-600" />
-                    <span className="text-gray-600 text-sm">{auction.name}</span>
-                  </div>
-                  
-                  <div className="flex items-center mb-3">
-                    <FaMapMarkerAlt className="mr-2 text-blue-500" />
-                    <span className="text-gray-600 text-sm">{auction.area}</span>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <div className="text-sm font-medium text-gray-700">Budget Range:</div>
-                    <div className="text-blue-600 font-bold">{auction.budget}</div>
-                  </div>
-                  
-                  <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center">
-                      <span
-                        className={`h-3 w-3 rounded-full ${
-                          auction.active ? "bg-green-500" : "bg-orange-500"
-                        } mr-2`}
-                      ></span>
-                      <span className="text-xs font-medium">
-                        {auction.active ? "Active" : "Starts Soon"}
+                  <div className="p-5">
+                    <h3 className="font-bold text-lg mb-1 line-clamp-1">{auction.title}</h3>
+                    
+                    <div className="flex items-center mb-3">
+                      <FaUserCircle className="mr-2 text-gray-600" />
+                      <span className="text-gray-600 text-sm">{auction.name || "Unknown"}</span>
+                    </div>
+                    
+                    <div className="flex items-center mb-3">
+                      <FaMapMarkerAlt className="mr-2 text-blue-500" />
+                      <span className="text-gray-600 text-sm">{auction.area || "Not specified"}</span>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <div className="text-sm font-medium text-gray-700">Budget:</div>
+                      <div className="text-blue-600 font-bold">{auction.budget || "Not specified"}</div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="flex items-center">
+                        <span
+                          className={`h-3 w-3 rounded-full ${
+                            auction.active ? "bg-green-500 animate-pulse" : "bg-orange-500"
+                          } mr-2`}
+                        ></span>
+                        <span className="text-xs font-medium">
+                          {auction.active ? "Active" : "Starts Soon"}
+                        </span>
+                      </div>
+                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
+                        {auction.bids || 0} Bids
                       </span>
                     </div>
-                    <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
-                      {auction.bids} Bids
-                    </span>
-                  </div>
 
-                  <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all">
-                    Bid now
-                  </button>
+                    <Link to={`/project/${auction.id}`}>
+                      <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all">
+                        View Details
+                      </button>
+                    </Link>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <div className="flex justify-center">
+                <div className="h-20 w-20 bg-blue-50 rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-              </motion.div>
-            ))}
+              </div>
+              <h3 className="text-xl font-medium text-gray-800 mt-5">No Projects Available</h3>
+              <p className="text-gray-600 mt-2 max-w-md mx-auto">
+                There are no active projects at the moment. Check back later or create your own project.
+              </p>
+              <Link to="/login">
+                <button className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                  Post a Project
+                </button>
+              </Link>
+            </div>
+          )}
+
+          <div className="text-center mt-10">
+            <Link to="/auctions">
+              <motion.button 
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-all inline-flex items-center"
+              >
+                View All Projects
+                <FaArrowRight className="ml-2" />
+              </motion.button>
+            </Link>
           </div>
         </div>
       </div>
@@ -766,47 +888,120 @@ const handleLogout = () => {
         <div className="px-12">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-bold">Featured Products</h2>
-            <a href="#" className="text-blue-500 hover:underline">
-              See all result
-            </a>
+            <Link to="/shop" className="text-blue-500 hover:underline">
+              See all products
+            </Link>
           </div>
 
-          <div className="grid grid-cols-4 gap-6">
-            {products.map((product, index) => (
-              <div key={index}>
-                <div className="bg-white rounded-lg shadow-md p-6 mb-4 hover:shadow-lg transition">
-                  <div className="flex justify-center mb-4">
-                    <img
-                      src={construction_tools}
-                      alt={`Product ${product.id}`}
-                      className="w-32 h-32 object-contain"
-                    />
-                  </div>
+          {isLoadingProducts ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="bg-gray-300 rounded-lg h-48 mb-4"></div>
+                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-300 rounded w-1/2 mb-4"></div>
+                  <div className="h-4 bg-gray-300 rounded w-1/4"></div>
                 </div>
-
-                <h3 className="font-bold">Product {product.id}</h3>
-                <p className="text-gray-600 text-sm">{product.description}</p>
-
-                <div className="border-b border-gray-200 my-3">
-                  <p className="pb-2">RS : {product.price} /=</p>
+              ))}
+            </div>
+          ) : productError ? (
+            <div className="text-center py-10">
+              <div className="flex justify-center">
+                <div className="h-20 w-20 bg-red-50 rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-
-                <div className="flex items-center mb-4">
-                  <span
-                    className={`h-3 w-3 rounded-full ${
-                      product.active ? "bg-green-500" : "bg-orange-500"
-                    } mr-2`}
-                  ></span>
-                  <span className="text-xs uppercase text-gray-500">
-                    {product.active ? "Active" : "Unavailable"}
-                  </span>
-                </div>
-
-                <button className="border border-gray-300 text-gray-800 px-4 py-1 text-sm hover:bg-gray-100 transition">
-                  BUY
-                </button>
               </div>
-            ))}
+              <h3 className="text-xl font-medium text-gray-800 mt-5">{productError}</h3>
+              <button
+                onClick={() => {
+                  setIsLoadingProducts(true);
+                  fetchProducts();
+                }}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : featuredProducts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {featuredProducts.map((product) => (
+                <motion.div 
+                  key={product.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  viewport={{ once: true }}
+                >
+                  <div className="bg-white rounded-lg shadow-md p-6 mb-4 hover:shadow-lg transition">
+                    <div className="flex justify-center mb-4">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-32 h-32 object-contain"
+                      />
+                    </div>
+                  </div>
+
+                  <h3 className="font-bold">{product.name}</h3>
+                  <p className="text-gray-600 text-sm line-clamp-2">{product.description}</p>
+
+                  <div className="border-b border-gray-200 my-3">
+                    <p className="pb-2">RS : {product.price.toLocaleString()} /=</p>
+                  </div>
+
+                  <div className="flex items-center mb-4">
+                    <span
+                      className={`h-3 w-3 rounded-full ${
+                        product.active ? "bg-green-500" : "bg-orange-500"
+                      } mr-2`}
+                    ></span>
+                    <span className="text-xs uppercase text-gray-500">
+                      {product.active ? "In Stock" : "Out of Stock"}
+                    </span>
+                  </div>
+
+                  <Link to={`/shop/product/${product.id}`}>
+                    <button className="border border-gray-300 text-gray-800 px-4 py-1 text-sm hover:bg-gray-100 transition w-full">
+                      VIEW DETAILS
+                    </button>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <div className="flex justify-center">
+                <div className="h-20 w-20 bg-blue-50 rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="text-xl font-medium text-gray-800 mt-5">No Products Available</h3>
+              <p className="text-gray-600 mt-2 max-w-md mx-auto">
+                There are no products available at the moment. Check back later.
+              </p>
+              <Link to="/shop">
+                <button className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                  Go to Shop
+                </button>
+              </Link>
+            </div>
+          )}
+
+          <div className="text-center mt-10">
+            <Link to="/products">
+              <motion.button 
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-all inline-flex items-center"
+              >
+                View All Products
+                <FaArrowRight className="ml-2" />
+              </motion.button>
+            </Link>
           </div>
         </div>
       </div>
