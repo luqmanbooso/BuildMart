@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { FiX, FiShoppingCart, FiStar } from "react-icons/fi";
+import { FiX, FiShoppingCart, FiStar, FiLogIn } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 
 // Import required utility functions and styles
 const formatCurrency = (amount) => {
@@ -35,10 +36,20 @@ const categoryColors = {
   "Other": "bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 border border-gray-200"
 };
 
-const ViewDetails = ({ product, onClose, onAddToCart }) => {
+const ViewDetails = ({ product, onClose, onAddToCart, isLoggedIn }) => {
+  const navigate = useNavigate();
+
   if (!product) return null;
 
   const handleAddToCart = () => {
+    if (!isLoggedIn) {
+      // Close the details modal
+      onClose();
+      // Navigate to login page
+      navigate('/login');
+      return;
+    }
+    
     onAddToCart(product);
     onClose(); // Close the details modal after adding to cart
   };
@@ -130,30 +141,43 @@ const ViewDetails = ({ product, onClose, onAddToCart }) => {
               {/* Only show features for sample products or when features are available */}
               {!product._id && (
                 <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">Features</h3>
-                  <ul className="list-disc list-inside text-gray-600 space-y-1">
-                    <li>Premium quality materials</li>
-                    <li>Durable and long-lasting</li>
-                    <li>Easy to use and install</li>
-                    <li>Industry-standard specifications</li>
-                  </ul>
+                 
+                  
                 </div>
               )}
             </div>
 
             <div className="mt-8">
-              <button
-                onClick={handleAddToCart}
-                disabled={product.stock <= 0}
-                className={`w-full py-3 px-6 rounded-lg flex items-center justify-center space-x-2 transition-colors ${
-                  product.stock <= 0 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                }`}
-              >
-                <FiShoppingCart size={20} />
-                <span>{product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}</span>
-              </button>
+              {/* Show different button based on auth state and stock availability */}
+              {product.stock <= 0 ? (
+                <button
+                  disabled
+                  className="w-full py-3 px-6 rounded-lg flex items-center justify-center space-x-2 bg-gray-300 text-gray-500 cursor-not-allowed"
+                >
+                  <FiShoppingCart size={20} />
+                  <span>Out of Stock</span>
+                </button>
+              ) : isLoggedIn ? (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleAddToCart}
+                  className="w-full py-3 px-6 rounded-lg flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  <FiShoppingCart size={20} />
+                  <span>Add to Cart</span>
+                </motion.button>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleAddToCart} // This will navigate to login
+                  className="w-full py-3 px-6 rounded-lg flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  <FiLogIn size={20} />
+                  <span>Log in to Purchase</span>
+                </motion.button>
+              )}
             </div>
           </div>
         </div>

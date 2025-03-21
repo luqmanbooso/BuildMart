@@ -254,8 +254,43 @@ const Shop = () => {
     return result;
   }, [products, searchTerm, selectedCategory, sortOption]);
 
-  // Enhance the addToCart function
+  // Update the addToCart function to check for authentication
   const addToCart = (product) => {
+    // Check if user is logged in before adding to cart
+    if (!isLoggedIn) {
+      // Show login prompt toast
+      toast.warning(
+        <div className="flex flex-col">
+          <p>Please log in to add items to cart</p>
+          <div className="mt-2 flex justify-end space-x-2">
+            <button 
+              className="bg-white text-indigo-600 px-2 py-1 rounded text-sm font-medium"
+              onClick={() => navigate('/login')}
+            >
+              Log In
+            </button>
+            <button 
+              className="bg-indigo-600 text-white px-2 py-1 rounded text-sm font-medium"
+              onClick={() => navigate('/signup')}
+            >
+              Sign Up
+            </button>
+          </div>
+        </div>,
+        {
+          position: "bottom-center",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          className: "custom-toast-width", // Add this custom class in your CSS
+        }
+      );
+      return;
+    }
+    
+    // If logged in, proceed with adding to cart
     setCartItems((prev) => [...prev, product]);
     
     // Create a toast notification
@@ -289,6 +324,38 @@ const Shop = () => {
   };
 
   const toggleCart = () => {
+    // If not logged in, prompt to log in
+    if (!isLoggedIn) {
+      toast.warning(
+        <div className="flex flex-col">
+          <p>Please log in to view your cart</p>
+          <div className="mt-2 flex justify-end space-x-2">
+            <button 
+              className="bg-white text-indigo-600 px-2 py-1 rounded text-sm font-medium"
+              onClick={() => navigate('/login')}
+            >
+              Log In
+            </button>
+            <button 
+              className="bg-indigo-600 text-white px-2 py-1 rounded text-sm font-medium"
+              onClick={() => navigate('/signup')}
+            >
+              Sign Up
+            </button>
+          </div>
+        </div>,
+        {
+          position: "bottom-center",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+        }
+      );
+      return;
+    }
+    
     // If cart is empty and being opened, show a message
     if (!isCartOpen && cartItems.length === 0) {
       toast.info("Your cart is empty", {
@@ -509,14 +576,7 @@ const Shop = () => {
         onHoverEnd={() => setIsHovered(false)}
         className="group relative bg-white rounded-xl overflow-hidden transform transition-all duration-300 hover:shadow-2xl hover:-translate-y-1"
       >
-        {/* Ribbon for low stock */}
-        {product.stock <= 5 && product.stock > 0 && (
-          <div className="absolute top-0 right-0 z-10">
-            <div className="bg-amber-500 text-white text-xs font-bold px-4 py-1 transform rotate-45 translate-x-6 -translate-y-1 shadow-md">
-              Low Stock
-            </div>
-          </div>
-        )}
+        {/* Existing ribbon code */}
         
         <div className="relative h-64 overflow-hidden bg-gray-50">
           <motion.img
@@ -545,20 +605,36 @@ const Shop = () => {
               >
                 View Details
               </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addToCart(product);
-                }}
-                disabled={product.stock <= 0}
-                className={`bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium ${
-                  product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {product.stock <= 0 ? 'Sold Out' : 'Add to Cart'}
-              </motion.button>
+              
+              {/* Show different button based on auth state */}
+              {isLoggedIn ? (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addToCart(product);
+                  }}
+                  disabled={product.stock <= 0}
+                  className={`bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium ${
+                    product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {product.stock <= 0 ? 'Sold Out' : 'Add to Cart'}
+                </motion.button>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/login');
+                  }}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium"
+                >
+                  Log In to Purchase
+                </motion.button>
+              )}
             </div>
           </motion.div>
         </div>
@@ -789,10 +865,11 @@ const Shop = () => {
       {/* View Details Modal */}
       <AnimatePresence>
         {selectedProduct && (
-          <ViewDetails
-            product={selectedProduct}
-            onClose={closeDetails}
+          <ViewDetails 
+            product={selectedProduct} 
+            onClose={() => setSelectedProduct(null)} 
             onAddToCart={addToCart}
+            isLoggedIn={isLoggedIn} // Pass the authentication status
           />
         )}
       </AnimatePresence>
