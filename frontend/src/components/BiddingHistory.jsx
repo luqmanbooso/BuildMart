@@ -81,7 +81,7 @@ const BiddingHistoryPage = () => {
     getContractorDetails();
   }, [navigate]);
   
-  // Keep bid fetching logic
+  // Update the fetchBids function to get project names
   useEffect(() => {
     const fetchBids = async () => {
       if (!contractorData.id) {
@@ -93,11 +93,11 @@ const BiddingHistoryPage = () => {
         const response = await axios.get(`http://localhost:5000/bids/contractor/${contractorData.id}`);
         
         if (response.data) {
-          setBiddingHistory(response.data.map(bid => ({
+          // Process initial bid data
+          const bidsWithoutProjectNames = response.data.map(bid => ({
             id: bid._id,
             projectId: bid.projectId,
-            projectName: bid.projectName || "Project #" + bid.projectId.substring(0, 8),
-            projectOwner: bid.clientName || "Client",
+            projectName: null, // We'll fetch this separately
             bidAmount: bid.price,
             bidDate: new Date(bid.createdAt).toLocaleDateString(),
             status: bid.status.charAt(0).toUpperCase() + bid.status.slice(1),
@@ -106,13 +106,33 @@ const BiddingHistoryPage = () => {
             qualifications: bid.qualifications || "",
             updateCount: bid.updateCount || 0,
             updatesRemaining: 3 - (bid.updateCount || 0)
-          })));
+          }));
+          
+          // Fetch project details for each bid that doesn't have a name
+          const projectDetailsPromises = bidsWithoutProjectNames.map(async (bid) => {
+            if (!bid.projectName) {
+              try {
+                const projectResponse = await axios.get(`http://localhost:5000/api/jobs/${bid.projectId}`);
+                if (projectResponse.data) {
+                  bid.projectName = projectResponse.data.title;
+                }
+              } catch (err) {
+                console.error(`Error fetching project details for project ID ${bid.projectId}:`, err);
+                bid.projectName = "Project #" + bid.projectId.substring(0, 8);
+              }
+            }
+            return bid;
+          });
+          
+          const bidsWithProjectNames = await Promise.all(projectDetailsPromises);
+          
+          setBiddingHistory(bidsWithProjectNames);
           
           const stats = {
-            total: response.data.length,
-            won: response.data.filter(bid => bid.status === 'accepted').length,
-            lost: response.data.filter(bid => bid.status === 'rejected').length,
-            active: response.data.filter(bid => bid.status === 'pending').length,
+            total: bidsWithProjectNames.length,
+            won: bidsWithProjectNames.filter(bid => bid.status === 'Accepted').length,
+            lost: bidsWithProjectNames.filter(bid => bid.status === 'Rejected').length,
+            active: bidsWithProjectNames.filter(bid => bid.status === 'Pending').length,
             expired: 0
           };
           
@@ -288,50 +308,94 @@ const BiddingHistoryPage = () => {
                 animate="visible"
                 className="overflow-x-auto"
               >
-                <table className="min-w-full bg-white">
+                <table className="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
                   <thead>
-                    <tr className="bg-gray-100">
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Project Name</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Bid Amount</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Timeline (days)</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Bid Date</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Status</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Updates</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm">Actions</th>
+                    <tr>
+                      <th className="px-6 py-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Project Name
+                      </th>
+                      <th className="px-6 py-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Bid Amount
+                      </th>
+                      <th className="px-6 py-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Timeline
+                      </th>
+                      <th className="px-6 py-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Updates
+                      </th>
+                      <th className="px-6 py-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {filteredBids.map((bid) => (
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredBids.map((bid, index) => (
                       <motion.tr 
                         key={bid.id} 
                         variants={itemVariants}
-                        className="border-b border-gray-200 hover:bg-gray-50"
+                        className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors duration-150`}
                       >
-                        <td className="py-3 px-4">{bid.projectName}</td>
-                        <td className="py-3 px-4">LKR {bid.bidAmount.toLocaleString()}</td>
-                        <td className="py-3 px-4">{bid.timeline}</td>
-                        <td className="py-3 px-4">{bid.bidDate}</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded text-white text-xs ${getStatusColor(bid.status)}`}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                              {bid.projectName.charAt(0)}
+                            </div>
+                            <div className="ml-4">
+                              {/* Show only project name, not the owner */}
+                              <div className="text-sm font-medium text-gray-900">{bid.projectName}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">LKR {bid.bidAmount.toLocaleString()}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{bid.timeline} days</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{bid.bidDate}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            bid.status === 'Accepted' ? 'bg-green-100 text-green-800' : 
+                            bid.status === 'Rejected' ? 'bg-red-100 text-red-800' : 
+                            bid.status === 'Pending' ? 'bg-blue-100 text-blue-800' : 
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 mr-1.5 rounded-full ${
+                              bid.status === 'Accepted' ? 'bg-green-600' : 
+                              bid.status === 'Rejected' ? 'bg-red-600' : 
+                              bid.status === 'Pending' ? 'bg-blue-600' : 
+                              'bg-gray-600'
+                            }`}></span>
                             {bid.status}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           {bid.status === 'Pending' ? (
-                            `${bid.updatesRemaining}/3 remaining`
+                            <div className="text-sm text-gray-500">
+                              <span className="font-medium text-blue-700">{bid.updatesRemaining}</span>/3 remaining
+                            </div>
                           ) : (
-                            '—'
+                            <div className="text-sm text-gray-400">—</div>
                           )}
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="flex space-x-2">
-                            <Link 
-                              to={`/project/${bid.projectId}`}
-                              className="bg-blue-600 text-white px-3 py-1 rounded text-xs"
-                            >
-                              View
-                            </Link>
-                          </div>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <Link 
+                            to={`/project/${bid.projectId}`}
+                            className="bg-blue-600 hover:bg-blue-700 transition-colors text-white px-4 py-2 rounded-md min-w-[80px] flex items-center justify-center space-x-1"
+                          >
+                            <span>View</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </Link>
                         </td>
                       </motion.tr>
                     ))}
