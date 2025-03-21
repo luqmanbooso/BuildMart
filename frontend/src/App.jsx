@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './App.css'
 import BidForm from './components/BidForm'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Home from './Pages/Home'
 import NoPage from './Pages/NoPage'
 import ProjectDetails from './Pages/ProjectDetails'
@@ -34,8 +34,12 @@ import { SupplierPaymentProvider } from './context/SupplierPaymentContext';
 import EnhancedPaymentGateway from './components/Payment';
 import InitialPayment from './components/InitialPayment'
 import MyEarningsPage from './pages/MyEarningsPage'
+import MyOrders from './Pages/MyOrders'
 
 function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  
   const sampleData = {
     shipmentId: "123456",
     shipmentStatus: "Out for Delivery",
@@ -74,6 +78,7 @@ function App() {
         sampleData={sampleProjectData}
         />} />
         <Route path="/myprojects" element={<ProjectsPage />} /> 
+        <Route path="/my-orders" element={<MyOrders />} />
         <Route path="/project-details" element={<ProjectDetails />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
@@ -104,7 +109,7 @@ function App() {
           
         <Route path='/contractor/:contractorId/bid/:bidId/project/:projectId' element= {<ContractorViewDetails/>} />
 
-          <Route path="/bids/:bidId/update" element={<BidUpdate />} />
+        <Route path="/bids/:bidId/update" element={<BidUpdate />} />
         <Route path="/ongoing-works" element={<OngoingJobs />} />
         <Route path="/agreement/:jobId/:bidId" element={<AgreementForm />} />
         <Route path="/inventoryDash" element={<InventoryDash />} />
@@ -119,14 +124,14 @@ function App() {
             <EnhancedPaymentGateway 
               onSuccess={(paymentResult) => {
                 // Handle successful payment
-                const { state } = useLocation();
+                const { state } = location;
                 if (state?.returnUrl) {
                   navigate(state.returnUrl);
                 }
               }}
               onCancel={() => {
                 // Handle payment cancellation
-                const { state } = useLocation();
+                const { state } = location;
                 if (state?.returnUrl) {
                   navigate(state.returnUrl);
                 }
