@@ -3,6 +3,8 @@ const router = express.Router();
 const OngoingWork = require('../models/Ongoingworkmodel');
 const Job = require('../models/Job');
 
+// Add the commission constant at the top of the file
+const COMMISSION_RATE = 0.10; // 10% commission
 
 // Get all ongoing works (admin only)
 router.get('/admin/all', async (req, res) => {
@@ -176,7 +178,20 @@ router.patch('/:id/milestone/:milestoneIndex', async (req, res) => {
     
     // Update milestone
     if (status) ongoingWork.milestones[milestoneIdx].status = status;
-    if (actualAmountPaid) ongoingWork.milestones[milestoneIdx].actualAmountPaid = actualAmountPaid;
+    
+    // Handle payment with commission
+    if (actualAmountPaid) {
+      // Calculate original milestone amount and commission
+      const originalAmount = parseFloat(ongoingWork.milestones[milestoneIdx].amount || 0);
+      const commission = originalAmount * COMMISSION_RATE;
+      
+      // Store the actual amount paid (which includes commission)
+      ongoingWork.milestones[milestoneIdx].actualAmountPaid = actualAmountPaid;
+      
+      // Store commission information in the milestone
+      ongoingWork.milestones[milestoneIdx].commission = commission;
+      ongoingWork.milestones[milestoneIdx].originalAmount = originalAmount;
+    }
     
     // Set completion date if milestone is marked as completed
     if (status === 'Completed') {
@@ -186,11 +201,17 @@ router.patch('/:id/milestone/:milestoneIndex', async (req, res) => {
     // Recalculate amounts
     let totalAmountPaid = 0;
     let totalAmountPending = 0;
+    let totalCommission = 0;
     
     ongoingWork.milestones.forEach(milestone => {
-      const amount = parseInt(milestone.amount) || 0;
+      const amount = parseFloat(milestone.amount || 0);
       if (milestone.status === 'Completed' && milestone.actualAmountPaid) {
         totalAmountPaid += milestone.actualAmountPaid;
+        
+        // Sum up the commission if it exists
+        if (milestone.commission) {
+          totalCommission += milestone.commission;
+        }
       } else {
         totalAmountPending += amount;
       }
@@ -198,6 +219,7 @@ router.patch('/:id/milestone/:milestoneIndex', async (req, res) => {
     
     ongoingWork.totalAmountPaid = totalAmountPaid;
     ongoingWork.totalAmountPending = totalAmountPending;
+    ongoingWork.totalCommission = totalCommission; // Track total commission
     
     // Update last payment date if payment was made
     if (actualAmountPaid && status === 'Completed') {
@@ -219,6 +241,5 @@ router.patch('/:id/milestone/:milestoneIndex', async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
-
 
 module.exports = router;

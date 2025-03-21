@@ -17,6 +17,14 @@ const milestoneSchema = new mongoose.Schema({
   actualAmountPaid: {
     type: Number,
     default: 0
+  },
+  commission: {
+    type: Number,
+    default: 0
+  },
+  originalAmount: {
+    type: Number,
+    default: 0
   }
 });
 
@@ -75,6 +83,10 @@ const ongoingWorkSchema = new mongoose.Schema({
     type: String, 
     enum: ['Paid', 'Pending'],
     default: 'Pending'
+  },
+  totalCommission: {
+    type: Number,
+    default: 0
   },
   communication: [{
     senderId: String, // Either client or contractor

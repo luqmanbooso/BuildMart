@@ -25,6 +25,9 @@ const printStyles = `
   }
 `;
 
+// Add this constant at the top of the file, outside the component
+const COMMISSION_RATE = 0.10; // 10% commission
+
 // Add a new prop for payment context
 const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, context = 'customer' }) => {
   // State management
@@ -45,6 +48,9 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
   const [manuallySelectedCard, setManuallySelectedCard] = useState(null);
   const [invoiceData, setInvoiceData] = useState(null);
   const [focused, setFocused] = useState({});
+  const [originalAmount, setOriginalAmount] = useState(0);
+  const [commissionAmount, setCommissionAmount] = useState(0);
+  const [totalAmount, setTotalAmount] = useState(0);
 
   // Available card types
   const cardTypes = [
@@ -241,6 +247,27 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
     setAmount(cleaned);
   };
 
+  // Calculate commission when amount changes
+  useEffect(() => {
+    if (initialAmount) {
+      const original = parseFloat(initialAmount);
+      setOriginalAmount(original);
+      
+      // Only apply commission for milestone payments
+      if (context === 'milestone') {
+        const commission = original * COMMISSION_RATE;
+        setCommissionAmount(commission);
+        setTotalAmount(original + commission);
+        // Update the displayed amount to include commission
+        setAmount((original + commission).toFixed(2));
+      } else {
+        setCommissionAmount(0);
+        setTotalAmount(original);
+        setAmount(original.toFixed(2));
+      }
+    }
+  }, [initialAmount, context]);
+
   // Card logo components
   const CardLogo = ({ type }) => {
     const logos = {
@@ -356,16 +383,20 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
               </h4>
               <div className="space-y-3">
                 <div className="flex justify-between text-gray-600">
-                  <span>Amount Paid</span>
-                  <span>{formatLKR(parseFloat(amount))}</span>
+                  <span>Milestone Amount</span>
+                  <span>{formatLKR(originalAmount)}</span>
                 </div>
-                <div className="flex justify-between text-gray-500 text-sm">
-                  <span>Transaction Fee</span>
-                  <span>LKR 0.00</span>
-                </div>
+                
+                {context === 'milestone' && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>BuildMart Service Fee (10%)</span>
+                    <span>{formatLKR(commissionAmount)}</span>
+                  </div>
+                )}
+                
                 <div className="flex justify-between font-semibold text-lg pt-4 border-t border-gray-200">
                   <span>Total Amount</span>
-                  <span className="text-green-600">{formatLKR(parseFloat(amount))}</span>
+                  <span className="text-green-600">{formatLKR(totalAmount)}</span>
                 </div>
               </div>
             </div>
@@ -646,22 +677,36 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
             {/* Amount with larger input */}
             <div className="mb-6">
               <label className="block text-gray-700 text-sm font-medium mb-2">
-                Amount<span className="text-red-500">*</span>
+                Payment Details<span className="text-red-500">*</span>
               </label>
-              <div className={`relative rounded-md shadow-sm`}>
-                
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-700">Amount:</span>
+                  <span className="font-medium">{formatLKR(originalAmount)}</span>
                 </div>
-                {amount && (
-                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                    <span className="text-sm text-gray-500 font-medium">
-                      {parseFloat(amount) > 0 && formatLKR(parseFloat(amount))}
-                    </span>
+                
+                {context === 'milestone' && (
+                  <div className="flex justify-between items-center mt-2">
+                    <div className="flex items-center">
+                      <span className="text-gray-700">BuildMart Service Fee (10%):</span>
+                      <div className="ml-2 group relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 w-64 bg-gray-800 text-white text-xs rounded py-2 px-3 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                          BuildMart charges a 10% service fee on all milestone payments to maintain the platform and provide secure payment processing.
+                        </div>
+                      </div>
+                    </div>
+                    <span className="font-medium text-blue-600">{formatLKR(commissionAmount)}</span>
                   </div>
                 )}
+                
+                <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center">
+                  <span className="font-medium text-gray-700">Total Amount:</span>
+                  <span className="text-lg font-bold text-blue-700">{formatLKR(totalAmount)}</span>
+                </div>
               </div>
-              {errors.amount && <p className="mt-1 text-red-500 text-xs">{errors.amount}</p>}
             </div>
 
             {/* Enhanced Security note */}
@@ -694,7 +739,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                   </>
                 ) : (
                   <>
-                    <span className="mr-3">Pay {formatLKR(parseFloat(amount) || 0)}</span>
+                    <span className="mr-3">Pay {formatLKR(totalAmount || 0)}</span>
                     <CreditCard size={22} />
                   </>
                 )}

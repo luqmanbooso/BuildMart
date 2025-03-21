@@ -7,6 +7,8 @@ import { jwtDecode } from 'jwt-decode';
 import EnhancedPaymentGateway from '../components/Payment';
 import { X } from 'react-feather'; // or from '@heroicons/react/outline'
 
+const COMMISSION_RATE = 0.10; // 10% commission
+
 function Ongoingworks() {
   const [ongoingWorks, setOngoingWorks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -221,42 +223,59 @@ function Ongoingworks() {
     const work = ongoingWorks.find(w => w.id === workId);
     const milestone = work.milestones.find(m => m.id === milestoneId);
     
-    setSelectedMilestone(milestone);
+    // Calculate the amount with commission
+    const milestoneAmount = parseFloat(milestone.amount);
+    const commissionAmount = milestoneAmount * COMMISSION_RATE;
+    const totalAmount = milestoneAmount + commissionAmount;
+    
+    // Create a milestone object with all the details
+    const milestoneWithCommission = {
+      ...milestone,
+      originalAmount: milestoneAmount,
+      commissionAmount: commissionAmount,
+      totalAmount: totalAmount
+    };
+    
+    setSelectedMilestone(milestoneWithCommission);
     setShowPaymentModal(true);
   };
 
-  // Add a new function to handle successful payments
-  const handlePaymentSuccess = async (paymentData) => {
-    try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const work = ongoingWorks.find(w => w.id === activeWorkId);
-      const milestoneIndex = work.milestones.findIndex(m => m.id === selectedMilestone.id);
-  
-      // Update milestone status
-      await axios.patch(
-        `http://localhost:5000/api/ongoingworks/${activeWorkId}/milestone/${milestoneIndex}`,
-        {
-          status: 'Completed',
-          actualAmountPaid: parseFloat(selectedMilestone.amount),
-          completedAt: new Date()
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+  // Update the handlePaymentSuccess function
+const handlePaymentSuccess = async (paymentData) => {
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const work = ongoingWorks.find(w => w.id === activeWorkId);
+    const milestoneIndex = work.milestones.findIndex(m => m.id === selectedMilestone.id);
+
+    // Calculate the total amount (milestone + commission)
+    const milestoneAmount = parseFloat(selectedMilestone.amount);
+    const totalAmount = parseFloat(paymentData.amount);
+    
+    // Update milestone status with the actual paid amount (including commission)
+    await axios.patch(
+      `http://localhost:5000/api/ongoingworks/${activeWorkId}/milestone/${milestoneIndex}`,
+      {
+        status: 'Completed',
+        actualAmountPaid: totalAmount,
+        completedAt: new Date()
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      );
-  
-      // Refresh data
-      fetchOngoingWorks();
-      setShowPaymentModal(false);
-      setSelectedMilestone(null);
-      showNotificationMessage('success', 'Payment completed successfully!');
-    } catch (err) {
-      console.error('Error updating milestone status:', err);
-      showNotificationMessage('error', 'Failed to update milestone status');
-    }
-  };
+      }
+    );
+
+    // Refresh data
+    fetchOngoingWorks();
+    setShowPaymentModal(false);
+    setSelectedMilestone(null);
+    showNotificationMessage('success', 'Payment completed successfully!');
+  } catch (err) {
+    console.error('Error updating milestone status:', err);
+    showNotificationMessage('error', 'Failed to update milestone status');
+  }
+};
 
   // Handle verification of milestone completion
   const handleVerifyCompletion = async (workId, milestoneId) => {
@@ -375,6 +394,9 @@ function Ongoingworks() {
 
   // Add this component before the main return statement
   const PaymentModal = ({ milestone, onClose, onSuccess }) => {
+    // The total amount to pay will be the original amount plus commission
+    const paymentAmount = milestone.totalAmount || parseFloat(milestone.amount);
+    
     return (
       <div className="fixed inset-0 z-50 overflow-y-auto">
         <div className="fixed inset-0 bg-black opacity-50"></div>
@@ -387,13 +409,13 @@ function Ongoingworks() {
               <X size={24} />
             </button>
             <EnhancedPaymentGateway
-              amount={milestone.amount}
+              amount={paymentAmount.toString()}
               onSuccess={(paymentData) => {
                 onSuccess(paymentData);
                 onClose();
               }}
               onCancel={onClose}
-              context="milestone"
+              context="milestone" // This tells the payment component to apply commission
             />
           </div>
         </div>
@@ -704,6 +726,10 @@ function Ongoingworks() {
                             <div className="text-right">
                               <div className="text-sm text-gray-500">Amount</div>
                               <div className="text-lg font-semibold text-gray-900">LKR {milestone.amount}</div>
+                              {/* Add commission info */}
+                              <div className="text-xs text-gray-500 mt-1">
+                                + 10% service fee
+                              </div>
                             </div>
                           </div>
                           
@@ -718,13 +744,12 @@ function Ongoingworks() {
                                       ? 'bg-yellow-500'
                                       : 'bg-gray-300'
                               }`}></div>
-                              <span className="text-sm font-medium capitalize">
+                              <span className="text-sm font-medium capitalize"></span>
                                 {milestone.status === 'ready_for_payment' 
                                   ? 'Ready for payment' 
                                   : milestone.status === 'in_progress'
                                     ? 'In progress'
                                     : milestone.status}
-                              </span>
                               {milestone.completedDate && (
                                 <span className="text-sm text-gray-500 ml-2">
                                   • Completed on {milestone.completedDate}
