@@ -1,171 +1,121 @@
 const express = require('express');
 const router = express.Router();
 const RestockRequest = require('../models/RestockRequest');
-const Product = require('../models/Product'); // Assuming you have a Product model
-
-// Submit a restock request
-router.post('/restock-request', async (req, res) => {
-  try {
-    const {
-      productId,
-      productName,
-      productSku,
-      currentStock,
-      threshold,
-      quantity,
-      priority,
-      notes
-    } = req.body;
-
-    // Check if product exists
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found' 
-      });
-    }
-
-    // Check if there's already a pending request for this product
-    const existingRequest = await RestockRequest.findOne({
-      productId,
-      status: 'pending'
-    });
-
-    if (existingRequest) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'There is already a pending restock request for this product' 
-      });
-    }
-
-    // Create new restock request
-    const restockRequest = new RestockRequest({
-      productId,
-      productName,
-      productSku,
-      currentStock,
-      threshold,
-      quantity,
-      priority,
-      notes
-    });
-
-    await restockRequest.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Restock request submitted successfully',
-      request: restockRequest
-    });
-  } catch (error) {
-    console.error('Error submitting restock request:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error submitting restock request',
-      error: error.message
-    });
-  }
-});
+const Product = require('../models/Product');
+const Supplier = require('../models/Supplier');
 
 // Get all restock requests
-router.get('/restock-requests', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const requests = await RestockRequest.find().sort({ requestDate: -1 });
-    res.status(200).json({
-      success: true,
-      count: requests.length,
-      requests
-    });
-  } catch (error) {
-    console.error('Error fetching restock requests:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching restock requests',
-      error: error.message
-    });
+    const restockRequests = await RestockRequest.find()
+      .sort({ createdAt: -1 });
+    res.json(restockRequests);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-// Get pending restock requests
-router.get('/restock-requests/pending', async (req, res) => {
+// Create a restock request
+router.post('/', async (req, res) => {
   try {
-    const requests = await RestockRequest.find({ status: 'pending' }).sort({ priority: -1, requestDate: 1 });
-    res.status(200).json({
-      success: true,
-      count: requests.length,
-      requests
-    });
-  } catch (error) {
-    console.error('Error fetching pending restock requests:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching pending restock requests',
-      error: error.message
-    });
-  }
-});
-
-// Update request status
-router.patch('/restock-requests/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, approvedBy } = req.body;
-
-    const updates = { 
-      status,
-      ...(status === 'approved' && { approvalDate: Date.now(), approvedBy })
-    };
-
-    const request = await RestockRequest.findByIdAndUpdate(
-      id, 
-      updates,
-      { new: true, runValidators: true }
-    );
-
-    if (!request) {
-      return res.status(404).json({
-        success: false,
-        message: 'Restock request not found'
+    // Find the product
+    const product = await Product.findById(req.body.productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    // Find an appropriate supplier based on product category
+    let supplier = null;
+    if (product.category) {
+      supplier = await Supplier.findOne({ 
+        $or: [
+          { category: product.category },
+          { productCategories: { $in: [product.category] } }
+        ],
+        active: true
       });
     }
+    
+    const restockRequest = new RestockRequest({
+      productId: product._id,
+      productName: req.body.productName || product.name,
+      sku: product.sku,
+      currentStock: product.stock,
+      threshold: product.threshold,
+      quantity: req.body.quantity || (product.threshold - product.stock + 10), // Default to threshold + buffer
+      priority: req.body.priority || (product.stock <= 0 ? 'urgent' : product.stock < product.threshold/2 ? 'high' : 'medium'),
+      supplierId: supplier ? supplier._id : null,
+      supplierName: supplier ? supplier.name : 'Not assigned',
+      status: 'requested',
+      notes: req.body.notes || `Automatic restock request for ${product.name}`,
+    });
 
-    res.status(200).json({
-      success: true,
-      message: `Restock request ${status}`,
-      request
-    });
-  } catch (error) {
-    console.error(`Error updating restock request:`, error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating restock request',
-      error: error.message
-    });
+    const savedRequest = await restockRequest.save();
+    res.status(201).json(savedRequest);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 
-// Get pending product IDs
-router.get('/pending-product-ids', async (req, res) => {
+// Update restock request status
+router.patch('/:id/status', async (req, res) => {
   try {
-    const pendingRequests = await RestockRequest.find(
-      { status: 'pending' },
-      { productId: 1 }
-    );
+    const { status } = req.body;
     
-    const productIds = pendingRequests.map(req => req.productId.toString());
+    if (!['requested', 'approved', 'ordered', 'shipped', 'delivered', 'cancelled'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
     
-    res.status(200).json({
-      success: true,
-      productIds
-    });
-  } catch (error) {
-    console.error('Error fetching pending product IDs:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching pending product IDs',
-      error: error.message
-    });
+    const request = await RestockRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Restock request not found' });
+    }
+    
+    request.status = status;
+    
+    // If delivered, update the product stock
+    if (status === 'delivered') {
+      const product = await Product.findById(request.productId);
+      if (product) {
+        product.stock += request.quantity;
+        await product.save();
+      }
+    }
+    
+    await request.save();
+    res.json(request);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Process payment for a restock request
+router.patch('/:id/payment', async (req, res) => {
+  try {
+    const { paymentMethod, amount, transactionId } = req.body;
+    
+    const request = await RestockRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Restock request not found' });
+    }
+    
+    // Only allow payment for delivered items
+    if (request.status !== 'delivered') {
+      return res.status(400).json({ message: 'Can only pay for delivered items' });
+    }
+    
+    request.paymentStatus = 'paid';
+    request.paymentDetails = {
+      method: paymentMethod,
+      amount: amount,
+      transactionId: transactionId,
+      paidDate: new Date()
+    };
+    
+    await request.save();
+    res.json(request);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 
