@@ -242,5 +242,60 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// PATCH request to update user data
+router.patch('/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email } = req.body;
+    
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Update user fields if provided
+    if (name) user.username = name;
+    if (email) user.email = email;
+    
+    await user.save();
+    
+    // Return updated user (excluding password)
+    res.json({
+      message: 'User updated successfully',
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        profilePic: user.profilePic
+      }
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
+// DELETE request to delete a user
+router.delete('/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+    
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
 
 module.exports = router;
