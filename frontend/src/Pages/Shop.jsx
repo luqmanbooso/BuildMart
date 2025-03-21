@@ -211,11 +211,11 @@ const Shop = () => {
   const renderNavbar = () => {    
     switch(userRole) {
       case 'Service Provider':
-        return <ContractorUserNav />;
+        return <ContractorUserNav cartItems={cartItems} toggleCart={toggleCart} />;
       case 'Client':
-        return <ClientUserNav />;
-            default:
-        return <ClientUserNav />;
+        return <ClientUserNav cartItems={cartItems} toggleCart={toggleCart} />;
+      default:
+        return <ClientUserNav cartItems={cartItems} toggleCart={toggleCart} />;
     }
   };
 
@@ -254,8 +254,11 @@ const Shop = () => {
     return result;
   }, [products, searchTerm, selectedCategory, sortOption]);
 
+  // Enhance the addToCart function
   const addToCart = (product) => {
     setCartItems((prev) => [...prev, product]);
+    
+    // Create a toast notification
     toast.success(`Added ${product.name} to cart`, {
       position: "bottom-right",
       autoClose: 2000,
@@ -264,6 +267,13 @@ const Shop = () => {
       pauseOnHover: true,
       draggable: true,
     });
+    
+    // Add visual feedback with animation
+    const cart = document.querySelector('.cart-icon-animate');
+    if (cart) {
+      cart.classList.add('animate-ping');
+      setTimeout(() => cart.classList.remove('animate-ping'), 300);
+    }
   };
 
   const removeFromCart = (index) => {
@@ -279,6 +289,23 @@ const Shop = () => {
   };
 
   const toggleCart = () => {
+    // If cart is empty and being opened, show a message
+    if (!isCartOpen && cartItems.length === 0) {
+      toast.info("Your cart is empty", {
+        position: "bottom-right",
+        autoClose: 2000,
+      });
+      return; // Don't open the empty cart
+    }
+    
+    // Add a subtle bounce animation to the cart icon
+    const cartIcon = document.querySelector('.cart-icon-animate');
+    if (cartIcon) {
+      cartIcon.classList.add('animate-bounce');
+      setTimeout(() => cartIcon.classList.remove('animate-bounce'), 1000);
+    }
+    
+    // Toggle the cart with animation
     setIsCartOpen(!isCartOpen);
   };
 
@@ -583,6 +610,29 @@ const Shop = () => {
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
       {/* Replace the fixed ContractorUserNav with dynamic navbar */}
       {renderNavbar()}
+      
+      {/* Desktop Floating Cart Button - visible on larger screens */}
+      <motion.button
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={toggleCart}
+        className="fixed top-24 right-6 z-40 p-3 bg-white rounded-full shadow-lg hover:shadow-xl transition-all hidden md:block cart-icon-animate"
+        aria-label="Open Cart"
+      >
+        <div className="relative">
+          <FiShoppingCart size={24} className="text-indigo-600 cart-icon-animate" />
+          {cartItems.length > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+              {cartItems.length}
+            </span>
+          )}
+        </div>
+      </motion.button>
+      
+      {/* Keep your existing mobile cart button */}
       <br /><br /><br /><br />
       <motion.section
         initial={{ opacity: 0 }}
@@ -781,6 +831,21 @@ const Shop = () => {
           </div>
         </div>
       )}
+
+      {/* Floating Cart Button (Mobile) */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={toggleCart}
+        className="fixed bottom-20 right-4 z-50 p-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-colors md:hidden cart-icon-animate"
+      >
+        <FiShoppingCart size={28} className="cart-icon-animate" />
+        {cartItems.length > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+            {cartItems.length}
+          </span>
+        )}
+      </motion.button>
 
       {/* Scroll to Top Button */}
       {showScrollTop && (
