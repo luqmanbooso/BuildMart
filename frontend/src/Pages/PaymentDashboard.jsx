@@ -1319,19 +1319,7 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Service Provider Management</h2>
                 <div className="flex space-x-2">
-                  <button 
-                    onClick={fetchPayments}
-                    disabled={loading}
-                    className={`inline-flex items-center px-3 py-1.5 ${
-                      loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-50 hover:bg-blue-100'
-                    } text-blue-700 rounded-lg transition`}
-                  >
-                    {loading ? <Loader size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                  </button>
-                  <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
-                    <Plus size={16} className="mr-2" />
-                    Add Provider
-                  </button>
+                 
                 </div>
               </div>
               {renderPaymentTable(serviceProviderPayments)}
