@@ -96,16 +96,53 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
     }
   };
 
+  // Update your validateShipping function with more comprehensive validation
   const validateShipping = () => {
     const errors = {};
-    if (!shippingDetails.fullName.trim()) errors.fullName = "Name is required";
-    if (!shippingDetails.email.trim()) errors.email = "Email is required";
-    if (!/^\S+@\S+\.\S+$/.test(shippingDetails.email) && shippingDetails.email.trim())
-      errors.email = "Email is invalid";
-    if (!shippingDetails.phone.trim()) errors.phone = "Phone is required";
-    if (!shippingDetails.address.trim()) errors.address = "Address is required";
-    if (!shippingDetails.city.trim()) errors.city = "City is required";
-    if (!shippingDetails.postalCode.trim()) errors.postalCode = "Postal code is required";
+    
+    // Full Name validation
+    if (!shippingDetails.fullName.trim()) {
+      errors.fullName = "Full name is required";
+    } else if (shippingDetails.fullName.trim().length < 3) {
+      errors.fullName = "Name must be at least 3 characters";
+    } else if (!/^[a-zA-Z\s.'-]+$/.test(shippingDetails.fullName)) {
+      errors.fullName = "Name contains invalid characters";
+    }
+    
+    // Email validation
+    if (!shippingDetails.email.trim()) {
+      errors.email = "Email address is required";
+    } else if (!/^[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/.test(shippingDetails.email)) {
+      errors.email = "Please enter a valid email address";
+    }
+    
+    // Phone validation - Sri Lankan format
+    if (!shippingDetails.phone.trim()) {
+      errors.phone = "Phone number is required";
+    } else if (!/^(?:\+94|0)[0-9]{9,10}$/.test(shippingDetails.phone.replace(/\s+/g, ''))) {
+      errors.phone = "Please enter a valid Sri Lankan phone number";
+    }
+    
+    // Address validation
+    if (!shippingDetails.address.trim()) {
+      errors.address = "Address is required";
+    } else if (shippingDetails.address.trim().length < 5) {
+      errors.address = "Please enter a complete address";
+    }
+    
+    // City validation
+    if (!shippingDetails.city.trim()) {
+      errors.city = "City is required";
+    } else if (!/^[a-zA-Z\s.-]+$/.test(shippingDetails.city)) {
+      errors.city = "City name contains invalid characters";
+    }
+    
+    // Postal code validation - Sri Lankan format
+    if (!shippingDetails.postalCode.trim()) {
+      errors.postalCode = "Postal code is required";
+    } else if (!/^\d{5}$/.test(shippingDetails.postalCode.trim())) {
+      errors.postalCode = "Please enter a valid 5-digit postal code";
+    }
     
     return errors;
   };
@@ -130,20 +167,86 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
     }
   };
 
+  // Add this function for real-time validation
   const handleShippingChange = (e) => {
     const { name, value } = e.target;
+    
+    // Update the shipping details
     setShippingDetails(prev => ({
       ...prev,
       [name]: value
     }));
     
-    // Clear error when user starts typing
-    if (shippingErrors[name]) {
-      setShippingErrors(prev => ({
-        ...prev,
-        [name]: null
-      }));
+    // Validate the field in real-time
+    validateField(name, value);
+  };
+
+  // Add this new function for field-level validation
+  const validateField = (name, value) => {
+    let error = null;
+    
+    switch (name) {
+      case 'fullName':
+        if (!value.trim()) {
+          error = "Full name is required";
+        } else if (value.trim().length < 3) {
+          error = "Name must be at least 3 characters";
+        } else if (!/^[a-zA-Z\s.'-]+$/.test(value)) {
+          error = "Name contains invalid characters";
+        }
+        break;
+        
+      case 'email':
+        if (!value.trim()) {
+          error = "Email address is required";
+        } else if (!/^[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/.test(value)) {
+          error = "Please enter a valid email address";
+        }
+        break;
+        
+      case 'phone':
+        if (!value.trim()) {
+          error = "Phone number is required";
+        } else if (!/^(?:\+94|0)[0-9]{9,10}$/.test(value.replace(/\s+/g, ''))) {
+          error = "Please enter a valid Sri Lankan phone number";
+        }
+        break;
+        
+      case 'address':
+        if (!value.trim()) {
+          error = "Address is required";
+        } else if (value.trim().length < 5) {
+          error = "Please enter a complete address";
+        }
+        break;
+        
+      case 'city':
+        if (!value.trim()) {
+          error = "City is required";
+        } else if (!/^[a-zA-Z\s.-]+$/.test(value)) {
+          error = "City name contains invalid characters";
+        }
+        break;
+        
+      case 'postalCode':
+        if (!value.trim()) {
+          error = "Postal code is required";
+        } else if (!/^\d{5}$/.test(value.trim())) {
+          error = "Please enter a valid 5-digit postal code";
+        }
+        break;
+        
+      default:
+        break;
     }
+    
+    // Update only this specific field error
+    setShippingErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
+    
+    return error === null;
   };
 
   const handlePaymentSuccess = (paymentData) => {
@@ -188,6 +291,22 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
     })
   };
   
+  // Add this function to check if the form is valid
+  const isFormValid = () => {
+    if (step !== 'shipping') return true;
+    
+    // If we're on shipping step, validate all fields
+    const errors = validateShipping();
+    const hasErrors = Object.keys(errors).length > 0;
+    
+    // Also check if all required fields have values
+    const requiredFields = ['fullName', 'email', 'phone', 'address', 'city', 'postalCode'];
+    const allFieldsHaveValues = requiredFields.every(field => 
+      shippingDetails[field] && shippingDetails[field].trim() !== ''
+    );
+    
+    return !hasErrors && allFieldsHaveValues;
+  };
 
   return (
     <>
@@ -436,10 +555,23 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                                 value={shippingDetails.fullName}
                                 onChange={handleShippingChange}
                                 className={`pl-10 w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
-                                  shippingErrors.fullName ? 'border-red-500' : 'border-gray-300'
+                                  shippingErrors.fullName 
+                                    ? 'border-red-500' 
+                                    : shippingDetails.fullName.trim() 
+                                      ? 'border-green-500'
+                                      : 'border-gray-300'
                                 }`}
                                 placeholder="John Doe"
                               />
+                              
+                              {/* Add this check icon for valid fields */}
+                              {shippingDetails.fullName.trim() && !shippingErrors.fullName && (
+                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
                             </div>
                             {shippingErrors.fullName && (
                               <p className="mt-1 text-sm text-red-600">{shippingErrors.fullName}</p>
@@ -464,6 +596,15 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                                 }`}
                                 placeholder="john@example.com"
                               />
+                              
+                              {/* Add this check icon for valid fields */}
+                              {shippingDetails.email.trim() && !shippingErrors.email && (
+                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
                             </div>
                             {shippingErrors.email && (
                               <p className="mt-1 text-sm text-red-600">{shippingErrors.email}</p>
@@ -489,6 +630,15 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                               }`}
                               placeholder="+94 XX XXX XXXX"
                             />
+                            
+                            {/* Add this check icon for valid fields */}
+                            {shippingDetails.phone.trim() && !shippingErrors.phone && (
+                              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
                           </div>
                           {shippingErrors.phone && (
                             <p className="mt-1 text-sm text-red-600">{shippingErrors.phone}</p>
@@ -513,6 +663,15 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                               }`}
                               placeholder="123 Main St"
                             />
+                            
+                            {/* Add this check icon for valid fields */}
+                            {shippingDetails.address.trim() && !shippingErrors.address && (
+                              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
                           </div>
                           {shippingErrors.address && (
                             <p className="mt-1 text-sm text-red-600">{shippingErrors.address}</p>
@@ -524,16 +683,27 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               City
                             </label>
-                            <input
-                              type="text"
-                              name="city"
-                              value={shippingDetails.city}
-                              onChange={handleShippingChange}
-                              className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
-                                shippingErrors.city ? 'border-red-500' : 'border-gray-300'
-                              }`}
-                              placeholder="Colombo"
-                            />
+                            <div className="relative">
+                              <input
+                                type="text"
+                                name="city"
+                                value={shippingDetails.city}
+                                onChange={handleShippingChange}
+                                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                                  shippingErrors.city ? 'border-red-500' : 'border-gray-300'
+                                }`}
+                                placeholder="Colombo"
+                              />
+                              
+                              {/* Add this check icon for valid fields */}
+                              {shippingDetails.city.trim() && !shippingErrors.city && (
+                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
                             {shippingErrors.city && (
                               <p className="mt-1 text-sm text-red-600">{shippingErrors.city}</p>
                             )}
@@ -543,16 +713,27 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Postal Code
                             </label>
-                            <input
-                              type="text"
-                              name="postalCode"
-                              value={shippingDetails.postalCode}
-                              onChange={handleShippingChange}
-                              className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
-                                shippingErrors.postalCode ? 'border-red-500' : 'border-gray-300'
-                              }`}
-                              placeholder="10000"
-                            />
+                            <div className="relative">
+                              <input
+                                type="text"
+                                name="postalCode"
+                                value={shippingDetails.postalCode}
+                                onChange={handleShippingChange}
+                                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                                  shippingErrors.postalCode ? 'border-red-500' : 'border-gray-300'
+                                }`}
+                                placeholder="10000"
+                              />
+                              
+                              {/* Add this check icon for valid fields */}
+                              {shippingDetails.postalCode.trim() && !shippingErrors.postalCode && (
+                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
                             {shippingErrors.postalCode && (
                               <p className="mt-1 text-sm text-red-600">{shippingErrors.postalCode}</p>
                             )}
@@ -574,6 +755,31 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                         </div>
                       </div>
                     </div>
+                    {/* Add this before the end of your shipping form section */}
+                    {step === 'shipping' && (
+                      <div className="flex items-center justify-between mt-4 text-sm">
+                        <div className="flex items-center">
+                          {isFormValid() ? (
+                            <div className="flex items-center text-green-500">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span>All fields are valid</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center text-amber-500">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              <span>Please fill in all required fields</span>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-red-500 mr-1">*</span> Required fields
+                        </div>
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
@@ -592,10 +798,15 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
               {uniqueItems.length > 0 && (
                 <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-6 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: isFormValid() ? 1.02 : 1 }}
+                    whileTap={{ scale: isFormValid() ? 0.98 : 1 }}
                     onClick={handleCheckout}
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-4 px-6 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2 shadow-md"
+                    disabled={step === 'shipping' && !isFormValid()}
+                    className={`w-full ${
+                      step === 'shipping' && !isFormValid()
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'
+                    } text-white py-4 px-6 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2 shadow-md`}
                   >
                     <span>
                       {step === 'cart' && 'Continue to Shipping'}
