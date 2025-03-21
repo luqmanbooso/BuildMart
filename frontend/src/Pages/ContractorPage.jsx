@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaUserCircle, FaEdit, FaSignOutAlt } from 'react-icons/fa';
+import { FaUserCircle, FaEdit, FaSignOutAlt, FaTrashAlt } from 'react-icons/fa';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
@@ -27,6 +27,7 @@ const ContractorProfile = () => {
   const [contractorInfo, setContractorInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // New state for delete confirmation
   const navigate = useNavigate();
 
   // Handle profile update function
@@ -158,6 +159,53 @@ const ContractorProfile = () => {
     navigate('/login');       
   };
 
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    try {
+      const token = getToken();
+      const userId = getUserId();
+      
+      if (!userId || !token) {
+        toast.error('Authentication required. Please log in again.');
+        navigate('/login');
+        return;
+      }
+      
+      // Make API call to delete the user account
+      // Fix: Change endpoint from /auth/user/${userId} to /auth/users/${userId}
+      await axios.delete(`http://localhost:5000/auth/users/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Clear tokens from storage
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      sessionStorage.removeItem('userId');
+      
+      toast.success('Your account has been deleted successfully.');
+      
+      // Redirect to login page
+      navigate('/login');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      
+      // More detailed error handling
+      let errorMsg = 'Failed to delete account. Please try again.';
+      if (error.response) {
+        if (error.response.status === 404) {
+          errorMsg = 'User account not found.';
+        } else if (error.response.data?.error) {
+          errorMsg = error.response.data.error;
+        }
+      }
+      
+      toast.error(errorMsg);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <ContractorUserNav />
@@ -248,6 +296,15 @@ const ContractorProfile = () => {
                     >
                       <FaSignOutAlt className="mr-2" />
                       Logout
+                    </button>
+                    
+                    {/* Add Delete Account button */}
+                    <button 
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="w-full bg-gray-200 hover:bg-gray-300 text-red-600 py-2 px-4 rounded flex items-center justify-center"
+                    >
+                      <FaTrashAlt className="mr-2" />
+                      Delete Account
                     </button>
                   </div>
                 </div>
@@ -343,6 +400,55 @@ const ContractorProfile = () => {
               
               {/* Existing QualificationsManager component */}
               <QualificationsManager userId={getUserId()} />
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Add Delete Account Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity" 
+              aria-hidden="true"
+              onClick={() => setShowDeleteConfirm(false)}
+            ></div>
+
+            {/* Modal Panel */}
+            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-6 pt-5 pb-6">
+                <div className="text-center">
+                  <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">Delete Your Account</h3>
+                  <div className="mt-3">
+                    <p className="text-sm text-gray-500">
+                      Are you sure you want to delete your account? All of your data including projects, bids, qualifications, and payment history will be permanently removed. This action cannot be undone.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Delete Account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
