@@ -38,12 +38,12 @@ import ShipmentArrangementForm from "../components/ShipmentArrangementForm";
 import ShippingTracking from "./ShippingTracking";
 import { supplierService } from "../services/supplierService";
 import { restockService } from "../services/restockService";
+import RestockRequests from '../components/RestockRequests';
 
 // Mock data for the dashboard
 const inventoryData = [
   {
     name: "Cement",
-    stock: 452,
     threshold: 200,
     status: "In Stock",
     supplier: "Lanka Cement Ltd",
@@ -292,11 +292,6 @@ function Supply_LogisticDashboard() {
   const [activeShipments, setActiveShipments] = useState([]);
   const [shipmentsLoading, setShipmentsLoading] = useState(true);
   const [shipmentsError, setShipmentsError] = useState(null);
-  const [restockRequests, setRestockRequests] = useState([]);
-  const [restockLoading, setRestockLoading] = useState(true);
-  const [restockError, setRestockError] = useState(null);
-  const [showRestockPaymentModal, setShowRestockPaymentModal] = useState(false);
-  const [selectedRestockRequest, setSelectedRestockRequest] = useState(null);
   const [statusOptions, setStatusOptions] = useState({});
   const [statusTypesLoading, setStatusTypesLoading] = useState(true);
 
@@ -516,101 +511,113 @@ function Supply_LogisticDashboard() {
     fetchShipments();
   }, [orders]); // Depend on orders so shipments update when orders change
 
-  // Fetch restock requests
-  useEffect(() => {
-    const fetchRestockRequests = async () => {
-      setRestockLoading(true);
-      try {
-        const data = await restockService.getAllRequests();
-        setRestockRequests(data);
-        setRestockError(null);
-      } catch (error) {
-        console.error("Error fetching restock requests:", error);
-        setRestockError("Failed to load restock requests");
-      } finally {
-        setRestockLoading(false);
-      }
-    };
-
-    fetchRestockRequests();
-  }, []);
-
   // Fetch status types when component mounts
   useEffect(() => {
     const fetchStatusTypes = async () => {
       try {
         setStatusTypesLoading(true);
-        // Make API call to get status types
+        console.log("Attempting to fetch status types...");
+        
+        // Try the correct endpoint first
         const response = await axios.get('http://localhost:5000/api/restock/status-types');
+        console.log("API Response:", response.data);
         
-        console.log("Available status types from API:", response.data);
-        
-        // Create status transitions based on available types
-        const statusTypes = response.data.statusTypes;
-        const dynamicStatusTransitions = {};
-        
-        // For each status, define possible next statuses
-        statusTypes.forEach((status, index) => {
-          if (status === 'delivered' || status === 'cancelled') {
-            // Terminal statuses have no transitions
-            dynamicStatusTransitions[status] = [];
-          } else if (index < statusTypes.length - 1) {
-            // Can move to next status or be cancelled
-            dynamicStatusTransitions[status] = ['cancelled', statusTypes[index + 1]];
-          } else {
-            // Last non-terminal status can only be cancelled
-            dynamicStatusTransitions[status] = ['cancelled'];
-          }
-        });
-        
-        // Add special case for Pending
-        if (!dynamicStatusTransitions['Pending'] && statusTypes.includes('Processing')) {
-          dynamicStatusTransitions['Pending'] = ['Processing', 'Cancelled'];
+        // If we have data, normalize it to lowercase keys for consistency
+        if (response.data && response.data.statusTypes) {
+          const statusTypes = response.data.statusTypes;
+          
+          // Create normalized transitions with lowercase keys
+          const dynamicStatusTransitions = {};
+          
+          // Process each status type and create transitions
+          statusTypes.forEach((status, index) => {
+            // Convert to lowercase for consistency
+            const normalizedStatus = status.toLowerCase();
+            
+            if (normalizedStatus === 'delivered' || normalizedStatus === 'cancelled') {
+              // Terminal statuses have no transitions
+              dynamicStatusTransitions[normalizedStatus] = [];
+            } else if (index < statusTypes.length - 1) {
+              // Can move to next status or be cancelled
+              dynamicStatusTransitions[normalizedStatus] = ['cancelled', statusTypes[index + 1].toLowerCase()];
+            } else {
+              // Last non-terminal status can only be cancelled
+              dynamicStatusTransitions[normalizedStatus] = ['cancelled'];
+            }
+            
+            // Also add with original capitalization to support both formats
+            dynamicStatusTransitions[status] = dynamicStatusTransitions[normalizedStatus];
+          });
+          
+          // Add common shipment statuses if not present
+          const commonStatuses = [
+            'pending', 'preparing', 'loading', 'in transit', 'out for delivery',
+            'delivered', 'failed delivery', 'delayed', 'cancelled'
+          ];
+          
+          commonStatuses.forEach((status, index) => {
+            if (!dynamicStatusTransitions[status]) {
+              if (status === 'delivered' || status === 'cancelled') {
+                dynamicStatusTransitions[status] = [];
+              } else if (index < commonStatuses.length - 1) {
+                dynamicStatusTransitions[status] = ['cancelled', commonStatuses[index + 1]];
+              }
+              
+              // Also add capitalized version
+              const capitalizedStatus = status.charAt(0).toUpperCase() + status.slice(1);
+              dynamicStatusTransitions[capitalizedStatus] = dynamicStatusTransitions[status];
+            }
+          });
+          
+          console.log("Final status transitions:", dynamicStatusTransitions);
+          setStatusOptions(dynamicStatusTransitions);
         }
-        
-        setStatusOptions(dynamicStatusTransitions);
-        setStatusTypesLoading(false);
-        
-        console.log("Dynamic status transitions:", dynamicStatusTransitions);
       } catch (error) {
         console.error("Error fetching status types:", error);
-        // Fallback to hardcoded values on error
-        setStatusOptions({
-          Pending: ["Processing", "Cancelled"],
-          Processing: ["Preparing", "Cancelled"],
-          Preparing: ["Loading", "Cancelled"],
-          Loading: ["In Transit", "Cancelled"],
-          "In Transit": ["Out for Delivery", "Delayed"],
-          "Out for Delivery": ["Delivered", "Failed Delivery"],
-          Delayed: ["In Transit", "Cancelled"],
-          "Failed Delivery": ["Processing", "Cancelled"],
-          Delivered: [],
-          Cancelled: ["Processing"]
-        });
+        console.log("Falling back to hardcoded status options");
+        
+        // Set up hardcoded options for both lowercase and regular capitalization
+        const fallbackOptions = {
+          // Lowercase versions
+          'pending': ["processing", "cancelled"],
+          'processing': ["preparing", "cancelled"],
+          'preparing': ["loading", "cancelled"],
+          'loading': ["in transit", "cancelled"],
+          'in transit': ["out for delivery", "delayed"],
+          'out for delivery': ["delivered", "failed delivery"],
+          'delayed': ["in transit", "cancelled"],
+          'failed delivery': ["processing", "cancelled"],
+          'delivered': [],
+          'cancelled': ["processing"],
+          
+          // Capitalized versions
+          'Pending': ["Processing", "Cancelled"],
+          'Processing': ["Preparing", "Cancelled"],
+          'Preparing': ["Loading", "Cancelled"],
+          'Loading': ["In Transit", "Cancelled"],
+          'In Transit': ["Out for Delivery", "Delayed"],
+          'Out for Delivery': ["Delivered", "Failed Delivery"],
+          'Delayed': ["In Transit", "Cancelled"],
+          'Failed Delivery': ["Processing", "Cancelled"],
+          'Delivered': [],
+          'Cancelled': ["Processing"]
+        };
+        
+        setStatusOptions(fallbackOptions);
+      } finally {
         setStatusTypesLoading(false);
       }
     };
 
     fetchStatusTypes();
   }, []);
-
-  // Map backend order status to frontend display status
-  const mapOrderStatus = (status) => {
-    const statusMap = {
-      placed: "Pending",
-      processing: "Processing",
-      shipped: "In Transit",
-      delivered: "Delivered",
-      cancelled: "Cancelled",
-    };
-    return statusMap[status] || status;
-  };
-
-  // Create shipment from order
+  
+  // Create shipment from order function
   const createShipmentFromOrder = async (order) => {
     try {
+      // Create a new shipment object
       const newShipment = {
-        id: `SHP-${Math.floor(10000 + Math.random() * 90000)}`,
+        id: `SHP-${order.id.substring(order.id.length - 5)}`,
         origin: "Colombo Warehouse",
         destination: `${order.shippingAddress?.city || "Customer"} Site`,
         driver: "Assigned Driver",
@@ -621,20 +628,11 @@ function Supply_LogisticDashboard() {
         orderId: order.id,
         createdAt: new Date().toISOString(),
       };
-
+      
       // Add to active shipments
-      setActiveShipments((prev) => [...prev, newShipment]);
-
+      setActiveShipments([...activeShipments, newShipment]);
+      
       // Update order status
-      const updatedOrders = orders.map((o) => {
-        if (o.id === order.id) {
-          return { ...o, status: "Processing" };
-        }
-        return o;
-      });
-      setOrders(updatedOrders);
-
-      // Make API call to update the order status
       await updateOrderStatus(order.id, "processing");
 
       // In a real app, you would create a shipment record in the backend
@@ -1015,184 +1013,11 @@ function Supply_LogisticDashboard() {
     setShowSupplierForm(false);
   };
 
-  // Add function to update restock status
-  const updateRestockStatus = async (requestId, newStatus) => {
-    try {
-      setRestockLoading(true);
-      
-      // Call API to update status
-      const updatedRequest = await restockService.updateStatus(requestId, newStatus);
-      
-      // Find the existing request to get product info
-      const request = restockRequests.find(req => req._id === requestId);
-      
-      // Update the restock requests state
-      setRestockRequests(prev => 
-        prev.map(req => req._id === requestId ? {
-          ...req,
-          status: newStatus,
-          updatedAt: new Date().toISOString()
-        } : req)
-      );
-      
-      // Special handling for delivered status - update inventory
-      if (newStatus === 'delivered' && request) {
-        setInventory(prev => 
-          prev.map(item => 
-            item._id === request.productId ? 
-            {
-              ...item,
-              stock: item.stock + request.quantity,
-              status: getStockStatus(item.stock + request.quantity, item.threshold),
-              deliveryStatus: "Delivered"
-            } : item
-          )
-        );
-      }
-      
-      toast.success(`Request status updated to ${newStatus}`);
-    } catch (error) {
-      console.error("Error updating restock status:", error);
-      toast.error("Failed to update restock status");
-    } finally {
-      setRestockLoading(false);
-    }
-  };
-
-  // Add function to process payment to supplier
-  const processRestockPayment = async (requestId, paymentDetails) => {
-    try {
-      setRestockLoading(true);
-      const updatedRequest = await restockService.processPayment(requestId, paymentDetails);
-      
-      setRestockRequests(prev => 
-        prev.map(req => req._id === requestId ? {
-          ...req,
-          paymentStatus: 'paid',
-          paymentDetails
-        } : req)
-      );
-      
-      // Update inventory payment status
-      const request = restockRequests.find(req => req._id === requestId);
-      if (request) {
-        setInventory(prev => 
-          prev.map(item => 
-            item._id === request.productId ? 
-            {
-              ...item,
-              paymentStatus: "Paid"
-            } : item
-          )
-        );
-        
-        // Add payment to supplier payment records if we're using context
-        if (typeof addSupplierPayment === 'function') {
-          addSupplierPayment({
-            id: paymentDetails.transactionId,
-            amount: paymentDetails.amount,
-            supplier: request.supplierName,
-            supplierId: request.supplierId,
-            date: paymentDetails.paymentDate || new Date().toISOString(),
-            product: request.productName,
-            requestId: request._id
-          });
-        }
-        
-        // Update the payment status in the frontend immediately
-        // This gives the user immediate feedback that their payment was processed
-        const updatedRequests = restockRequests.map(req => 
-          req._id === requestId ? {
-            ...req,
-            paymentStatus: 'paid',
-            paymentDetails: {
-              ...paymentDetails,
-              processedDate: new Date().toISOString()
-            }
-          } : req
-        );
-        
-        setRestockRequests(updatedRequests);
-      }
-      
-      toast.success(`Payment of Rs. ${paymentDetails.amount.toLocaleString()} to ${request?.supplierName} processed successfully`);
-    } catch (error) {
-      console.error("Error processing payment:", error);
-      toast.error("Failed to process payment: " + (error.message || "Server error"));
-    } finally {
-      setRestockLoading(false);
-      setShowRestockPaymentModal(false);
-    }
-  };
-
   // Helper function to determine stock status
   const getStockStatus = (stock, threshold) => {
     if (stock <= 0) return "Critical";
     if (stock < threshold) return "Low Stock";
     return "In Stock";
-  };
-
-  // Add function to get status update options for restock requests
-  const getStatusUpdateOptions = (currentStatus) => {
-    switch(currentStatus) {
-      case 'requested':
-        return (
-          <>
-            <option value="approved">Approved</option>
-            <option value="cancelled">Cancelled</option>
-          </>
-        );
-      case 'approved':
-        return (
-          <>
-            <option value="ordered">Ordered</option>
-            <option value="cancelled">Cancelled</option>
-          </>
-        );
-      case 'ordered':
-        return (
-          <>
-            <option value="shipped">Shipped</option>
-            <option value="cancelled">Cancelled</option>
-          </>
-        );
-      case 'shipped':
-        return (
-          <>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </>
-        );
-      default:
-        return null;
-    }
-  };
-
-  // Add function to handle successful payment
-  const handleRestockPaymentSuccess = (paymentDetails) => {
-    if (selectedRestockRequest) {
-      const processedPayment = {
-        paymentMethod: paymentDetails.method || 'Credit Card',
-        amount: paymentDetails.amount,
-        transactionId: paymentDetails.transactionId || `PAY-${Date.now()}`,
-        paymentDate: new Date().toISOString(),
-        supplierName: selectedRestockRequest.supplierName,
-        supplierId: selectedRestockRequest.supplierId,
-        productName: selectedRestockRequest.productName,
-        requestId: selectedRestockRequest._id
-      };
-      
-      // Process the payment
-      processRestockPayment(selectedRestockRequest._id, processedPayment);
-      
-      // Add to supplier payments context if available
-      if (typeof addSupplierPayment === 'function') {
-        addSupplierPayment({
-          ...processedPayment,
-          id: processedPayment.transactionId
-        });
-      }
-    }
   };
 
   if (loading) {
@@ -3025,315 +2850,12 @@ function Supply_LogisticDashboard() {
           )}
 
           {activeTab === "restock" && (
-            <div className="space-y-6">
-              {/* Restock Payment Modal */}
-              {showRestockPaymentModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-                  <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4">
-                    <div className="flex justify-between items-center p-4 border-b">
-                      <h3 className="text-lg font-semibold">
-                        Process Payment to Supplier
-                      </h3>
-                      <button
-                        onClick={() => setShowRestockPaymentModal(false)}
-                        className="text-gray-500 hover:text-gray-700"
-                      >
-                        <X className="h-6 w-6" />
-                      </button>
-                    </div>
-                    <div className="p-4">
-                      <div className="mb-4">
-                        <h4 className="font-medium text-gray-800">Payment Details</h4>
-                        <p className="text-sm text-gray-600">
-                          Product: {selectedRestockRequest?.productName}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Quantity: {selectedRestockRequest?.quantity} units
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Supplier: {selectedRestockRequest?.supplierName}
-                        </p>
-                      </div>
-                      <EnhancedPaymentGateway
-                        amount={selectedRestockRequest?.quantity * 500} // Example price calculation
-                        onSuccess={handleRestockPaymentSuccess}
-                        onCancel={() => setShowRestockPaymentModal(false)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            
-              {/* Restock Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Total Requests
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {restockRequests.length}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-                      <RefreshCw className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
-          
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        In Process
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {restockRequests.filter(req => 
-                          ['requested', 'approved', 'ordered', 'shipped'].includes(req.status)
-                        ).length}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
-                      <Clock className="h-6 w-6 text-amber-600" />
-                    </div>
-                  </div>
-                </div>
-          
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Delivered
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {restockRequests.filter(req => req.status === 'delivered').length}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </div>
-          
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Pending Payment
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {restockRequests.filter(req => 
-                          req.status === 'delivered' && req.paymentStatus === 'pending'
-                        ).length}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
-                      <DollarSign className="h-6 w-6 text-purple-600" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-          
-              {/* Restock Requests List */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">
-                    Restock Requests
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                        placeholder="Search requests..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                      <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
-                    </div>
-                    <button
-                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                      onClick={() => {
-                        // Refresh restock data
-                        setRestockLoading(true);
-                        restockService.getAllRequests()
-                          .then(data => {
-                            setRestockRequests(data);
-                            toast.success("Restock data refreshed");
-                          })
-                          .catch(error => {
-                            console.error("Error refreshing restock data:", error);
-                            toast.error("Failed to refresh restock data");
-                          })
-                          .finally(() => {
-                            setRestockLoading(false);
-                          });
-                      }}
-                    >
-                      <RefreshCw className="h-5 w-5 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-                
-                {restockLoading ? (
-                  <div className="flex justify-center items-center py-10">
-                    <Loader className="h-10 w-10 text-blue-600 animate-spin" />
-                    <p className="ml-2 text-gray-600">Loading restock requests...</p>
-                  </div>
-                ) : restockError ? (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-                    <p>{restockError}</p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {restockRequests
-                      .filter(req => 
-                        req.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        req.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        req.status.toLowerCase().includes(searchTerm.toLowerCase())
-                      )
-                      .map(request => (
-                        <div
-                          key={request._id}
-                          className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="flex items-center">
-                                <h4 className="text-lg font-medium text-gray-800">
-                                  {request.productName}
-                                </h4>
-                                <span
-                                  className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                                    request.priority === 'urgent' ? 'bg-red-100 text-red-600' :
-                                    request.priority === 'high' ? 'bg-amber-100 text-amber-600' :
-                                    'bg-blue-100 text-blue-600'
-                                  }`}
-                                >
-                                  {request.priority.toUpperCase()}
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-600">
-                                Quantity: {request.quantity} units
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                Supplier: {request.supplierName}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                Requested: {new Date(request.createdAt).toLocaleDateString()}
-                              </p>
-                              {request.notes && (
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Notes: {request.notes}
-                                </p>
-                              )}
-                            </div>
-                            
-                            <div className="flex flex-col items-end space-y-2">
-                              <div className="flex flex-col items-end space-y-1">
-                                <span
-                                  className={`text-sm font-medium px-3 py-1 rounded-full ${
-                                    request.status === 'delivered' ? 'bg-green-100 text-green-600' :
-                                    request.status === 'shipped' ? 'bg-blue-100 text-blue-600' :
-                                    request.status === 'ordered' || request.status === 'approved' ? 'bg-amber-100 text-amber-600' :
-                                    'bg-gray-100 text-gray-600'
-                                  }`}
-                                >
-                                  {request.status.toUpperCase()}
-                                </span>
-                                {request.status === 'delivered' && (
-                                  <span
-                                    className={`text-sm font-medium ${
-                                      request.paymentStatus === 'paid' ? 'text-green-600' : 'text-amber-600'
-                                    }`}
-                                  >
-                                    {request.paymentStatus.toUpperCase()}
-                                  </span>
-                                )}
-                              </div>
-                              
-                              {request.status === 'delivered' && request.paymentStatus === 'pending' && (
-                                <button
-                                  onClick={() => {
-                                    setSelectedRestockRequest(request);
-                                    setShowRestockPaymentModal(true);
-                                  }}
-                                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                                >
-                                  Pay Supplier
-                                </button>
-                              )}
-                              
-                              {request.status !== 'delivered' && request.status !== 'cancelled' && (
-                                <div className="relative inline-block text-left">
-                                  <select
-                                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    onChange={(e) => {
-                                      if (e.target.value) {
-                                        updateRestockStatus(request._id, e.target.value);
-                                      }
-                                    }}
-                                    defaultValue=""
-                                  >
-                                    <option value="" disabled>Update status...</option>
-                                    {(() => {
-                                      switch(request.status) {
-                                        case 'requested':
-                                          return (
-                                            <>
-                                              <option value="approved">Approved</option>
-                                              <option value="cancelled">Cancelled</option>
-                                            </>
-                                          );
-                                        case 'approved':
-                                          return (
-                                            <>
-                                              <option value="ordered">Ordered</option>
-                                              <option value="cancelled">Cancelled</option>
-                                            </>
-                                          );
-                                        case 'ordered':
-                                          return (
-                                            <>
-                                              <option value="shipped">Shipped</option>
-                                              <option value="cancelled">Cancelled</option>
-                                            </>
-                                          );
-                                        case 'shipped':
-                                          return (
-                                            <>
-                                              <option value="delivered">Delivered</option>
-                                              <option value="cancelled">Cancelled</option>
-                                            </>
-                                          );
-                                        default:
-                                          return null;
-                                      }
-                                    })()}
-                                  </select>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      
-                    {restockRequests.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        No restock requests found.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+            <RestockRequests 
+              useSupplierPayments={useSupplierPayments}
+              addSupplierPayment={addSupplierPayment}
+              inventory={inventory}
+              setInventory={setInventory}
+            />
           )}
         </main>
       </div>
@@ -3341,41 +2863,5 @@ function Supply_LogisticDashboard() {
     </div>
   );
 }
-
-// Add this function to handle status updates for restock requests
-const getStatusUpdateOptions = (currentStatus) => {
-  switch(currentStatus) {
-    case 'requested':
-      return (
-        <>
-          <option value="approved">Approved</option>
-          <option value="cancelled">Cancelled</option>
-        </>
-      );
-    case 'approved':
-      return (
-        <>
-          <option value="ordered">Ordered</option>
-          <option value="cancelled">Cancelled</option>
-        </>
-      );
-    case 'ordered':
-      return (
-        <>
-          <option value="shipped">Shipped</option>
-          <option value="cancelled">Cancelled</option>
-        </>
-      );
-    case 'shipped':
-      return (
-        <>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-        </>
-      );
-    default:
-      return null;
-  }
-};
 
 export default Supply_LogisticDashboard;
