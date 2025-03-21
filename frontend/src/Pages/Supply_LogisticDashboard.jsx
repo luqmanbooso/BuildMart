@@ -379,12 +379,26 @@ function Supply_LogisticDashboard() {
         setIsLoading(true);
         const data = await supplierService.getAllSuppliers();
         console.log("Fetched suppliers:", data);
-        setSuppliers(data);
+        
+        // Check the structure of the returned data
+        if (Array.isArray(data)) {
+          setSuppliers(data);
+          // Log the first item to see its structure
+          if (data.length > 0) {
+            console.log("Sample supplier object:", data[0]);
+            console.log("ID field used:", data[0]._id ? "_id" : data[0].id ? "id" : "unknown");
+          }
+        } else {
+          console.error("API didn't return an array:", data);
+          setSuppliers([]);
+        }
+        
         setError(null);
       } catch (error) {
         console.error("Error fetching suppliers:", error);
         setError("Failed to fetch suppliers. Using sample data instead.");
         // You might want to set some fallback supplier data here
+        setSuppliers([]);
       } finally {
         setIsLoading(false);
       }
@@ -781,7 +795,10 @@ function Supply_LogisticDashboard() {
   };
 
   const handleUpdateSupplier = async () => {
-    if (!currentSupplier) return;
+    if (!currentSupplier || !currentSupplier.id) {
+      setError("Cannot update: Missing supplier ID");
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -797,27 +814,29 @@ function Supply_LogisticDashboard() {
         country: supplierCountry,
         website: supplierWebsite,
         paymentTerms: paymentTerms,
-        leadTime: leadTime,
+        leadTime: parseInt(leadTime) || 0,
         notes: supplierNotes,
       };
 
-      await supplierService.updateSupplier(
+      const updatedSupplier = await supplierService.updateSupplier(
         currentSupplier.id,
         updatedSupplierData
       );
 
       setSuppliers(
         suppliers.map((supplier) =>
-          supplier.id === currentSupplier.id
+          supplier._id === currentSupplier.id
             ? { ...supplier, ...updatedSupplierData }
             : supplier
         )
       );
 
+      toast.success("Supplier updated successfully");
       resetForm();
       setError(null);
     } catch (error) {
-      setError("Failed to update supplier. Please try again.");
+      setError(`Failed to update supplier: ${error.message || 'Server error'}`);
+      toast.error(`Failed to update supplier: ${error.message || 'Server error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -831,13 +850,21 @@ function Supply_LogisticDashboard() {
     if (confirmed) {
       try {
         setIsLoading(true);
+        
+        // Check if we have a valid MongoDB ObjectId
+        if (!supplierId || supplierId === 'undefined' || typeof supplierId !== 'string') {
+          toast.error("Cannot delete: Invalid supplier ID");
+          return;
+        }
+        
         await supplierService.deleteSupplier(supplierId);
-        setSuppliers(
-          suppliers.filter((supplier) => supplier.id !== supplierId)
-        );
+        setSuppliers(suppliers.filter((supplier) => supplier._id !== supplierId));
+        toast.success("Supplier deleted successfully");
         setError(null);
       } catch (error) {
-        setError("Failed to delete supplier. Please try again.");
+        console.error("Delete supplier error:", error);
+        setError(`Failed to delete supplier: ${error.message || 'Server error'}`);
+        toast.error(`Failed to delete supplier: ${error.message || 'Server error'}`);
       } finally {
         setIsLoading(false);
       }
@@ -845,8 +872,11 @@ function Supply_LogisticDashboard() {
   };
 
   const editSupplier = (supplier) => {
-    setCurrentSupplier(supplier);
-    setSupplierName(supplier.name);
+    setCurrentSupplier({
+      id: supplier._id, // Make sure we're using the MongoDB _id
+      ...supplier
+    });
+    setSupplierName(supplier.name || "");
     setSupplierContact(supplier.contact || "");
     setSupplierEmail(supplier.email || "");
     setSupplierAddress(supplier.address || "");
@@ -2626,7 +2656,7 @@ function Supply_LogisticDashboard() {
                         )
                         .map((supplier) => (
                           <tr
-                            key={supplier.id || supplier.name}
+                            key={supplier._id || supplier.id || supplier.name}
                             className="hover:bg-gray-50"
                           >
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -2664,9 +2694,7 @@ function Supply_LogisticDashboard() {
                               </button>
                               <button
                                 onClick={() =>
-                                  handleDeleteSupplier(
-                                    supplier.id || supplier.name
-                                  )
+                                  handleDeleteSupplier(supplier._id)
                                 }
                                 className="text-red-600 hover:text-red-900"
                               >
