@@ -294,6 +294,25 @@ function Supply_LogisticDashboard() {
   const [shipmentsError, setShipmentsError] = useState(null);
   const [statusOptions, setStatusOptions] = useState({});
   const [statusTypesLoading, setStatusTypesLoading] = useState(true);
+  const [restockRequests, setRestockRequests] = useState([]);
+
+  // Add the mapOrderStatus function here
+const mapOrderStatus = (status) => {
+  switch (status?.toLowerCase()) {
+    case 'placed':
+      return 'Pending';
+    case 'processing':
+      return 'Processing';
+    case 'shipped':
+      return 'In Transit';
+    case 'delivered':
+      return 'Delivered';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return status || 'Pending';
+  }
+};
 
   // Fetch inventory data from the API
   useEffect(() => {
@@ -516,94 +535,73 @@ function Supply_LogisticDashboard() {
     const fetchStatusTypes = async () => {
       try {
         setStatusTypesLoading(true);
-        console.log("Attempting to fetch status types...");
         
-        // Try the correct endpoint first
-        const response = await axios.get('http://localhost:5000/api/restock/status-types');
-        console.log("API Response:", response.data);
-        
-        // If we have data, normalize it to lowercase keys for consistency
-        if (response.data && response.data.statusTypes) {
-          const statusTypes = response.data.statusTypes;
-          
-          // Create normalized transitions with lowercase keys
-          const dynamicStatusTransitions = {};
-          
-          // Process each status type and create transitions
-          statusTypes.forEach((status, index) => {
-            // Convert to lowercase for consistency
-            const normalizedStatus = status.toLowerCase();
-            
-            if (normalizedStatus === 'delivered' || normalizedStatus === 'cancelled') {
-              // Terminal statuses have no transitions
-              dynamicStatusTransitions[normalizedStatus] = [];
-            } else if (index < statusTypes.length - 1) {
-              // Can move to next status or be cancelled
-              dynamicStatusTransitions[normalizedStatus] = ['cancelled', statusTypes[index + 1].toLowerCase()];
-            } else {
-              // Last non-terminal status can only be cancelled
-              dynamicStatusTransitions[normalizedStatus] = ['cancelled'];
-            }
-            
-            // Also add with original capitalization to support both formats
-            dynamicStatusTransitions[status] = dynamicStatusTransitions[normalizedStatus];
-          });
-          
-          // Add common shipment statuses if not present
-          const commonStatuses = [
-            'pending', 'preparing', 'loading', 'in transit', 'out for delivery',
-            'delivered', 'failed delivery', 'delayed', 'cancelled'
-          ];
-          
-          commonStatuses.forEach((status, index) => {
-            if (!dynamicStatusTransitions[status]) {
-              if (status === 'delivered' || status === 'cancelled') {
-                dynamicStatusTransitions[status] = [];
-              } else if (index < commonStatuses.length - 1) {
-                dynamicStatusTransitions[status] = ['cancelled', commonStatuses[index + 1]];
-              }
-              
-              // Also add capitalized version
-              const capitalizedStatus = status.charAt(0).toUpperCase() + status.slice(1);
-              dynamicStatusTransitions[capitalizedStatus] = dynamicStatusTransitions[status];
-            }
-          });
-          
-          console.log("Final status transitions:", dynamicStatusTransitions);
-          setStatusOptions(dynamicStatusTransitions);
-        }
-      } catch (error) {
-        console.error("Error fetching status types:", error);
-        console.log("Falling back to hardcoded status options");
-        
-        // Set up hardcoded options for both lowercase and regular capitalization
-        const fallbackOptions = {
-          // Lowercase versions
-          'pending': ["processing", "cancelled"],
-          'processing': ["preparing", "cancelled"],
-          'preparing': ["loading", "cancelled"],
-          'loading': ["in transit", "cancelled"],
-          'in transit': ["out for delivery", "delayed"],
-          'out for delivery': ["delivered", "failed delivery"],
-          'delayed': ["in transit", "cancelled"],
-          'failed delivery': ["processing", "cancelled"],
-          'delivered': [],
-          'cancelled': ["processing"],
-          
-          // Capitalized versions
+        // Define default status options
+        const defaultOptions = {
           'Pending': ["Processing", "Cancelled"],
-          'Processing': ["Preparing", "Cancelled"],
-          'Preparing': ["Loading", "Cancelled"],
-          'Loading': ["In Transit", "Cancelled"],
-          'In Transit': ["Out for Delivery", "Delayed"],
-          'Out for Delivery': ["Delivered", "Failed Delivery"],
-          'Delayed': ["In Transit", "Cancelled"],
-          'Failed Delivery': ["Processing", "Cancelled"],
-          'Delivered': [],
-          'Cancelled': ["Processing"]
+          'Preparing': ["Loading", "In Transit", "Cancelled"],
+          'Loading': ["In Transit", "Delayed", "Cancelled"],
+          'In Transit': ["Out for Delivery", "Delayed", "Failed Delivery"],
+          'Out for Delivery': ["Delivered", "Failed Delivery", "Delayed"],
+          'Processing': ["Shipped", "Cancelled"],
+          'Shipped': ["Delivered", "Delayed"],
+          'Delayed': ["In Transit", "Out for Delivery", "Cancelled"],
+          'Failed Delivery': ["Preparing", "In Transit", "Cancelled"],
+          'Delivered': [], // No more transitions possible
+          'Cancelled': ["Processing"], // Can restart the process
         };
         
-        setStatusOptions(fallbackOptions);
+        try {
+          // Try to fetch from API
+          const response = await axios.get('http://localhost:5000/api/restock/status-types');
+          
+          if (response.data && response.data.statusTypes) {
+            const statusTypes = response.data.statusTypes;
+            
+            // Create normalized transitions with lowercase keys
+            const dynamicStatusTransitions = {};
+            
+            // Process each status type and create transitions
+            statusTypes.forEach((status, index) => {
+              // Convert to lowercase for consistency
+              const normalizedStatus = status.toLowerCase();
+              
+              if (normalizedStatus === 'delivered' || normalizedStatus === 'cancelled') {
+                // Terminal statuses have no transitions
+                dynamicStatusTransitions[normalizedStatus] = [];
+              } else if (index < statusTypes.length - 1) {
+                // Can move to next status or be cancelled
+                dynamicStatusTransitions[normalizedStatus] = ['cancelled', statusTypes[index + 1].toLowerCase()];
+              } else {
+                // Last non-terminal status can only be cancelled
+                dynamicStatusTransitions[normalizedStatus] = ['cancelled'];
+              }
+              
+              // Also add with original capitalization
+              dynamicStatusTransitions[status] = dynamicStatusTransitions[normalizedStatus];
+            });
+            
+            // Merge with default options
+            setStatusOptions({...defaultOptions, ...dynamicStatusTransitions});
+          } else {
+            setStatusOptions(defaultOptions);
+          }
+        } catch (error) {
+          console.error("Error fetching status types:", error);
+          setStatusOptions(defaultOptions);
+        }
+      } catch (error) {
+        console.error("Error in status types setup:", error);
+        
+        // Fallback options
+        setStatusOptions({
+          'Pending': ["Processing", "Cancelled"],
+          'Processing': ["Shipped", "Cancelled"],
+          'Shipped': ["Delivered", "Delayed"],
+          'Delivered': [],
+          'Cancelled': [],
+          'Delayed': ["Shipped", "Cancelled"],
+        });
       } finally {
         setStatusTypesLoading(false);
       }
@@ -618,25 +616,22 @@ function Supply_LogisticDashboard() {
       // Create a new shipment object
       const newShipment = {
         id: `SHP-${order.id.substring(order.id.length - 5)}`,
+        orderId: order.id,
         origin: "Colombo Warehouse",
         destination: `${order.shippingAddress?.city || "Customer"} Site`,
         driver: "Assigned Driver",
-        vehicle: "Pending Assignment",
+        vehicle: "LK-" + Math.floor(1000 + Math.random() * 9000),
         status: "Preparing",
         progress: 10,
         eta: "24 hours",
-        orderId: order.id,
         createdAt: new Date().toISOString(),
       };
       
       // Add to active shipments
       setActiveShipments([...activeShipments, newShipment]);
       
-      // Update order status
+      // Update order status to "processing"
       await updateOrderStatus(order.id, "processing");
-
-      // In a real app, you would create a shipment record in the backend
-      // await axios.post('http://localhost:5000/api/shipments', newShipment);
 
       toast.success(`Shipment ${newShipment.id} created for order ${order.id}`);
     } catch (error) {
@@ -648,11 +643,25 @@ function Supply_LogisticDashboard() {
   // Update order status via API call
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
+      // First update the UI optimistically
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId ? { ...order, status: mapOrderStatus(newStatus) } : order
+        )
+      );
+      
+      // Then make the API call
       await axios.patch(`http://localhost:5000/api/orders/${orderId}/status`, {
-        status: newStatus,
+        status: newStatus
       });
+      
+      toast.success(`Order ${orderId} status updated to ${newStatus}`);
     } catch (error) {
       console.error("Error updating order status:", error);
+      toast.error(`Failed to update order status: ${error.message}`);
+      
+      // Revert the optimistic update by re-fetching orders
+      fetchOrders();
     }
   };
 
@@ -753,62 +762,67 @@ function Supply_LogisticDashboard() {
     return filtered;
   };
 
-  // Handle restock request
-  const handleRestockRequest = async (itemName) => {
-    try {
-      const product = inventory.find((item) => item.name === itemName);
-      if (!product) return;
-
-      // Find matching supplier for this product category
-      const matchingSuppliers = suppliers.filter(
-        s => s.category === product.category || 
-             (s.productCategories && s.productCategories.includes(product.category))
-      );
-      
-      const supplierToUse = matchingSuppliers.length > 0 ? matchingSuppliers[0] : null;
-
-      // Update UI optimistically
-      setInventory((prevInventory) =>
-        prevInventory.map((item) =>
-          item.name === itemName ? { ...item, restockRequested: true } : item
-        )
-      );
-
-      // Send request to backend
-      const restockData = {
-        productId: product._id,
-        productName: product.name,
-        quantity: product.threshold - product.stock + 10, // Order enough to be above threshold plus buffer
-        priority:
-          product.stock === 0
-            ? "urgent"
-            : product.stock < product.threshold / 2
-            ? "high"
-            : "medium",
-        supplierId: supplierToUse?._id,
-        supplierName: supplierToUse?.name || "Not assigned",
-        notes: `Automatic restock request for ${product.name}`,
-      };
-
-      const newRequest = await restockService.createRequest(restockData);
-      
-      // Add to restock requests list
-      setRestockRequests(prev => [newRequest, ...prev]);
-
-      toast.success(`Restock request for ${itemName} sent successfully`);
-    } catch (error) {
-      console.error("Error submitting restock request:", error);
-
-      // Revert optimistic update
-      setInventory((prevInventory) =>
-        prevInventory.map((item) =>
-          item.name === itemName ? { ...item, restockRequested: false } : item
-        )
-      );
-
-      toast.error(`Failed to send restock request for ${itemName}`);
+  // Fix handleRestockRequest function
+const handleRestockRequest = async (itemName) => {
+  try {
+    // Find the product in inventory
+    const product = inventory.find(item => item.name === itemName);
+    
+    if (!product) {
+      toast.error(`Product ${itemName} not found in inventory`);
+      return;
     }
-  };
+
+    // Find suitable supplier for this product
+    const supplierToUse = suppliers.find(sup => 
+      sup.category && product.category && 
+      sup.category.toLowerCase().includes(product.category.toLowerCase())
+    );
+
+    // Optimistically update UI
+    setInventory((prevInventory) =>
+      prevInventory.map((item) =>
+        item.name === itemName ? { ...item, restockRequested: true } : item
+      )
+    );
+
+    // Send request to backend
+    const restockData = {
+      productId: product._id,
+      productName: product.name,
+      quantity: product.threshold - product.stock + 10, // Order enough to be above threshold plus buffer
+      priority:
+        product.stock === 0
+          ? "urgent"
+          : product.stock < product.threshold / 2
+          ? "high"
+          : "medium",
+      supplierId: supplierToUse?._id,
+      supplierName: supplierToUse?.name || "Not assigned",
+      notes: `Automatic restock request for ${product.name}`,
+    };
+
+    const newRequest = await restockService.createRequest(restockData);
+    
+    // Add to restock requests list if the component has this state
+    if (typeof setRestockRequests === 'function') {
+      setRestockRequests(prev => [newRequest, ...prev]);
+    }
+
+    toast.success(`Restock request for ${itemName} sent successfully`);
+  } catch (error) {
+    console.error("Error submitting restock request:", error);
+
+    // Revert optimistic update
+    setInventory((prevInventory) =>
+      prevInventory.map((item) =>
+        item.name === itemName ? { ...item, restockRequested: false } : item
+      )
+    );
+
+    toast.error(`Failed to send restock request for ${itemName}`);
+  }
+};
 
   // Handle payment status update
   const handlePaymentStatusUpdate = async (itemName, status) => {
@@ -2863,5 +2877,35 @@ function Supply_LogisticDashboard() {
     </div>
   );
 }
+
+// Add the missing handler function
+const handlePaymentSuccess = (paymentDetails) => {
+  if (!selectedOrder) {
+    toast.error("No order selected for payment");
+    return;
+  }
+
+  // Update order payment status in UI
+  const updatedOrders = orders.map(order => 
+    order.id === selectedOrder.id 
+      ? { ...order, paymentStatus: "Completed" } 
+      : order
+  );
+  
+  setOrders(updatedOrders);
+  
+  // Record the payment in the supplier payment system
+  addSupplierPayment({
+    supplierId: selectedOrder.supplierId || "general",
+    supplierName: selectedOrder.supplier || selectedOrder.customer,
+    amount: selectedOrder.value,
+    date: new Date().toISOString(),
+    orderId: selectedOrder.id,
+    paymentDetails
+  });
+  
+  toast.success("Payment processed successfully");
+  setShowPaymentModal(false);
+};
 
 export default Supply_LogisticDashboard;
