@@ -33,6 +33,7 @@ import AcceptedAgreementView from './components/AcceptedAgreementView';
 import { SupplierPaymentProvider } from './context/SupplierPaymentContext';
 import EnhancedPaymentGateway from './components/Payment';
 import InitialPayment from './components/InitialPayment'
+import MyEarningsPage from './pages/MyEarningsPage'
 
 function App() {
   const sampleData = {
@@ -134,6 +135,7 @@ function App() {
           } 
         />
         <Route path="/payment/:jobId/:bidId" element={<InitialPayment />} />
+        <Route path="/my-earnings" element={<MyEarningsPage />} />
       </Routes>
     </SupplierPaymentProvider>
   )
