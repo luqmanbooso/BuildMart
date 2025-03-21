@@ -8,6 +8,7 @@ import Cart from "./Cart";
 import EnhancedPaymentGateway from '../components/Payment';
 import { toast } from 'react-toastify';
 import axios from 'axios';
+import ContractorUserNav from "../components/ContractorUserNav";
 
 // Helper function for currency formatting
 const formatCurrency = (amount) => {
@@ -537,61 +538,8 @@ const Shop = () => {
 
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* Navbar */}
-      <motion.header
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 100 }}
-        className="sticky top-0 z-40 backdrop-blur-lg bg-white/80 shadow-lg"
-      >
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              BuildMart
-            </h1>
-
-            <nav className="hidden md:flex space-x-8">
-              {['Home', 'Shop', 'Contact'].map((item) => (
-                <motion.a
-                  key={item}
-                  href="#"
-                  className="relative text-gray-700 hover:text-indigo-600 transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {item}
-                  <motion.span
-                    className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600"
-                    initial={{ scaleX: 0 }}
-                    whileHover={{ scaleX: 1 }}
-                    transition={{ duration: 0.2 }}
-                  />
-                </motion.a>
-              ))}
-            </nav>
-
-            <motion.div
-              className="relative cursor-pointer"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={toggleCart}
-            >
-              <FiShoppingCart size={24} className="text-gray-700" />
-              {cartItems.length > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
-                >
-                  {cartItems.length}
-                </motion.span>
-              )}
-            </motion.div>
-          </div>
-        </div>
-      </motion.header>
-
-      {/* Hero Section */}
+      <ContractorUserNav />
+      <br /><br /><br /><br />
       <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

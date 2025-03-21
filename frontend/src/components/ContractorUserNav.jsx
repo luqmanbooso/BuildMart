@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaUserCircle, FaBriefcase, FaHistory, FaChartLine, FaCog, FaSignOutAlt, FaGavel, FaSearch, FaMoneyBillWave } from 'react-icons/fa';
+import { FaUserCircle, FaBriefcase, FaHistory, FaChartLine, FaCog, FaSignOutAlt, FaGavel, FaSearch, FaMoneyBillWave, FaShoppingCart } from 'react-icons/fa';
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -131,7 +131,7 @@ const ContractorUserNav = () => {
           </Link>
         </div>
 
-        {/* UPDATED: Main navigation links */}
+        {/* Main navigation links */}
         <div className="hidden lg:flex items-center space-x-6">
           <Link 
             to="/auction" 
@@ -155,6 +155,15 @@ const ContractorUserNav = () => {
           >
             <FaChartLine className="inline mr-1" /> Ongoing Projects
             <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${isActive('/ongoingproject') ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
+          </Link>
+          
+          {/* Add shop link here */}
+          <Link 
+            to="/shop" 
+            className={`relative py-2 px-1 ${isActive('/shop') ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
+          >
+            <FaShoppingCart className="inline mr-1" /> Shop
+            <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${isActive('/shop') ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
           </Link>
           
           <Link 

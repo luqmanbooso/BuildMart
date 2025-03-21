@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaChartLine, FaMoneyBillWave, FaHourglassHalf, FaClipboardList } from 'react-icons/fa';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
+import ContractorUserNav from '../components/ContractorUserNav';
 
 const MyEarningsPage = () => {
   // Replace the AuthContext with direct token access
@@ -152,6 +153,7 @@ const MyEarningsPage = () => {
 
   if (error) {
     return (
+      
       <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded shadow">
         <div className="flex">
           <div className="flex-shrink-0">
@@ -168,7 +170,10 @@ const MyEarningsPage = () => {
   }
 
   return (
+    <>
+                  <ContractorUserNav/>
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <br /><br /><br /><br />
       <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">My Earnings</h1>
       
       {/* Summary Cards */}
@@ -381,6 +386,8 @@ const MyEarningsPage = () => {
         </div>
       )}
     </div>
+    </>
+
   );
 };
 
