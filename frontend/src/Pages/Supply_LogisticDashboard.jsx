@@ -196,6 +196,9 @@ function Supply_LogisticDashboard() {
   const [realOrders, setRealOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState(null);
+  const [activeShipments, setActiveShipments] = useState([]);
+  const [shipmentsLoading, setShipmentsLoading] = useState(true);
+  const [shipmentsError, setShipmentsError] = useState(null);
 
   // Fetch inventory data from the API
   useEffect(() => {
@@ -340,6 +343,44 @@ function Supply_LogisticDashboard() {
     fetchOrders();
   }, []);
 
+  // Fetch shipments from the backend (add this useEffect)
+  useEffect(() => {
+    const fetchShipments = async () => {
+      setShipmentsLoading(true);
+      try {
+        // In a real implementation, you'd fetch from a shipments API
+        // const response = await axios.get('http://localhost:5000/api/shipments');
+        // setActiveShipments(response.data.shipments);
+        
+        // For now, use demo data or extract shipment info from orders
+        const shipmentData = orders
+          .filter(order => order.status === 'In Transit' || order.status === 'Processing')
+          .map(order => ({
+            id: `SHP-${order.id.substring(order.id.length - 5)}`,
+            origin: 'Colombo Warehouse',
+            destination: `${order.shippingAddress?.city || 'Customer'} Site`,
+            driver: 'Assigned Driver',
+            vehicle: 'Pending Assignment',
+            status: order.status === 'In Transit' ? 'In Transit' : 'Preparing',
+            progress: order.status === 'In Transit' ? 50 : 10,
+            eta: '24 hours',
+            orderId: order.id,
+            createdAt: new Date().toISOString()
+          }));
+        
+        setActiveShipments(shipmentData);
+        setShipmentsError(null);
+      } catch (error) {
+        console.error('Error fetching shipments:', error);
+        setShipmentsError('Failed to load shipment data');
+      } finally {
+        setShipmentsLoading(false);
+      }
+    };
+
+    fetchShipments();
+  }, [orders]); // Depend on orders so shipments update when orders change
+
   // Map backend order status to frontend display status
   const mapOrderStatus = (status) => {
     const statusMap = {
@@ -353,36 +394,44 @@ function Supply_LogisticDashboard() {
   };
 
   // Create shipment from order
-  const createShipmentFromOrder = (order) => {
-    const newShipment = {
-      id: `SHP-${Math.floor(10000 + Math.random() * 90000)}`,
-      origin: 'Colombo Warehouse',
-      destination: `${order.shippingAddress?.city || 'Customer'} Site`,
-      driver: 'Assigned Driver',
-      vehicle: 'Pending Assignment',
-      status: 'Pending',
-      progress: 0,
-      eta: '24 hours',
-      orderId: order.id
-    };
+  const createShipmentFromOrder = async (order) => {
+    try {
+      const newShipment = {
+        id: `SHP-${Math.floor(10000 + Math.random() * 90000)}`,
+        origin: 'Colombo Warehouse',
+        destination: `${order.shippingAddress?.city || 'Customer'} Site`,
+        driver: 'Assigned Driver',
+        vehicle: 'Pending Assignment',
+        status: 'Preparing',
+        progress: 10,
+        eta: '24 hours',
+        orderId: order.id,
+        createdAt: new Date().toISOString()
+      };
 
-    // Add to active shipments
-    setActiveShipments(prev => [...prev, newShipment]);
-    
-    // Update order status
-    const updatedOrders = orders.map(o => {
-      if (o.id === order.id) {
-        return { ...o, status: 'Processing' };
-      }
-      return o;
-    });
-    setOrders(updatedOrders);
+      // Add to active shipments
+      setActiveShipments(prev => [...prev, newShipment]);
+      
+      // Update order status
+      const updatedOrders = orders.map(o => {
+        if (o.id === order.id) {
+          return { ...o, status: 'Processing' };
+        }
+        return o;
+      });
+      setOrders(updatedOrders);
 
-    // Show success notification
-    toast.success(`Shipment ${newShipment.id} created for order ${order.id}`);
+      // Make API call to update the order status
+      await updateOrderStatus(order.id, 'processing');
 
-    // In a real app, you'd make an API call to update the order status
-    updateOrderStatus(order.id, 'processing');
+      // In a real app, you would create a shipment record in the backend
+      // await axios.post('http://localhost:5000/api/shipments', newShipment);
+      
+      toast.success(`Shipment ${newShipment.id} created for order ${order.id}`);
+    } catch (error) {
+      console.error('Error creating shipment:', error);
+      toast.error('Failed to create shipment');
+    }
   };
 
   // Update order status via API call
@@ -395,6 +444,83 @@ function Supply_LogisticDashboard() {
       console.error('Error updating order status:', error);
     }
   };
+
+  // Add function to update shipment status with comprehensive options
+const updateShipmentStatus = async (shipmentId, newStatus, newProgress) => {
+  try {
+    // Update shipment locally
+    const updatedShipments = activeShipments.map(shipment => {
+      if (shipment.id === shipmentId) {
+        return { 
+          ...shipment, 
+          status: newStatus, 
+          progress: newProgress 
+        };
+      }
+      return shipment;
+    });
+    setActiveShipments(updatedShipments);
+    
+    // Find the order associated with this shipment
+    const shipment = activeShipments.find(s => s.id === shipmentId);
+    if (shipment) {
+      // Map shipment status to order status
+      let orderStatus;
+      
+      switch(newStatus) {
+        case 'Preparing':
+          orderStatus = 'processing';
+          break;
+        case 'Loading':
+          orderStatus = 'processing';
+          break;
+        case 'In Transit':
+          orderStatus = 'shipped';
+          break;
+        case 'Out for Delivery':
+          orderStatus = 'shipped';
+          break;
+        case 'Delivered':
+          orderStatus = 'delivered';
+          break;
+        case 'Delayed':
+          orderStatus = 'shipped'; // Still in shipment process
+          break;
+        case 'Failed Delivery':
+          orderStatus = 'processing'; // Need to attempt delivery again
+          break;
+        case 'Cancelled':
+          orderStatus = 'cancelled';
+          break;
+        default:
+          orderStatus = 'processing';
+      }
+      
+      // Update backend order status
+      await updateOrderStatus(shipment.orderId, orderStatus);
+      
+      // Update order status in local state
+      const updatedOrders = orders.map(order => {
+        if (order.id === shipment.orderId) {
+          return { ...order, status: mapOrderStatus(orderStatus) };
+        }
+        return order;
+      });
+      setOrders(updatedOrders);
+      
+      toast.success(`Shipment ${shipmentId} updated to ${newStatus}`);
+    }
+    
+    // In a real implementation, you'd update the backend
+    // await axios.patch(`http://localhost:5000/api/shipments/${shipmentId}`, {
+    //   status: newStatus,
+    //   progress: newProgress
+    // });
+  } catch (error) {
+    console.error('Error updating shipment status:', error);
+    toast.error('Failed to update shipment status');
+  }
+};
 
   // Function to filter inventory data
   const getFilteredInventory = () => {
@@ -693,6 +819,141 @@ function Supply_LogisticDashboard() {
     );
   };
 
+  // Add a function to render the shipments table/list
+  const renderShipments = () => {
+    if (shipmentsLoading) {
+      return (
+        <div className="flex justify-center p-6">
+          <Loader className="animate-spin" size={24} />
+        </div>
+      );
+    }
+    
+    if (shipmentsError) {
+      return (
+        <div className="text-center p-6 text-red-500">
+          <AlertTriangle className="h-10 w-10 mx-auto mb-2" />
+          <p>{shipmentsError}</p>
+        </div>
+      );
+    }
+    
+    if (activeShipments.length === 0) {
+      return (
+        <div className="text-center p-6 text-gray-500">
+          <Package className="h-10 w-10 mx-auto mb-2" />
+          <p>No active shipments found</p>
+        </div>
+      );
+    }
+    
+    // Define the possible status transitions for each status
+    const statusTransitions = {
+      'Preparing': ['Loading', 'In Transit', 'Cancelled'],
+      'Loading': ['In Transit', 'Delayed', 'Cancelled'],
+      'In Transit': ['Out for Delivery', 'Delayed', 'Failed Delivery'],
+      'Out for Delivery': ['Delivered', 'Failed Delivery', 'Delayed'],
+      'Delayed': ['In Transit', 'Out for Delivery', 'Cancelled'],
+      'Failed Delivery': ['Preparing', 'In Transit', 'Cancelled'],
+      'Delivered': [], // No more transitions possible
+      'Cancelled': ['Preparing'] // Can restart the process
+    };
+    
+    // Define the progress value for each status
+    const statusProgress = {
+      'Preparing': 10,
+      'Loading': 25,
+      'In Transit': 50,
+      'Delayed': 50,
+      'Out for Delivery': 75,
+      'Failed Delivery': 10,
+      'Delivered': 100,
+      'Cancelled': 0
+    };
+    
+    // Define status colors
+    const statusColors = {
+      'Preparing': 'bg-amber-100 text-amber-600',
+      'Loading': 'bg-amber-100 text-amber-600',
+      'In Transit': 'bg-blue-100 text-blue-600',
+      'Out for Delivery': 'bg-purple-100 text-purple-600',
+      'Delayed': 'bg-orange-100 text-orange-600',
+      'Failed Delivery': 'bg-red-100 text-red-600',
+      'Delivered': 'bg-green-100 text-green-600',
+      'Cancelled': 'bg-gray-100 text-gray-600'
+    };
+    
+    return (
+      <div className="space-y-4">
+        {activeShipments.map(shipment => (
+          <div key={shipment.id} className="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="flex justify-between items-start">
+              <div>
+                <h4 className="text-lg font-medium text-gray-800">{shipment.id}</h4>
+                <p className="text-sm text-gray-600">Order: {shipment.orderId}</p>
+                <p className="text-sm text-gray-600">From: {shipment.origin}</p>
+                <p className="text-sm text-gray-600">To: {shipment.destination}</p>
+                <p className="text-sm text-gray-600">ETA: {shipment.eta}</p>
+              </div>
+              <div className="flex flex-col items-end space-y-2">
+                <span className={`text-sm font-medium px-3 py-1 rounded-full ${statusColors[shipment.status] || 'bg-gray-100 text-gray-600'}`}>
+                  {shipment.status}
+                </span>
+              </div>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="mt-4 mb-2">
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full ${
+                    shipment.status === 'Delivered' ? 'bg-green-600' : 
+                    shipment.status === 'Failed Delivery' ? 'bg-red-600' :
+                    shipment.status === 'Delayed' ? 'bg-orange-600' :
+                    shipment.status === 'Cancelled' ? 'bg-gray-600' :
+                    'bg-blue-600'
+                  }`}
+                  style={{ width: `${shipment.progress}%` }}
+                ></div>
+              </div>
+              <div className="text-xs text-right mt-1 text-gray-500">
+                {shipment.progress}% complete
+              </div>
+            </div>
+            
+            {/* Status update dropdown */}
+            <div className="mt-4 flex justify-end">
+              {statusTransitions[shipment.status]?.length > 0 && (
+                <div className="relative inline-block text-left">
+                  <select
+                    className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        updateShipmentStatus(
+                          shipment.id, 
+                          e.target.value, 
+                          statusProgress[e.target.value]
+                        );
+                      }
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Update status...</option>
+                    {statusTransitions[shipment.status].map(status => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -706,7 +967,9 @@ function Supply_LogisticDashboard() {
           <nav className="px-4 space-y-1">
             <button 
               onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center px-4 py-3 w-full rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800/50'}`}
+              className={`flex items-center px-4 py-2.5 w-full text-left rounded-lg transition-colors ${
+                activeTab === 'dashboard' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800'
+              }`}
             >
               <LayoutDashboard className="mr-3 h-5 w-5" />
               Dashboard
@@ -714,7 +977,9 @@ function Supply_LogisticDashboard() {
             
             <button 
               onClick={() => setActiveTab('inventory')}
-              className={`flex items-center px-4 py-3 w-full rounded-lg transition-colors ${activeTab === 'inventory' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800/50'}`}
+              className={`flex items-center px-4 py-2.5 w-full text-left rounded-lg transition-colors ${
+                activeTab === 'inventory' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800'
+              }`}
             >
               <Box className="mr-3 h-5 w-5" />
               Inventory
@@ -722,7 +987,9 @@ function Supply_LogisticDashboard() {
             
             <button 
               onClick={() => setActiveTab('shipments')}
-              className={`flex items-center px-4 py-3 w-full rounded-lg transition-colors ${activeTab === 'shipments' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800/50'}`}
+              className={`flex items-center px-4 py-2.5 w-full text-left rounded-lg transition-colors ${
+                activeTab === 'shipments' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800'
+              }`}
             >
               <Truck className="mr-3 h-5 w-5" />
               Shipments
@@ -730,7 +997,9 @@ function Supply_LogisticDashboard() {
             
             <button 
               onClick={() => setActiveTab('orders')}
-              className={`flex items-center px-4 py-3 w-full rounded-lg transition-colors ${activeTab === 'orders' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800/50'}`}
+              className={`flex items-center px-4 py-2.5 w-full text-left rounded-lg transition-colors ${
+                activeTab === 'orders' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800'
+              }`}
             >
               <ShoppingCart className="mr-3 h-5 w-5" />
               Orders
@@ -738,7 +1007,9 @@ function Supply_LogisticDashboard() {
             
             <button 
               onClick={() => setActiveTab('suppliers')}
-              className={`flex items-center px-4 py-3 w-full rounded-lg transition-colors ${activeTab === 'suppliers' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800/50'}`}
+              className={`flex items-center px-4 py-2.5 w-full text-left rounded-lg transition-colors ${
+                activeTab === 'suppliers' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800'
+              }`}
             >
               <Users className="mr-3 h-5 w-5" />
               Suppliers
@@ -746,10 +1017,22 @@ function Supply_LogisticDashboard() {
             
             <button 
               onClick={() => setActiveTab('reports')}
-              className={`flex items-center px-4 py-3 w-full rounded-lg transition-colors ${activeTab === 'reports' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800/50'}`}
+              className={`flex items-center px-4 py-2.5 w-full text-left rounded-lg transition-colors ${
+                activeTab === 'reports' ? 'bg-blue-800 text-white' : 'text-blue-200 hover:bg-blue-800'
+              }`}
             >
               <Activity className="mr-3 h-5 w-5" />
               Reports
+            </button>
+            
+            <div className="border-t border-blue-800 my-4"></div>
+            
+            <button 
+              onClick={() => {/* Add settings functionality */}}
+              className="flex items-center px-4 py-2.5 w-full text-left text-blue-200 hover:bg-blue-800 rounded-lg transition-colors"
+            >
+              <Settings className="mr-3 h-5 w-5" />
+              Settings
             </button>
           </nav>
         </div>
@@ -1161,47 +1444,81 @@ function Supply_LogisticDashboard() {
 
           {activeTab === 'shipments' && (
             <div className="space-y-6">
-              {/* Shipment Arrangement Form */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Total Shipments</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{activeShipments.length}</h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+                      <Truck className="h-6 w-6 text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">In Transit</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {activeShipments.filter(s => s.status === 'In Transit' || s.status === 'Out for Delivery').length}
+                      </h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+                      <Truck className="h-6 w-6 text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Delivered</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {activeShipments.filter(s => s.status === 'Delivered').length}
+                      </h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Delayed/Failed</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {activeShipments.filter(s => s.status === 'Delayed' || s.status === 'Failed Delivery').length}
+                      </h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center">
+                      <AlertTriangle className="h-6 w-6 text-red-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <ShipmentArrangementForm
                 orders={orders.filter(order => order.status === 'Pending')}
-                onArrangeShipment={(shipmentData) => {
-                  // Add the new shipment to the activeShipments list
-                  const newShipment = {
-                    id: `SHP-${Math.floor(Math.random() * 10000)}`,
-                    origin: "Colombo Warehouse",
-                    destination: shipmentData.destination || "Customer Site",
-                    driver: shipmentData.driver,
-                    vehicle: shipmentData.vehicle,
-                    status: shipmentData.status,
-                    progress: shipmentData.status === "Delivered" ? 100 : 0,
-                    eta: shipmentData.eta,
-                    orderId: shipmentData.orderId
-                  };
-                  setActiveShipments((prev) => [...prev, newShipment]);
-                  
-                  // Update order status if an order is associated
-                  if (shipmentData.orderId) {
-                    const updatedOrders = orders.map(o => {
-                      if (o.id === shipmentData.orderId) {
-                        return { ...o, status: 'In Transit' };
-                      }
-                      return o;
-                    });
-                    setOrders(updatedOrders);
-                    
-                    // Update order status in backend
-                    updateOrderStatus(shipmentData.orderId, 'shipped');
-                  }
-                  
-                  toast.success(`New shipment ${newShipment.id} has been created`);
-                }}
+                onArrangeShipment={createShipmentFromOrder}
               />
 
-              {/* Shipment Tracking Section */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-6">
                   <h3 className="text-lg font-medium text-gray-800">Active Shipments</h3>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-4">
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                        placeholder="Search shipments..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
+                    </div>
                     <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                       <Filter className="h-5 w-5 text-gray-600" />
                     </button>
@@ -1210,45 +1527,49 @@ function Supply_LogisticDashboard() {
                     </button>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  {activeShipments.map((shipment) => (
-                    <ShippingTracking
-                      key={shipment.id}
-                      shipmentId={shipment.id}
-                      shipmentStatus={shipment.status}
-                      deliveryProgress={shipment.progress}
-                      estimatedDelivery={shipment.eta}
-                      handleStatusUpdate={(newStatus) => {
-                        // Update shipment status
-                        const updatedShipments = activeShipments.map(s => {
-                          if (s.id === shipment.id) {
-                            const progress = newStatus === 'Delivered' ? 100 : 
-                                          newStatus === 'In Transit' ? 65 : 25;
-                            
-                            // If delivered, update the associated order
-                            if (newStatus === 'Delivered' && s.orderId) {
-                              const updatedOrders = orders.map(o => {
-                                if (o.id === s.orderId) {
-                                  return { ...o, status: 'Delivered' };
-                                }
-                                return o;
-                              });
-                              setOrders(updatedOrders);
-                              
-                              // Update order status in backend
-                              updateOrderStatus(s.orderId, 'delivered');
+                
+                {shipmentsLoading ? (
+                  <div className="flex justify-center items-center py-10">
+                    <Loader className="h-10 w-10 text-blue-600 animate-spin" />
+                    <p className="ml-2 text-gray-600">Loading shipment data...</p>
+                  </div>
+                ) : shipmentsError ? (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                    <p>{shipmentsError}</p>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {activeShipments.length > 0 ? (
+                      activeShipments
+                        .filter(shipment => 
+                          shipment.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          shipment.status.toLowerCase().includes(searchTerm.toLowerCase())
+                        )
+                        .map((shipment) => (
+                          <ShippingTracking
+                            key={shipment.id}
+                            shipmentId={shipment.id}
+                            shipmentStatus={shipment.status}
+                            deliveryProgress={shipment.progress}
+                            estimatedDelivery={shipment.eta}
+                            handleStatusUpdate={(newStatus, newProgress) => 
+                              updateShipmentStatus(shipment.id, newStatus, newProgress)
                             }
-                            
-                            return { ...s, status: newStatus, progress };
-                          }
-                          return s;
-                        });
-                        setActiveShipments(updatedShipments);
-                        toast.success(`Updated status of shipment ${shipment.id} to ${newStatus}`);
-                      }}
-                    />
-                  ))}
-                </div>
+                          />
+                        ))
+                    ) : (
+                      <div className="col-span-2 text-center py-10 text-gray-500">
+                        No active shipments found. Arrange a shipment to get started.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
