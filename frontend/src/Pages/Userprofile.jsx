@@ -280,17 +280,16 @@ const UserProfilePage = () => {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       if (!token) {
-        console.error("No authentication token found");
         setError("You must be logged in to update your profile");
         return;
       }
       
-      // Get user ID (assuming it's stored in the user object)
-      const userId = user.id;
+      // Get user ID from JWT token by parsing it
+      const tokenData = JSON.parse(atob(token.split('.')[1]));
+      const userId = tokenData.userId; // This is how to get userId from the token
       
       if (!userId) {
-        console.error("User ID not found");
-        setError("User information not available");
+        setError("Unable to identify user. Please login again.");
         return;
       }
       
@@ -332,18 +331,14 @@ const UserProfilePage = () => {
       // Display appropriate error message
       if (error.response) {
         if (error.response.status === 400) {
-          setError("Email or username already exists");
-        } else if (error.response.status === 401) {
-          setError("You must be logged in to update your profile");
-        } else if (error.response.status === 404) {
-          setError("User not found");
+          setError(error.response.data.error || "Invalid input");
         } else {
-          setError("Failed to update profile: " + (error.response.data.error || "Unknown error"));
+          setError(error.response.data.error || "Server error");
         }
       } else if (error.request) {
         setError("No response from server. Please check your connection.");
       } else {
-        setError("Error updating profile: " + error.message);
+        setError("An unexpected error occurred");
       }
       
       setTimeout(() => setError(""), 5000);
