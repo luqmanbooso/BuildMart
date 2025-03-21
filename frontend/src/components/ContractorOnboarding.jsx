@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -200,6 +200,49 @@ const isSection3Valid = () => {
   return validateBio(formData.bio).valid;
 };
 
+// Add this useEffect near the top of your component:
+
+useEffect(() => {
+  // Check if user is a contractor with incomplete profile
+  const token = localStorage.getItem('token');
+  const profileComplete = localStorage.getItem('contractorProfileComplete');
+  
+  if (!token) {
+    navigate('/login');
+    return;
+  }
+  
+  try {
+    const decoded = jwtDecode(token);
+    if (decoded.role !== 'Service Provider') {
+      navigate('/');
+      return;
+    }
+    
+    if (profileComplete === 'true') {
+      // If they already completed the profile but somehow got back here
+      navigate('/auction');
+      return;
+    }
+    
+    // If they try to leave, warn them
+    const handleBeforeUnload = (e) => {
+      const message = 'You need to complete your profile setup before continuing. Are you sure you want to leave?';
+      e.returnValue = message;
+      return message;
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  } catch (error) {
+    console.error("Token validation error:", error);
+    navigate('/login');
+  }
+}, [navigate]);
+
 // Update the handleSubmit function to properly handle the token
 
 const handleSubmit = async (e) => {
@@ -248,8 +291,9 @@ const handleSubmit = async (e) => {
       userId
     });
 
+    localStorage.setItem('contractorProfileComplete', 'true');
     toast.success('Profile created successfully!');
-    navigate('/');
+    navigate('/auction'); // Or wherever contractors should go after onboarding
   } catch (error) {
     console.error('Error creating profile:', error);
     
