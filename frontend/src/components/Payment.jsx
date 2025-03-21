@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Calendar, Lock, CheckCircle, AlertCircle, X, DollarSign } from 'lucide-react';
 import { formatLKR } from '../utils/formatters';
+import { jwtDecode } from 'jwt-decode';
 
 const printStyles = `
   @media print {
@@ -29,7 +30,7 @@ const printStyles = `
 const COMMISSION_RATE = 0.10; // 10% commission
 
 // Add a new prop for payment context
-const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, context = 'customer' }) => {
+const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, context = 'customer', order = null, userData = null }) => {
   // State management
   const [activeCard, setActiveCard] = useState('visa');
   const [cardNumber, setCardNumber] = useState('');
@@ -173,34 +174,94 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
       setIsProcessing(true);
       
       try {
-        // Remove spaces from card number before sending to backend
+        // Remove spaces from card number
         const cleanCardNumber = cardNumber.replace(/\s+/g, '');
+        
+        // Use provided userData if available, otherwise extract from token
+        let currentUserData = userData;
+        if (!currentUserData) {
+          try {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            if (token) {
+              const decoded = jwtDecode(token);
+              currentUserData = {
+                id: decoded.userId || decoded.id || decoded._id,
+                email: decoded.email || '',
+                name: decoded.name || decoded.fullName || name,  // Use cardholderName as fallback
+                role: decoded.role || '',
+                userType: decoded.userType || '',
+              };
+            }
+          } catch (tokenError) {
+            console.error("Error decoding token:", tokenError);
+          }
+        }
+        
+        // Create payment payload
+        const paymentData = {
+          name,
+          cardNumber: cleanCardNumber,
+          expiry,
+          amount: totalAmount,
+          activeCard,
+          originalAmount,
+          commissionAmount,
+          commissionRate: context === 'milestone' ? COMMISSION_RATE : 0,
+          context,
+          user: currentUserData, // Include user data
+        };
+        
+        // Add order data if available
+        if (order) {
+          paymentData.order = order;
+        }
+        
+        // Add work/milestone data if available
+        if (window.workId) {
+          paymentData.workId = window.workId;
+        }
+        
+        if (window.milestoneId) {
+          paymentData.milestoneId = window.milestoneId;
+        }
+        
+        console.log("Sending payment data:", paymentData);
         
         const response = await fetch('http://localhost:5000/api/payments/process-payment', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token')}`
           },
-          body: JSON.stringify({
-            name,
-            cardNumber: cleanCardNumber,
-            expiry,
-            amount,
-            activeCard
-          })
+          body: JSON.stringify(paymentData)
         });
 
         const data = await response.json();
+        
+        console.log("Payment response:", data);
 
         if (data.success) {
-          setInvoiceData(data.payment);
+          setInvoiceData({
+            ...data.payment,
+            originalAmount,
+            commissionAmount,
+            totalAmount,
+            userData
+          });
           setIsComplete(true);
           showNotificationMessage('success', 'Payment processed successfully!');
-          onSuccess && onSuccess(data.payment);
+          onSuccess && onSuccess({
+            ...data.payment,
+            originalAmount,
+            commissionAmount,
+            totalAmount,
+            userData
+          });
         } else {
-          throw new Error(data.message);
+          throw new Error(data.message || 'Payment processing failed');
         }
       } catch (error) {
+        console.error("Payment error:", error);
         showNotificationMessage('error', error.message || 'Payment processing failed');
       } finally {
         setIsProcessing(false);
@@ -267,6 +328,38 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
       }
     }
   }, [initialAmount, context]);
+
+  // Extract user data from token when component mounts
+  useEffect(() => {
+    const extractUserData = () => {
+      try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (token) {
+          const decoded = jwtDecode(token);
+          console.log("Token decoded successfully:", decoded);
+          
+          // Extract all available user data
+          const userData = {
+            id: decoded.userId || decoded.id || decoded._id,
+            email: decoded.email,
+            name: decoded.name || decoded.fullName,
+            role: decoded.role,
+            userType: decoded.userType,
+            // Add any other fields that might be in the token
+            ...decoded
+          };
+          
+          setUserData(userData);
+          return userData;
+        }
+      } catch (error) {
+        console.error('Error extracting user data from token:', error);
+      }
+      return null;
+    };
+    
+    extractUserData();
+  }, []);
 
   // Card logo components
   const CardLogo = ({ type }) => {
@@ -353,9 +446,15 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                   Customer Information
                 </h4>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="font-medium text-gray-800">{name}</p>
+                  <p className="font-medium text-gray-800">{userData?.name || name}</p>
                   <p className="text-gray-500 mt-1">Card ending in ****{cardNumber.slice(-4)}</p>
                   <p className="text-gray-500">Transaction ID: {Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
+                  {userData?.email && (
+                    <p className="text-gray-500">Email: {userData.email}</p>
+                  )}
+                  {userData?.role && (
+                    <p className="text-gray-500">Account Type: {userData.role}</p>
+                  )}
                 </div>
               </div>
 

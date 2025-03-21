@@ -37,7 +37,7 @@ function Ongoingworks() {
       setNotification({
         show: false,
         type: '',
-        message: ''
+        message
       });
     }, 3000);
   };
@@ -241,41 +241,7 @@ function Ongoingworks() {
   };
 
   // Update the handlePaymentSuccess function
-const handlePaymentSuccess = async (paymentData) => {
-  try {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const work = ongoingWorks.find(w => w.id === activeWorkId);
-    const milestoneIndex = work.milestones.findIndex(m => m.id === selectedMilestone.id);
-
-    // Calculate the total amount (milestone + commission)
-    const milestoneAmount = parseFloat(selectedMilestone.amount);
-    const totalAmount = parseFloat(paymentData.amount);
-    
-    // Update milestone status with the actual paid amount (including commission)
-    await axios.patch(
-      `http://localhost:5000/api/ongoingworks/${activeWorkId}/milestone/${milestoneIndex}`,
-      {
-        status: 'Completed',
-        actualAmountPaid: totalAmount,
-        completedAt: new Date()
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    );
-
-    // Refresh data
-    fetchOngoingWorks();
-    setShowPaymentModal(false);
-    setSelectedMilestone(null);
-    showNotificationMessage('success', 'Payment completed successfully!');
-  } catch (err) {
-    console.error('Error updating milestone status:', err);
-    showNotificationMessage('error', 'Failed to update milestone status');
-  }
-};
+// Removed duplicate declaration of handlePaymentSuccess
 
   // Handle verification of milestone completion
   const handleVerifyCompletion = async (workId, milestoneId) => {
@@ -392,36 +358,150 @@ const handlePaymentSuccess = async (paymentData) => {
     );
   }
 
-  // Add this component before the main return statement
-  const PaymentModal = ({ milestone, onClose, onSuccess }) => {
-    // The total amount to pay will be the original amount plus commission
-    const paymentAmount = milestone.totalAmount || parseFloat(milestone.amount);
-    
-    return (
-      <div className="fixed inset-0 z-50 overflow-y-auto">
-        <div className="fixed inset-0 bg-black opacity-50"></div>
-        <div className="relative min-h-screen flex items-center justify-center p-4">
-          <div className="relative bg-white rounded-lg w-full max-w-4xl">
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-            >
-              <X size={24} />
-            </button>
-            <EnhancedPaymentGateway
-              amount={paymentAmount.toString()}
-              onSuccess={(paymentData) => {
-                onSuccess(paymentData);
-                onClose();
-              }}
-              onCancel={onClose}
-              context="milestone" // This tells the payment component to apply commission
-            />
-          </div>
+  // Add function to get user data
+const getUserDataFromToken = () => {
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token) {
+      const decoded = jwtDecode(token);
+      return {
+        id: decoded.userId || decoded.id || decoded._id,
+        email: decoded.email,
+        name: decoded.name || decoded.fullName,
+        role: decoded.role,
+        userType: decoded.userType,
+        ...decoded
+      };
+    }
+  } catch (error) {
+    console.error('Error extracting user data from token:', error);
+  }
+  return null;
+};
+
+// Update the PaymentModal component
+const PaymentModal = ({ milestone, onClose, onSuccess }) => {
+  // Calculate these values if they don't exist
+  const milestoneAmount = parseFloat(milestone.amount || 0);
+  const commissionAmount = milestone.commissionAmount || (milestoneAmount * COMMISSION_RATE);
+  const totalAmount = milestone.totalAmount || (milestoneAmount + commissionAmount);
+  
+  // Get the user data
+  const userData = getUserDataFromToken();
+  
+  // Set milestone and user data in window for Payment component
+  window.workId = activeWorkId;
+  window.milestoneId = milestone.id;
+  
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="fixed inset-0 bg-black opacity-50"></div>
+      <div className="relative min-h-screen flex items-center justify-center p-4">
+        <div className="relative bg-white rounded-lg w-full max-w-4xl">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+          >
+            <X size={24} />
+          </button>
+          <EnhancedPaymentGateway
+            amount={totalAmount.toString()}
+            originalAmount={milestoneAmount}
+            commissionAmount={commissionAmount}
+            onSuccess={(paymentData) => {
+              // Add all user data to payment result
+              const enhancedPaymentData = {
+                ...paymentData,
+                workId: activeWorkId,
+                milestoneId: milestone.id,
+                userData: userData
+              };
+              
+              onSuccess(enhancedPaymentData);
+              onClose();
+            }}
+            onCancel={onClose}
+            context="milestone"
+          />
         </div>
       </div>
+    </div>
+  );
+};
+
+// Update the handlePaymentSuccess function 
+const handlePaymentSuccess = async (paymentData) => {
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    // Validate that we have all required data
+    if (!activeWorkId) {
+      throw new Error('Missing work ID');
+    }
+    
+    if (!selectedMilestone || !selectedMilestone.id) {
+      throw new Error('Missing milestone details');
+    }
+    
+    const work = ongoingWorks.find(w => w.id === activeWorkId);
+    if (!work) {
+      throw new Error('Work not found: ' + activeWorkId);
+    }
+    
+    const milestoneIndex = work.milestones.findIndex(m => m.id === selectedMilestone.id);
+    if (milestoneIndex === -1) {
+      throw new Error('Milestone not found in work');
+    }
+    
+    // Ensure we have valid amounts
+    const originalAmount = paymentData.originalAmount || parseFloat(selectedMilestone.amount);
+    const commissionAmount = paymentData.commissionAmount || (originalAmount * COMMISSION_RATE);
+    const totalAmount = paymentData.amount || (originalAmount + commissionAmount);
+    
+    // Get user data either from payment or from token
+    const userData = paymentData.userData || getUserDataFromToken();
+    
+    console.log('Payment success data:', {
+      workId: activeWorkId,
+      milestoneId: selectedMilestone.id,
+      milestoneIndex,
+      originalAmount,
+      commissionAmount,
+      totalAmount,
+      userData
+    });
+
+    // Send all payment details to the backend
+    await axios.patch(
+      `http://localhost:5000/api/ongoingworks/${activeWorkId}/milestone/${milestoneIndex}`,
+      {
+        status: 'Completed',
+        actualAmountPaid: totalAmount, // Total amount paid
+        originalAmount: originalAmount, // Original milestone amount
+        commissionAmount: commissionAmount, // Commission amount
+        commissionRate: COMMISSION_RATE,
+        completedAt: new Date(),
+        paymentId: paymentData.id, // Payment reference
+        userId: userData?.id, // User ID who made the payment
+        userData: userData // All user data from token
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
     );
-  };
+
+    // Refresh data
+    fetchOngoingWorks();
+    setShowPaymentModal(false);
+    setSelectedMilestone(null);
+    showNotificationMessage('success', 'Payment completed successfully!');
+  } catch (err) {
+    console.error('Error updating milestone status:', err);
+    showNotificationMessage('error', 'Failed to update milestone status: ' + err.message);
+  }
+};
 
   // Rest of your component remains unchanged...
   return (

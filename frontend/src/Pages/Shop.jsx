@@ -407,9 +407,33 @@ const Shop = () => {
       });
   };
 
+  // Add this function to extract user data from token
+  const getUserDataFromToken = () => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (token) {
+        const decoded = jwtDecode(token);
+        return {
+          id: decoded.userId || decoded.id || decoded._id,
+          email: decoded.email,
+          name: decoded.name || decoded.fullName,
+          role: decoded.role,
+          userType: decoded.userType,
+          ...decoded
+        };
+      }
+    } catch (error) {
+      console.error('Error extracting user data from token:', error);
+    }
+    return null;
+  };
+
   // Update submitOrder to include shipping details
   const submitOrder = async (items, paymentDetails, total, shippingDetails) => {
     try {
+      // Get user data from token
+      const userData = getUserDataFromToken();
+      
       // Format order items for the backend
       const orderItems = items.map(item => ({
         productId: item.id,
@@ -433,7 +457,7 @@ const Shop = () => {
         customer: {
           name: shippingDetails.fullName,
           email: shippingDetails.email,
-          // You can add userId here if the user is logged in
+          userId: userData?.id // Add user ID from token
         },
         shippingAddress: {
           address: shippingDetails.address,
@@ -441,12 +465,18 @@ const Shop = () => {
           postalCode: shippingDetails.postalCode,
           phone: shippingDetails.phone,
           notes: shippingDetails.notes
-        }
+        },
+        // Include the full user data from token
+        userData: userData
       };
       
       // Send order to backend
-      console.log('Submitting order data:', orderData);
-      const response = await axios.post('http://localhost:5000/api/orders', orderData);
+      console.log('Submitting order data with user details:', orderData);
+      const response = await axios.post('http://localhost:5000/api/orders', orderData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token')}`
+        }
+      });
       
       console.log('Order submission response:', response.data);
       
@@ -896,13 +926,25 @@ const Shop = () => {
             </button>
             <EnhancedPaymentGateway
               amount={checkoutAmount.toString()}
-              onSuccess={() => {
-                setIsCheckingOut(false);
-                setCartItems([]);
-                // You might want to show a success message here
+              onSuccess={(paymentData) => {
+                handleCheckoutComplete(
+                  checkoutAmount, 
+                  paymentData, 
+                  cartItems, 
+                  paymentData.shippingDetails || {}
+                );
               }}
               onCancel={() => {
                 setIsCheckingOut(false);
+              }}
+              // Pass order details
+              order={{
+                items: cartItems.map(item => ({
+                  productId: item.id,
+                  name: item.name,
+                  quantity: 1,
+                  price: item.price
+                }))
               }}
             />
           </div>

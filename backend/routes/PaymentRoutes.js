@@ -2,91 +2,141 @@
 const express = require('express');
 const router = express.Router();
 const Payment = require('../models/Payment');  // Import your payment model
+const jwt = require('jsonwebtoken');
 
-// Process Payment Route
-router.post('/process-payment', async (req, res) => {
+// Add this middleware to extract user data from token
+const extractUserFromToken = (req, res, next) => {
   try {
+    const authHeader = req.headers.authorization;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      
+      // Add user data to request
+      req.userData = {
+        id: decoded.userId || decoded.id || decoded._id,
+        email: decoded.email,
+        name: decoded.name || decoded.fullName,
+        role: decoded.role,
+        userType: decoded.userType,
+        ...decoded // Include any other fields from token
+      };
+    }
+    next();
+  } catch (error) {
+    console.error('Error extracting user data from token:', error);
+    // Continue without user data
+    next();
+  }
+};
+
+// Use the middleware
+router.post('/process-payment', extractUserFromToken, async (req, res) => {
+  try {
+    // Extract payment details from request body
     const {
       name: cardholderName,
       cardNumber,
       expiry,
       amount,
-      activeCard
+      activeCard,
+      // Additional fields
+      originalAmount,
+      commissionAmount,
+      commissionRate,
+      context,
+      order,
+      workId,
+      milestoneId,
+      user: requestUser
     } = req.body;
 
-    // Validate required fields
+    // Get user data either from request body or from token
+    const userData = requestUser || req.userData || null;
+    
+    console.log('Processing payment with user data:', userData);
+
+    // Basic validation
     if (!cardholderName || !cardNumber || !expiry || !amount || !activeCard) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields'
+        message: 'Missing required payment fields'
       });
     }
 
-    // Validate card number format (12 to 19 digits)
-    const cardNumberPattern = /^[0-9]{12,19}$/;
-    if (!cardNumberPattern.test(cardNumber)) {
+    // Validate card number - simple length check
+    if (cardNumber.length < 12 || cardNumber.length > 19) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid card number format'
+        message: 'Invalid card number'
       });
     }
 
-    // Validate expiry date (MM/YY) and check if it's expired
-    const [month, year] = expiry.split('/').map(num => parseInt(num, 10));
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear() % 100;
-    const currentMonth = currentDate.getMonth() + 1;
-    const expiryYear = 2000 + year; // convert to full year (e.g., 2023 from 23)
-
-    if (!month || !year || month < 1 || month > 12 || expiryYear < currentDate.getFullYear() || (expiryYear === currentDate.getFullYear() && month < currentMonth)) {
+    // Validate expiry - simple format check (MM/YY)
+    if (!/^\d{2}\/\d{2}$/.test(expiry)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired card date'
+        message: 'Invalid expiry date format (MM/YY)'
       });
     }
 
-    // Validate amount (Must be positive)
-    if (amount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid payment amount'
-      });
-    }
-
-    // Validate card type
-    const validCardTypes = ['visa', 'mastercard', 'amex', 'discover'];
-    if (!validCardTypes.includes(activeCard.toLowerCase())) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid card type'
-      });
-    }
-
-    // Extract last 4 digits
+    // Extract last 4 digits of card
     const lastFourDigits = cardNumber.slice(-4);
 
-    // Create new payment record
+    // Create user object from available data
+    const userObject = userData ? {
+      userId: userData.id || userData.userId || null,
+      email: userData.email || null,
+      name: userData.name || cardholderName,
+      role: userData.role || null,
+      userType: userData.userType || null
+    } : null;
+
+    // Create payment record
     const payment = new Payment({
       cardholderName,
       cardType: activeCard.toLowerCase(),
       lastFourDigits,
       expiryDate: expiry,
       amount: parseFloat(amount),
-      status: 'completed'
+      originalAmount: originalAmount ? parseFloat(originalAmount) : parseFloat(amount),
+      commissionAmount: commissionAmount ? parseFloat(commissionAmount) : 0,
+      commissionRate: commissionRate || 0,
+      status: 'completed',
+      paymentType: context || 'other',
+      user: userObject,
+      workId: workId || null,
+      milestoneId: milestoneId || null,
+      order: order ? {
+        orderId: order.orderId || `ORDER-${Date.now()}`,
+        items: order.items || [],
+        shippingDetails: order.shippingDetails || {}
+      } : null
     });
 
     await payment.save();
+    console.log('Payment saved successfully:', payment._id);
 
+    // Return response
     res.status(200).json({
       success: true,
       message: 'Payment processed successfully',
       payment: {
         id: payment._id,
         amount: payment.amount,
-        status: payment.status
+        originalAmount: payment.originalAmount,
+        commissionAmount: payment.commissionAmount,
+        commissionRate: payment.commissionRate,
+        status: payment.status,
+        context: context,
+        cardType: payment.cardType,
+        lastFourDigits,
+        cardholderName,
+        user: userObject,
+        timestamp: new Date()
       }
     });
-
   } catch (error) {
     console.error('Payment processing error:', error);
     res.status(500).json({
