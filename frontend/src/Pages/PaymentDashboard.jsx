@@ -1002,6 +1002,158 @@ function PaymentDashboard() {
     </div>
   );
 
+  const renderIncomePanel = () => {
+    // Calculate monthly sales data
+    const getMonthlyInventorySales = () => {
+      return itemsPayments.reduce((acc, payment) => {
+        const date = new Date(payment.date);
+        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!acc[monthYear]) {
+          acc[monthYear] = {
+            month: date.toLocaleString('default', { month: 'long' }),
+            year: date.getFullYear(),
+            totalSales: 0,
+            transactionCount: 0
+          };
+        }
+        
+        acc[monthYear].totalSales += parseFloat(payment.amount.replace(/[^0-9.-]+/g, ""));
+        acc[monthYear].transactionCount += 1;
+        
+        return acc;
+      }, {});
+    };
+  
+    const monthlyData = Object.entries(getMonthlyInventorySales())
+      .sort(([a], [b]) => b.localeCompare(a)) // Sort by date descending
+      .map(([key, data]) => ({
+        ...data,
+        monthYear: key,
+        averageTransaction: data.totalSales / data.transactionCount
+      }));
+  
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold mb-6">Income Overview</h2>
+          
+          {/* Income Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Total Inventory Sales */}
+            <div className="bg-green-50 p-6 rounded-xl">
+              <p className="text-sm font-medium text-green-600">Inventory Sales Income</p>
+              <p className="text-2xl font-bold text-green-700">
+                Rs. {paymentStats.inventorySalesTotal.toLocaleString()}
+              </p>
+              <div className="mt-2 flex items-center text-sm">
+                <ArrowUpRight className="text-green-500 mr-1" size={16} />
+                <span className="text-green-600">+12.5% from last month</span>
+              </div>
+            </div>
+  
+            {/* Other Income Sources */}
+            <div className="bg-blue-50 p-6 rounded-xl">
+              <p className="text-sm font-medium text-blue-600">Service Provider Income</p>
+              <p className="text-2xl font-bold text-blue-700">
+                Rs. {paymentStats.totalAmount.toLocaleString()}
+              </p>
+              <div className="mt-2 flex items-center text-sm">
+                <ArrowUpRight className="text-blue-500 mr-1" size={16} />
+                <span className="text-blue-600">+8.3% from last month</span>
+              </div>
+            </div>
+  
+            {/* Total Income */}
+            <div className="bg-indigo-50 p-6 rounded-xl">
+              <p className="text-sm font-medium text-indigo-600">Total Income</p>
+              <p className="text-2xl font-bold text-indigo-700">
+                Rs. {(paymentStats.inventorySalesTotal + paymentStats.totalAmount).toLocaleString()}
+              </p>
+              <div className="mt-2 flex items-center text-sm">
+                <ArrowUpRight className="text-indigo-500 mr-1" size={16} />
+                <span className="text-indigo-600">+10.4% from last month</span>
+              </div>
+            </div>
+          </div>
+  
+          {/* Monthly Inventory Sales Table */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold mb-4">Monthly Inventory Sales</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Month/Year
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Sales
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Transaction Count
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Average Transaction
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Growth
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {monthlyData.map((month, index) => {
+                    const prevMonth = monthlyData[index + 1];
+                    const growth = prevMonth 
+                      ? ((month.totalSales - prevMonth.totalSales) / prevMonth.totalSales) * 100 
+                      : 0;
+  
+                    return (
+                      <tr key={month.monthYear} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {month.month} {month.year}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            Rs. {month.totalSales.toLocaleString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {month.transactionCount.toLocaleString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            Rs. {month.averageTransaction.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className={`inline-flex items-center text-sm font-medium ${
+                            growth > 0 ? 'text-green-600' : growth < 0 ? 'text-red-600' : 'text-gray-600'
+                          }`}>
+                            {growth > 0 ? <ArrowUpRight size={16} className="mr-1" /> : 
+                             growth < 0 ? <ArrowDownRight size={16} className="mr-1" /> : null}
+                            {growth.toFixed(1)}%
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
   // Modify your existing renderPageContent function's Dashboard case
   const renderPageContent = () => {
     switch (activePage) {
@@ -1194,19 +1346,7 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Inventory Sales Records</h2>
                 <div className="flex space-x-2">
-                  <button 
-                    onClick={fetchPayments}
-                    disabled={loading}
-                    className={`inline-flex items-center px-3 py-1.5 ${
-                      loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-50 hover:bg-blue-100'
-                    } text-blue-700 rounded-lg transition`}
-                  >
-                    {loading ? <Loader size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                  </button>
-                  <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
-                    <Plus size={16} className="mr-2" />
-                    New Sale
-                  </button>
+                
                 </div>
               </div>
               {renderPaymentTable(itemsPayments)}
@@ -1222,41 +1362,11 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Admin Monthly Salaries</h2>
                 <div className="flex space-x-2">
-                  <button 
-                    onClick={fetchAdminSalaries}
-                    className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100"
-                  >
-                    <RefreshCw size={16} className="mr-2" />
-                    Refresh
-                  </button>
-                  <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg">
-                    <Plus size={16} className="mr-2" />
-                    Process Payments
-                  </button>
+                
                 </div>
               </div>
 
-              {/* Salary Statistics - keep existing code */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <p className="text-sm text-blue-600 font-medium">Total Monthly Salaries</p>
-                  <p className="text-2xl font-bold text-blue-700">
-                    Rs. {(totalSalaryPaid + totalSalaryPending).toLocaleString()}
-                  </p>
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <p className="text-sm text-green-600 font-medium">Paid This Month</p>
-                  <p className="text-2xl font-bold text-green-700">
-                    Rs. {totalSalaryPaid.toLocaleString()}
-                  </p>
-                </div>
-                <div className="bg-yellow-50 p-4 rounded-lg">
-                  <p className="text-sm text-yellow-600 font-medium">Pending Payments</p>
-                  <p className="text-2xl font-bold text-yellow-700">
-                    Rs. {totalSalaryPending.toLocaleString()}
-                  </p>
-                </div>
-              </div>
+              
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-blue-50 p-4 rounded-lg">
@@ -1495,6 +1605,8 @@ function PaymentDashboard() {
             )}
           </div>
         );
+      case 'Incomes':
+        return renderIncomePanel();
       default:
         return null;
     }
