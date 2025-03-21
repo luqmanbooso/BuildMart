@@ -23,42 +23,21 @@ import axios from 'axios';
 
 
 const categoryColors = {
-  "Building Materials": "bg-blue-100 text-blue-800",
-  "Hardware": "bg-green-100 text-green-800",
-  "Tools": "bg-purple-100 text-purple-800",
-  "Plumbing": "bg-orange-100 text-orange-800",
-  "Electrical": "bg-yellow-100 text-yellow-800",
-  "Paint & Supplies": "bg-pink-100 text-pink-800",
-  "Flooring": "bg-indigo-100 text-indigo-800",
-  "Doors & Windows": "bg-teal-100 text-teal-800",
-  "Safety Equipment": "bg-red-100 text-red-800",
-  "Landscaping": "bg-lime-100 text-lime-800",
-  "Roofing": "bg-amber-100 text-amber-800",
-  "HVAC": "bg-cyan-100 text-cyan-800",
-  "Fasteners": "bg-slate-100 text-slate-800",
-  "Adhesives & Sealants": "bg-violet-100 text-violet-800",
-  "Cleaning Supplies": "bg-sky-100 text-sky-800",
-  "Other": "bg-gray-100 text-gray-800"
+  "Safety Gear & Accessories": "bg-blue-100 text-blue-800",
+  "Tools & Equipment": "bg-green-100 text-green-800",
+  "Construction Materials": "bg-purple-100 text-purple-800",
+  "Safety Gear & Accessories": "bg-orange-100 text-orange-800",
+  "Plumbing & Electrical Supplies": "bg-yellow-100 text-yellow-800",
+  
 };
 
 // Predefined categories for construction materials
 const predefinedCategories = [
-  "Building Materials",
-  "Hardware",
-  "Tools", 
-  "Plumbing",
-  "Electrical",
-  "Paint & Supplies",
-  "Flooring",
-  "Doors & Windows",
-  "Safety Equipment",
-  "Landscaping",
-  "Roofing",
-  "HVAC",
-  "Fasteners",
-  "Adhesives & Sealants",
-  "Cleaning Supplies",
-  "Other"
+  "Safety Gear & Accessories",
+  "Tools & Equipment",
+  "Construction Materials", 
+  "Safety Gear & Accessories",
+  "Plumbing & Electrical Supplies",
 ];
 
 // Add initialInventory before the component declaration

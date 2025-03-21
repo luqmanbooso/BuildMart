@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const RestockRequestSchema = new mongoose.Schema({
+const restockRequestSchema = new mongoose.Schema({
   productId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product',
@@ -10,18 +10,9 @@ const RestockRequestSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  productSku: {
-    type: String,
-    required: true
-  },
-  currentStock: {
-    type: Number,
-    required: true
-  },
-  threshold: {
-    type: Number,
-    required: true
-  },
+  sku: String,
+  currentStock: Number,
+  threshold: Number,
   quantity: {
     type: Number,
     required: true,
@@ -32,24 +23,44 @@ const RestockRequestSchema = new mongoose.Schema({
     enum: ['low', 'medium', 'high', 'urgent'],
     default: 'medium'
   },
-  notes: {
-    type: String
+  supplierId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Supplier'
   },
+  supplierName: String,
   status: {
     type: String,
-    enum: ['pending', 'approved', 'ordered', 'received', 'declined'],
+    enum: ['requested', 'approved', 'ordered', 'shipped', 'delivered', 'cancelled'],
+    default: 'requested'
+  },
+  notes: String,
+  orderDate: Date,
+  deliveryDate: Date,
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'rejected'],
     default: 'pending'
   },
-  requestDate: {
+  paymentDetails: {
+    method: String,
+    amount: Number,
+    transactionId: String,
+    paidDate: Date
+  },
+  createdAt: {
     type: Date,
     default: Date.now
   },
-  approvalDate: {
-    type: Date
-  },
-  approvedBy: {
-    type: String
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
 });
 
-module.exports = mongoose.model('RestockRequest', RestockRequestSchema);
+// Update the 'updatedAt' field on save
+restockRequestSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+module.exports = mongoose.model('RestockRequest', restockRequestSchema);

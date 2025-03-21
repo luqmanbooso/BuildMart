@@ -24,16 +24,10 @@ const getImageUrl = (imagePath) => {
 
 // Category colors for visual consistency
 const categoryColors = {
-  "Building Materials": "bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800 border border-blue-200",
-  "Hardware": "bg-gradient-to-r from-green-50 to-green-100 text-green-800 border border-green-200",
-  "Tools": "bg-gradient-to-r from-purple-50 to-purple-100 text-purple-800 border border-purple-200",
-  "Plumbing": "bg-gradient-to-r from-orange-50 to-orange-100 text-orange-800 border border-orange-200",
-  "Electrical": "bg-gradient-to-r from-yellow-50 to-yellow-100 text-yellow-800 border border-yellow-200",
-  "Paint & Supplies": "bg-gradient-to-r from-pink-50 to-pink-100 text-pink-800 border border-pink-200",
-  "Flooring": "bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-800 border border-indigo-200",
-  "Doors & Windows": "bg-gradient-to-r from-teal-50 to-teal-100 text-teal-800 border border-teal-200",
-  "Safety Equipment": "bg-gradient-to-r from-red-50 to-red-100 text-red-800 border border-red-200",
-  "Landscaping": "bg-gradient-to-r from-lime-50 to-lime-100 text-lime-800 border border-lime-200",
+  "Construction Materials": "bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800 border border-blue-200",
+  "Tools & Equipment": "bg-gradient-to-r from-green-50 to-green-100 text-green-800 border border-green-200", 
+  "Safety Gear & Accessories": "bg-gradient-to-r from-purple-50 to-purple-100 text-purple-800 border border-purple-200",
+  "Plumbing & Electrical Supplies": "bg-gradient-to-r from-orange-50 to-orange-100 text-orange-800 border border-orange-200",
   "Other": "bg-gradient-to-r from-gray-50 to-gray-100 text-gray-800 border border-gray-200"
 };
 
@@ -339,7 +333,7 @@ const Shop = () => {
     });
   };
 
-  const categories = ["All", "Building Materials", "Hardware", "Tools", "Plumbing", "Electrical", "Paint & Supplies", "Flooring", "Doors & Windows", "Safety Equipment", "Landscaping", "Other"];
+  const categories = ["All", "Construction Materials", "Tools & Equipment", "Safety Gear & Accessories", "Plumbing & Electrical Supplies"];
 
   const FeaturedCarousel = () => {
     const [currentIndex, setCurrentIndex] = useState(0);

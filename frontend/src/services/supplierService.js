@@ -25,6 +25,10 @@ export const supplierService = {
   
   updateSupplier: async (id, supplierData) => {
     try {
+      // Check if ID is valid before making the request
+      if (!id) {
+        throw new Error('Invalid supplier ID');
+      }
       const response = await axios.put(`${API_URL}/suppliers/${id}`, supplierData);
       return response.data;
     } catch (error) {
@@ -35,6 +39,10 @@ export const supplierService = {
   
   deleteSupplier: async (id) => {
     try {
+      // Check if ID is valid before making the request
+      if (!id) {
+        throw new Error('Invalid supplier ID');
+      }
       const response = await axios.delete(`${API_URL}/suppliers/${id}`);
       return response.data;
     } catch (error) {
