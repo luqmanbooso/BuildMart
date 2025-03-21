@@ -119,4 +119,26 @@ router.patch('/:id/payment', async (req, res) => {
   }
 });
 
+// Add this new route after your existing routes
+
+// Get all possible restock request status types
+router.get('/status-types', async (req, res) => {
+  try {
+    // Get the status enum values directly from the mongoose schema
+    const statusEnum = RestockRequest.schema.path('status').enumValues;
+    
+    // Return the array of possible status values
+    res.json({
+      statusTypes: statusEnum,
+      // Also include priority types for convenience
+      priorityTypes: RestockRequest.schema.path('priority').enumValues,
+      // Include payment status types
+      paymentStatusTypes: RestockRequest.schema.path('paymentStatus').enumValues
+    });
+  } catch (err) {
+    console.error('Error fetching status types:', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;

@@ -297,6 +297,8 @@ function Supply_LogisticDashboard() {
   const [restockError, setRestockError] = useState(null);
   const [showRestockPaymentModal, setShowRestockPaymentModal] = useState(false);
   const [selectedRestockRequest, setSelectedRestockRequest] = useState(null);
+  const [statusOptions, setStatusOptions] = useState({});
+  const [statusTypesLoading, setStatusTypesLoading] = useState(true);
 
   // Fetch inventory data from the API
   useEffect(() => {
@@ -531,6 +533,65 @@ function Supply_LogisticDashboard() {
     };
 
     fetchRestockRequests();
+  }, []);
+
+  // Fetch status types when component mounts
+  useEffect(() => {
+    const fetchStatusTypes = async () => {
+      try {
+        setStatusTypesLoading(true);
+        // Make API call to get status types
+        const response = await axios.get('http://localhost:5000/api/restock/status-types');
+        
+        console.log("Available status types from API:", response.data);
+        
+        // Create status transitions based on available types
+        const statusTypes = response.data.statusTypes;
+        const dynamicStatusTransitions = {};
+        
+        // For each status, define possible next statuses
+        statusTypes.forEach((status, index) => {
+          if (status === 'delivered' || status === 'cancelled') {
+            // Terminal statuses have no transitions
+            dynamicStatusTransitions[status] = [];
+          } else if (index < statusTypes.length - 1) {
+            // Can move to next status or be cancelled
+            dynamicStatusTransitions[status] = ['cancelled', statusTypes[index + 1]];
+          } else {
+            // Last non-terminal status can only be cancelled
+            dynamicStatusTransitions[status] = ['cancelled'];
+          }
+        });
+        
+        // Add special case for Pending
+        if (!dynamicStatusTransitions['Pending'] && statusTypes.includes('Processing')) {
+          dynamicStatusTransitions['Pending'] = ['Processing', 'Cancelled'];
+        }
+        
+        setStatusOptions(dynamicStatusTransitions);
+        setStatusTypesLoading(false);
+        
+        console.log("Dynamic status transitions:", dynamicStatusTransitions);
+      } catch (error) {
+        console.error("Error fetching status types:", error);
+        // Fallback to hardcoded values on error
+        setStatusOptions({
+          Pending: ["Processing", "Cancelled"],
+          Processing: ["Preparing", "Cancelled"],
+          Preparing: ["Loading", "Cancelled"],
+          Loading: ["In Transit", "Cancelled"],
+          "In Transit": ["Out for Delivery", "Delayed"],
+          "Out for Delivery": ["Delivered", "Failed Delivery"],
+          Delayed: ["In Transit", "Cancelled"],
+          "Failed Delivery": ["Processing", "Cancelled"],
+          Delivered: [],
+          Cancelled: ["Processing"]
+        });
+        setStatusTypesLoading(false);
+      }
+    };
+
+    fetchStatusTypes();
   }, []);
 
   // Map backend order status to frontend display status
@@ -1272,6 +1333,7 @@ function Supply_LogisticDashboard() {
 
     // Define the possible status transitions for each status
     const statusTransitions = {
+      Pending: ["Processing", "Cancelled"],
       Preparing: ["Loading", "In Transit", "Cancelled"],
       Loading: ["In Transit", "Delayed", "Cancelled"],
       "In Transit": ["Out for Delivery", "Delayed", "Failed Delivery"],
@@ -1363,7 +1425,7 @@ function Supply_LogisticDashboard() {
 
             {/* Status update dropdown */}
             <div className="mt-4 flex justify-end">
-              {statusTransitions[shipment.status]?.length > 0 && (
+              {!statusTypesLoading && statusOptions[shipment.status]?.length > 0 && (
                 <div className="relative inline-block text-left">
                   <select
                     className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -1372,16 +1434,16 @@ function Supply_LogisticDashboard() {
                         updateShipmentStatus(
                           shipment.id,
                           e.target.value,
-                          statusProgress[e.target.value]
+                          statusProgress[e.target.value] || 50 // Fallback progress if not defined
                         );
                       }
                     }}
                     defaultValue=""
                   >
                     <option value="" disabled>
-                      Update status...
+                      {statusTypesLoading ? "Loading..." : "Update status..."}
                     </option>
-                    {statusTransitions[shipment.status].map((status) => (
+                    {statusOptions[shipment.status]?.map((status) => (
                       <option key={status} value={status}>
                         {status}
                       </option>
