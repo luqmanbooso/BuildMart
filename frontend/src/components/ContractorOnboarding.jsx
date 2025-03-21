@@ -14,7 +14,7 @@ const ContractorProfileSetup = () => {
   
   const [formData, setFormData] = useState({
     phone: '',
-    address: '',
+    address: '', // This will now hold the selected district
     companyName: '',
     specialization: [],
     experienceYears: 0,
@@ -23,23 +23,18 @@ const ContractorProfileSetup = () => {
   });
 
   const SPECIALIZATIONS = [
-    'General Construction', 'Electrical', 'Plumbing', 'HVAC',
+    'Electrical', 'Plumbing',
     'Roofing', 'Carpentry', 'Masonry', 'Painting',
-    'Flooring', 'Landscaping', 'Interior Design', 'Demolition',
-    'Concrete Work', 'Steel Work', 'Glass & Windows',
-    'Kitchen Remodeling', 'Bathroom Remodeling'
+    'Flooring', 'Landscaping', 'Interior Design',
+
   ];
 
-  const SRI_LANKA_PROVINCES = [
-    'Western Province',
-    'Central Province',
-    'Southern Province',
-    'Northern Province',
-    'Eastern Province',
-    'North Western Province',
-    'North Central Province',
-    'Uva Province',
-    'Sabaragamuwa Province'
+  const SRI_LANKA_DISTRICTS = [
+    'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 
+    'Galle', 'Gampaha', 'Hambantota', 'Jaffna', 'Kalutara',
+    'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala', 'Mannar', 
+    'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya',
+    'Polonnaruwa', 'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
   ];
 
   const sections = [
@@ -95,13 +90,7 @@ const validatePhone = (phone) => {
 };
 
 const validateAddress = (address) => {
-  if (!address) return { valid: false, message: 'Address is required' };
-  if (address.trim().length < 5) {
-    return { 
-      valid: false, 
-      message: 'Please enter a complete address' 
-    };
-  }
+  if (!address) return { valid: false, message: 'Please select a district' };
   return { valid: true, message: '' };
 };
 
@@ -139,8 +128,8 @@ const validateBio = (bio) => {
     }
   
     // Address validation - minimum length
-    if (!formData.address || formData.address.trim().length < 5) {
-      toast.error('Please enter a complete address (at least 5 characters)');
+    if (!formData.address) {
+      toast.error('Please select a district');
       setActiveSection(0);
       return false;
     }
@@ -188,6 +177,28 @@ const validateBio = (bio) => {
   
     return true;
   };
+
+// Add these validation functions near your other validation functions
+
+// Section validation functions
+const isSection0Valid = () => {
+  return validatePhone(formData.phone).valid && formData.address !== '';
+};
+
+const isSection1Valid = () => {
+  // Company name is optional but if provided should be valid
+  const isCompanyNameValid = !formData.companyName || formData.companyName.trim().length >= 2;
+  // Experience and projects should not be negative
+  return isCompanyNameValid && formData.experienceYears >= 0 && formData.completedProjects >= 0;
+};
+
+const isSection2Valid = () => {
+  return formData.specialization.length > 0;
+};
+
+const isSection3Valid = () => {
+  return validateBio(formData.bio).valid;
+};
 
 // Update the handleSubmit function to properly handle the token
 
@@ -387,20 +398,25 @@ const handleSubmit = async (e) => {
 
                       <motion.div variants={itemVariants}>
                         <label htmlFor="address" className="block text-gray-700 font-medium mb-1">
-                          Address <span className="text-red-500">*</span>
+                          District <span className="text-red-500">*</span>
                         </label>
-                        <textarea
+                        <select
                           id="address"
                           name="address"
                           value={formData.address}
                           onChange={handleChange}
-                          rows="2"
                           className="w-full border border-gray-300 rounded-md px-4 py-2 
                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                             transition-all duration-200"
-                          placeholder="Your complete address"
                           required
-                        ></textarea>
+                        >
+                          <option value="">Select your district</option>
+                          {SRI_LANKA_DISTRICTS.map(district => (
+                            <option key={district} value={district}>
+                              {district}
+                            </option>
+                          ))}
+                        </select>
                         <motion.p 
                           className="text-xs text-gray-500 mt-1"
                           variants={itemVariants}
@@ -418,7 +434,12 @@ const handleSubmit = async (e) => {
                       <button 
                         type="button" 
                         onClick={() => setActiveSection(1)} 
-                        className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                        disabled={!isSection0Valid()}
+                        className={`flex items-center px-4 py-2 rounded-md transition-colors ${
+                          isSection0Valid()
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
                       >
                         Next <FaArrowRight className="ml-2" />
                       </button>
@@ -512,7 +533,12 @@ const handleSubmit = async (e) => {
                       <button 
                         type="button" 
                         onClick={() => setActiveSection(2)} 
-                        className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                        disabled={!isSection1Valid()}
+                        className={`flex items-center px-4 py-2 rounded-md transition-colors ${
+                          isSection1Valid()
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
                       >
                         Next <FaArrowRight className="ml-2" />
                       </button>
@@ -602,7 +628,12 @@ const handleSubmit = async (e) => {
                       <button 
                         type="button" 
                         onClick={() => setActiveSection(3)} 
-                        className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                        disabled={!isSection2Valid()}
+                        className={`flex items-center px-4 py-2 rounded-md transition-colors ${
+                          isSection2Valid()
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
                       >
                         Next <FaArrowRight className="ml-2" />
                       </button>
@@ -682,10 +713,13 @@ const handleSubmit = async (e) => {
                       </button>
                       <button 
                         type="submit"
-                        disabled={loading}
-                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-md font-medium 
-                          hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 
-                          transition-all duration-200 transform hover:scale-105 shadow-md"
+                        disabled={loading || !isSection3Valid()}
+                        className={`px-6 py-3 ${
+                          isSection3Valid() && !loading
+                            ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 transform hover:scale-105'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        } rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 
+                          transition-all duration-200 shadow-md`}
                       >
                         {loading ? (
                           <div className="flex items-center">

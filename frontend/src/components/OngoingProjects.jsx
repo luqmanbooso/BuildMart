@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { 
   FaTools, FaRegCalendarAlt, FaMoneyBillWave, FaUser, FaClipboardCheck, 
-  FaMapMarkerAlt, FaCheck, FaHardHat, FaCamera, FaComment
+  FaMapMarkerAlt, FaCheck, FaHardHat, FaCamera, FaComment, FaChartLine, FaEnvelope
 } from 'react-icons/fa';
 import ContractorUserNav from './ContractorUserNav';
 
@@ -86,12 +86,49 @@ const OngoingProjects = () => {
           }
         });
         
-        if (response.data) {
-          const formattedProjects = response.data.map(project => ({
+        const formattedProjects = await Promise.all(response.data.map(async project => {
+          // Try to fetch client details using clientId
+          let clientName = 'Client';
+          let clientEmail = '';
+          
+          try {
+            console.log("Fetching client data for ID:", project.clientId);
+            
+            // Check if clientId exists before making the request
+            if (project.clientId) {
+              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+              
+              // Use the correct endpoint structure
+              const clientResponse = await axios.get(`http://localhost:5000/auth/user/${project.clientId}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              
+              console.log("Client response data:", clientResponse.data);
+              
+              // Access the user object in the response
+              if (clientResponse.data && clientResponse.data.user) {
+                clientName = clientResponse.data.user.username || clientResponse.data.user.name || 'Client';
+                clientEmail = clientResponse.data.user.email || '';
+                console.log("Successfully fetched client name:", clientName, "email:", clientEmail);
+              }
+            }
+          } catch (error) {
+            console.log('Error fetching client details:', error);
+            // Continue with default values if client fetch fails
+          }
+          
+          // Get timeline from job details if available
+          const timeline = project.jobId.timeline || 
+                         (project.milestones?.length ? project.milestones.length * 7 : 30);
+          
+          return {
             id: project._id,
             jobId: project.jobId._id || project.jobId,
             clientId: project.clientId,
-            clientName: project.clientName || 'Client',
+            clientName: clientName,
+            clientEmail: clientEmail, // Add client email
             title: project.jobId.title || 'Project',
             description: project.jobId.description || 'No description available',
             budget: project.totalAmountPaid + project.totalAmountPending,
@@ -100,6 +137,7 @@ const OngoingProjects = () => {
             workProgress: project.workProgress || 0,
             startDate: new Date(project.createdAt).toLocaleDateString(),
             status: project.jobStatus || 'In Progress',
+            timeline: timeline, // Add the timeline field
             milestones: (project.milestones || []).map(m => ({
               id: m._id,
               name: m.name,
@@ -111,8 +149,10 @@ const OngoingProjects = () => {
             location: project.jobId.area || 'Not specified',
             category: project.jobId.category || 'Construction',
             communication: project.communication || []
-          }));
-          
+          };
+        }));
+        
+        if (response.data) {
           setProjects(formattedProjects);
           if (formattedProjects.length > 0 && !activeProject) {
             setActiveProject(formattedProjects[0]);
@@ -123,58 +163,6 @@ const OngoingProjects = () => {
         setError("Failed to load ongoing projects");
         toast.error("Couldn't load your ongoing projects");
         
-        // For development: create sample data if API fails
-        if (process.env.NODE_ENV !== 'production') {
-          const sampleProjects = [
-            {
-              id: '1',
-              jobId: 'job123',
-              clientId: 'client456',
-              clientName: 'John Doe',
-              title: 'House Renovation',
-              description: 'Complete renovation of a 2-story house including kitchen, bathrooms and living room.',
-              budget: 1500000,
-              amountPaid: 500000,
-              amountPending: 1000000,
-              workProgress: 35,
-              startDate: new Date().toLocaleDateString(),
-              status: 'In Progress',
-              milestones: [
-                { id: 'm1', name: 'Foundation', description: 'Complete foundation work', amount: 300000, status: 'Completed', completedAt: new Date(Date.now() - 15*24*60*60*1000).toLocaleDateString() },
-                { id: 'm2', name: 'Framing', description: 'Frame the structure', amount: 400000, status: 'In Progress', completedAt: null },
-                { id: 'm3', name: 'Electrical & Plumbing', description: 'Install electrical wiring and plumbing', amount: 350000, status: 'Pending', completedAt: null },
-                { id: 'm4', name: 'Finishing', description: 'Finishing touches and cleanup', amount: 450000, status: 'Pending', completedAt: null }
-              ],
-              location: 'Colombo',
-              category: 'Residential Renovation'
-            },
-            {
-              id: '2',
-              jobId: 'job456',
-              clientId: 'client789',
-              clientName: 'Jane Smith',
-              title: 'Office Space Construction',
-              description: 'Construction of a new office space with modern amenities and open floor plan.',
-              budget: 2500000,
-              amountPaid: 1250000,
-              amountPending: 1250000,
-              workProgress: 50,
-              startDate: new Date(Date.now() - 45*24*60*60*1000).toLocaleDateString(),
-              status: 'In Progress',
-              milestones: [
-                { id: 'm5', name: 'Planning & Design', description: 'Finalize plans and designs', amount: 250000, status: 'Completed', completedAt: new Date(Date.now() - 40*24*60*60*1000).toLocaleDateString() },
-                { id: 'm6', name: 'Construction Phase 1', description: 'Initial construction work', amount: 1000000, status: 'Completed', completedAt: new Date(Date.now() - 20*24*60*60*1000).toLocaleDateString() },
-                { id: 'm7', name: 'Construction Phase 2', description: 'Secondary construction work', amount: 750000, status: 'In Progress', completedAt: null },
-                { id: 'm8', name: 'Finishing & Furnishing', description: 'Final touches and furnishing', amount: 500000, status: 'Pending', completedAt: null }
-              ],
-              location: 'Kandy',
-              category: 'Commercial Construction'
-            }
-          ];
-          
-          setProjects(sampleProjects);
-          setActiveProject(sampleProjects[0]);
-        }
       } finally {
         setLoading(false);
       }
@@ -415,6 +403,15 @@ const OngoingProjects = () => {
                 <h3 className="text-2xl font-bold">LKR {stats.totalValue.toLocaleString()}</h3>
               </div>
             </div>
+            <div className="mt-3">
+              <Link 
+                to="/my-earnings" 
+                className="flex items-center justify-center w-full text-sm px-3 py-1.5 bg-gradient-to-r from-purple-50 to-purple-100 text-purple-700 border border-purple-200 rounded-md hover:from-purple-100 hover:to-purple-200 transition-colors"
+              >
+                <FaChartLine className="mr-1.5" />
+                View Your Earnings
+              </Link>
+            </div>
           </div>
         </motion.div>
         
@@ -598,11 +595,16 @@ const OngoingProjects = () => {
                             </div>
                             <div className="ml-3">
                               <div className="font-medium">{activeProject.clientName}</div>
-                              <div className="text-sm text-gray-500">Client ID: {activeProject.clientId}</div>
+                              <div className="text-sm text-gray-500">
+                                {activeProject.clientEmail && (
+                                  <div className="flex items-center">
+                                    <FaEnvelope className="mr-1 text-xs" /> {activeProject.clientEmail}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             <button
                               className="ml-auto bg-blue-100 text-blue-600 hover:bg-blue-200 px-2 py-1 rounded text-sm"
-                              onClick={() => navigate(`/chat/${activeProject.clientId}`)}
                             >
                               Message
                             </button>
@@ -627,7 +629,7 @@ const OngoingProjects = () => {
                             <div className="text-right">
                               <div className="text-xs text-gray-500">Estimated Completion</div>
                               <div className="font-medium text-blue-600">
-                                {new Date(new Date(activeProject.startDate).getTime() + (parseInt(activeProject.timeline || 30) * 24 * 60 * 60 * 1000)).toLocaleDateString()}
+                                {new Date(new Date(activeProject.startDate).getTime() + (parseInt(activeProject.timeline) * 24 * 60 * 60 * 1000)).toLocaleDateString()}
                               </div>
                             </div>
                           </div>
@@ -800,15 +802,7 @@ const OngoingProjects = () => {
                                     </button>
                                   )}
                                   
-                                  {milestone.status === 'Completed' && (
-                                    <button
-                                      onClick={() => updateMilestoneStatus(activeProject.id, index, 'Pending')}
-                                      disabled={isUpdating}
-                                      className="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition-colors disabled:opacity-50"
-                                    >
-                                      Revert to Pending
-                                    </button>
-                                  )}
+                                  {/* Removed "Revert to Pending" button */}
                                 </div>
                               </div>
                             </div>

@@ -261,7 +261,7 @@ function Ongoingworks() {
   // Handle verification of milestone completion
   const handleVerifyCompletion = async (workId, milestoneId) => {
     try {
-      if (window.confirm('Ready to make payment for this milestone?')) {
+      if (window.confirm('Verify this milestone as completed?')) {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
         // Find the work and milestone
@@ -269,20 +269,20 @@ function Ongoingworks() {
         const milestoneIndex = work.milestones.findIndex(m => m.id === milestoneId);
         
         if (milestoneIndex === -1) {
-          throw new Error('Mileston2e not found');
+          throw new Error('Milestone not found');
         }
         
-        // Use the index, not the ID in the URL
+        // Send the correct status value and a timestamp
         await axios.patch(`http://localhost:5000/api/ongoingworks/${workId}/milestone/${milestoneIndex}`, {
-          // Skip the status update - we'll handle this in the UI instead
-          // Just mark it ready for payment in the UI
+          status: 'Completed',  // Must be one of: 'Pending', 'In Progress', 'Completed'
+          completedAt: new Date().toISOString() // Add the completion date
         }, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
         
-        // Update local state to show payment button
+        // Update local state
         const updatedWorks = ongoingWorks.map(w => {
           if (w.id === workId) {
             return {
@@ -291,7 +291,8 @@ function Ongoingworks() {
                 if (m.id === milestoneId) {
                   return {
                     ...m,
-                    status: 'readyforpayment' // Local UI state only
+                    status: 'Completed', 
+                    completedAt: new Date().toLocaleDateString()
                   };
                 }
                 return m;
@@ -302,11 +303,15 @@ function Ongoingworks() {
         });
         
         setOngoingWorks(updatedWorks);
-        alert('Milestone ready for payment');
+        showNotificationMessage('success', 'Milestone verified as completed');
+        
+        // Once verification is complete, show the payment modal
+        setSelectedMilestone(work.milestones.find(m => m.id === milestoneId));
+        setShowPaymentModal(true);
       }
     } catch (err) {
       console.error('Error verifying milestone completion:', err);
-      alert('Failed to verify milestone. Please try again.');
+      showNotificationMessage('error', 'Failed to verify milestone. Please try again.');
     }
   };
 

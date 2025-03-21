@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaUserCircle, FaBriefcase, FaHistory, FaChartLine, FaCog, FaSignOutAlt, FaGavel, FaSearch } from 'react-icons/fa';
+import { FaUserCircle, FaBriefcase, FaHistory, FaChartLine, FaCog, FaSignOutAlt, FaGavel, FaSearch, FaMoneyBillWave } from 'react-icons/fa';
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -234,7 +234,13 @@ const ContractorUserNav = () => {
                     Profile
                   </Link>
                   
-                  
+                  <Link 
+                    to="/my-earnings" 
+                    className="flex items-center px-4 py-2 text-gray-600 hover:bg-blue-50 hover:text-blue-700 rounded-md"
+                  >
+                    <FaMoneyBillWave className="mr-2" />
+                    My Earnings
+                  </Link>
                   
                   <div className="border-t border-gray-100 my-1"></div>
                   <button
@@ -349,6 +355,14 @@ const ContractorUserNav = () => {
                   >
                     <span className="w-8"><FaCog /></span>
                     Settings
+                  </Link>
+                  
+                  <Link 
+                    to="/my-earnings" 
+                    className="flex items-center px-4 py-2 text-gray-600 hover:bg-blue-50 hover:text-blue-700 rounded-md"
+                  >
+                    <FaMoneyBillWave className="mr-2" />
+                    My Earnings
                   </Link>
                   
                   <button

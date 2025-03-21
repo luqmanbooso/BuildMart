@@ -37,7 +37,7 @@ const ongoingWorkSchema = new mongoose.Schema({
   },
   jobStatus: { 
     type: String, 
-    enum: ['Pending', 'In Progress', 'Completed', 'On Hold'],
+    enum: ['Pending', 'In Progress', 'Completed'],
     default: 'In Progress'
   },
   milestones: [milestoneSchema],

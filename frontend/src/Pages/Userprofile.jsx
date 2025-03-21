@@ -791,8 +791,8 @@ const UserProfilePage = () => {
                                             onChange={(e) => setNewJob({ ...newJob, category: e.target.value })}
                                             className="pl-10 block w-full px-4 py-3.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none text-gray-900"
                                             required
-                                          >
-                                            <option value="">Select a category</option>
+                                            >
+                                            <option value="" disabled>Select a category</option>
                                             <option value="Plumbing">Plumbing</option>
                                             <option value="Electrical">Electrical</option>
                                             <option value="Carpentry">Carpentry</option>
@@ -800,7 +800,8 @@ const UserProfilePage = () => {
                                             <option value="Painting">Painting</option>
                                             <option value="Roofing">Roofing</option>
                                             <option value="Landscaping">Landscaping</option>
-                                            <option value="Other">Other</option>
+                                            <option value="Flooring">Flooring</option>
+                                            <option value="Interior Design">Interior Design</option>
                                           </select>
                                           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
