@@ -277,6 +277,101 @@ router.patch('/user/:userId', async (req, res) => {
   }
 });
 
+// PUT request to update user data including password
+router.put('/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email, currentPassword, newPassword } = req.body;
+    
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Prepare updates object
+    const updates = {};
+    
+    // Include email in updates if provided
+    if (email) {
+      updates.email = email;
+    }
+    
+    // Include username in updates if provided
+    if (name) {
+      updates.username = name;
+    }
+    
+    // Handle password update if requested
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required to set a new password' });
+      }
+      
+      // Verify current password
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+      
+      // Hash new password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+      updates.password = hashedPassword;
+    }
+    
+    // Only proceed if there are updates
+    if (Object.keys(updates).length > 0) {
+      try {
+        // Attempt to update the user
+        const updatedUser = await User.findByIdAndUpdate(
+          userId, 
+          updates, 
+          { new: true, runValidators: true }
+        );
+        
+        // Return updated user (excluding password)
+        res.json({
+          message: 'User updated successfully',
+          user: {
+            id: updatedUser._id,
+            username: updatedUser.username,
+            email: updatedUser.email,
+            role: updatedUser.role,
+            profilePic: updatedUser.profilePic || null
+          }
+        });
+      } catch (updateError) {
+        // Handle MongoDB duplicate key errors elegantly
+        if (updateError.code === 11000) {
+          // Extract the duplicate field from the error message
+          const field = Object.keys(updateError.keyValue)[0];
+          const value = updateError.keyValue[field];
+          
+          return res.status(409).json({ 
+            error: `The ${field} "${value}" is already taken by another user` 
+          });
+        }
+        throw updateError; // Rethrow if it's not a duplicate key error
+      }
+    } else {
+      res.json({
+        message: 'No changes made',
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          profilePic: user.profilePic || null
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
 // DELETE request to delete a user
 router.delete('/users/:userId', async (req, res) => {
   try {
