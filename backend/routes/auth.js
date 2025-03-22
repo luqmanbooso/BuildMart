@@ -150,6 +150,58 @@ router.patch('/admins/:id/salary', async (req, res) => {
   }
 });
 
+// Add this route to your auth.js file
+
+// Route to process admin salary payment
+router.post('/admins/pay-salary', async (req, res) => {
+  try {
+    const { adminId, paymentDate, salary } = req.body;
+    
+    if (!adminId || !paymentDate || !salary) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    const admin = await User.findById(adminId);
+    
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    
+    if (admin.role !== 'Admin') {
+      return res.status(400).json({ message: 'User is not an admin' });
+    }
+    
+    // Update salary payment status
+    if (!admin.salary) {
+      admin.salary = {
+        amount: salary.basicSalary,
+        paymentStatus: 'Paid',
+        lastPaid: paymentDate
+      };
+    } else {
+      admin.salary.paymentStatus = 'Paid';
+      admin.salary.lastPaid = paymentDate;
+    }
+    
+    await admin.save();
+    
+    res.status(200).json({
+      message: 'Salary payment processed successfully',
+      admin: {
+        id: admin._id,
+        username: admin.username,
+        email: admin.email,
+        salary: admin.salary.amount,
+        status: admin.salary.paymentStatus,
+        lastPaid: admin.salary.lastPaid
+      }
+    });
+  } catch (error) {
+    console.error('Error processing salary payment:', error);
+    res.status(500).json({ message: 'Error processing payment', error: error.message });
+  }
+});
+
 // POST request to login a user
 router.post('/login', async (req, res) => {
   const { emailUsername, password } = req.body;
