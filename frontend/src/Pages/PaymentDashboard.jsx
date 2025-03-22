@@ -6,7 +6,8 @@ import {
   DollarSign, TrendingUp, Users, Box, Activity,
   LayoutDashboard, ShoppingCart, Wallet, Sliders,
   ArrowDownRight, ArrowUpRight, Loader, RefreshCw, 
-  FileText, Check, X, ChevronRight, BarChart2
+  FileText, Check, X, ChevronRight, BarChart2, Percent,
+  Clock // Add this import
 } from 'lucide-react';
 import { useSupplierPayments } from '../context/SupplierPaymentContext';
 
@@ -19,6 +20,7 @@ function PaymentDashboard() {
   const [payments, setPayments] = useState([]);
   const [serviceProviderPayments, setServiceProviderPayments] = useState([]);
   const [itemsPayments, setItemsPayments] = useState([]);
+  const [commissionPayments, setCommissionPayments] = useState([]); // Add this line
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -59,11 +61,13 @@ function PaymentDashboard() {
   // Keep existing paymentStats state
   const [paymentStats, setPaymentStats] = useState({
     totalAmount: 0,
-    inventorySalesTotal: 0, // New field for inventory sales
-    completedCount: 0,
+    serviceProviderTotal: 0,  // Ensure this has a default value of 0
+    inventorySalesTotal: 0,
+    commissionIncome: 0,
     pendingCount: 0,
     failedCount: 0,
-    activeProviders: 0,
+    completedCount: 0,
+    activeProviders: new Set(),
     itemsPurchased: 0,
     pendingAmount: 0
   });
@@ -74,16 +78,17 @@ function PaymentDashboard() {
     { method: 'Other', percentage: 0 }
   ]);
 
-  const { supplierPayments } = useSupplierPayments();
+  const { supplierPayments, setSupplierPayments } = useSupplierPayments();
 
   // Enhanced fetch payments with filtering and sorting
   const fetchPayments = async () => {
     try {
       setLoading(true);
       
-      // Build query parameters for filtering
-      let queryParams = new URLSearchParams();
+      // Initialize queryParams (this was missing)
+      const queryParams = new URLSearchParams();
       
+      // Build query parameters for filtering
       if (filterStatus !== 'all') {
         queryParams.append('status', filterStatus);
       }
@@ -261,45 +266,61 @@ function PaymentDashboard() {
   };
 
   // Process and categorize payment data
-  const processPaymentData = (data) => {
-    // Initialize counters and arrays
-    const stats = {
-      totalAmount: 0,        // Only for service provider payments
-      inventorySalesTotal: 0, // New field for inventory sales
-      completedCount: 0,
-      pendingCount: 0,
-      failedCount: 0,
-      activeProviders: new Set(),
-      itemsPurchased: 0,
-      pendingAmount: 0
-    };
+const processPaymentData = (data) => {
+  // Initialize categorized data arrays
+  const serviceProviderPaymentsArray = [];
+  const inventoryPaymentsArray = [];
+  const commissionPaymentsArray = [];
 
-    const cardTypes = {
-      visa: 0,
-      mastercard: 0,
-      amex: 0,
-      discover: 0
-    };
+  // Initialize stats counters with default values
+  const stats = {
+    totalAmount: 0,
+    serviceProviderTotal: 0,
+    inventorySalesTotal: 0,
+    commissionIncome: 0,
+    pendingAmount: 0,
+    completedCount: 0,
+    pendingCount: 0,
+    failedCount: 0,
+    activeProviders: new Set(),
+    itemsPurchased: 0
+  };
 
-    const serviceProviders = [];
-    const inventoryItems = [];
+  // Count card types
+  const cardTypes = {
+    visa: 0,
+    mastercard: 0,
+    amex: 0,
+    discover: 0
+  };
 
-    // Process each payment
+  // Process data only if it exists and is an array
+  if (Array.isArray(data) && data.length > 0) {
+    console.log("Processing payment data:", data.length, "records");
+    
     data.forEach(payment => {
       // Format the payment for display
       const formattedPayment = {
         id: payment._id,
         status: convertStatus(payment.status),
-        amount: `Rs. ${payment.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+        amount: payment.amount,
+        formattedAmount: `Rs. ${payment.amount.toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        })}`,
         method: payment.cardType,
         cardNumber: payment.lastFourDigits,
         date: new Date(payment.createdAt).toLocaleString('en-US', {
-          month: 'short', 
-          day: 'numeric', 
+          month: 'short',
+          day: 'numeric',
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit'
-        })
+        }),
+        rawDate: new Date(payment.createdAt),
+        cardholderName: payment.cardholderName,
+        user: payment.user,
+        paymentType: payment.paymentType
       };
 
       // Count by status
@@ -311,59 +332,124 @@ function PaymentDashboard() {
       } else if (payment.status === 'failed') {
         stats.failedCount++;
       }
-      
+
       // Count card types
       if (payment.cardType in cardTypes) {
         cardTypes[payment.cardType]++;
       }
 
-      // Separate service provider payments from inventory sales
-      if (payment.cardholderName.includes('Provider') || payment.amount > 5000) {
-        stats.activeProviders.add(payment.cardholderName);
-        stats.totalAmount += payment.amount; // Only add to total if it's a service provider payment
-        serviceProviders.push({
+      // CATEGORIZATION LOGIC - FIXED & IMPROVED:
+      
+      // Check whether the payment has order items (which indicates inventory sale)
+      const hasOrderItems = payment.order && 
+                           payment.order.items && 
+                           Array.isArray(payment.order.items) && 
+                           payment.order.items.length > 0;
+
+      // Check if this is explicitly marked as an inventory payment or has order items
+      const isInventorySale = payment.paymentType === 'inventory' || hasOrderItems;
+      
+      // Check if it's a service provider payment
+      const isServiceProvider = payment.paymentType === 'milestone' || 
+                               payment.workId || 
+                               (payment.user?.role === 'contractor' || payment.user?.role === 'supplier');
+      
+      // 1. Service Provider Payments (milestone payments)
+      if (isServiceProvider) {        
+        stats.serviceProviderTotal += payment.amount;
+        stats.activeProviders.add(payment.user?.name || payment.cardholderName || 'Unknown Provider');
+        
+        serviceProviderPaymentsArray.push({
           ...formattedPayment,
-          providerName: payment.cardholderName
-        });
-      } else {
-        stats.itemsPurchased++;
-        stats.inventorySalesTotal += payment.amount; // Add to inventory sales total
-        inventoryItems.push({
-          ...formattedPayment,
-          itemName: `Item ${payment.lastFourDigits}` // In a real app, you'd have actual item names
+          providerName: payment.user?.name || payment.cardholderName || 'Unknown Provider',
+          milestoneId: payment.milestoneId,
+          workId: payment.workId,
+          itemName: 'Milestone Payment'
         });
       }
+      // 2. Inventory Sales - exclude service provider payments
+      else if (isInventorySale) {
+        const itemCount = hasOrderItems ? 
+          payment.order.items.reduce((total, item) => total + (item.quantity || 0), 0) : 1;
+        
+        stats.itemsPurchased += itemCount;
+        stats.inventorySalesTotal += payment.amount;
+        
+        inventoryPaymentsArray.push({
+          ...formattedPayment,
+          itemName: hasOrderItems ? 
+            payment.order.items.map(item => item.name).join(', ') : 'Product Purchase',
+          itemCount: itemCount,
+          customerName: payment.user?.name || payment.cardholderName || 'Customer',
+          // Explicitly set commission values to 0 for regular inventory sales
+          commissionAmount: 0,
+          commissionRate: 0
+        });
+      }
+      // 3. Fallback for any unclassified payments (not service provider or inventory)
+      else {
+        // Add to inventory by default for now
+        stats.inventorySalesTotal += payment.amount;
+        
+        inventoryPaymentsArray.push({
+          ...formattedPayment,
+          itemName: 'Other Purchase',
+          itemCount: 1,
+          customerName: payment.user?.name || payment.cardholderName || 'Customer',
+          commissionAmount: 0,
+          commissionRate: 0
+        });
+      }
+      
+      // 4. Commission Income - SEPARATE logic (can apply to any payment)
+      if (payment.commissionAmount > 0) {
+        stats.commissionIncome += payment.commissionAmount;
+        
+        commissionPaymentsArray.push({
+          ...formattedPayment,
+          originalAmount: payment.originalAmount || payment.amount,
+          commissionAmount: payment.commissionAmount,
+          commissionRate: payment.commissionRate || 0.1
+        });
+      }
+      
+      // Add to total regardless of category
+      stats.totalAmount += payment.amount;
     });
 
-    // Update state with processed data
-    setServiceProviderPayments(serviceProviders);
-    setItemsPayments(inventoryItems);
-    
+    console.log("Categorized payments:", {
+      serviceProviders: serviceProviderPaymentsArray.length,
+      inventorySales: inventoryPaymentsArray.length,
+      commissions: commissionPaymentsArray.length
+    });
+
     // Calculate payment method percentages
     const totalPayments = data.length;
     if (totalPayments > 0) {
       setPaymentMethodsData([
-        { 
-          method: 'Visa', 
-          percentage: Math.round((cardTypes.visa / totalPayments) * 100) 
-        },
-        { 
-          method: 'Mastercard', 
-          percentage: Math.round((cardTypes.mastercard / totalPayments) * 100) 
-        },
-        { 
-          method: 'Other', 
-          percentage: Math.round(((cardTypes.amex + cardTypes.discover) / totalPayments) * 100) 
-        }
+        { method: 'Visa', percentage: Math.round((cardTypes.visa / totalPayments) * 100) },
+        { method: 'Mastercard', percentage: Math.round((cardTypes.mastercard / totalPayments) * 100) },
+        { method: 'Other', percentage: Math.round(((cardTypes.amex + cardTypes.discover) / totalPayments) * 100) }
       ]);
     }
 
-    // Update payment stats
-    setPaymentStats({
-      ...stats,
-      activeProviders: stats.activeProviders.size
-    });
-  };
+    // Ensure stats has all required fields before setting state
+    setPaymentStats(stats);
+    
+    // Set other state variables with the arrays
+    setServiceProviderPayments(serviceProviderPaymentsArray);
+    setItemsPayments(inventoryPaymentsArray);
+    setCommissionPayments(commissionPaymentsArray);
+  } else {
+    console.log("No payment data or empty array");
+    
+    // If data is empty or invalid, ensure we set default values
+    setPaymentStats(stats);
+    setServiceProviderPayments([]);
+    setItemsPayments([]);
+    setCommissionPayments([]);
+  }
+};
 
   // Helper function to convert backend status to UI status
   const convertStatus = (backendStatus) => {
@@ -637,7 +723,7 @@ function PaymentDashboard() {
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Amount
               </th>
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -710,30 +796,30 @@ function PaymentDashboard() {
   const stats = [
     {
       title: "Service Provider Payments",
-      value: `Rs. ${paymentStats.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+      value: `Rs. ${(paymentStats?.serviceProviderTotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
       change: "+12.5%",
-      icon: <DollarSign className="h-6 w-6 text-blue-600" />,
+      icon: <Users className="h-6 w-6 text-blue-600" />,
       trend: "up"
     },
     {
       title: "Inventory Sales",
-      value: `Rs. ${paymentStats.inventorySalesTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+      value: `Rs. ${(paymentStats?.inventorySalesTotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
       change: "+8.2%",
       icon: <ShoppingCart className="h-6 w-6 text-green-600" />,
       trend: "up"
     },
     {
-      title: "Pending Payments",
-      value: `Rs. ${paymentStats.pendingAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-      change: "-2.3%",
-      icon: <CreditCard className="h-6 w-6 text-yellow-600" />,
-      trend: "down"
+      title: "Commission Income",
+      value: `Rs. ${(paymentStats?.commissionIncome || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+      change: "+5.7%",
+      icon: <Percent className="h-6 w-6 text-purple-600" />,
+      trend: "up"
     },
     {
       title: "Items Purchased",
-      value: paymentStats.itemsPurchased.toString(),
+      value: (paymentStats?.itemsPurchased || 0).toString(),
       change: "+18.2%",
-      icon: <Box className="h-6 w-6 text-purple-600" />,
+      icon: <Box className="h-6 w-6 text-amber-600" />,
       trend: "up"
     }
   ];
@@ -742,6 +828,7 @@ function PaymentDashboard() {
     { name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { name: 'Service Providers', icon: <Users size={20} /> },
     { name: 'Inventory Sales', icon: <ShoppingCart size={20} /> },
+    { name: 'Commission Income', icon: <Percent size={20} /> },
     { name: 'Wages', icon: <Wallet size={20} /> },
     { name: 'Incomes', icon: <ArrowUpRight size={20} /> },
     { 
@@ -1002,6 +1089,8 @@ function PaymentDashboard() {
     </div>
   );
 
+  // Removed duplicate declaration of renderIncomePanel
+  
   const renderIncomePanel = () => {
     // Calculate monthly sales data
     const getMonthlyInventorySales = () => {
@@ -1018,7 +1107,15 @@ function PaymentDashboard() {
           };
         }
         
-        acc[monthYear].totalSales += parseFloat(payment.amount.replace(/[^0-9.-]+/g, ""));
+        // FIX: Check if amount is a string or number and handle accordingly
+        let amount = payment.amount;
+        if (typeof amount === 'string') {
+          // If it's a string (like "Rs. 1,234.56"), extract the number
+          amount = parseFloat(amount.replace(/[^0-9.-]+/g, ""));
+        }
+        // If it's already a number, use it directly
+        
+        acc[monthYear].totalSales += amount;
         acc[monthYear].transactionCount += 1;
         
         return acc;
@@ -1038,13 +1135,11 @@ function PaymentDashboard() {
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-semibold mb-6">Income Overview</h2>
           
-          {/* Income Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {/* Total Inventory Sales */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-green-50 p-6 rounded-xl">
               <p className="text-sm font-medium text-green-600">Inventory Sales Income</p>
               <p className="text-2xl font-bold text-green-700">
-                Rs. {paymentStats.inventorySalesTotal.toLocaleString()}
+                Rs. {(paymentStats?.inventorySalesTotal || 0).toLocaleString()}
               </p>
               <div className="mt-2 flex items-center text-sm">
                 <ArrowUpRight className="text-green-500 mr-1" size={16} />
@@ -1052,23 +1147,34 @@ function PaymentDashboard() {
               </div>
             </div>
   
-            {/* Other Income Sources */}
             <div className="bg-blue-50 p-6 rounded-xl">
               <p className="text-sm font-medium text-blue-600">Service Provider Income</p>
               <p className="text-2xl font-bold text-blue-700">
-                Rs. {paymentStats.totalAmount.toLocaleString()}
+                Rs. {(paymentStats?.serviceProviderTotal || 0).toLocaleString()}
               </p>
               <div className="mt-2 flex items-center text-sm">
                 <ArrowUpRight className="text-blue-500 mr-1" size={16} />
                 <span className="text-blue-600">+8.3% from last month</span>
               </div>
             </div>
+            
+            <div className="bg-purple-50 p-6 rounded-xl">
+              <p className="text-sm font-medium text-purple-600">Commission Income</p>
+              <p className="text-2xl font-bold text-purple-700">
+                Rs. {(paymentStats?.commissionIncome || 0).toLocaleString()}
+              </p>
+              <div className="mt-2 flex items-center text-sm">
+                <ArrowUpRight className="text-purple-500 mr-1" size={16} />
+                <span className="text-purple-600">+5.7% from last month</span>
+              </div>
+            </div>
   
-            {/* Total Income */}
             <div className="bg-indigo-50 p-6 rounded-xl">
               <p className="text-sm font-medium text-indigo-600">Total Income</p>
               <p className="text-2xl font-bold text-indigo-700">
-                Rs. {(paymentStats.inventorySalesTotal + paymentStats.totalAmount).toLocaleString()}
+                Rs. {((paymentStats?.inventorySalesTotal || 0) + 
+                      (paymentStats?.serviceProviderTotal || 0) + 
+                      (paymentStats?.commissionIncome || 0)).toLocaleString()}
               </p>
               <div className="mt-2 flex items-center text-sm">
                 <ArrowUpRight className="text-indigo-500 mr-1" size={16} />
@@ -1076,8 +1182,91 @@ function PaymentDashboard() {
               </div>
             </div>
           </div>
+          
+          {/* Commission Income Section */}
+          <div className="mt-8 mb-8">
+            <h3 className="text-lg font-semibold mb-4">Commission Income</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Transaction
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Original Amount
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Commission Rate
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Commission Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {commissionPayments.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
+                        No commission income records found
+                      </td>
+                    </tr>
+                  ) : (
+                    commissionPayments.slice(0, 5).map((payment, index) => (
+                      <tr key={payment.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{payment.date}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {payment.paymentType || 'Transaction'} #{payment.id.substring(payment.id.length - 6)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            Rs. {payment.originalAmount.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {(payment.commissionRate * 100).toFixed(1)}%
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-purple-700">
+                            Rs. {payment.commissionAmount.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  {commissionPayments.length > 5 && (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-3 text-center">
+                        <button 
+                          onClick={() => setActivePage('Commission Income')}
+                          className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          View All Commission Income Records
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
   
-          {/* Monthly Inventory Sales Table */}
+          {/* Monthly Inventory Sales (your existing code) */}
           <div className="mt-8">
             <h3 className="text-lg font-semibold mb-4">Monthly Inventory Sales</h3>
             <div className="overflow-x-auto">
@@ -1242,13 +1431,15 @@ function PaymentDashboard() {
                   <div key={index} className="bg-white rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-sm font-medium text-gray-500">{stat.title}</p>
-                        <h3 className="text-xl font-bold text-gray-900 mt-2">{stat.value}</h3>
+                        <p className="text-sm font-medium text-gray-500 mb-1">{stat.title}</p>
+                        <p className="text-xl font-bold text-gray-900">{stat.value}</p>
                       </div>
-                      <div className="p-3 bg-gray-50 rounded-lg">{stat.icon}</div>
+                      <div className="p-3 bg-blue-50 rounded-lg">
+                        {stat.icon}
+                      </div>
                     </div>
                     <div className="mt-4 flex items-center">
-                      <span className={`text-sm font-medium ${
+                      <span className={`text-xs font-medium ${
                         stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {stat.change}
@@ -1317,12 +1508,107 @@ function PaymentDashboard() {
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-semibold">Service Provider Management</h2>
+                <h2 className="text-lg font-semibold">Service Provider Payments</h2>
                 <div className="flex space-x-2">
-                 
+                  <button
+                    onClick={() => exportServiceProviderData()}
+                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                  >
+                    <FileText size={16} className="mr-2" />
+                    Export Records
+                  </button>
                 </div>
               </div>
-              {renderPaymentTable(serviceProviderPayments)}
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-600 font-medium">Total Payments</p>
+                  <p className="text-2xl font-bold text-blue-700">
+                    Rs. {(paymentStats?.serviceProviderTotal || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-600 font-medium">Active Providers</p>
+                  <p className="text-2xl font-bold text-blue-700">
+                    {paymentStats.activeProviders.size}
+                  </p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-600 font-medium">Completed Milestones</p>
+                  <p className="text-2xl font-bold text-blue-700">
+                    {serviceProviderPayments.length}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Provider Name
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment ID
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment Date
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {serviceProviderPayments.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="px-3 py-10 text-center text-gray-500">
+                          No service provider payments found
+                        </td>
+                      </tr>
+                    ) : (
+                      serviceProviderPayments.map((payment, index) => (
+                        <tr key={payment.id || index} className="hover:bg-gray-50">
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {payment.providerName}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {payment.user?.email || 'No email provided'}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                            {payment.id}
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{payment.formattedAmount}</div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">{payment.date}</div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            {getStatusBadge(payment.status)}
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap text-right text-sm">
+                            <button 
+                              onClick={() => viewPaymentDetails(payment)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         );
@@ -1334,10 +1620,210 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Inventory Sales Records</h2>
                 <div className="flex space-x-2">
-                
+                  <button
+                    onClick={() => exportInventoryData()}
+                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                  >
+                    <FileText size={16} className="mr-2" />
+                    Export Records
+                  </button>
                 </div>
               </div>
-              {renderPaymentTable(itemsPayments)}
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">Total Sales</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    Rs. {(paymentStats?.inventorySalesTotal || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">Items Sold</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    {paymentStats.itemsPurchased}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">Transactions</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    {itemsPayments.length}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Item Details
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Customer
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment Date
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {itemsPayments.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="px-3 py-10 text-center text-gray-500">
+                          No inventory sales found
+                        </td>
+                      </tr>
+                    ) : (
+                      itemsPayments.map((payment, index) => (
+                        <tr key={payment.id || index} className="hover:bg-gray-50">
+                          <td className="px-3 py-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {payment.itemName}
+                            </div>
+                            {payment.itemDetails && payment.itemDetails.length > 0 && (
+                              <div className="mt-1 text-xs text-gray-500">
+                                {payment.itemDetails.map((item, idx) => (
+                                  <div key={idx} className="flex justify-between">
+                                    <span>{item.quantity}x {item.name}</span>
+                                    <span className="ml-2">Rs. {item.subtotal.toLocaleString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-500">
+                              ID: {payment.id}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{payment.customerName}</div>
+                            <div className="text-xs text-gray-500">{payment.user?.email || 'No email'}</div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{payment.formattedAmount}</div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">{payment.date}</div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            {getStatusBadge(payment.status)}
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap text-right text-sm">
+                            <button 
+                              onClick={() => viewPaymentDetails(payment)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {/* Item Purchase Summary */}
+              <div className="mb-6 mt-8">
+                <h3 className="text-lg font-semibold mb-4">Item Purchase Summary</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Item Name
+                        </th>
+                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Total Quantity Sold
+                        </th>
+                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Total Revenue
+                        </th>
+                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Average Unit Price
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {(() => {
+                        // Aggregate item data
+                        const itemSummary = {};
+                        
+                        itemsPayments.forEach(payment => {
+                          if (payment.itemDetails && Array.isArray(payment.itemDetails)) {
+                            payment.itemDetails.forEach(item => {
+                              if (!itemSummary[item.name]) {
+                                itemSummary[item.name] = {
+                                  totalQuantity: 0,
+                                  totalRevenue: 0
+                                };
+                              }
+                              itemSummary[item.name].totalQuantity += item.quantity;
+                              itemSummary[item.name].totalRevenue += item.subtotal;
+                            });
+                          }
+                        });
+                        
+                        const sortedItems = Object.entries(itemSummary)
+                          .map(([name, data]) => ({
+                            name,
+                            ...data,
+                            averagePrice: data.totalRevenue / data.totalQuantity
+                          }))
+                          .sort((a, b) => b.totalRevenue - a.totalRevenue);
+                          
+                        if (sortedItems.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan="4" className="px-3 py-10 text-center text-gray-500">
+                                No item purchase data available
+                              </td>
+                            </tr>
+                          );
+                        }
+                        
+                        return sortedItems.map((item, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-3 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">
+                                {item.name}
+                              </div>
+                            </td>
+                            <td className="px-3 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {item.totalQuantity}
+                              </div>
+                            </td>
+                            <td className="px-3 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">
+                                Rs. {item.totalRevenue.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                })}
+                              </div>
+                            </td>
+                            <td className="px-3 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                Rs. {item.averagePrice.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                })}
+                              </div>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -1595,6 +2081,131 @@ function PaymentDashboard() {
         );
       case 'Incomes':
         return renderIncomePanel();
+      case 'Commission Income':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Commission Income</h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => exportCommissionData()}
+                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                  >
+                    <FileText size={16} className="mr-2" />
+                    Export Records
+                  </button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <p className="text-sm text-purple-600 font-medium">Total Commission Income</p>
+                  <p className="text-2xl font-bold text-purple-700">
+                    Rs. {(paymentStats?.commissionIncome || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <p className="text-sm text-purple-600 font-medium">Average Commission Rate</p>
+                  <p className="text-2xl font-bold text-purple-700">
+                    {commissionPayments.length > 0
+                      ? (commissionPayments.reduce((sum, p) => sum + (p.commissionRate || 0), 0) / commissionPayments.length * 100).toFixed(1)
+                      : 0}%
+                  </p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <p className="text-sm text-purple-600 font-medium">Commission Transactions</p>
+                  <p className="text-2xl font-bold text-purple-700">
+                    {commissionPayments.length}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Transaction Type
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Original Amount
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Commission Rate
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Commission Amount
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {commissionPayments.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="px-3 py-10 text-center text-gray-500">
+                          No commission records found
+                        </td>
+                      </tr>
+                    ) : (
+                      commissionPayments.map((payment, index) => (
+                        <tr key={payment.id || index} className="hover:bg-gray-50">
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{payment.date}</div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {payment.paymentType === 'milestone' 
+                                ? 'Milestone Payment' 
+                                : payment.paymentType === 'inventory' 
+                                  ? 'Inventory Sale'
+                                  : 'Transaction'}
+                            </div>
+                            <div className="text-xs text-gray-500">ID: {payment.id}</div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              Rs. {payment.originalAmount.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {(payment.commissionRate * 100).toFixed(1)}%
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-purple-700">
+                              Rs. {payment.commissionAmount.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })}
+                          </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap text-right text-sm">
+                            <button 
+                              onClick={() => viewPaymentDetails(payment)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -1887,4 +2498,89 @@ function PaymentDashboard() {
   );
 }
 
+// Define missing functions
+const showNotificationMessage = (type, message) => {
+  // Simple alert implementation (you could replace with toast notifications)
+  alert(`${type.toUpperCase()}: ${message}`);
+};
+
+const exportServiceProviderData = () => {
+  // Create CSV header
+  const headers = [
+    'Provider Name',
+    'Payment ID',
+    'Amount',
+    'Date',
+    'Status'
+  ];
+  
+  // Convert payment data to CSV rows
+  const csvData = serviceProviderPayments.map(payment => [
+    payment.providerName,
+    payment.id,
+    payment.amount,
+    payment.date,
+    payment.status
+  ]);
+  
+  // Create and trigger download
+  const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `service_provider_payments_${new Date().toISOString()}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const exportInventoryData = () => {
+  // Similar CSV export for inventory data
+  const headers = ['Item Name', 'Customer', 'Amount', 'Date', 'Status'];
+  const csvData = itemsPayments.map(payment => [
+    payment.itemName,
+    payment.customerName,
+    payment.formattedAmount,
+    payment.date,
+    payment.status
+  ]);
+  
+  const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `inventory_sales_${new Date().toISOString()}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const exportCommissionData = () => {
+  // CSV export for commission data
+  const headers = ['Date', 'Transaction Type', 'Original Amount', 'Commission Rate', 'Commission Amount'];
+  const csvData = commissionPayments.map(payment => [
+    payment.date,
+    payment.paymentType || 'Transaction',
+    payment.originalAmount,
+    (payment.commissionRate * 100).toFixed(1) + '%',
+    payment.commissionAmount
+  ]);
+  
+  const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `commission_income_${new Date().toISOString()}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 export default PaymentDashboard;
+
