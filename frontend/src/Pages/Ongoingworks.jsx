@@ -270,57 +270,67 @@ function Ongoingworks() {
   // Handle verification of milestone completion
   const handleVerifyCompletion = async (workId, milestoneId) => {
     try {
-      if (window.confirm('Verify this milestone as completed?')) {
+      if (window.confirm('Verify this milestone as completed? This will mark it ready for payment.')) {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
         // Find the work and milestone
         const work = ongoingWorks.find(w => w.id === workId);
-        const milestoneIndex = work.milestones.findIndex(m => m.id === milestoneId);
-        
-        if (milestoneIndex === -1) {
-          throw new Error('Milestone not found');
+        if (!work) {
+          showNotificationMessage('error', 'Work not found');
+          return;
         }
         
-        // Send the correct status value and a timestamp
+        const milestoneIndex = work.milestones.findIndex(m => m.id === milestoneId);
+        if (milestoneIndex === -1) {
+          showNotificationMessage('error', 'Milestone not found');
+          return;
+        }
+        
+        console.log("Verifying milestone:", {
+          workId,
+          milestoneId,
+          milestoneIndex,
+          newStatus: 'Ready For Payment'
+        });
+        
+        // Make the API request with the correct status
         await axios.patch(`http://localhost:5000/api/ongoingworks/${workId}/milestone/${milestoneIndex}`, {
-          status: 'Completed',  // Must be one of: 'Pending', 'In Progress', 'Completed'
-          completedAt: new Date().toISOString() // Add the completion date
+          status: 'Ready For Payment'
         }, {
           headers: {
-            Authorization: `Bearer ${token}`
+            'Authorization': `Bearer ${token}`
           }
         });
         
         // Update local state
         const updatedWorks = ongoingWorks.map(w => {
           if (w.id === workId) {
+            const updatedMilestones = [...w.milestones];
+            updatedMilestones[milestoneIndex] = {
+              ...updatedMilestones[milestoneIndex],
+              status: 'Ready For Payment'
+            };
+            
             return {
               ...w,
-              milestones: w.milestones.map((m, idx) => {
-                if (m.id === milestoneId) {
-                  return {
-                    ...m,
-                    status: 'Completed', 
-                    completedAt: new Date().toLocaleDateString()
-                  };
-                }
-                return m;
-              })
+              milestones: updatedMilestones
             };
           }
           return w;
         });
         
         setOngoingWorks(updatedWorks);
-        showNotificationMessage('success', 'Milestone verified as completed');
-        
-        // Once verification is complete, show the payment modal
-        setSelectedMilestone(work.milestones.find(m => m.id === milestoneId));
-        setShowPaymentModal(true);
+        showNotificationMessage('success', 'Milestone verified. You can now proceed with payment.');
       }
     } catch (err) {
       console.error('Error verifying milestone completion:', err);
-      showNotificationMessage('error', 'Failed to verify milestone. Please try again.');
+      // Show more detailed error for debugging
+      if (err.response && err.response.data) {
+        console.error('Server error details:', err.response.data);
+        showNotificationMessage('error', `Verification failed: ${err.response.data.message || 'Unknown error'}`);
+      } else {
+        showNotificationMessage('error', 'Failed to verify milestone. Please try again.');
+      }
     }
   };
 
@@ -782,124 +792,157 @@ const handlePaymentSuccess = async (paymentData) => {
                     </div>
                     
                     <div className="space-y-4">
-                      {activeWork.milestones.map((milestone) => (
-                        <div 
-                          key={milestone.id} 
-                          className={`bg-white rounded-lg border ${
-                            milestone.status === 'completed' 
-                              ? 'border-green-200' 
-                              : milestone.status === 'ready_for_payment'
-                                ? 'border-blue-200'
-                                : milestone.status === 'in_progress'
-                                  ? 'border-yellow-200'
-                                  : 'border-gray-200'
-                          } p-4 transition-all hover:shadow-md`}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex items-center">
-                              <div className={`flex items-center justify-center w-10 h-10 rounded-full mr-4 ${
-                                milestone.status === 'completed' 
-                                  ? 'bg-green-100 text-green-600' 
-                                  : milestone.status === 'ready_for_payment'
-                                    ? 'bg-blue-100 text-blue-600'
-                                    : milestone.status === 'in_progress'
-                                      ? 'bg-yellow-100 text-yellow-600'
-                                      : 'bg-gray-100 text-gray-400'
-                              }`}>
-                                {milestone.status === 'completed' ? (
-                                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                                  </svg>
-                                ) : milestone.status === 'ready_for_payment' ? (
-                                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                  </svg>
-                                ) : milestone.status === 'in_progress' ? (
-                                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                  </svg>
-                                ) : (
-                                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                  </svg>
-                                )}
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-gray-900">{milestone.title}</h4>
-                                <p className="text-sm text-gray-600 mt-1">{milestone.description}</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm text-gray-500">Amount</div>
-                              <div className="text-lg font-semibold text-gray-900">LKR {milestone.amount}</div>
-                              {/* Add commission info */}
-                              <div className="text-xs text-gray-500 mt-1">
-                                + 10% service fee
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-4 flex items-center justify-between">
-                            <div className="flex items-center">
-                              <div className={`w-3 h-3 rounded-full mr-2 ${
-                                milestone.status === 'completed' 
-                                  ? 'bg-green-500' 
-                                  : milestone.status === 'ready_for_payment'
-                                    ? 'bg-blue-500'
-                                    : milestone.status === 'in_progress'
-                                      ? 'bg-yellow-500'
-                                      : 'bg-gray-300'
-                              }`}></div>
-                              <span className="text-sm font-medium capitalize"></span>
-                                {milestone.status === 'ready_for_payment' 
-                                  ? 'Ready for payment' 
-                                  : milestone.status === 'in_progress'
-                                    ? 'In progress'
-                                    : milestone.status}
-                              {milestone.completedDate && (
-                                <span className="text-sm text-gray-500 ml-2">
-                                  • Completed on {milestone.completedDate}
-                                </span>
-                              )}
-                            </div>
-                            
-                            {/* Action buttons based on status */}
-                            {(milestone.status === 'readyforpayment' || milestone.status.includes('ready')) && (
-                              <button 
-                                onClick={() => handlePayment(activeWork.id, milestone.id)}
-                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-                              >
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                                Make Payment
-                              </button>
-                            )}
+  {activeWork.milestones.map((milestone) => (
+    <div 
+      key={milestone.id} 
+      className={`bg-white rounded-lg border ${
+        milestone.status === 'Completed' 
+          ? 'border-green-200' 
+          : milestone.status === 'Ready For Payment' || milestone.status.includes('ready')
+            ? 'border-blue-200 bg-blue-50'
+            : milestone.status === 'Pending Verification' || milestone.status.includes('verification')
+              ? 'border-yellow-200 bg-yellow-50'
+              : milestone.status === 'In Progress' || milestone.status.includes('progress')
+                ? 'border-indigo-200 bg-indigo-50'
+                : 'border-gray-200'
+      } p-4 transition-all hover:shadow-md`}
+    >
+      <div className="flex justify-between items-start">
+        <div className="flex items-center">
+          <div className={`flex items-center justify-center w-10 h-10 rounded-full mr-4 ${
+            milestone.status === 'Completed' || milestone.status.includes('completed')
+              ? 'bg-green-100 text-green-600' 
+              : milestone.status === 'Ready For Payment' || milestone.status.includes('ready')
+                ? 'bg-blue-100 text-blue-600'
+                : milestone.status === 'Pending Verification' || milestone.status.includes('verification')
+                  ? 'bg-yellow-100 text-yellow-600'
+                  : milestone.status === 'In Progress' || milestone.status.includes('progress')
+                    ? 'bg-indigo-100 text-indigo-600'
+                    : 'bg-gray-100 text-gray-400'
+          }`}>
+            {milestone.status === 'Completed' || milestone.status.includes('completed') ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            ) : milestone.status === 'Ready For Payment' || milestone.status.includes('ready') ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            ) : milestone.status === 'Pending Verification' || milestone.status.includes('verification') ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+              </svg>
+            ) : milestone.status === 'In Progress' || milestone.status.includes('progress') ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            )}
+          </div>
+          <div>
+            <h4 className="font-medium">{milestone.title}</h4>
+            <p className="text-sm text-gray-600 mt-1">{milestone.description}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-sm text-gray-500">Amount</div>
+          <div className="text-lg font-semibold text-gray-900">LKR {milestone.amount}</div>
+          {/* Add commission info */}
+          <div className="text-xs text-gray-500 mt-1">
+            + 10% service fee
+          </div>
+        </div>
+      </div>
+      
+      <div className="mt-4 flex items-center justify-between">
+        <div className="flex items-center">
+          <div className={`w-3 h-3 rounded-full mr-2 ${
+            milestone.status === 'Completed' || milestone.status.includes('completed')
+              ? 'bg-green-500' 
+              : milestone.status === 'Ready For Payment' || milestone.status.includes('ready')
+                ? 'bg-blue-500'
+                : milestone.status === 'Pending Verification' || milestone.status.includes('verification')
+                  ? 'bg-yellow-500'
+                  : milestone.status === 'In Progress' || milestone.status.includes('progress')
+                    ? 'bg-indigo-500'
+                    : 'bg-gray-300'
+          }`}></div>
+          <span className="text-sm font-medium capitalize">
+            {milestone.status === 'Ready For Payment' || milestone.status.includes('ready')
+              ? 'Ready for Payment' 
+              : milestone.status === 'Pending Verification' || milestone.status.includes('verification')
+                ? 'Pending Verification'
+                : milestone.status === 'In Progress' || milestone.status.includes('progress')
+                  ? 'In Progress'
+                  : milestone.status === 'Completed' || milestone.status.includes('completed')
+                    ? 'Completed'
+                    : 'Pending'}
+          </span>
+          {milestone.completedDate && (
+            <span className="text-sm text-gray-500 ml-2">
+              • Completed on {milestone.completedDate}
+            </span>
+          )}
+        </div>
+        
+        {/* Action buttons based on status */}
+        <div>
+          {/* Show "Verify Completion" button for Pending Verification milestones */}
+          {(milestone.status === 'Pending Verification' || 
+            milestone.status.includes('verification')) && (
+            <button 
+              onClick={() => handleVerifyCompletion(activeWork.id, milestone.id)}
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Verify Completion
+            </button>
+          )}
+          
+          {/* Show "Make Payment" button for Ready For Payment milestones */}
+          {(milestone.status === 'Ready For Payment' || 
+            milestone.status.includes('ready')) && (
+            <button 
+              onClick={() => handlePayment(activeWork.id, milestone.id)}
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
+              </svg>
+              Make Payment
+            </button>
+          )}
 
-                            {(milestone.status === 'inprogress' || milestone.status.includes('progress')) && (
-                              <button 
-                                onClick={() => handleVerifyCompletion(activeWork.id, milestone.id)}
-                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
-                              >
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                Verify Completion
-                              </button>
-                            )}
+          {/* Show "Paid" indicator for Completed milestones */}
+          {(milestone.status === 'Completed' || milestone.status.includes('completed')) && (
+            <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+              Paid
+            </span>
+          )}
+          
+          {/* Show "In Progress" indicator for In Progress milestones */}
+          {(milestone.status === 'In Progress' || milestone.status.includes('progress')) && (
+            <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800">
+              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              In Progress
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
 
-                            {(milestone.status === 'completed' || milestone.status.includes('complet') || milestone.status.includes('paid')) && (
-                              <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                                </svg>
-                                Paid
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                   
                   {/* Project issues section */}

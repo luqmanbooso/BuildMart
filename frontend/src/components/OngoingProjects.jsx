@@ -98,65 +98,70 @@ const OngoingProjects = () => {
         
         console.log("RAW API RESPONSE FROM BACKEND:", response.data[0]); // Log first item for debugging
         
-        const formattedProjects = response.data.map(project => {
-          console.log("Processing project with totalPrice:", project.totalPrice);
-          console.log("Timeline days:", project.timeline);
-          // Extract timeline directly from the API response
-          const timelineDays = project.timeline || 2;
-          
-          // Calculate start and end dates
-          const startDate = new Date(project.createdAt);
-          const endDate = new Date(startDate);
-          endDate.setDate(startDate.getDate() + parseInt(timelineDays));
-          
-          // Format dates consistently
-          const formattedStartDate = startDate.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-          });
-          
-          const formattedEndDate = endDate.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-          });
-          
-          return {
-            id: project._id,
-            jobId: project.jobId._id || project.jobId,
-            clientId: project.clientId,
-            clientName: project.clientName || 'Client',
-            clientEmail: project.clientEmail || '',
-            title: project.jobId.title || 'Project',
-            description: project.jobId.description || 'No description available',
-            budget: project.totalPrice || 0,
-            amountPaid: project.totalAmountPaid || 0,
-            amountPending: project.totalAmountPending || 0,
-            workProgress: project.workProgress || 0,
-            
-            // Add the missing totalPrice property
-            totalPrice: project.totalPrice || 0,
-            
-            // Timeline properties
-            timeline: timelineDays,
-            startDate: formattedStartDate,
-            endDate: formattedEndDate,
-            
-            status: project.jobStatus || 'In Progress',
-            milestones: (project.milestones || []).map(m => ({
-              id: m._id,
-              name: m.name,
-              description: m.description,
-              amount: parseFloat(m.amount || 0),
-              status: m.status,
-              completedAt: m.completedAt ? new Date(m.completedAt).toLocaleDateString() : null
-            })),
-            location: project.jobId.area || 'Not specified',
-            category: project.jobId.category || 'Construction',
-            communication: project.communication || []
-          };
-        });
+        // Update your formattedProjects mapping function with these safe property accesses
+
+const formattedProjects = response.data.map(project => {
+  console.log("Processing project with totalPrice:", project.totalPrice);
+  console.log("Timeline days:", project.timeline);
+  console.log("Job ID object:", project.jobId); // Log job ID to see the issue
+  
+  // Extract timeline directly from the API response
+  const timelineDays = project.timeline || 2;
+  
+  // Calculate start and end dates
+  const startDate = new Date(project.createdAt);
+  const endDate = new Date(startDate);
+  endDate.setDate(startDate.getDate() + parseInt(timelineDays));
+  
+  // Format dates consistently
+  const formattedStartDate = startDate.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+  
+  const formattedEndDate = endDate.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+  
+  return {
+    id: project._id,
+    // Use optional chaining (?.) for all jobId properties
+    jobId: project.jobId?._id || project.jobId || null,
+    clientId: project.clientId,
+    clientName: project.clientName || 'Client',
+    clientEmail: project.clientEmail || '',
+    title: project.jobId?.title || 'Project',
+    description: project.jobId?.description || 'No description available',
+    budget: project.totalPrice || 0,
+    amountPaid: project.totalAmountPaid || 0,
+    amountPending: project.totalAmountPending || 0,
+    workProgress: project.workProgress || 0,
+    
+    // Add the missing totalPrice property
+    totalPrice: project.totalPrice || 0,
+    
+    // Timeline properties
+    timeline: timelineDays,
+    startDate: formattedStartDate,
+    endDate: formattedEndDate,
+    
+    status: project.jobStatus || 'In Progress',
+    milestones: (project.milestones || []).map(m => ({
+      id: m._id,
+      name: m.name,
+      description: m.description,
+      amount: parseFloat(m.amount || 0),
+      status: m.status,
+      completedAt: m.completedAt ? new Date(m.completedAt).toLocaleDateString() : null
+    })),
+    location: project.jobId?.area || 'Not specified',
+    category: project.jobId?.category || 'Construction',
+    communication: project.communication || []
+  };
+});
         
         console.log("Formatted projects:", formattedProjects);
         
@@ -177,75 +182,139 @@ const OngoingProjects = () => {
   }, [contractorData.id]);
   
   // Update milestone status
-  const updateMilestoneStatus = async (projectId, milestoneIndex, newStatus) => {
-    try {
-      setIsUpdating(true);
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
-      // Find milestone in the array
-      const project = projects.find(p => p.id === projectId);
-      if (!project) {
-        toast.error("Project not found");
-        setIsUpdating(false);
-        return;
-      }
-      
-      await axios.patch(`http://localhost:5000/api/ongoingworks/${projectId}/milestone/${milestoneIndex}`, {
-        status: newStatus,
-        completedAt: newStatus === 'Completed' ? new Date() : null,
-        notes: updateNotes
-      }, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Update local state
-      const updatedProjects = projects.map(p => {
-        if (p.id === projectId) {
-          const updatedMilestones = [...p.milestones];
-          updatedMilestones[milestoneIndex] = {
-            ...updatedMilestones[milestoneIndex],
-            status: newStatus,
-            completedAt: newStatus === 'Completed' ? new Date().toLocaleDateString() : null
-          };
-          
-          // Calculate new progress based on completed milestones
-          const completedCount = updatedMilestones.filter(m => m.status === 'Completed').length;
-          const progress = Math.round((completedCount / updatedMilestones.length) * 100);
-          
-          return {
-            ...p,
-            milestones: updatedMilestones,
-            workProgress: progress,
-            status: completedCount === updatedMilestones.length ? 'Completed' : 'In Progress'
-          };
-        }
-        return p;
-      });
-      
-      setProjects(updatedProjects);
-      if (activeProject && activeProject.id === projectId) {
-        setActiveProject(updatedProjects.find(p => p.id === projectId));
-      }
-      
-      toast.success(`Milestone status updated to ${newStatus}`);
-      
-      // Upload photo if provided
-      if (progressPhoto && newStatus === 'Completed') {
-        uploadProgressPhoto(projectId, milestoneIndex);
-      }
-      
-    } catch (err) {
-      console.error("Error updating milestone:", err);
-      toast.error("Failed to update milestone status");
-    } finally {
+const updateMilestoneStatus = async (projectId, milestoneIndex, newStatus) => {
+  try {
+    setIsUpdating(true);
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    // Find project in the array
+    const project = projects.find(p => p.id === projectId);
+    if (!project) {
+      toast.error("Project not found");
       setIsUpdating(false);
-      setMilestoneUpdate({ milestoneId: null, status: '', notes: '' });
-      setUpdateNotes('');
-      setProgressPhoto(null);
+      return;
     }
-  };
+    
+    // Find milestone by index
+    const milestone = project.milestones[milestoneIndex];
+    if (!milestone) {
+      toast.error("Milestone not found");
+      setIsUpdating(false);
+      return;
+    }
+    
+    // Enforce workflow: Can only start work on Pending milestones
+    if (newStatus === 'In Progress' && milestone.status !== 'Pending') {
+      toast.error("Can only start work on pending milestones");
+      setIsUpdating(false);
+      return;
+    }
+    
+    // Enforce workflow: Can only mark complete milestones that are In Progress
+    if (newStatus === 'Completed' && milestone.status !== 'In Progress') {
+      toast.error("Can only mark in-progress milestones as complete");
+      setIsUpdating(false);
+      return;
+    }
+    
+    // If contractor is marking as complete, change to "Pending Verification"
+    let statusToSend = newStatus;
+    if (newStatus === 'Completed') {
+      statusToSend = 'Pending Verification';
+    }
+    
+    console.log("Updating milestone status:", {
+      projectId,
+      milestoneIndex,
+      requestedStatus: newStatus,
+      actualStatus: statusToSend,
+      currentMilestone: milestone
+    });
+    
+    await axios.patch(`http://localhost:5000/api/ongoingworks/${projectId}/milestone/${milestoneIndex}`, {
+      status: statusToSend,
+      completedAt: statusToSend === 'Pending Verification' ? new Date() : null,
+      notes: updateNotes
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    // Update local state
+    const updatedProjects = projects.map(p => {
+      if (p.id === projectId) {
+        const updatedMilestones = [...p.milestones];
+        updatedMilestones[milestoneIndex] = {
+          ...updatedMilestones[milestoneIndex],
+          status: statusToSend,
+          completedAt: statusToSend === 'Pending Verification' ? new Date().toLocaleDateString() : null
+        };
+        
+        return {
+          ...p,
+          milestones: updatedMilestones,
+          workProgress: calculateProjectProgress(updatedMilestones)
+        };
+      }
+      return p;
+    });
+    
+    setProjects(updatedProjects);
+    if (activeProject && activeProject.id === projectId) {
+      const updatedActiveProject = updatedProjects.find(p => p.id === projectId);
+      setActiveProject(updatedActiveProject);
+    }
+    
+    if (newStatus === 'Completed') {
+      toast.success("Client has been notified for verification");
+    } else {
+      toast.success(`Milestone status updated to ${statusToSend}`);
+    }
+    
+    // Upload photo if provided
+    if (progressPhoto && statusToSend === 'Pending Verification') {
+      await uploadProgressPhoto(projectId, milestoneIndex);
+    }
+    
+  } catch (err) {
+    console.error("Error updating milestone:", err);
+    if (err.response && err.response.data) {
+      console.error('Server error details:', err.response.data);
+      toast.error(`Failed to update: ${err.response.data.message || 'Server error'}`);
+    } else {
+      toast.error("Failed to update milestone status");
+    }
+  } finally {
+    setIsUpdating(false);
+    setMilestoneUpdate({ milestoneId: null, status: '', notes: '' });
+    setUpdateNotes('');
+    setProgressPhoto(null);
+  }
+};
+
+// Helper function to calculate overall project progress
+const calculateProjectProgress = (milestones) => {
+  if (!milestones || milestones.length === 0) return 0;
+  
+  // Count completed milestones - assign weights to different statuses
+  let completionWeight = 0;
+  
+  milestones.forEach(m => {
+    if (m.status === 'Completed') {
+      completionWeight += 1;  // 100% weight
+    } else if (m.status === 'Ready For Payment') {
+      completionWeight += 0.9;  // 90% weight
+    } else if (m.status === 'Pending Verification') {
+      completionWeight += 0.7;  // 70% weight
+    } else if (m.status === 'In Progress') {
+      completionWeight += 0.3;  // 30% weight
+    }
+    // Pending gets 0%
+  });
+  
+  return Math.round((completionWeight / milestones.length) * 100);
+};
   
   // Upload progress photo
   const uploadProgressPhoto = async (projectId, milestoneIndex) => {
@@ -510,7 +579,14 @@ const stats = {
                           {project.status}
                         </span>
                       </div>
-                      
+                      {project.jobId === null && (
+                        <div className="mt-1 text-xs text-red-600">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          Missing job reference
+                        </div>
+                      )}
                       <div className="mt-2 flex justify-between text-sm text-gray-500">
                         <span>{project.clientName}</span>
                         <span>{project.location}</span>

@@ -6,9 +6,10 @@ const milestoneSchema = new mongoose.Schema({
   name: String,
   amount: String,
   description: String,
+  // Update the status enum to include all possible states
   status: { 
     type: String, 
-    enum: ['Pending', 'In Progress', 'Completed'],
+    enum: ['Pending', 'In Progress', 'Pending Verification', 'Ready For Payment', 'Completed'],
     default: 'Pending' 
   },
   completedAt: { 
@@ -25,7 +26,8 @@ const milestoneSchema = new mongoose.Schema({
   originalAmount: {
     type: Number,
     default: 0
-  }
+  },
+  notes: String
 });
 
 // Ongoing Work Schema to track job progress for both client and contractor

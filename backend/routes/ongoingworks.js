@@ -177,8 +177,14 @@ router.put('/:id', async (req, res) => {
 // Update milestone status
 router.patch('/:id/milestone/:milestoneIndex', async (req, res) => {
   try {
-    const { status, actualAmountPaid, completedAt } = req.body;
+    const { status, actualAmountPaid, completedAt, notes } = req.body;
     const { id, milestoneIndex } = req.params;
+    
+    console.log('Milestone update request:', {
+      workId: id,
+      milestoneIndex,
+      requestBody: req.body,
+    });
     
     const ongoingWork = await OngoingWork.findById(id);
     if (!ongoingWork) {
@@ -190,57 +196,74 @@ router.patch('/:id/milestone/:milestoneIndex', async (req, res) => {
       return res.status(400).json({ message: 'Invalid milestone index' });
     }
     
-    // Update milestone
-    if (status) ongoingWork.milestones[milestoneIdx].status = status;
-    
-    // Handle payment with commission
-    if (actualAmountPaid) {
-      // Calculate original milestone amount and commission
-      const originalAmount = parseFloat(ongoingWork.milestones[milestoneIdx].amount || 0);
-      const commission = originalAmount * COMMISSION_RATE;
+    // Update milestone status
+    if (status) {
+      const validStatuses = ['Pending', 'In Progress', 'Pending Verification', 'Ready For Payment', 'Completed'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+        });
+      }
       
-      // Store the actual amount paid (which includes commission)
-      ongoingWork.milestones[milestoneIdx].actualAmountPaid = actualAmountPaid;
+      ongoingWork.milestones[milestoneIdx].status = status;
       
-      // Store commission information in the milestone
-      ongoingWork.milestones[milestoneIdx].commission = commission;
-      ongoingWork.milestones[milestoneIdx].originalAmount = originalAmount;
+      // If status is changing to 'Pending Verification', set completedAt if not already set
+      if (status === 'Pending Verification' && !ongoingWork.milestones[milestoneIdx].completedAt) {
+        ongoingWork.milestones[milestoneIdx].completedAt = completedAt || new Date();
+      }
+      
+      // Only when client makes payment and status is explicitly 'Completed'
+      if (status === 'Completed' && actualAmountPaid) {
+        ongoingWork.milestones[milestoneIdx].actualAmountPaid = actualAmountPaid;
+        ongoingWork.lastPaymentDate = new Date();
+        
+        // Calculate commission
+        const originalAmount = parseFloat(ongoingWork.milestones[milestoneIdx].amount || 0);
+        const commission = originalAmount * COMMISSION_RATE;
+        
+        // Store commission information
+        ongoingWork.milestones[milestoneIdx].commission = commission;
+        ongoingWork.milestones[milestoneIdx].originalAmount = originalAmount;
+        
+        // Update total commission
+        ongoingWork.totalCommission = (ongoingWork.totalCommission || 0) + commission;
+      }
     }
     
-    // Set completion date if milestone is marked as completed
-    if (status === 'Completed') {
-      ongoingWork.milestones[milestoneIdx].completedAt = completedAt || new Date();
+    // Add notes if provided
+    if (notes) {
+      ongoingWork.milestones[milestoneIdx].notes = notes;
     }
     
-    // Recalculate amounts
+    // Recalculate amounts and progress
+    let completedCount = 0;
     let totalAmountPaid = 0;
     let totalAmountPending = 0;
-    let totalCommission = 0;
     
     ongoingWork.milestones.forEach(milestone => {
       const amount = parseFloat(milestone.amount || 0);
-      if (milestone.status === 'Completed' && milestone.actualAmountPaid) {
-        totalAmountPaid += milestone.actualAmountPaid;
-        
-        // Sum up the commission if it exists
-        if (milestone.commission) {
-          totalCommission += milestone.commission;
-        }
+      
+      if (milestone.status === 'Completed') {
+        totalAmountPaid += milestone.actualAmountPaid || amount;
+        completedCount++;
       } else {
         totalAmountPending += amount;
       }
+      
+      // Count 'Pending Verification' and 'Ready For Payment' as partially complete for progress bar
+      if (milestone.status === 'Pending Verification' || milestone.status === 'Ready For Payment') {
+        completedCount += 0.5; // Count as half complete for progress bar
+      }
     });
     
+    // Update financial totals
     ongoingWork.totalAmountPaid = totalAmountPaid;
     ongoingWork.totalAmountPending = totalAmountPending;
-    ongoingWork.totalCommission = totalCommission; // Track total commission
     
-    // Update last payment date if payment was made
-    if (actualAmountPaid && status === 'Completed') {
-      ongoingWork.lastPaymentDate = new Date();
-    }
+    // Calculate progress percentage
+    ongoingWork.workProgress = Math.round((completedCount / ongoingWork.milestones.length) * 100);
     
-    // Check if all milestones are completed
+    // Check if all milestones are completed for job status update
     const allCompleted = ongoingWork.milestones.every(m => m.status === 'Completed');
     if (allCompleted) {
       ongoingWork.jobStatus = 'Completed';
