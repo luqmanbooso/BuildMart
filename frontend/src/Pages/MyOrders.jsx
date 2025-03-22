@@ -20,14 +20,11 @@ import {
   User
 } from 'lucide-react';
 
-// Define simple fallback components
-const NavbarFallback = () => (
-  <div className="bg-blue-800 p-4 text-white">
-    <div className="container mx-auto">
-      <h1 className="text-xl font-bold">BuildMart</h1>
-    </div>
-  </div>
-);
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import ClientNavBar from '../components/ClientNavBar';
+import ContractorUserNav from '../components/ContractorUserNav'; // Import ContractorUserNav
+import { jwtDecode } from 'jwt-decode';
 
 const FooterFallback = () => (
   <div className="bg-gray-800 p-4 text-center text-white">
@@ -37,9 +34,6 @@ const FooterFallback = () => (
   </div>
 );
 
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-
 const MyOrders = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
@@ -48,6 +42,8 @@ const MyOrders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // For development testing - set to false to use real API
   const [mockMode, setMockMode] = useState(false);
@@ -128,23 +124,60 @@ const MyOrders = () => {
     }
   ];
 
-  // Load user details from localStorage
+  // Load user details from localStorage and token
   useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      try {
-        const parsedUser = JSON.parse(user);
-        setUserId(parsedUser._id);
-      } catch (error) {
-        console.error("Error parsing user data:", error);
+    const checkAuthStatus = () => {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      if (token) {
+        try {
+          // Decode the token to get user data
+          const decoded = jwtDecode(token);
+          console.log("Decoded token:", decoded); // Debug what's in the token
+          
+          // Set user role from token using the same format as Shop.jsx
+          setUserRole(decoded.role || decoded.userType);
+          setIsLoggedIn(true);
+          
+          const userData = {
+            id: decoded.userId || decoded.id || decoded._id,
+            email: decoded.email || '',
+            name: decoded.username || decoded.name || '',
+          };
+          
+          setUserId(userData.id);
+          
+        } catch (error) {
+          console.error("Error decoding token:", error);
+          setMockMode(true);
+          toast.warning("Using demo data - not connected to your account");
+          setIsLoggedIn(false);
+          setUserRole(null);
+        }
+      } else if (user) {
+        try {
+          const parsedUser = JSON.parse(user);
+          setUserId(parsedUser._id);
+          setUserRole(parsedUser.role || parsedUser.userType);
+          setIsLoggedIn(true);
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+          setMockMode(true);
+          toast.warning("Using demo data - not connected to your account");
+          setIsLoggedIn(false);
+          setUserRole(null);
+        }
+      } else {
+        // No user found, show a notification
+        toast.info("Please log in to view your actual orders");
         setMockMode(true);
-        toast.warning("Using demo data - not connected to your account");
+        setIsLoggedIn(false);
+        setUserRole(null);
       }
-    } else {
-      // No user found, show a notification
-      toast.info("Please log in to view your actual orders");
-      setMockMode(true);
-    }
+    };
+    
+    checkAuthStatus();
   }, []);
 
   // Fetch orders - either from API or use mock data
@@ -278,7 +311,7 @@ const MyOrders = () => {
       setLoading(true);
       
       // Get the auth token if needed
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       
       // Set the headers with the auth token
       const config = token ? {
@@ -325,12 +358,29 @@ const MyOrders = () => {
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
+  // Function to render the appropriate navbar based on user role - matches Shop.jsx
+  const renderNavbar = () => {
+    console.log("Current userRole in renderNavbar:", userRole);
+    
+    switch(userRole) {
+      case 'Service Provider':
+        console.log("Rendering ContractorUserNav");
+        return <ContractorUserNav />;
+      case 'Client':
+        console.log("Rendering ClientNavBar");
+        return <ClientNavBar />;
+      default:
+        console.log("Rendering default ClientNavBar");
+        return <ClientNavBar />;
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <NavbarFallback />
-      
+      {renderNavbar()}
       <main className="flex-grow container mx-auto px-4 py-8 md:px-6 lg:px-8">
         <div className="mb-6">
+          <br /><br /><br /><br />
           <h1 className="text-3xl font-bold text-gray-800">My Orders</h1>
           <p className="text-gray-600 mt-1">Track and manage your orders</p>
           {mockMode && (

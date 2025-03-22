@@ -139,6 +139,7 @@ function App() {
             />
           } 
         />
+        <Route path='/my-orders' element={<MyOrders />} />
         <Route path="/payment/:jobId/:bidId" element={<InitialPayment />} />
         <Route path="/my-earnings" element={<MyEarningsPage />} />
       </Routes>
