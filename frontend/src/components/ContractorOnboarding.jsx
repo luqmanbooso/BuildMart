@@ -80,13 +80,24 @@ const ContractorProfileSetup = () => {
 const validatePhone = (phone) => {
   if (!phone) return { valid: false, message: 'Phone number is required' };
   const digits = phone.replace(/[^0-9]/g, '');
-  if (digits.length < 10 || digits.length > 12) {
+  if (digits.length!==10) {
     return { 
       valid: false, 
-      message: 'Phone number should be 10-12 digits' 
+      message: 'Phone number should be 10 digits' 
     };
   }
   return { valid: true, message: '' };
+};
+
+const handlePhoneInput = (event) => {
+  // Get the input value
+  const input = event.target.value;
+
+  // Remove non-numeric characters and limit to 10 digits
+  const digits = input.replace(/[^0-9]/g, '').slice(0, 10);
+
+  // Update the input field with the valid digits
+  event.target.value = digits;
 };
 
 const validateAddress = (address) => {
@@ -423,6 +434,8 @@ const handleSubmit = async (e) => {
                           name="phone"
                           value={formData.phone}
                           onChange={handleChange}
+                          onInput={handlePhoneInput} // Add this line to connect the existing function
+                          maxLength={10} // Add this to limit input length
                           className={`w-full border ${
                             formData.phone && !validatePhone(formData.phone).valid
                               ? 'border-red-300 focus:ring-red-500'
@@ -521,6 +534,7 @@ const handleSubmit = async (e) => {
                           name="companyName"
                           value={formData.companyName}
                           onChange={handleChange}
+                          maxLength={100} // Add reasonable maximum length
                           className="w-full border border-gray-300 rounded-md px-4 py-2 
                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                             transition-all duration-200"
@@ -539,6 +553,11 @@ const handleSubmit = async (e) => {
                           value={formData.experienceYears}
                           onChange={handleNumericChange}
                           min="0"
+                          max="100" // Add reasonable maximum
+                          onInput={(e) => {
+                            if (e.target.value < 0) e.target.value = 0; // Prevent negative values
+                            if (e.target.value > 100) e.target.value = 100; // Cap at maximum
+                          }}
                           className="w-full border border-gray-300 rounded-md px-4 py-2 
                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                             transition-all duration-200"
@@ -556,6 +575,11 @@ const handleSubmit = async (e) => {
                           value={formData.completedProjects}
                           onChange={handleNumericChange}
                           min="0"
+                          max="10000" // Add reasonable maximum
+                          onInput={(e) => {
+                            if (e.target.value < 0) e.target.value = 0; // Prevent negative values
+                            if (e.target.value > 10000) e.target.value = 10000; // Cap at maximum
+                          }}
                           className="w-full border border-gray-300 rounded-md px-4 py-2 
                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                             transition-all duration-200"
@@ -711,6 +735,7 @@ const handleSubmit = async (e) => {
                         value={formData.bio}
                         onChange={handleChange}
                         rows="5"
+                        maxLength={700} // Add this to prevent typing beyond 500 chars
                         className={`w-full border ${
                           formData.bio && !validateBio(formData.bio).valid
                             ? 'border-red-300 focus:ring-red-500'

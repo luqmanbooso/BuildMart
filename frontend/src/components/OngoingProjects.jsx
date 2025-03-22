@@ -22,7 +22,8 @@ const OngoingProjects = () => {
   const [updateNotes, setUpdateNotes] = useState('');
   const [contractorData, setContractorData] = useState({
     id: '',
-    name: 'Contractor'
+    name: 'Contractor',
+    email: '' // Add email field to the state
   });
   
   const navigate = useNavigate();
@@ -49,6 +50,10 @@ const OngoingProjects = () => {
         const userId = decoded.id || decoded._id || decoded.userId;
         console.log("Extracted user ID:", userId);
         
+        // Extract email from token
+        const email = decoded.email || '';
+        console.log("Extracted email from token:", email);
+        
         if (!userId) {
           console.error("No user ID found in token");
           toast.error("Authentication error - please login again");
@@ -56,16 +61,20 @@ const OngoingProjects = () => {
           return null;
         }
         
-        // Save to component state and localStorage
+        // Save to component state with email included
         localStorage.setItem('userId', userId);
+        if (email) localStorage.setItem('email', email);
+        
         setContractorData({
           id: userId,
-          name: decoded.username || localStorage.getItem('name') || 'Contractor'
+          name: decoded.username || localStorage.getItem('name') || 'Contractor',
+          email: email || localStorage.getItem('email') || ''
         });
         
         console.log("Set contractor data:", {
           id: userId,
-          name: decoded.username || localStorage.getItem('name') || 'Contractor'
+          name: decoded.username || localStorage.getItem('name') || 'Contractor',
+          email: email || localStorage.getItem('email') || ''
         });
         
         return userId;
@@ -80,6 +89,30 @@ const OngoingProjects = () => {
     const contractorId = getContractorInfo();
     console.log("Contractor ID for fetching projects:", contractorId);
   }, [navigate]);
+  
+  // Add this helper function to extract proper user data
+const getClientDataFromProject = async (project, token) => {
+  try {
+    if (!project.clientId) return { name: 'Client', email: '' };
+    
+    // Try to fetch client data from API
+    const response = await axios.get(`http://localhost:5000/auth/users/${project.clientId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    const clientData = response.data;
+    console.log("Fetched client data:", clientData);
+    
+    return {
+      name: clientData.username || clientData.name || 'Client',
+      email: clientData.email || '',
+      id: project.clientId
+    };
+  } catch (error) {
+    console.error("Error fetching client data:", error);
+    return { name: 'Client', email: '', id: project.clientId };
+  }
+};
   
   // Fetch ongoing works for this contractor
   useEffect(() => {
@@ -98,76 +131,145 @@ const OngoingProjects = () => {
         
         console.log("RAW API RESPONSE FROM BACKEND:", response.data[0]); // Log first item for debugging
         
-        // Update your formattedProjects mapping function with these safe property accesses
-
-const formattedProjects = response.data.map(project => {
-  console.log("Processing project with totalPrice:", project.totalPrice);
-  console.log("Timeline days:", project.timeline);
-  console.log("Job ID object:", project.jobId); // Log job ID to see the issue
-  
-  // Extract timeline directly from the API response
-  const timelineDays = project.timeline || 2;
-  
-  // Calculate start and end dates
-  const startDate = new Date(project.createdAt);
-  const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + parseInt(timelineDays));
-  
-  // Format dates consistently
-  const formattedStartDate = startDate.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
-  
-  const formattedEndDate = endDate.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
-  
-  return {
-    id: project._id,
-    // Use optional chaining (?.) for all jobId properties
-    jobId: project.jobId?._id || project.jobId || null,
-    clientId: project.clientId,
-    clientName: project.clientName || 'Client',
-    clientEmail: project.clientEmail || '',
-    title: project.jobId?.title || 'Project',
-    description: project.jobId?.description || 'No description available',
-    budget: project.totalPrice || 0,
-    amountPaid: project.totalAmountPaid || 0,
-    amountPending: project.totalAmountPending || 0,
-    workProgress: project.workProgress || 0,
-    
-    // Add the missing totalPrice property
-    totalPrice: project.totalPrice || 0,
-    
-    // Timeline properties
-    timeline: timelineDays,
-    startDate: formattedStartDate,
-    endDate: formattedEndDate,
-    
-    status: project.jobStatus || 'In Progress',
-    milestones: (project.milestones || []).map(m => ({
-      id: m._id,
-      name: m.name,
-      description: m.description,
-      amount: parseFloat(m.amount || 0),
-      status: m.status,
-      completedAt: m.completedAt ? new Date(m.completedAt).toLocaleDateString() : null
-    })),
-    location: project.jobId?.area || 'Not specified',
-    category: project.jobId?.category || 'Construction',
-    communication: project.communication || []
-  };
-});
+        const formattedProjects = response.data.map(project => {
+          console.log("Processing project with totalPrice:", project.totalPrice);
+          console.log("Timeline days:", project.timeline);
+          console.log("Job ID object:", project.jobId); // Log job ID to see the issue
+          
+          // Extract client information from jobId
+          const clientId = project.clientId || project.jobId?.userid;
+          const clientName = project.jobId?.username || 'Client';
+          
+          // Extract timeline directly from the API response
+          const timelineDays = project.timeline || 2;
+          
+          // Calculate start and end dates
+          const startDate = new Date(project.createdAt);
+          const endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + parseInt(timelineDays));
+          
+          // Format dates consistently
+          const formattedStartDate = startDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+          
+          const formattedEndDate = endDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+          
+          return {
+            id: project._id,
+            jobId: project.jobId?._id || project.jobId || null,
+            clientId: clientId,
+            clientName: clientName,
+            clientEmail: '', // Will be populated later after fetching user data
+            title: project.jobId?.title || 'Project',
+            description: project.jobId?.description || 'No description available',
+            budget: project.totalPrice || 0,
+            amountPaid: project.totalAmountPaid || 0,
+            amountPending: project.totalAmountPending || 0,
+            workProgress: project.workProgress || 0,
+            totalPrice: project.totalPrice || 0,
+            timeline: timelineDays,
+            startDate: formattedStartDate,
+            endDate: formattedEndDate,
+            status: project.jobStatus || 'In Progress',
+            milestones: (project.milestones || []).map(m => ({
+              id: m._id,
+              name: m.name,
+              description: m.description,
+              amount: parseFloat(m.amount || 0),
+              status: m.status,
+              completedAt: m.completedAt ? new Date(m.completedAt).toLocaleDateString() : null
+            })),
+            location: project.jobId?.area || 'Not specified',
+            category: project.jobId?.category || 'Construction',
+            communication: project.communication || []
+          };
+        });
         
-        console.log("Formatted projects:", formattedProjects);
+        // Now fetch client emails for each project
+        const projectsWithClientData = await Promise.all(
+          formattedProjects.map(async (project, index) => {
+            console.log(`-------- START PROCESSING PROJECT ${index + 1} --------`);
+            console.log(`Project: "${project.title}" (ID: ${project.id})`);
+            console.log(`Client ID from project: ${project.clientId}`);
+            
+            if (!project.clientId) {
+              console.log(`⚠️ No client ID found for project ${index + 1}, skipping fetch`);
+              return project;
+            }
+            
+            try {
+              console.log(`🔍 Fetching data for client ID: ${project.clientId}`);
+              
+              // Try both API endpoints since one might work
+              let clientResponse;
+              try {
+                // First try the auth endpoint
+                clientResponse = await axios.get(`http://localhost:5000/auth/user/${project.clientId}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+              } catch (err) {
+                // If that fails, try the API endpoint
+                console.log(err);
+              }
+              
+              // Log the entire response to see the structure
+              console.log("Full client response data:", JSON.stringify(clientResponse.data));
+              
+              // Try different possible locations for email
+              const email = clientResponse.data.email || 
+                            clientResponse.data.user?.email || 
+                            clientResponse.data.userEmail ||
+                            '';
+              
+              // Log what we found
+              console.log(`Email found: ${email || 'NONE'}`);
+              console.log(`Username found: ${clientResponse.data.username || 'NONE'}`);
+              
+              const updatedProject = {
+                ...project,
+                clientEmail: email,
+                clientName: clientResponse.data.username || project.clientName
+              };
+              
+              console.log(`Updated project client info:`, {
+                before: {
+                  name: project.clientName,
+                  email: project.clientEmail || 'none'
+                },
+                after: {
+                  name: updatedProject.clientName,
+                  email: updatedProject.clientEmail || 'none'
+                }
+              });
+              
+              console.log(`-------- FINISHED PROCESSING PROJECT ${index + 1} --------`);
+              return updatedProject;
+            } catch (err) {
+              console.error(`❌ Failed to fetch client data for ${project.clientId}:`, err);
+              console.log(`Error response:`, err.response?.data || 'No response data');
+              console.log(`-------- ERROR PROCESSING PROJECT ${index + 1} --------`);
+              return project;
+            }
+          })
+        );
         
-        setProjects(formattedProjects);
-        if (formattedProjects.length > 0 && !activeProject) {
-          setActiveProject(formattedProjects[0]);
+        console.log("🔄 Final projects with client data:");
+        projectsWithClientData.forEach((project, index) => {
+          console.log(`Project ${index + 1}: ${project.title}`);
+          console.log(`- Client Name: ${project.clientName}`);
+          console.log(`- Client Email: ${project.clientEmail || 'No email'}`);
+        });
+        
+        setProjects(projectsWithClientData);
+        if (projectsWithClientData.length > 0 && !activeProject) {
+          setActiveProject(projectsWithClientData[0]);
         }
         
       } catch (error) {
@@ -778,15 +880,16 @@ const stats = {
                         <div className="mt-6">
                           <button 
                             onClick={() => {
-                              // Get timeline from the active project data
-                              const timeline = activeProject.timeline || 
-                                            parseInt(activeProject.milestones.length * 7) || 
-                                            30; // Fallback
+                              // First, check if agreement fee has been paid
+                              const agreementFeePaid = localStorage.getItem(`agreementFee_${activeProject.id}`) === 'paid';
                               
-                              console.log("Using timeline value:", timeline);
+                              // Parse timeline value as integer with fallback
+                              const timeline = parseInt(activeProject.timeline) || 30;
                               
-                              // Calculate the end date using the timeline
+                              // Parse start date
                               const startDateObj = new Date(activeProject.startDate);
+                              
+                              // Calculate end date
                               const endDateObj = new Date(startDateObj);
                               endDateObj.setDate(startDateObj.getDate() + timeline);
                               
@@ -829,7 +932,7 @@ const stats = {
                                 },
                                 contractorDetails: {
                                   name: contractorData.name,
-                                  email: localStorage.getItem('email') || '',
+                                  email: contractorData.email || '',
                                   id: contractorData.id
                                 },
                                 bidAlreadyAccepted: true,
