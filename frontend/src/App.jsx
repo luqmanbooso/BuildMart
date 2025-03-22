@@ -17,7 +17,6 @@ import About from './Pages/About'
 import Admindashboard from './Pages/Admindashboard'
 import ClientContractorAgreement from './Pages/ClientContractorAgreement'
 import PaymentDashboard from './Pages/PaymentDashboard'
-import ProjectsPage from './Pages/MyProjects'
 import UserProfile from './Pages/UserProfile'
 import ActiveJob from './Pages/ActiveJob'
 import OngoingJobs from './Pages/Ongoingworks'
@@ -77,7 +76,6 @@ function App() {
         <Route path='/bid-form/:jobId' element={<BidForm
         sampleData={sampleProjectData}
         />} />
-        <Route path="/myprojects" element={<ProjectsPage />} /> 
         <Route path="/my-orders" element={<MyOrders />} />
         <Route path="/project-details" element={<ProjectDetails />} />
         <Route path="/login" element={<Login />} />
