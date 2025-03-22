@@ -7,6 +7,11 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
+  const [projectDetails, setProjectDetails] = useState({
+    lowestBid: null,
+    minDecrement: null,
+    minBudget: null
+  });
 
   const {
     register,
@@ -41,6 +46,42 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
       }
     }
   }, []);
+
+  // Fetch the current lowest bid info
+  useEffect(() => {
+    const fetchLowestBid = async () => {
+      try {
+        // Get the lowest bid for this project
+        const lowestBidResponse = await axios.get(`http://localhost:5000/bids/project/${bid.projectId}/lowest`);
+        
+        if (lowestBidResponse.data.exists) {
+          // Calculate min decrement based on the same rules as backend
+          const lowestBidPrice = lowestBidResponse.data.price;
+          const minDecrement = lowestBidPrice <= 15000 ? 200 : 
+                              lowestBidPrice <= 100000 ? 1000 : 2000;
+          
+          setProjectDetails(prev => ({
+            ...prev,
+            lowestBid: lowestBidPrice,
+            minDecrement: minDecrement
+          }));
+        }
+        
+        // Get the project details for min budget
+        const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${bid.projectId}`);
+        if (jobResponse.data && jobResponse.data.minBudget) {
+          setProjectDetails(prev => ({
+            ...prev,
+            minBudget: jobResponse.data.minBudget
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching project data:', err);
+      }
+    };
+    
+    fetchLowestBid();
+  }, [bid.projectId]);
 
   const onSubmit = async (data) => {
     if (!userInfo) {
@@ -111,6 +152,23 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
           </p>
         </div>
 
+        {projectDetails.lowestBid && projectDetails.minDecrement && (
+          <div className="bg-yellow-50 p-4 rounded-lg mb-4">
+            <div className="flex items-center mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span className="text-yellow-800 font-medium">Bid Requirements</span>
+            </div>
+            <p className="text-sm text-yellow-700">
+              Your new bid must be at least <span className="font-semibold">LKR {projectDetails.minDecrement.toLocaleString()}</span> less than the current lowest bid (LKR {projectDetails.lowestBid.toLocaleString()}).
+            </p>
+            <p className="text-sm text-yellow-700 mt-1">
+              Maximum valid bid: <span className="font-semibold">LKR {(projectDetails.lowestBid - projectDetails.minDecrement).toLocaleString()}</span>
+            </p>
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r">
             <div className="flex">
@@ -147,7 +205,27 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                   validate: {
                     positive: v => parseFloat(v) > 0 || 'Bid must be greater than 0',
                     lowerThanCurrent: v => parseFloat(v) < parseFloat(bid.price) || 
-                      'New bid must be lower than your current bid'
+                      'New bid must be lower than your current bid',
+                    minDecrement: v => {
+                      // Only validate if we have lowestBid data
+                      if (!projectDetails.lowestBid || !projectDetails.minDecrement) return true;
+                      
+                      const newBid = parseFloat(v);
+                      const lowestBid = projectDetails.lowestBid;
+                      const minDecrement = projectDetails.minDecrement;
+                      
+                      // If this is the current lowest bid, no need to check this
+                      if (parseFloat(bid.price) <= lowestBid) return true;
+                      
+                      // Otherwise, check if new bid meets the decrement requirement
+                      return newBid <= (lowestBid - minDecrement) || 
+                        `Your bid must be at least LKR ${minDecrement.toLocaleString()} less than the current lowest bid`;
+                    },
+                    minBudget: v => {
+                      if (!projectDetails.minBudget) return true;
+                      return parseFloat(v) >= projectDetails.minBudget || 
+                        `Bid cannot be lower than the project minimum budget of LKR ${projectDetails.minBudget.toLocaleString()}`;
+                    }
                   }
                 })}
                 className={`block w-full pl-10 pr-12 py-2 sm:text-sm rounded-md ${

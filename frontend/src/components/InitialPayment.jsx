@@ -6,8 +6,22 @@ import { FaCreditCard, FaMoneyBillWave, FaUniversity, FaCheck } from 'react-icon
 import { jwtDecode } from 'jwt-decode';
 import Payment from './Payment'; // Import the Payment component
 
-// Fixed agreement fee amount
-const AGREEMENT_FEE = 500;
+// Function to calculate agreement fee based on bid amount
+const calculateAgreementFee = (bidAmount) => {
+  // Parse the bid amount to ensure it's a number
+  const amount = parseFloat(bidAmount || 0);
+  
+  // Determine agreement fee based on bid price range
+  if (amount <= 50000) {
+    return 250;  // Small projects
+  } else if (amount <= 200000) {
+    return 1000; // Medium projects
+  } else if (amount <= 500000) {
+    return 2000; // Large projects
+  } else {
+    return 3000; // Very large projects
+  }
+};
 
 const InitialPayment = () => {
   const { jobId, bidId } = useParams();
@@ -24,6 +38,7 @@ const InitialPayment = () => {
   const [clientDetails, setClientDetails] = useState(null);
   const [showAgreementFeePayment, setShowAgreementFeePayment] = useState(false);
   const [agreementFeePaid, setAgreementFeePaid] = useState(false);
+  const [agreementFee, setAgreementFee] = useState(250); // Default value
 
   // Fetch job and bid details
   useEffect(() => {
@@ -47,6 +62,12 @@ const InitialPayment = () => {
         }
         
         setBidDetails(matchingBid);
+        
+        // After setting bid details, calculate the agreement fee
+        if (matchingBid) {
+          const agreementFee = calculateAgreementFee(matchingBid.price);
+          setAgreementFee(agreementFee); // Add this state variable
+        }
         
         // Also fetch contractor details if we have a contractor ID
         if (matchingBid.contractorId) {
@@ -222,7 +243,7 @@ const InitialPayment = () => {
             <div className="px-4 py-5 sm:p-6">
               <h2 className="text-xl font-bold text-gray-900">Agreement Fee Payment</h2>
               <p className="mt-1 text-sm text-gray-500">
-                A one-time fee of RS {AGREEMENT_FEE} is required to access the contract agreement
+                A one-time fee of RS {agreementFee.toLocaleString()} is required to access the contract agreement
               </p>
               
               <div className="mt-4 bg-blue-50 rounded-lg p-4 border border-blue-100">
@@ -253,7 +274,7 @@ const InitialPayment = () => {
           
           {/* Use the Payment component for agreement fee */}
           <Payment 
-            amount={AGREEMENT_FEE}
+            amount={agreementFee} // Instead of AGREEMENT_FEE
             onSuccess={handleAgreementFeeSuccess}
             onCancel={handlePaymentCancel}
             context="agreementFee"
@@ -262,7 +283,7 @@ const InitialPayment = () => {
               orderId: `AGREEMENT-${jobId}-${bidId}-${Date.now()}`,
               items: [{
                 name: "Agreement Fee",
-                price: AGREEMENT_FEE,
+                price: agreementFee, // Instead of AGREEMENT_FEE
                 quantity: 1
               }],
               shippingDetails: {}
@@ -309,7 +330,7 @@ const InitialPayment = () => {
                   <div className="ml-3">
                     <h3 className="text-sm font-medium text-yellow-800">Agreement Fee Required</h3>
                     <div className="mt-2 text-sm text-yellow-700">
-                      <p>A one-time fee of RS {AGREEMENT_FEE} is required to access the contract agreement.</p>
+                      <p>A one-time fee of RS {agreementFee.toLocaleString()} is required to access the contract agreement.</p>
                       <button
                         onClick={() => setShowAgreementFeePayment(true)}
                         className="mt-2 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 font-medium py-1 px-3 rounded text-sm"
@@ -377,7 +398,7 @@ const InitialPayment = () => {
                   <div className="px-4 py-3 border-b border-gray-200">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Legal Documentation Fee</span>
-                      <span className="font-medium">RS {AGREEMENT_FEE.toLocaleString()}</span>
+                      <span className="font-medium">RS {agreementFee.toLocaleString()}</span>
                     </div>
                   </div>
                   
@@ -385,7 +406,7 @@ const InitialPayment = () => {
                     <div className="flex justify-between items-center">
                       <span className="font-medium">Total Fee</span>
                       <span className={`font-bold text-lg ${agreementFeePaid ? 'text-green-600' : 'text-gray-900'}`}>
-                        RS {AGREEMENT_FEE.toLocaleString()}
+                        RS {agreementFee.toLocaleString()}
                         {agreementFeePaid ? ' (Paid)' : ''}
                       </span>
                     </div>
@@ -408,8 +429,15 @@ const InitialPayment = () => {
                     <div className="ml-3">
                       <h3 className="text-sm font-medium text-blue-800">Agreement Fee Information</h3>
                       <div className="mt-2 text-sm text-blue-700">
-                        <p>A one-time fee of RS {AGREEMENT_FEE} is required to access the contract agreement.</p>
+                        <p>A one-time fee of RS {agreementFee.toLocaleString()} is required to access the contract agreement.</p>
                         <p className="mt-1">This fee covers the legal documentation and processing of your agreement.</p>
+                        <p className="mt-1">This fee is calculated based on the project size:</p>
+                        <ul className="list-disc pl-5 mt-1">
+                          <li>RS 250 for projects up to 50,000 LKR</li>
+                          <li>RS 1,000 for projects up to 200,000 LKR</li>
+                          <li>RS 2,000 for projects up to 500,000 LKR</li>
+                          <li>RS 3,000 for larger projects</li>
+                        </ul>
                       </div>
                     </div>
                   </div>
@@ -461,7 +489,7 @@ const InitialPayment = () => {
                           Processing...
                         </span>
                       ) : (
-                        `Pay Agreement Fee (RS ${AGREEMENT_FEE.toLocaleString()})`
+                        `Pay Agreement Fee (RS ${agreementFee.toLocaleString()})`
                       )}
                     </button>
                   ) : (

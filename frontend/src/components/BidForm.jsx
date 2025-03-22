@@ -654,13 +654,14 @@ const onSubmit = async (data) => {
                   <div className="relative">
                     <input
                       id="timeline"
-                      type="text" // Changed to text for better pattern control
+                      type="text"
                       placeholder="Enter project timeline in days"
+                      maxLength={3} // Explicitly limit input to 3 characters
                       {...register("timeline", {
                         required: "Timeline is required",
                         maxLength: {
                           value: 3,
-                          message: "Bid amount cannot exceed 12 digits"
+                          message: "Timeline cannot exceed 3 digits (999 days)"
                         },
                         pattern: {
                           value: /^[0-9]+$/, 
@@ -671,11 +672,18 @@ const onSubmit = async (data) => {
                           notTooLarge: v => parseInt(v) <= 365 || "Timeline must not exceed 1 year"
                         },
                         onChange: (e) => {
-                          // Only allow integers (whole numbers)
-                          const value = e.target.value;
-                          if (!/^[0-9]*$/.test(value)) {
-                            e.target.value = value.slice(0, -1);
+                          // Only allow integers and limit to 3 digits
+                          let value = e.target.value;
+                          
+                          // Remove non-numeric characters
+                          value = value.replace(/[^0-9]/g, '');
+                          
+                          // Limit to 3 digits
+                          if (value.length > 3) {
+                            value = value.slice(0, 3);
                           }
+                          
+                          e.target.value = value;
                         }
                       })}
                       className={`w-full p-3 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${
@@ -699,7 +707,7 @@ const onSubmit = async (data) => {
                     </p>
                   )}
                   <p className="mt-1 text-xs text-gray-500">
-                    Enter whole number of days needed to complete the project
+                    Enter whole number of days needed to complete the project (max 365)
                   </p>
                 </div>
               </div>
