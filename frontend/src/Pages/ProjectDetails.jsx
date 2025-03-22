@@ -40,6 +40,9 @@ const ProjectDetails = () => {
     { name: '', amount: '', description: '' }
   ]);
 
+  // Add this state variable near other state declarations
+  const [winnerMessageShown, setWinnerMessageShown] = useState(false);
+
   // Get user information from token
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -139,6 +142,32 @@ const ProjectDetails = () => {
       fetchJobDetails();
     }
   }, [jobId, userInfo]);
+
+  // Add this useEffect after your existing useEffects
+  useEffect(() => {
+    // Check if this contractor won the bid and show a success message
+    if (job?.status === 'Closed' && 
+        job?.acceptedBid && 
+        contractorBid && 
+        job.acceptedBid === contractorBid._id && 
+        !winnerMessageShown) {
+      
+      // Show toast message
+      toast.success(
+        <div>
+          <div className="font-bold mb-1">Congratulations! You won this project! 🎉</div>
+          <div className="text-sm">Your bid has been accepted by the client.</div>
+        </div>, 
+        {
+          autoClose: 10000, // Keep visible for 10 seconds
+          position: "top-center"
+        }
+      );
+      
+      // Set flag to avoid showing the message again
+      setWinnerMessageShown(true);
+    }
+  }, [job, contractorBid, winnerMessageShown]);
 
   // Function to update timer
   const updateTimer = (targetDate, timerType) => {
@@ -423,6 +452,47 @@ const refreshJobDetails = async () => {
   
   {/* Rest of breadcrumb content */}
 </div>
+
+{/* Winner message banner */}
+{job?.status === 'Closed' && job?.acceptedBid && contractorBid && 
+ String(job.acceptedBid) === String(contractorBid._id) && (
+  <div className="mb-6 bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg shadow-md overflow-hidden">
+    <div className="p-5">
+      <div className="flex items-center">
+        <div className="bg-green-500 rounded-full p-3 mr-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-green-800 mb-1">Congratulations! You've Won This Project!</h3>
+          <p className="text-gray-700">Your bid has been selected by the client as the winning proposal.</p>
+        </div>
+      </div>
+      
+      <div className="mt-4 px-4 py-3 bg-white rounded-md border border-green-100">
+        <h4 className="font-medium text-gray-800 mb-2">Next Steps:</h4>
+        <ul className="list-disc pl-5 space-y-1 text-gray-700">
+          <li>Contact the client to discuss project details and timeline</li>
+          <li>Prepare all necessary materials and resources for the project</li>
+          <li>Track your progress through the milestone system</li>
+        </ul>
+      </div>
+      
+      <div className="mt-4 flex justify-center">
+        <button 
+          onClick={() => navigate('/ongoing-projects')}
+          className="flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a 1 1 0 010 1.414l-4 4a 1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+          Go to My Ongoing Projects
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
           <div className="bg-white shadow-lg rounded-lg overflow-hidden">
             {/* Project Header */}

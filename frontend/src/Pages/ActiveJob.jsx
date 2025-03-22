@@ -5,6 +5,7 @@ import logo from '../assets/images/buildmart_logo1.png';
 import BidListingSection from '../components/BidListingSection';
 import { jwtDecode } from 'jwt-decode';
 import ClientNavBar from '../components/ClientNavBar';
+import ClosedJobBidsSection from '../components/ClosedJobBidsSection';
 
 const ActiveJob = () => {
   const { jobId = "sample-project-id" } = useParams();
@@ -1185,43 +1186,50 @@ const handleRestartAuction = async () => {
       </div>
     </div>
     
-    {/* Bids section */}
-    {job?.status === 'Active' && (
-      <BidListingSection 
-        bids={bids} 
-        jobId={jobId} 
-        refreshBids={() => {
-          // Function to refresh bids from the server
-          const fetchBids = async () => {
-            try {
-              const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
-              
-              const formattedBids = bidsResponse.data.map(bid => ({
-                ...bid,
-                id: bid._id,
-                formattedAmount: `LKR ${parseFloat(bid?.price).toLocaleString()}`,
-                message: bid.qualifications || 'No additional details provided by the contractor.',
-                contractor: {
-                  name: bid.contractorname || 'Unknown Contractor',
-                  profileImage: 'default-profile-image-url.jpg',
-                  completedProjects: bid.completedProjects || 0,
-                  rating: bid.rating || 0,
-                },
-                status: bid.status || 'pending',
-                createdAt: new Date(bid.createdAt).toLocaleDateString(),
-                timeline: bid.timeline,
-              }));
-              
-              setBids(formattedBids);
-            } catch (err) {
-              console.error('Error fetching bids:', err);
-            }
-          };
+    {/* Bids section - show for both Active and Closed auctions */}
+{job?.status === 'Active' && (
+  <BidListingSection 
+    bids={bids} 
+    jobId={jobId} 
+    refreshBids={() => {
+      // Function to refresh bids from the server
+      const fetchBids = async () => {
+        try {
+          const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
           
-          fetchBids();
-        }}
-      />
-    )}
+          const formattedBids = bidsResponse.data.map(bid => ({
+            ...bid,
+            id: bid._id,
+            formattedAmount: `LKR ${parseFloat(bid?.price).toLocaleString()}`,
+            message: bid.qualifications || 'No additional details provided by the contractor.',
+            contractor: {
+              name: bid.contractorname || 'Unknown Contractor',
+              profileImage: 'default-profile-image-url.jpg',
+              completedProjects: bid.completedProjects || 0,
+              rating: bid.rating || 0,
+            },
+            status: bid.status || 'pending',
+            createdAt: new Date(bid.createdAt).toLocaleDateString(),
+            timeline: bid.timeline,
+          }));
+          
+          setBids(formattedBids);
+        } catch (err) {
+          console.error('Error fetching bids:', err);
+        }
+      };
+      
+      fetchBids();
+    }}
+  />
+)}
+
+{job?.status === 'Closed' && (
+  <ClosedJobBidsSection 
+    bids={bids} 
+    jobId={jobId} 
+  />
+)}
   </>
 )}
           </div>
