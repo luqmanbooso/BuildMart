@@ -111,7 +111,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Add a new endpoint to update auction status
+// Modify the auction-status endpoint to ensure consistent response format
 router.put('/:id/auction-status', async (req, res) => {
   const { status } = req.body;
   
@@ -139,8 +139,13 @@ router.put('/:id/auction-status', async (req, res) => {
     job.status = status;
     await job.save();
     
-    res.status(200).json({ message: 'Auction status updated successfully', job });
+    // FIXED: Return the updated job in a consistent format
+    res.status(200).json({ 
+      message: 'Auction status updated successfully', 
+      job: job.toObject()  // Convert to plain object for consistent formatting
+    });
   } catch (err) {
+    console.error('Error updating auction status:', err);
     res.status(500).json({ error: 'Error updating auction status' });
   }
 });

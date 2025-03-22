@@ -244,7 +244,11 @@ const ActiveJob = () => {
       );
       
       if (response.data && response.data.job) {
-        setJob(response.data.job);
+        // FIXED: Update the existing job instead of creating a new one
+        setJob(prevJob => ({
+          ...prevJob,
+          ...response.data.job
+        }));
         setIsEditing(false);
         setSuccessMessage('Job details updated successfully!');
       }
@@ -278,20 +282,20 @@ const handleStartAuction = async () => {
     if (response.data && response.data.job) {
       const jobData = response.data.job;
       
-      // Update local job state
-      setJob({
-        ...job,
+      // FIXED: Update local job state WITHOUT creating a new job
+      setJob(prevJob => ({
+        ...prevJob,
         status: 'Active',
         auctionStarted: true,
         biddingStartTime: jobData.biddingStartTime
-      });
+      }));
       
-      setEditedJob({
-        ...editedJob,
+      setEditedJob(prevEdited => ({
+        ...prevEdited,
         status: 'Active',
         auctionStarted: true,
         biddingStartTime: jobData.biddingStartTime
-      });
+      }));
       
       setSuccessMessage('Auction started successfully!');
     }
@@ -304,7 +308,7 @@ const handleStartAuction = async () => {
   }
 };
 
-// Add a Stop Auction function
+// Similarly update the handleStopAuction function
 const handleStopAuction = async () => {
   try {
     setLoading(true);
@@ -325,20 +329,20 @@ const handleStopAuction = async () => {
     if (response.data && response.data.job) {
       const jobData = response.data.job;
       
-      // Update local job state
-      setJob({
-        ...job,
+      // FIXED: Update local job state WITHOUT creating a new job
+      setJob(prevJob => ({
+        ...prevJob,
         status: 'Closed',
         auctionStarted: false,
         biddingEndTime: jobData.biddingEndTime
-      });
+      }));
       
-      setEditedJob({
-        ...editedJob,
+      setEditedJob(prevEdited => ({
+        ...prevEdited,
         status: 'Closed',
         auctionStarted: false,
         biddingEndTime: jobData.biddingEndTime
-      });
+      }));
       
       setSuccessMessage('Auction closed successfully!');
     }

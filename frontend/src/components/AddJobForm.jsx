@@ -131,7 +131,7 @@ const AddJobForm = ({ onClose, onJobAdded }) => {
       
       // Format the new job for display
       const newJobRequest = {
-        id: data.job._id || Date.now().toString(),
+        id: data.job._id,  // Use _id consistently
         title: data.job.title,
         categories: data.job.categories,
         area: data.job.area,
