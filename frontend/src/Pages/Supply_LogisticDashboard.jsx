@@ -295,6 +295,7 @@ function Supply_LogisticDashboard() {
   const [statusOptions, setStatusOptions] = useState({});
   const [statusTypesLoading, setStatusTypesLoading] = useState(true);
   const [restockRequests, setRestockRequests] = useState([]);
+  const [selectedOrderForShipment, setSelectedOrderForShipment] = useState(null);
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
@@ -611,19 +612,42 @@ const mapOrderStatus = (status) => {
   }, []);
   
   // Create shipment from order function
-  const createShipmentFromOrder = async (order) => {
+  const createShipmentFromOrder = (order) => {
+    try {
+      // Set the selected order for pre-populating the form
+      setSelectedOrderForShipment(order);
+      
+      // Switch to the shipment tab
+      setActiveTab("shipments");
+      
+      // Optional: Scroll to the shipping arrangement form
+      setTimeout(() => {
+        const formElement = document.getElementById("shipment-arrangement-form");
+        if (formElement) {
+          formElement.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
+      
+    } catch (error) {
+      console.error("Error selecting order for shipment:", error);
+      toast.error("Failed to navigate to shipment form");
+    }
+  };
+  
+  // Your existing handleArrangeShipment function that actually creates the shipment
+  const handleArrangeShipment = async (shipmentData) => {
     try {
       // Create a new shipment object
       const newShipment = {
-        id: `SHP-${order.id.substring(order.id.length - 5)}`,
-        orderId: order.id,
+        id: `SHP-${shipmentData.order.id.substring(shipmentData.order.id.length - 5)}`,
+        orderId: shipmentData.order.id,
         origin: "Colombo Warehouse",
-        destination: `${order.shippingAddress?.city || "Customer"} Site`,
-        driver: "Assigned Driver",
-        vehicle: "LK-" + Math.floor(1000 + Math.random() * 9000),
+        destination: `${shipmentData.order.shippingAddress?.city || "Customer"} Site`,
+        driver: shipmentData.driver,
+        vehicle: shipmentData.vehicle,
         status: "Preparing",
         progress: 10,
-        eta: "24 hours",
+        eta: shipmentData.eta,
         createdAt: new Date().toISOString(),
       };
       
@@ -631,9 +655,12 @@ const mapOrderStatus = (status) => {
       setActiveShipments([...activeShipments, newShipment]);
       
       // Update order status to "processing"
-      await updateOrderStatus(order.id, "processing");
-
-      toast.success(`Shipment ${newShipment.id} created for order ${order.id}`);
+      await updateOrderStatus(shipmentData.order.id, "processing");
+      
+      // Clear the selected order
+      setSelectedOrderForShipment(null);
+      
+      toast.success(`Shipment ${newShipment.id} created for order ${shipmentData.order.id}`);
     } catch (error) {
       console.error("Error creating shipment:", error);
       toast.error("Failed to create shipment");
@@ -2054,10 +2081,13 @@ const handleRestockRequest = async (itemName) => {
                 </div>
               </div>
 
-              <ShipmentArrangementForm
-                orders={orders.filter((order) => order.status === "Pending")}
-                onArrangeShipment={createShipmentFromOrder}
-              />
+              <div id="shipment-arrangement-form">
+                <ShipmentArrangementForm
+                  orders={orders.filter((order) => order.status === "Pending")}
+                  selectedOrder={selectedOrderForShipment}
+                  onArrangeShipment={handleArrangeShipment}
+                />
+              </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <div className="flex justify-between items-center mb-6">
