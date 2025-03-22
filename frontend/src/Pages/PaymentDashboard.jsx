@@ -470,17 +470,41 @@ const processPaymentData = (data) => {
   // Add this function to fetch admin salaries
   const fetchAdminSalaries = async () => {
     try {
+      setIsLoadingAdmins(true);
       const response = await axios.get('http://localhost:5000/auth/admins');
       
       // Transform the data to match the format expected by the component
-      const processedSalaries = response.data.map(admin => ({
-        id: admin.id,
-        name: admin.username,
-        email: admin.email,
-        salary: admin.salary?.amount || 30000, // Access salary amount or use default
-        status: admin.salary?.paymentStatus || 'Pending',
-        lastPaid: admin.salary?.lastPaid ? new Date(admin.salary.lastPaid).toLocaleDateString() : 'Never'
-      }));
+      const processedSalaries = response.data.map(admin => {
+        // Get last paid date object if available
+        const lastPaidDate = admin.salary?.lastPaid ? new Date(admin.salary.lastPaid) : null;
+        
+        // Check if paid for current month
+        const currentDate = new Date();
+        const isCurrentMonthPaid = lastPaidDate ? 
+          lastPaidDate.getMonth() === currentDate.getMonth() && 
+          lastPaidDate.getFullYear() === currentDate.getFullYear() : 
+          false;
+          
+        // Get month name
+        const lastPaidMonth = lastPaidDate ? 
+          lastPaidDate.toLocaleString('default', { month: 'long' }) : '';
+        
+        // Get current month name
+        const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
+        
+        return {
+          id: admin.id || admin._id,
+          name: admin.username,
+          email: admin.email,
+          salary: admin.salary?.amount || 30000, // Access salary amount or use default
+          status: isCurrentMonthPaid ? 'Paid' : 'Pending',
+          statusLabel: isCurrentMonthPaid ? `Paid for ${currentMonth}` : `Pending ${currentMonth} payment`,
+          lastPaid: admin.salary?.lastPaid ? new Date(admin.salary.lastPaid).toLocaleDateString() : 'Never',
+          lastPaidMonth: lastPaidMonth,
+          currentMonth: currentMonth,
+          isCurrentMonthPaid: isCurrentMonthPaid
+        };
+      });
       
       setAdminSalaries(processedSalaries);
       
@@ -495,22 +519,41 @@ const processPaymentData = (data) => {
       
       setTotalSalaryPaid(totalPaid);
       setTotalSalaryPending(totalPending);
+      setIsLoadingAdmins(false);
     } catch (error) {
       console.error('Error fetching admin salaries:', error);
-      alert('Failed to load admin salary data. Please try again.');
+      setAdminError('Failed to load admin salary data');
+      setIsLoadingAdmins(false);
     }
   };
 
   const handleSalaryPayment = async (admin) => {
     const lastPaidDate = admin.lastPaid ? new Date(admin.lastPaid).toLocaleDateString() : 'Not paid yet';
+    const currentDate = new Date();
     
-    // Show confirmation dialog with last paid date
-    const confirmPay = window.confirm(
-      `Do you want to pay salary to ${admin.name}?\n\nLast Paid Date: ${lastPaidDate}`
-    );
+    // Check if salary is for current month
+    const lastPaidDateObj = admin.lastPaid ? new Date(admin.lastPaid) : null;
+    let isCurrentMonthPaid = false;
+    
+    if (lastPaidDateObj) {
+      isCurrentMonthPaid = 
+        lastPaidDateObj.getMonth() === currentDate.getMonth() && 
+        lastPaidDateObj.getFullYear() === currentDate.getFullYear();
+    }
+    
+    // Create message with month information
+    const monthName = currentDate.toLocaleString('default', { month: 'long' });
+    const message = isCurrentMonthPaid ? 
+      `It appears that ${admin.name} has already been paid for ${monthName}. Do you still want to process payment?` : 
+      `Do you want to pay ${monthName} salary to ${admin.name}?\n\nLast Paid Date: ${lastPaidDate}`;
+    
+    // Show confirmation dialog with month and last paid date
+    const confirmPay = window.confirm(message);
   
     if (confirmPay) {
       try {
+        setLoading(true);
+        
         // Calculate salary components
         const basicSalary = admin.salary || 30000;
         const epfEmployee = basicSalary * 0.08;
@@ -518,11 +561,12 @@ const processPaymentData = (data) => {
         const etf = basicSalary * 0.03;
         const netSalary = basicSalary - epfEmployee;
   
-        // Create expense record
+        // Create expense record with month information
         const salaryExpense = {
           id: `SAL-${Date.now()}`,
           date: new Date().toISOString(),
           type: 'Salary Payment',
+          month: monthName,
           employeeId: admin.id,
           employeeName: admin.name,
           employeeEmail: admin.email,
@@ -533,30 +577,59 @@ const processPaymentData = (data) => {
             epfEmployer,
             etf,
             netSalary,
-            paymentDate: new Date().toISOString()
+            paymentDate: new Date().toISOString(),
+            month: monthName,
+            year: currentDate.getFullYear()
           }
         };
   
         // Add to expenses array
         setAdminExpenses(prev => [...prev, salaryExpense]);
   
-        // Update admin's last paid date and status
-        const updatedAdmins = adminSalaries.map(a => 
-          a.id === admin.id 
-            ? {...a, 
-               lastPaid: new Date().toLocaleDateString(), 
-               status: 'Paid'
-              } 
-            : a
-        );
-        setAdminSalaries(updatedAdmins);
-  
-        // Show success message
-        alert('Salary payment processed successfully!');
+        // Send payment data to backend
+        const response = await axios.post('http://localhost:5000/auth/admins/pay-salary', {
+          adminId: admin.id,
+          paymentDate: new Date().toISOString(),
+          month: monthName,
+          year: currentDate.getFullYear(),
+          salary: {
+            basicSalary,
+            epfEmployee,
+            epfEmployer,
+            etf,
+            netSalary
+          }
+        });
         
+        if (response.status === 200) {
+          // Update admin's last paid date and status in local state
+          const updatedAdmins = adminSalaries.map(a => 
+            a.id === admin.id 
+              ? {...a, 
+                 lastPaid: new Date().toLocaleDateString(), 
+                 status: 'Paid',
+                 lastPaidMonth: monthName,
+                 lastPaidYear: currentDate.getFullYear()
+                } 
+              : a
+          );
+          setAdminSalaries(updatedAdmins);
+  
+          // Show success message
+          alert(`${monthName} salary payment processed successfully for ${admin.name}!`);
+          
+          // Set expensesSubPage to 'Other Expenses' to show the newly added expense
+          setExpensesSubPage('Other Expenses');
+          // Navigate to Expenses page to show the newly added expense
+          setActivePage('Expenses');
+        } else {
+          throw new Error('Failed to process payment on server');
+        }
       } catch (error) {
         console.error('Error processing salary payment:', error);
         alert('Failed to process salary payment. Please try again.');
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -1748,7 +1821,14 @@ const processPaymentData = (data) => {
                             {admin.lastPaid}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {getStatusBadge(admin.status)}
+                            <div className="flex flex-col">
+                              {getStatusBadge(admin.status)}
+                              <span className="text-xs text-gray-500 mt-1">
+                                {admin.isCurrentMonthPaid 
+                                  ? `Paid for ${admin.currentMonth}` 
+                                  : `${admin.currentMonth} payment pending`}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex space-x-2">
@@ -1899,7 +1979,18 @@ const processPaymentData = (data) => {
             {/* Other Expenses Content */}
             {expensesSubPage === 'Other Expenses' && (
               <div className="bg-white rounded-xl shadow-sm p-6">
-                <h2 className="text-lg font-semibold mb-6">Other Expenses</h2>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-semibold">Other Expenses</h2>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => exportExpensesData()}
+                      className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                    >
+                      <FileText size={16} className="mr-2" />
+                      Export Records
+                    </button>
+                  </div>
+                </div>
                 
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
@@ -1907,6 +1998,7 @@ const processPaymentData = (data) => {
                       <tr>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
@@ -1915,7 +2007,7 @@ const processPaymentData = (data) => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {adminExpenses.length === 0 ? (
                         <tr>
-                          <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
+                          <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
                             No expenses recorded
                           </td>
                         </tr>
@@ -1928,11 +2020,14 @@ const processPaymentData = (data) => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {expense.type}
                             </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {expense.month || '-'}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{expense.employeeName}</div>
                               <div className="text-xs text-gray-500">{expense.employeeEmail}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
                               Rs. {expense.amount.toLocaleString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1940,6 +2035,7 @@ const processPaymentData = (data) => {
                                 onClick={() => {
                                   alert(
                                     `Payment Details:\n\n` +
+                                    `Month: ${expense.details.month || 'N/A'} ${expense.details.year || ''}\n` +
                                     `Basic Salary: Rs. ${expense.details.basicSalary.toLocaleString()}\n` +
                                     `EPF (Employee): Rs. ${expense.details.epfEmployee.toLocaleString()}\n` +
                                     `EPF (Employer): Rs. ${expense.details.epfEmployer.toLocaleString()}\n` +
@@ -2444,6 +2540,30 @@ const exportCommissionData = () => {
   const link = document.createElement('a');
   link.setAttribute('href', url);
   link.setAttribute('download', `commission_income_${new Date().toISOString()}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const exportExpensesData = () => {
+  // CSV export for expense data
+  const headers = ['Date', 'Type', 'Month', 'Employee Name', 'Email', 'Amount'];
+  const csvData = adminExpenses.map(expense => [
+    new Date(expense.date).toLocaleDateString(),
+    expense.type,
+    expense.month || '-',
+    expense.employeeName,
+    expense.employeeEmail,
+    expense.amount
+  ]);
+  
+  const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `expenses_${new Date().toISOString()}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
