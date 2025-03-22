@@ -332,7 +332,7 @@ router.patch('/user/:userId', async (req, res) => {
 router.put('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { name, email, currentPassword, newPassword } = req.body;
+    const { name, email, currentPassword, newPassword, profilePic } = req.body;
     
     // Check if user exists
     const user = await User.findById(userId);
@@ -351,6 +351,11 @@ router.put('/user/:userId', async (req, res) => {
     // Include username in updates if provided
     if (name) {
       updates.username = name;
+    }
+    
+    // Include profile pic in updates if provided
+    if (profilePic) {
+      updates.profilePic = profilePic;
     }
     
     // Handle password update if requested
@@ -441,6 +446,34 @@ router.delete('/users/:userId', async (req, res) => {
   } catch (error) {
     console.error('Error deleting user:', error);
     res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
+// Add these routes after your existing routes
+
+// Import multer and file system utilities if not already at the top
+// const multer = require('multer');
+// const path = require('path');
+// const fs = require('fs');
+
+// Route to handle profile image upload separately
+router.post('/upload/profile', profileUpload.single('profilePic'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No profile image uploaded' });
+    }
+    
+    // Return the path to the uploaded file
+    const filePath = `/uploads/profiles/${req.file.filename}`;
+    
+    res.json({
+      message: 'Profile image uploaded successfully',
+      filePath: filePath,
+      filename: req.file.filename
+    });
+  } catch (error) {
+    console.error('Error uploading profile image:', error);
+    res.status(500).json({ error: 'Server error during file upload' });
   }
 });
 
