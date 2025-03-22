@@ -40,7 +40,7 @@ import { supplierService } from "../services/supplierService";
 import { restockService } from "../services/restockService";
 import RestockRequests from '../components/RestockRequests';
 
-// Mock data for the dashboard
+// Mock data for the dashboardd
 const inventoryData = [
   {
     name: "Cement",
