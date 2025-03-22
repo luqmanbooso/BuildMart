@@ -392,17 +392,8 @@ try {
         }
         
         // NEW CODE: Update all other bids for this job to 'rejected'
-        try {
-          const rejectOtherBidsUrl = `http://localhost:5000/bids/project/${jobId}/reject-others`;
-          await axios.put(rejectOtherBidsUrl, {
-            acceptedBidId: bidId
-          }, config);
-          
-          console.log("Successfully rejected other bids");
-        } catch (rejectError) {
-          console.error("Failed to reject other bids:", rejectError);
-          // Don't throw error here - continue with the process
-        }
+        console.log("Other bids are automatically rejected when accepting a bid");
+        // No need for separate API call - the backend route '/:bidId/status' already does this
         
         toast.success('Agreement successfully confirmed!');
         setShowSuccessModal(true);

@@ -313,7 +313,7 @@ const AcceptedAgreementView = () => {
 
   // In your useEffect, make sure to properly extract data from location state or fetch it
   useEffect(() => {
-    // Extract data from location state if available
+    // Extract data from location state or fetch it
     if (location.state) {
       const { project, bid, client } = location.state;
       
@@ -324,19 +324,40 @@ const AcceptedAgreementView = () => {
       // Fetch data if not in state
       const fetchData = async () => {
         try {
-          // Fetch project details
+          // Fetch project/job details first
           const projectResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`);
-          setProjectData(projectResponse.data);
+          setProjectData(projectResponse.data.job);
+          
+          // Fetch the ongoing work to get the timeline value
+          // This is where we'll get the correct timeline
+          const ongoingWorkResponse = await axios.get(`http://localhost:5000/api/ongoingworks/job/${jobId}`);
+          
+          // Log what we got for debugging
+          console.log("Fetched ongoing work data:", ongoingWorkResponse.data);
+          
+          // Store the timeline value if available
+          const timelineValue = ongoingWorkResponse.data.timeline || 
+                                projectResponse.data.job?.timeline || 
+                                30; // Default fallback value
+          
+          // Update the project data with the timeline
+          setProjectData(prev => ({
+            ...prev, 
+            timeline: timelineValue
+          }));
           
           // Fetch bid details if you have bid ID
           if (bidId) {
             const bidResponse = await axios.get(`http://localhost:5000/bids/${bidId}`);
-            setBidData(bidResponse.data);
+            setBidData({
+              ...bidResponse.data,
+              timeline: timelineValue // Use the fetched timeline value
+            });
           }
           
           // Fetch client details if you have client ID
-          if (projectResponse.data?.clientId) {
-            const clientResponse = await axios.get(`http://localhost:5000/api/clients/${projectResponse.data.clientId}`);
+          if (projectResponse.data?.job?.clientId) {
+            const clientResponse = await axios.get(`http://localhost:5000/api/clients/${projectResponse.data.job.clientId}`);
             setClientData(clientResponse.data);
           }
         } catch (error) {
@@ -348,6 +369,55 @@ const AcceptedAgreementView = () => {
       fetchData();
     }
   }, [location.state, jobId, bidId]);
+
+  const calculateEndDate = (startDateString, timelineValue) => {
+    try {
+      // Parse the timeline value from the input (ensure it's a number)
+      const timelineDays = parseInt(timelineValue) || 30;
+      
+      // Parse the start date (handle different formats)
+      let startDate;
+      if (typeof startDateString === 'string') {
+        // Handle different date string formats
+        if (startDateString.includes('/')) {
+          // Format: DD/MM/YYYY or MM/DD/YYYY
+          const parts = startDateString.split('/');
+          // Assume British format DD/MM/YYYY if day appears to be <= 31
+          if (parseInt(parts[0]) <= 31 && parts.length === 3) {
+            startDate = new Date(`${parts[1]}/${parts[0]}/${parts[2]}`);
+          } else {
+            startDate = new Date(startDateString);
+          }
+        } else {
+          // Try standard parsing
+          startDate = new Date(startDateString);
+        }
+      } else {
+        // If it's already a Date object
+        startDate = new Date(startDateString);
+      }
+      
+      // Validate that we have a valid date
+      if (isNaN(startDate.getTime())) {
+        console.error("Invalid start date:", startDateString);
+        return "Invalid date";
+      }
+      
+      // Calculate end date by adding timeline days
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + timelineDays);
+      
+      // Format the end date consistently
+      return endDate.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short', 
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error("Error calculating end date:", error);
+      return "Date calculation error";
+    }
+  };
 
   const handleBackNavigation = () => {
     try {

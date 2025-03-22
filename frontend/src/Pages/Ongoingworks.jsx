@@ -56,6 +56,7 @@ function Ongoingworks() {
   // Fetch ongoing works from the backend
   const fetchOngoingWorks = async () => {
     try {
+      console.log("[TIMELINE DEBUG] Client view: Starting to fetch ongoing works...");
       setIsLoading(true);
       
       // Get token from localStorage
@@ -110,51 +111,74 @@ function Ongoingworks() {
         }
       });
       
-      // Rest of your code remains the same...
-      const formattedWorks = response.data.map(work => ({
-        // Your transformation logic remains unchanged
-        id: work._id,
-        title: work.jobId?.title || 'Untitled Project',
-        jobId: work.jobId?._id || work.jobId, // Get the actual job ID
-        bidId: work.bidId || work._id, // Use bid ID if available or work ID as fallback
-        category: work.jobId?.category || 'General',
-        contractor: work.contractorId, // You might want to fetch contractor details separately
-        contractorId: work.contractorId,
-        contractorPhone: work.jobId?.contractorPhone || '',
-        contractorEmail: work.jobId?.contractorEmail || '',
-        contractorImage: work.jobId?.contractorImage || 'https://randomuser.me/api/portraits/lego/1.jpg',
-        location: work.jobId?.location || '',
-        startDate: new Date(work.createdAt).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
-        }),
-        dueDate: work.jobId?.dueDate ? new Date(work.jobId.dueDate).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
-        }) : 'Not specified',
-        description: work.jobId?.description || '',
-        progress: Math.round(work.workProgress) || calculateProgress(work.milestones),
-        milestones: work.milestones.map(milestone => {
-          console.log("Original milestone status:", milestone.status); // For debugging
-          return {
-            id: milestone._id,
-            title: milestone.name,
-            description: milestone.description,
-            amount: milestone.amount,
-            // Normalize status to lowercase and clean format
-            status: (milestone.status || "").toLowerCase().replace(/_/g, ''),
-            completedDate: milestone.completedAt 
-              ? new Date(milestone.completedAt).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric'
-                }) 
-              : null
-          };
-        })
-      }));
+      console.log("[TIMELINE DEBUG] Client view: Raw ongoing works data:", response.data);
+      
+      const formattedWorks = response.data.map(work => {
+        console.log("[TIMELINE DEBUG] Client view: Processing work item:", work._id, 
+          "Timeline value:", work.timeline);
+        
+        // Calculate the end date using timeline
+        const startDate = new Date(work.createdAt);
+        const timelineDays = work.timeline || 30;
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + parseInt(timelineDays));
+        
+        console.log("[TIMELINE DEBUG] Timeline calculation for work:", work._id, {
+          startDate: startDate.toISOString(),
+          timelineDays: timelineDays,
+          calculatedEndDate: endDate.toISOString()
+        });
+        
+        return {
+          // Your existing mapping...
+          id: work._id,
+          title: work.jobId?.title || 'Untitled Project',
+          jobId: work.jobId?._id || work.jobId,
+          bidId: work.bidId || work._id,
+          category: work.jobId?.category || 'General',
+          contractor: work.contractorId,
+          contractorId: work.contractorId,
+          contractorPhone: work.jobId?.contractorPhone || '',
+          contractorEmail: work.jobId?.contractorEmail || '',
+          contractorImage: work.jobId?.contractorImage || 'https://randomuser.me/api/portraits/lego/1.jpg',
+          location: work.jobId?.location || '',
+          timeline: timelineDays, // Store the timeline value
+          startDate: startDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          }),
+          // REPLACED: Calculate dueDate from timeline instead of looking for jobId.dueDate
+          dueDate: endDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          }),
+          description: work.jobId?.description || '',
+          progress: Math.round(work.workProgress) || calculateProgress(work.milestones),
+          milestones: work.milestones.map(milestone => {
+            console.log("Original milestone status:", milestone.status); // For debugging
+            return {
+              id: milestone._id,
+              title: milestone.name,
+              description: milestone.description,
+              amount: milestone.amount,
+              // Normalize status to lowercase and clean format
+              status: (milestone.status || "").toLowerCase().replace(/_/g, ''),
+              completedDate: milestone.completedAt 
+                ? new Date(milestone.completedAt).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                  }) 
+                : null
+            };
+          })
+        };
+      });
+      
+      console.log("[TIMELINE DEBUG] Client view: Formatted works with timelines:", 
+        formattedWorks.map(w => ({ id: w.id, title: w.title, timeline: w.timeline })));
       
       // Fetch contractor details for each ongoing work
       const updatedWorks = await fetchContractorDetails(formattedWorks, token);
@@ -167,7 +191,7 @@ function Ongoingworks() {
       }
       
     } catch (err) {
-      console.error('Error fetching ongoing works:', err);
+      console.error("[TIMELINE DEBUG] Client view: Error fetching works:", err);
       setError(err.message || 'Failed to fetch ongoing works');
     } finally {
       setIsLoading(false);
@@ -657,13 +681,20 @@ const handlePaymentSuccess = async (paymentData) => {
                         
                         <button 
                           onClick={() => {
-                            // Calculate end date properly based on timeline and start date
+                            console.log("[TIMELINE DEBUG] Client view: View Agreement clicked");
+                            console.log("[TIMELINE DEBUG] Client view: Active work data:", activeWork);
+                            
+                            // Use the timeline that was properly fetched from the backend
+                            const timelineDays = activeWork.timeline;
+                            
+                            console.log("[TIMELINE DEBUG] Client view: Using timeline:", timelineDays, "days",
+                              "Original timeline value:", activeWork.timeline);
+                            
+                            // Parse start date consistently
                             const startDate = new Date(activeWork.startDate.split(' ').join(' '));
+                            console.log("[TIMELINE DEBUG] Client view: Parsed start date:", startDate);
                             
-                            // Get timeline in days - extract from the model or calculate based on milestones
-                            const timelineDays = activeWork.milestones.length * 7; // 7 days per milestone
-                            
-                            // Calculate end date by adding timeline days to start date
+                            // Calculate end date by adding the actual timeline days
                             const endDate = new Date(startDate);
                             endDate.setDate(startDate.getDate() + timelineDays);
                             
@@ -674,13 +705,13 @@ const handlePaymentSuccess = async (paymentData) => {
                               year: 'numeric'
                             });
                             
-                            console.log("Timeline calculation:", {
+                            console.log("[TIMELINE DEBUG] Client view: Timeline calculation:", {
                               startDate: activeWork.startDate,
                               timelineDays,
                               calculatedEndDate: endDateString
                             });
                             
-                            // Create agreement data object with properly structured values
+                            // Create agreement data...
                             const agreementData = {
                               jobDetails: {
                                 title: activeWork.title,
@@ -723,12 +754,7 @@ const handlePaymentSuccess = async (paymentData) => {
                               }))
                             };
                             
-                            // Log what we're passing to verify the structure
-                            console.log("Sending to agreement view:", {
-                              clientDetails: agreementData.clientDetails,
-                              timeline: agreementData.bidDetails.timeline,
-                              timelineDisplay: agreementData.bidDetails.timelineDisplay
-                            });
+                            console.log("[TIMELINE DEBUG] Client view: Full agreement data:", agreementData);
                             
                             // Navigate to the AcceptedAgreementView route with complete data
                             navigate(`/accepted-agreement/${activeWork.jobId}/${activeWork.bidId}`, { 

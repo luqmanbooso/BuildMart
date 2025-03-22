@@ -54,6 +54,20 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Get ongoing work by job ID
+router.get('/job/:jobId', async (req, res) => {
+  try {
+    const ongoingWork = await OngoingWork.findOne({ jobId: req.params.jobId });
+    if (!ongoingWork) {
+      return res.status(404).json({ message: 'Ongoing work not found for this job' });
+    }
+    res.status(200).json(ongoingWork);
+  } catch (error) {
+    console.error('Error fetching ongoing work by job ID:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Create a new ongoing work
 router.post('/', async (req, res) => {
   try {
