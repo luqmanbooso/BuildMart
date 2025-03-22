@@ -4,11 +4,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import ContractorUserNav from '../components/ContractorUserNav';
 
-// Update the AuctionCard component to use username
+// Update the AuctionCard component to better match the Job model
 const AuctionCard = ({ auction }) => {
   const navigate = useNavigate();
   
-  // Calculate days remaining with error handling
+  // Calculate time left with error handling
   const calculateTimeLeft = (endDateString) => {
     try {
       const endDate = new Date(endDateString);
@@ -26,51 +26,25 @@ const AuctionCard = ({ auction }) => {
     }
   };
 
-  // Determine if auction has ended based on endDate
-  const isAuctionEnded = () => {
-    try {
-      const endDate = new Date(auction.endDate);
-      const now = new Date();
-      return now > endDate;
-    } catch (e) {
-      return false;
-    }
-  };
-  
-  // Determine if auction has started based on startTime
-  const isAuctionStarted = () => {
-    try {
-      const startTime = new Date(auction.startTime || auction.biddingStartTime);
-      const now = new Date();
-      return now > startTime;
-    } catch (e) {
-      return true; // Default to started if we can't determine
-    }
-  };
-  
-  // Calculate actual display status
+  // Determine display status
   const determineStatus = () => {
     try {
       const now = new Date().getTime();
-      const endDate = new Date(auction.endDate).getTime();
-      const startTime = new Date(auction.startTime || auction.biddingStartTime).getTime();
+      const endDate = new Date(auction.biddingEndTime).getTime();
+      const startTime = new Date(auction.biddingStartTime).getTime();
       
-      // If backend explicitly says it's closed, prioritize that
       if (auction.status === 'Closed') {
         return "ended";
       }
       
-      // If past end date, it's ended
       if (now > endDate) {
         return "ended";
       } 
       
-      // If backend says it's active or we're between start & end dates
       if (auction.status === 'Active' || (now >= startTime && now <= endDate)) {
         return "active";
       }
       
-      // Otherwise, it's pending
       return "pending";
     } catch (e) {
       console.error("Error determining auction status:", e);
@@ -79,9 +53,19 @@ const AuctionCard = ({ auction }) => {
   };
   
   const displayStatus = determineStatus();
+  
+  // Format budget as a range
+  const formatBudget = () => {
+    if (!auction.minBudget && !auction.maxBudget) return 'Not specified';
+    
+    if (auction.minBudget && auction.maxBudget) {
+      return `LKR ${auction.minBudget} - ${auction.maxBudget}`;
+    }
+    
+    return auction.minBudget ? `LKR ${auction.minBudget}+` : `Up to LKR ${auction.maxBudget}`;
+  };
 
   return (
-    
     <motion.div 
       className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 hover:border-blue-200 transition-all duration-300"
       initial={{ opacity: 0, y: 20 }}
@@ -125,7 +109,20 @@ const AuctionCard = ({ auction }) => {
             </div>
             <div>
               <p className="text-gray-500">Budget</p>
-              <p className="font-medium">LKR {auction.budget || 'Not specified'}</p>
+              <p className="font-medium">{formatBudget()}</p>
+            </div>
+          </div>
+          
+          {/* Add bids count */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm bg-blue-50 text-blue-700 px-2 py-1 rounded">
+              <span className="font-medium">{auction.bids || 0}</span> {auction.bids === 1 ? 'bid' : 'bids'}
+            </div>
+            
+            <div className="text-sm text-gray-500">
+              {displayStatus !== 'ended' && (
+                <>Ends in <span className="font-medium">{calculateTimeLeft(auction.biddingEndTime)}</span></>
+              )}
             </div>
           </div>
           
@@ -149,12 +146,14 @@ const AuctionCard = ({ auction }) => {
             
             <div className="text-right">
               <p className="text-xs text-gray-500">Posted on</p>
-              <p className="font-semibold text-sm">{auction.date || 'Unknown date'}</p>
+              <p className="font-semibold text-sm">
+                {new Date(auction.date).toLocaleDateString()}
+              </p>
             </div>
           </div>
         </div>
         
-        {/* Action button - Updated to navigate to ProjectDetails */}
+        {/* Action button */}
         <div className="bg-gray-50 p-4 flex justify-end">
           <motion.button 
             className={`${
@@ -164,7 +163,7 @@ const AuctionCard = ({ auction }) => {
             } text-white py-2 px-5 rounded-lg font-medium text-sm flex items-center transition-colors`}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            onClick={() => navigate(`/project/${auction.id}`)}
+            onClick={() => navigate(`/project/${auction._id}`)}
           >
             {displayStatus === 'ended' ? "View Results" : "View Details"}
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -200,21 +199,45 @@ const AuctionsPage = () => {
         const response = await axios.get('http://localhost:5000/api/jobs');
         
         // Map the backend data structure to match the frontend component
-        const formattedJobs = response.data.map(job => ({
-          id: job._id,
-          title: job.title,
-          categories: [job.category], // Convert single category to array
-          username: job.username || 'Unknown User', 
-          contractor: job.username || 'Unknown',
-          area: job.area,
-          budget: job.budget,
-          startTime: job.biddingStartTime, // Ensure this is included
-          endDate: job.biddingEndTime || new Date().toISOString(),
-          status: job.status || 'Pending', // Make sure we get the status from backend
-          description: job.description || 'No description provided',
-          date: new Date(job.date).toLocaleDateString(),
-          bids: job.bids || 0
-        }));
+        const formattedJobs = response.data.map(job => {
+          // Process budget information
+          let minBudget, maxBudget;
+          
+          // Extract from the budget if it's a string containing a range like "50000-100000"
+          if (job.budget && typeof job.budget === 'string' && job.budget.includes('-')) {
+            const [min, max] = job.budget.split('-').map(val => parseInt(val.replace(/[^\d]/g, '')) || 0);
+            minBudget = min;
+            maxBudget = max;
+          } else {
+            // Otherwise use the explicit minBudget and maxBudget fields if available
+            minBudget = job.minBudget || 0;
+            maxBudget = job.maxBudget || 0;
+          }
+          
+          // Format the budget range as a string for display
+          const budgetDisplay = formatBudgetRange(minBudget, maxBudget);
+          
+          return {
+            _id: job._id,
+            id: job._id,
+            title: job.title,
+            categories: Array.isArray(job.categories) ? job.categories : [job.category || 'General'],
+            username: job.username || 'Unknown User', 
+            contractor: job.username || 'Unknown',
+            area: job.area || 'Not specified',
+            description: job.description || 'No description provided',
+            minBudget: minBudget,
+            maxBudget: maxBudget,
+            budget: budgetDisplay,
+            biddingStartTime: job.biddingStartTime,
+            biddingEndTime: job.biddingEndTime || new Date().toISOString(),
+            startTime: job.biddingStartTime,
+            endDate: job.biddingEndTime || new Date().toISOString(),
+            status: job.status || 'Pending',
+            date: job.date || new Date().toISOString(),
+            bids: job.bids?.length || 0 // Use the length of the bids array if available
+          };
+        });
         
         console.log('Jobs fetched from database:', formattedJobs);
         setAuctions(formattedJobs);
@@ -224,6 +247,17 @@ const AuctionsPage = () => {
         setLoading(false);
         // Optionally show an error message to the user
       }
+    };
+    
+    // Helper function to format budget range
+    const formatBudgetRange = (min, max) => {
+      if (!min && !max) return 'Not specified';
+      
+      if (min && max) {
+        return `LKR ${min.toLocaleString()} - ${max.toLocaleString()}`;
+      }
+      
+      return min ? `LKR ${min.toLocaleString()}+` : `Up to LKR ${max.toLocaleString()}`;
     };
     
     fetchAuctions();

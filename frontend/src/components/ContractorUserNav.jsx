@@ -187,12 +187,6 @@ const ContractorUserNav = () => {
             <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${isActive('/contact-us') ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
           </Link>
           
-          <div className="relative">
-            <button className="bg-gray-100 text-gray-800 p-3 rounded-full hover:bg-gray-200 transition-all transform hover:scale-105 flex items-center justify-center">
-              <FaSearch className="text-blue-600" />
-            </button>
-          </div>
-          
           {/* User dropdown - styled similarly to ClientNavBar */}
           <div className="relative" ref={dropdownRef}>
             <div 

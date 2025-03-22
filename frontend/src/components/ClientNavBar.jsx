@@ -128,11 +128,7 @@ const ClientNavBar = () => {
             </Link>
           ))}
           
-          <div className="relative">
-            <button className="bg-gray-100 text-gray-800 p-3 rounded-full hover:bg-gray-200 transition-all transform hover:scale-105 flex items-center justify-center">
-              <FaSearch className="text-blue-600" />
-            </button>
-          </div>
+          {/* Search icon removed */}
           
           {user ? (
             <div className="relative" ref={userMenuRef}>
