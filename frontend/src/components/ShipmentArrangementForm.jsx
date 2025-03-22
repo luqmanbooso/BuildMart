@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { FaTruck, FaCalendarAlt, FaRoute, FaIdCard, FaUserAlt, FaExclamationTriangle } from "react-icons/fa";
 import { MdLocalShipping, MdDirectionsCar } from "react-icons/md";
 
-const ShipmentArrangementForm = ({ orders, onArrangeShipment }) => {
+// Update the component to accept the selectedOrder prop
+const ShipmentArrangementForm = ({ orders, onArrangeShipment, selectedOrder: preSelectedOrder }) => {
   const [selectedOrder, setSelectedOrder] = useState("");
   const [driverName, setDriverName] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
@@ -11,6 +12,22 @@ const ShipmentArrangementForm = ({ orders, onArrangeShipment }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+
+  // Add a useEffect to handle the pre-selected order
+  useEffect(() => {
+    if (preSelectedOrder && preSelectedOrder.id) {
+      setSelectedOrder(preSelectedOrder.id);
+      
+      // Optionally pre-fill other fields if you have the data
+      if (preSelectedOrder.driver) {
+        setDriverName(preSelectedOrder.driver);
+      }
+      
+      if (preSelectedOrder.vehicle) {
+        setVehicleNumber(preSelectedOrder.vehicle);
+      }
+    }
+  }, [preSelectedOrder]);
 
   // Update selected order details when order selection changes
   useEffect(() => {
@@ -140,21 +157,16 @@ const ShipmentArrangementForm = ({ orders, onArrangeShipment }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-        <div className="flex items-center justify-between mb-6 border-b pb-4">
-          <div className="flex items-center">
-            <div className="bg-blue-600 p-2 rounded-lg mr-3">
-              <MdLocalShipping className="text-white text-2xl" />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-800">
-              Arrange New Shipment
-            </h2>
+    // You may want to highlight the form when a pre-selected order is provided
+    <div className={`max-w-4xl mx-auto ${preSelectedOrder ? 'animate-pulse' : ''}`}>
+      <div className={`bg-white p-6 rounded-xl shadow-lg border ${preSelectedOrder ? 'border-blue-400' : 'border-gray-200'}`}>
+        {/* If there's a pre-selected order, you can add an indicator */}
+        {preSelectedOrder && (
+          <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 text-blue-700">
+            <p className="font-medium">Order {preSelectedOrder.id} selected for shipment</p>
+            <p className="text-sm">Complete the form below to arrange delivery</p>
           </div>
-          <span className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full font-medium">
-            Logistics Management
-          </span>
-        </div>
+        )}
 
         {errors.form && (
           <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-start">
