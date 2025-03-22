@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get active suppliers only
+// Get active suppliers only 
 router.get('/active', async (req, res) => {
   try {
     const suppliers = await Supplier.find({ active: true });
