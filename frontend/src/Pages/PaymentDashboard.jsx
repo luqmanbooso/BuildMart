@@ -1533,12 +1533,6 @@ const processPaymentData = (data) => {
                     {paymentStats.activeProviders.size}
                   </p>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <p className="text-sm text-blue-600 font-medium">Completed Milestones</p>
-                  <p className="text-2xl font-bold text-blue-700">
-                    {serviceProviderPayments.length}
-                  </p>
-                </div>
               </div>
               
               <div className="overflow-x-auto">
@@ -1559,9 +1553,6 @@ const processPaymentData = (data) => {
                       </th>
                       <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
-                      </th>
-                      <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -1594,14 +1585,6 @@ const processPaymentData = (data) => {
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap">
                             {getStatusBadge(payment.status)}
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-right text-sm">
-                            <button 
-                              onClick={() => viewPaymentDetails(payment)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              View Details
-                            </button>
                           </td>
                         </tr>
                       ))
@@ -1637,12 +1620,7 @@ const processPaymentData = (data) => {
                     Rs. {(paymentStats?.inventorySalesTotal || 0).toLocaleString()}
                   </p>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <p className="text-sm text-green-600 font-medium">Items Sold</p>
-                  <p className="text-2xl font-bold text-green-700">
-                    {paymentStats.itemsPurchased}
-                  </p>
-                </div>
+                
                 <div className="bg-green-50 p-4 rounded-lg">
                   <p className="text-sm text-green-600 font-medium">Transactions</p>
                   <p className="text-2xl font-bold text-green-700">
@@ -1669,9 +1647,6 @@ const processPaymentData = (data) => {
                       </th>
                       <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
-                      </th>
-                      <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -1716,113 +1691,11 @@ const processPaymentData = (data) => {
                           <td className="px-3 py-4 whitespace-nowrap">
                             {getStatusBadge(payment.status)}
                           </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-right text-sm">
-                            <button 
-                              onClick={() => viewPaymentDetails(payment)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              View Details
-                            </button>
-                          </td>
                         </tr>
                       ))
                     )}
                   </tbody>
                 </table>
-              </div>
-              {/* Item Purchase Summary */}
-              <div className="mb-6 mt-8">
-                <h3 className="text-lg font-semibold mb-4">Item Purchase Summary</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Item Name
-                        </th>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Total Quantity Sold
-                        </th>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Total Revenue
-                        </th>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Average Unit Price
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {(() => {
-                        // Aggregate item data
-                        const itemSummary = {};
-                        
-                        itemsPayments.forEach(payment => {
-                          if (payment.itemDetails && Array.isArray(payment.itemDetails)) {
-                            payment.itemDetails.forEach(item => {
-                              if (!itemSummary[item.name]) {
-                                itemSummary[item.name] = {
-                                  totalQuantity: 0,
-                                  totalRevenue: 0
-                                };
-                              }
-                              itemSummary[item.name].totalQuantity += item.quantity;
-                              itemSummary[item.name].totalRevenue += item.subtotal;
-                            });
-                          }
-                        });
-                        
-                        const sortedItems = Object.entries(itemSummary)
-                          .map(([name, data]) => ({
-                            name,
-                            ...data,
-                            averagePrice: data.totalRevenue / data.totalQuantity
-                          }))
-                          .sort((a, b) => b.totalRevenue - a.totalRevenue);
-                          
-                        if (sortedItems.length === 0) {
-                          return (
-                            <tr>
-                              <td colSpan="4" className="px-3 py-10 text-center text-gray-500">
-                                No item purchase data available
-                              </td>
-                            </tr>
-                          );
-                        }
-                        
-                        return sortedItems.map((item, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-3 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                {item.name}
-                              </div>
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                {item.totalQuantity}
-                              </div>
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                Rs. {item.totalRevenue.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}
-                              </div>
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                Rs. {item.averagePrice.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}
-                              </div>
-                            </td>
-                          </tr>
-                        ));
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
               </div>
             </div>
           </div>
@@ -2140,9 +2013,6 @@ const processPaymentData = (data) => {
                       <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Commission Amount
                       </th>
-                      <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -2188,14 +2058,6 @@ const processPaymentData = (data) => {
                                 maximumFractionDigits: 2
                               })}
                           </div>
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-right text-sm">
-                            <button 
-                              onClick={() => viewPaymentDetails(payment)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              View Details
-                            </button>
                           </td>
                         </tr>
                       ))
