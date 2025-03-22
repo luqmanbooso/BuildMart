@@ -69,13 +69,15 @@ const ActiveJob = () => {
             minBudget: jobData.minBudget || '0',
             maxBudget: jobData.maxBudget || '0',
             location: jobData.area,
-            category: jobData.category,
+            area: jobData.area, // Add this field to ensure area is accessible in both formats
+            categories: jobData.categories || [], // Properly store categories as an array
+            category: jobData.category, // Keep this for backward compatibility
             createdAt: jobData.date,
-            // Only consider an auction started if status is specifically 'Active'
             auctionStarted: jobData.status === 'Active',
-            // Store the actual status directly from the backend
             status: jobData.status || 'Pending',
-            milestones: jobData.milestones || []
+            milestones: jobData.milestones || [],
+            biddingStartTime: jobData.biddingStartTime,
+            biddingEndTime: jobData.biddingEndTime
           };
           
           setJob(formattedJob);
@@ -231,10 +233,25 @@ const ActiveJob = () => {
       
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      // Use the PUT endpoint we defined in JobRoutes.js
+      // Prepare data for API, ensuring proper field names
+      const jobData = {
+        title: editedJob.title,
+        description: editedJob.description,
+        minBudget: editedJob.minBudget,
+        maxBudget: editedJob.maxBudget,
+        area: editedJob.area || editedJob.location, // Send area in the correct field
+        categories: Array.isArray(editedJob.categories) ? editedJob.categories : 
+                   (editedJob.category ? [editedJob.category] : []),
+        status: editedJob.status,
+        biddingStartTime: editedJob.biddingStartTime,
+        biddingEndTime: editedJob.biddingEndTime,
+        milestones: editedJob.milestones
+      };
+      
+      // Use the PUT endpoint
       const response = await axios.put(
         `http://localhost:5000/api/jobs/${jobId}`,
-        editedJob,
+        jobData,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -244,11 +261,26 @@ const ActiveJob = () => {
       );
       
       if (response.data && response.data.job) {
-        // FIXED: Update the existing job instead of creating a new one
-        setJob(prevJob => ({
-          ...prevJob,
-          ...response.data.job
-        }));
+        // Remove reference to formattedJob - use current job state and response data
+        const updatedJob = response.data.job;
+        
+        // Format the response data properly
+        setJob({
+          ...job, // Use existing job as base instead of formattedJob
+          id: updatedJob._id || updatedJob.id || job.id,
+          title: updatedJob.title,
+          description: updatedJob.description || 'No description provided',
+          minBudget: updatedJob.minBudget || '0',
+          maxBudget: updatedJob.maxBudget || '0',
+          location: updatedJob.area,
+          area: updatedJob.area,
+          categories: updatedJob.categories || [],
+          category: updatedJob.category,
+          status: updatedJob.status || 'Pending',
+          auctionStarted: updatedJob.status === 'Active',
+          milestones: updatedJob.milestones || []
+        });
+        
         setIsEditing(false);
         setSuccessMessage('Job details updated successfully!');
       }
@@ -525,7 +557,7 @@ const handleDeleteJob = async () => {
               fill="currentColor" 
               viewBox="0 0 20 20"
             >
-              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 010 1.414z" clipRule="evenodd" />
             </svg>
             <svg 
               className={`w-2 h-2 ${isActive && sortDirection === 'desc' ? 'text-blue-600' : 'text-gray-400'}`} 
@@ -539,6 +571,58 @@ const handleDeleteJob = async () => {
       </th>
     );
   };
+
+  // Add a dedicated restart function that uses the correct endpoint
+const handleRestartAuction = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    // Use the dedicated restart endpoint instead of the auction-status endpoint
+    const response = await axios.put(
+      `http://localhost:5000/api/jobs/${jobId}/restart`,
+      {}, // Default to 7 days auction duration
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+    
+    if (response.data && response.data.job) {
+      const jobData = response.data.job;
+      
+      // Update local state with new job data
+      setJob(prevJob => ({
+        ...prevJob,
+        status: 'Active',
+        auctionStarted: true,
+        biddingStartTime: jobData.biddingStartTime,
+        biddingEndTime: jobData.biddingEndTime,
+        wasReopened: true
+      }));
+      
+      setEditedJob(prevEdited => ({
+        ...prevEdited,
+        status: 'Active',
+        auctionStarted: true,
+        biddingStartTime: jobData.biddingStartTime,
+        biddingEndTime: jobData.biddingEndTime,
+        wasReopened: true
+      }));
+      
+      setSuccessMessage('Auction restarted successfully!');
+    }
+  } catch (err) {
+    console.error('Error restarting auction:', err);
+    setError('Failed to restart auction: ' + (err.response?.data?.error || err.message));
+  } finally {
+    setLoading(false);
+    setTimeout(() => setSuccessMessage(''), 3000);
+  }
+};
 
   if (loading && !job) {
     return (
@@ -719,7 +803,7 @@ const handleDeleteJob = async () => {
   {/* Restart Auction button */}
   {job?.status === 'Closed' && (
     <button
-      onClick={handleStartAuction}
+      onClick={handleRestartAuction} // Use the new function instead of handleStartAuction
       disabled={loading}
       className={`px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center transition-colors ${
         loading ? 'opacity-50 cursor-not-allowed' : ''
@@ -761,20 +845,26 @@ const handleDeleteJob = async () => {
                   id={`category-${category}`}
                   type="checkbox"
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  checked={(editedJob.categories || []).includes(category)}
+                  checked={Array.isArray(editedJob.categories) ? 
+                    editedJob.categories.includes(category) : 
+                    (editedJob.category === category)}
                   onChange={(e) => {
-                    const currentCategories = editedJob.categories || [];
+                    let currentCategories = Array.isArray(editedJob.categories) ? 
+                      [...editedJob.categories] : 
+                      (editedJob.category ? [editedJob.category] : []);
+                    
                     if (e.target.checked) {
-                      setEditedJob({
-                        ...editedJob,
-                        categories: [...currentCategories, category]
-                      });
+                      if (!currentCategories.includes(category)) {
+                        currentCategories.push(category);
+                      }
                     } else {
-                      setEditedJob({
-                        ...editedJob,
-                        categories: currentCategories.filter(cat => cat !== category)
-                      });
+                      currentCategories = currentCategories.filter(cat => cat !== category);
                     }
+                    
+                    setEditedJob({
+                      ...editedJob,
+                      categories: currentCategories
+                    });
                   }}
                 />
                 <label htmlFor={`category-${category}`} className="ml-2 block text-sm text-gray-700">
@@ -787,27 +877,33 @@ const handleDeleteJob = async () => {
       </div>
       
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Area/Location</label>
-        <select
-          name="area"
-          value={editedJob.area || ''}
-          onChange={handleInputChange}
-          className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="" disabled>Select a district</option>
-          {[
-            'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 
-            'Galle', 'Gampaha', 'Hambantota', 'Jaffna', 'Kalutara', 
-            'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala', 'Mannar', 
-            'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya', 
-            'Polonnaruwa', 'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
-          ].map(district => (
-            <option key={district} value={district}>
-              {district}
-            </option>
-          ))}
-        </select>
-      </div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Area/Location</label>
+  <select
+    name="area"
+    value={editedJob.area || editedJob.location || ''}
+    onChange={(e) => {
+      setEditedJob({
+        ...editedJob,
+        area: e.target.value,
+        location: e.target.value, // Update both fields
+      });
+    }}
+    className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+  >
+    <option value="" disabled>Select a district</option>
+    {[
+      'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 
+      'Galle', 'Gampaha', 'Hambantota', 'Jaffna', 'Kalutara', 
+      'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala', 'Mannar', 
+      'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya', 
+      'Polonnaruwa', 'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
+    ].map(district => (
+      <option key={district} value={district}>
+        {district}
+      </option>
+    ))}
+  </select>
+</div>
       
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Budget (LKR)</label>

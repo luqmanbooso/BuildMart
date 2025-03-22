@@ -76,14 +76,25 @@ const ProjectDetails = () => {
           const jobData = jobResponse.data;
           setJob(jobData);
           
-          // Determine auction status based on backend status & time
+          // IMPORTANT: Calculate timeLeft based on job status first, then dates
           const now = new Date().getTime();
           const startTime = new Date(jobData.biddingStartTime).getTime();
           const endTime = new Date(jobData.biddingEndTime).getTime();
           
-          // Check if auction has ended based on time
-          if (now > endTime || jobData.status === 'Closed') {
-            // Auction has ended
+          // Always prioritize actual job status over time calculations
+          if (jobData.status === 'Active') {
+            // For Active jobs, always show timer regardless of dates
+            setTimeLeft({
+              days: Math.max(0, Math.floor((endTime - now) / (1000 * 60 * 60 * 24))),
+              hours: Math.max(0, Math.floor(((endTime - now) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))),
+              minutes: Math.max(0, Math.floor(((endTime - now) % (1000 * 60 * 60)) / (1000 * 60))),
+              seconds: Math.max(0, Math.floor(((endTime - now) % (1000 * 60)) / 1000)),
+              timeUp: false, // Never timeUp for Active status
+              auctionStarted: true
+            });
+            
+            updateTimer(new Date(jobData.biddingEndTime), 'end');
+          } else if (jobData.status === 'Closed') {
             setTimeLeft({
               days: 0,
               hours: 0,
@@ -92,27 +103,24 @@ const ProjectDetails = () => {
               timeUp: true,
               auctionStarted: true
             });
-          } else if (now >= startTime || jobData.status === 'Active') {
-            // Auction is in progress
+          } else if (now >= startTime) {
+            // For Pending jobs that should have started by now
             updateTimer(new Date(jobData.biddingEndTime), 'end');
             
-            // If backend status doesn't match, update it
-            if (jobData.status !== 'Active') {
-              try {
-                await axios.put(`http://localhost:5000/api/jobs/${jobId}/auction-status`, 
-                  { status: 'Active' },
-                  { headers: { 'Authorization': `Bearer ${token}` }}
-                );
-              } catch (error) {
-                console.error("Error updating auction status:", error);
-              }
-            }
+            setTimeLeft({
+              days: Math.max(0, Math.floor((endTime - now) / (1000 * 60 * 60 * 24))),
+              hours: Math.max(0, Math.floor(((endTime - now) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))),
+              minutes: Math.max(0, Math.floor(((endTime - now) % (1000 * 60 * 60)) / (1000 * 60))),
+              seconds: Math.max(0, Math.floor(((endTime - now) % (1000 * 60)) / 1000)),
+              timeUp: now > endTime,
+              auctionStarted: now < endTime // Only start if not past end time
+            });
           } else {
             // Auction hasn't started yet
             updateTimer(new Date(jobData.biddingStartTime), 'start');
           }
           
-          // Fetch bids for this job and check for contractor's bid
+          // Fetch bids for this job
           if (contractorId) {
             await fetchBids(jobId, contractorId);
           } else {
@@ -277,6 +285,68 @@ const ProjectDetails = () => {
     toast.success(`Bid updated successfully! You have ${updatesRemaining} updates remaining.`);
   };
 
+  // Add a refreshJobDetails function at the top of the component
+const refreshJobDetails = async () => {
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const contractorId = userInfo?.userId;
+    
+    // Fetch fresh job data
+    const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (jobResponse.data) {
+      const jobData = jobResponse.data;
+      setJob(jobData);
+      
+      // Reset timer based on current status
+      const now = new Date().getTime();
+      const startTime = new Date(jobData.biddingStartTime).getTime();
+      const endTime = new Date(jobData.biddingEndTime).getTime();
+      
+      // Always prioritize the actual job status from database
+      if (jobData.status === 'Active') {
+        setTimeLeft({
+          days: Math.max(0, Math.floor((endTime - now) / (1000 * 60 * 60 * 24))),
+          hours: Math.max(0, Math.floor(((endTime - now) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))),
+          minutes: Math.max(0, Math.floor(((endTime - now) % (1000 * 60 * 60)) / (1000 * 60))),
+          seconds: Math.max(0, Math.floor(((endTime - now) % (1000 * 60)) / 1000)),
+          timeUp: false,
+          auctionStarted: true
+        });
+        updateTimer(new Date(jobData.biddingEndTime), 'end');
+      } else if (jobData.status === 'Closed') {
+        setTimeLeft({
+          days: 0,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          timeUp: true,
+          auctionStarted: true
+        });
+      } else if (jobData.status === 'Pending') {
+        updateTimer(new Date(jobData.biddingStartTime), 'start');
+      }
+      
+      // Refresh bids
+      if (contractorId) {
+        await fetchBids(jobId, contractorId);
+      } else {
+        await fetchBids(jobId);
+      }
+    }
+  } catch (error) {
+    console.error("Error refreshing job details:", error);
+    toast.error("Failed to refresh project details");
+  } finally {
+    setLoading(false);
+  }
+};
+
   // Show loading state
   if (loading) {
     return (
@@ -296,26 +366,63 @@ const ProjectDetails = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               <br /><br /><br /><br /><br /><br /><br />
 
-          {/* Breadcrumbs */}
-          <nav className="flex mb-6" aria-label="Breadcrumb">
-            <ol className="flex items-center space-x-2">
-              <li>
-                <Link to="/" className="text-gray-500 hover:text-blue-700">Home</Link>
-              </li>
-              <li className="flex items-center">
-                <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-                <Link to="/projects" className="ml-1 text-gray-500 hover:text-blue-700">Projects</Link>
-              </li>
-              <li className="flex items-center">
-                <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a 1 1 0 010 1.414l-4 4a 1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-                <span className="ml-1 text-blue-700 font-medium">{job?.title}</span>
-              </li>
-            </ol>
-          </nav>
+          {/* Breadcrumbs with winner message integration */}
+          <div className="mb-4">
+  <div className="flex justify-between items-center">
+    <nav className="flex items-center" aria-label="Breadcrumb">
+      <ol className="flex items-center space-x-2">
+        <li>
+          <Link to="/" className="text-gray-500 hover:text-blue-700">Home</Link>
+        </li>
+        <li className="flex items-center">
+          <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a 1 1 0 010 1.414l-4 4a 1 1 0 01-1.414 0z" clipRule="evenodd" />
+          </svg>
+          <Link to="/projects" className="ml-1 text-gray-500 hover:text-blue-700">Projects</Link>
+        </li>
+        <li className="flex items-center">
+          <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a 1 1 0 010 1.414l-4 4a 1 1 0 01-1.414 0z" clipRule="evenodd" />
+          </svg>
+          <span className="ml-1 text-blue-700 font-medium">{job?.title}</span>
+        </li>
+        
+        {/* Add winner badge inline if contractor won this project */}
+        {job?.status === 'Closed' && job?.acceptedBid && contractorBid && 
+        job.acceptedBid === contractorBid._id && (
+          <li className="flex items-center ml-3">
+            <span className="ml-2 flex items-center bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Project Won
+            </span>
+            <button 
+              onClick={() => navigate('/ongoing-projects')}
+              className="ml-2 text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded transition-colors"
+            >
+              View Ongoing Projects
+            </button>
+          </li>
+        )}
+      </ol>
+    </nav>
+    
+    {/* Add refresh button */}
+    <button
+      onClick={refreshJobDetails}
+      className="p-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 flex items-center text-sm"
+      title="Refresh job details"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      Refresh
+    </button>
+  </div>
+  
+  {/* Rest of breadcrumb content */}
+</div>
 
           <div className="bg-white shadow-lg rounded-lg overflow-hidden">
             {/* Project Header */}
@@ -323,9 +430,19 @@ const ProjectDetails = () => {
               <h1 className="text-3xl font-bold mb-2">{job?.title}</h1>
               <div className="flex items-center space-x-2">
                 <FaTag className="text-blue-200" />
-                <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {job?.category}
-                </span>
+                <div className="flex flex-wrap gap-2">
+                  {job?.categories && job.categories.length > 0 ? (
+                    job.categories.map((category, index) => (
+                      <span key={index} className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                        {category}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                      {job?.category || 'General'}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -348,17 +465,31 @@ const ProjectDetails = () => {
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Category</p>
-                          <p className="font-medium">{job?.category || 'Not specified'}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {job?.categories && job.categories.length > 0 ? (
+                              job.categories.map((category, index) => (
+                                <span key={index} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                                  {category}
+                                </span>
+                              ))
+                            ) : (
+                              <p className="font-medium">{job?.category || 'Not specified'}</p>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Status</p>
                           <p className="font-medium">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              job?.status === 'Active' ? 'bg-green-100 text-green-800' :  
+                              job?.status === 'Closed' ? 'bg-red-100 text-red-800' :
                               timeLeft.timeUp ? 'bg-red-100 text-red-800' : 
                               timeLeft.auctionStarted ? 'bg-green-100 text-green-800' : 
                               'bg-yellow-100 text-yellow-800'
                             }`}>
-                              {timeLeft.timeUp ? 'Auction Ended' : 
+                              {job?.status === 'Active' ? 'Active' :
+                               job?.status === 'Closed' ? 'Ended' :
+                               timeLeft.timeUp ? 'Auction Ended' : 
                                timeLeft.auctionStarted ? 'Active' : 
                                'Pending'}
                             </span>
@@ -430,7 +561,7 @@ const ProjectDetails = () => {
                       <div className="bg-blue-50 p-5 rounded-lg border border-blue-100">
                         <div className="flex items-center mb-3">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                           </svg>
                           <p className="font-medium text-blue-700">You can now set up payment milestones for this project</p>
                         </div>
@@ -545,13 +676,19 @@ const ProjectDetails = () => {
       </p>
       <button
         onClick={handleToBid}
-        disabled={timeLeft.timeUp || !timeLeft.auctionStarted}
-        className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+        disabled={job?.status === 'Pending' || timeLeft.timeUp || !timeLeft.auctionStarted}
+        className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm ${
+          job?.status === 'Pending' 
+            ? "bg-gray-400 text-white cursor-not-allowed" 
+            : timeLeft.timeUp || !timeLeft.auctionStarted
+            ? "bg-gray-400 text-white cursor-not-allowed"
+            : "text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+        } disabled:opacity-50`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
         </svg>
-        Place the First Bid
+        {job?.status === 'Pending' ? "Auction Not Started Yet" : "Place the First Bid"}
       </button>
     </div>
   )}
@@ -639,16 +776,16 @@ const ProjectDetails = () => {
                         <button 
                           onClick={handleToBid}
                           className={`w-full py-3 px-6 rounded-lg shadow-md font-medium transition-all duration-300 flex items-center justify-center ${
-                            timeLeft.timeUp 
+                            job?.status === 'Closed' 
                               ? "bg-gray-300 text-gray-600 cursor-not-allowed" 
-                              : !timeLeft.auctionStarted
+                              : job?.status === 'Pending'
                               ? "bg-gray-400 text-white cursor-not-allowed"
                               : "bg-gradient-to-r from-blue-600 to-blue-800 text-white hover:from-blue-700 hover:to-blue-900 transform hover:-translate-y-1"
                           }`}
-                          disabled={timeLeft.timeUp || !timeLeft.auctionStarted}
+                          disabled={job?.status === 'Closed' || job?.status === 'Pending'}
                         >
-                          {timeLeft.timeUp ? "Auction Ended" : 
-                           !timeLeft.auctionStarted ? "Auction Not Started Yet" :
+                          {job?.status === 'Closed' ? "Auction Ended" :
+                           job?.status === 'Pending' ? "Auction Not Started Yet" :
                            "Win This Project - Place Your Bid"}
                         </button>
                       )}
@@ -664,7 +801,12 @@ const ProjectDetails = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Project Type:</span>
-                          <span className="font-semibold">{job?.category}</span>
+                          <span className="font-semibold">
+                            {job?.categories && job.categories.length > 0 
+                              ? job.categories[0] + (job.categories.length > 1 ? ` (+${job.categories.length - 1})` : '')
+                              : job?.category || 'General'
+                            }
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Status:</span>

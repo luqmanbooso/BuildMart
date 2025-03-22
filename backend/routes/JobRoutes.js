@@ -256,4 +256,129 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Add this function before module.exports
+// Function to update auction statuses automatically
+const updateAuctionStatus = async (jobId) => {
+  // Validate job ID before attempting to find it
+  if (!jobId || jobId === 'undefined' || jobId === undefined) {
+    console.log("Skipping auction status update - invalid job ID");
+    return;
+  }
+
+  try {
+    const job = await Job.findById(jobId);
+    
+    if (!job) {
+      console.log(`Job with ID ${jobId} not found`);
+      return;
+    }
+    
+    const now = new Date();
+    const endTime = new Date(job.biddingEndTime);
+    const startTime = new Date(job.biddingStartTime);
+    
+    // Update job status based on current time
+    if (job.status === 'Pending' && now >= startTime) {
+      job.status = 'Active';
+      await job.save();
+      console.log(`Job ${job._id} activated (auction started)`);
+    } else if (job.status === 'Active' && now >= endTime) {
+      job.status = 'Closed';
+      await job.save();
+      console.log(`Job ${job._id} closed (auction ended)`);
+    }
+  } catch (error) {
+    console.error(`Error updating auction status for job ${jobId}:`, error);
+  }
+};
+
+// Add an endpoint to check and update all auction statuses
+router.get('/update-all-auction-statuses', async (req, res) => {
+  try {
+    // Find all jobs that might need status updates
+    const pendingJobs = await Job.find({ status: 'Pending' });
+    const activeJobs = await Job.find({ status: 'Active' });
+    
+    let updatedCount = 0;
+    
+    // Check all pending jobs for activation
+    for (const job of pendingJobs) {
+      const now = new Date();
+      const startTime = new Date(job.biddingStartTime);
+      
+      if (now >= startTime) {
+        job.status = 'Active';
+        await job.save();
+        updatedCount++;
+      }
+    }
+    
+    // Check all active jobs for completion
+    for (const job of activeJobs) {
+      const now = new Date();
+      const endTime = new Date(job.biddingEndTime);
+      
+      if (now >= endTime) {
+        job.status = 'Closed';
+        await job.save();
+        updatedCount++;
+      }
+    }
+    
+    res.status(200).json({ 
+      success: true, 
+      message: `Updated ${updatedCount} jobs` 
+    });
+  } catch (error) {
+    console.error('Error updating auction statuses:', error);
+    res.status(500).json({ error: 'Failed to update auction statuses' });
+  }
+});
+
+// Add route to restart a closed job
+router.put('/:id/restart', async (req, res) => {
+  try {
+    const jobId = req.params.id;
+    
+    // Validate job ID
+    if (!jobId) {
+      return res.status(400).json({ error: 'Invalid job ID' });
+    }
+    
+    const job = await Job.findById(jobId);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Only allow restarting closed jobs
+    if (job.status !== 'Closed') {
+      return res.status(400).json({ error: 'Only closed jobs can be restarted' });
+    }
+    
+    // Set new bidding times (default to 7 days)
+    const now = new Date();
+    const endDate = new Date();
+    endDate.setDate(now.getDate() + 7); // Default 7 day auction
+    
+    // Update with new values from request or use defaults
+    const { biddingEndTime } = req.body;
+    
+    job.status = 'Active';
+    job.biddingStartTime = now;
+    job.biddingEndTime = biddingEndTime || endDate;
+    job.wasReopened = true; // Flag to indicate this job was reopened
+    
+    await job.save();
+    
+    res.status(200).json({ 
+      message: 'Job restarted successfully',
+      job: job
+    });
+  } catch (err) {
+    console.error('Error restarting job:', err);
+    res.status(500).json({ error: 'Error restarting job' });
+  }
+});
+
 module.exports = router;

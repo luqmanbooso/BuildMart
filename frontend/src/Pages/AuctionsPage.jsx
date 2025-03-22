@@ -26,22 +26,32 @@ const AuctionCard = ({ auction }) => {
     }
   };
 
-  // Determine display status
+  // Fix the determineStatus function to properly respect "Pending" status
   const determineStatus = () => {
     try {
       const now = new Date().getTime();
       const endDate = new Date(auction.biddingEndTime).getTime();
       const startTime = new Date(auction.biddingStartTime).getTime();
       
+      // First, respect the explicit status from the database if it exists
+      if (auction.status === 'Active') {
+        return "active";
+      }
+      
+      if (auction.status === 'Pending') {
+        return "pending";
+      }
+      
       if (auction.status === 'Closed') {
         return "ended";
       }
       
+      // If no explicit status or status is something else, use date-based logic as fallback
       if (now > endDate) {
         return "ended";
       } 
       
-      if (auction.status === 'Active' || (now >= startTime && now <= endDate)) {
+      if (now >= startTime && now <= endDate) {
         return "active";
       }
       
@@ -270,27 +280,33 @@ const AuctionsPage = () => {
     // Apply category filter
     if (activeCategory !== 'All') {
       result = result.filter(auction => 
-        auction.categories.includes(activeCategory)
+        auction.categories && auction.categories.some(cat => 
+          cat.toLowerCase() === activeCategory.toLowerCase()
+        )
       );
     }
     
-    // Apply status filter
+    // Apply status filter - FIXED to respect explicit status
     if (activeStatus !== 'All') {
-      if (activeStatus === 'ended') {
-        // For ended auctions, check end date
-        result = result.filter(auction => {
-          const now = new Date();
-          const endDate = new Date(auction.endDate);
-          return now > endDate;
-        });
-      } else {
-        // For active/pending, use the existing status
-        result = result.filter(auction => 
-          auction.status === activeStatus &&
-          // For active, also ensure it hasn't ended
-          (activeStatus !== 'active' || new Date() < new Date(auction.endDate))
-        );
-      }
+      result = result.filter(auction => {
+        // Get the actual status of the auction using our determineStatus logic
+        const auctionStatus = (() => {
+          if (auction.status === 'Active') return 'active';
+          if (auction.status === 'Pending') return 'pending';
+          if (auction.status === 'Closed') return 'ended';
+          
+          // Only use date-based logic if no explicit status
+          const now = new Date().getTime();
+          const endDate = new Date(auction.biddingEndTime).getTime();
+          const startTime = new Date(auction.biddingStartTime).getTime();
+          
+          if (now > endDate) return 'ended';
+          if (now >= startTime && now <= endDate) return 'active';
+          return 'pending';
+        })();
+        
+        return auctionStatus === activeStatus.toLowerCase();
+      });
     }
     
     // Apply search
