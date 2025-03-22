@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   ChevronDown, Search, LogOut, Filter, Download, 
-  Plus, MoreHorizontal, Calendar, CreditCard, 
+  Plus, MoreHorizontal, CreditCard, 
   DollarSign, TrendingUp, Users, Box, Activity,
   LayoutDashboard, ShoppingCart, Wallet, Sliders,
   ArrowDownRight, ArrowUpRight, Loader, RefreshCw, 
@@ -35,7 +35,6 @@ function PaymentDashboard() {
   const [sortOrder, setSortOrder] = useState('desc');
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
-  const [paymentTrends, setPaymentTrends] = useState([]);
   
   // Add these state variables
   const [showExpensesSubmenu, setShowExpensesSubmenu] = useState(false);
@@ -146,43 +145,12 @@ function PaymentDashboard() {
       // Process payment data
       processPaymentData(data);
       
-      // Generate payment trends
-      generatePaymentTrends(data);
-      
     } catch (err) {
       setError(err.message);
       console.error("Failed to fetch payment data:", err);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Generate payment trends data for charts
-  const generatePaymentTrends = (data) => {
-    // Group payments by day
-    const paymentsByDay = data.reduce((acc, payment) => {
-      const date = new Date(payment.createdAt).toLocaleDateString();
-      
-      if (!acc[date]) {
-        acc[date] = {
-          date,
-          total: 0,
-          count: 0
-        };
-      }
-      
-      acc[date].total += payment.amount;
-      acc[date].count += 1;
-      
-      return acc;
-    }, {});
-    
-    // Convert to array and sort by date
-    const trendData = Object.values(paymentsByDay)
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .slice(-7); // Get last 7 days
-    
-    setPaymentTrends(trendData);
   };
 
   // Export payments as CSV
@@ -799,28 +767,33 @@ const processPaymentData = (data) => {
       value: `Rs. ${(paymentStats?.serviceProviderTotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
       change: "+12.5%",
       icon: <Users className="h-6 w-6 text-blue-600" />,
-      trend: "up"
+      trend: "up",
+      isIncome: false // Mark this as not income
     },
     {
       title: "Inventory Sales",
       value: `Rs. ${(paymentStats?.inventorySalesTotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
       change: "+8.2%",
       icon: <ShoppingCart className="h-6 w-6 text-green-600" />,
-      trend: "up"
+      trend: "up",
+      isIncome: true
     },
     {
       title: "Commission Income",
       value: `Rs. ${(paymentStats?.commissionIncome || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
       change: "+5.7%",
       icon: <Percent className="h-6 w-6 text-purple-600" />,
-      trend: "up"
+      trend: "up",
+      isIncome: true
     },
     {
-      title: "Items Purchased",
-      value: (paymentStats?.itemsPurchased || 0).toString(),
-      change: "+18.2%",
-      icon: <Box className="h-6 w-6 text-amber-600" />,
-      trend: "up"
+      title: "Total Income",
+      value: `Rs. ${((paymentStats?.inventorySalesTotal || 0) + 
+              (paymentStats?.commissionIncome || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+      change: "+10.4%",
+      icon: <DollarSign className="h-6 w-6 text-indigo-600" />,
+      trend: "up",
+      isIncome: true
     }
   ];
 
@@ -1034,61 +1007,6 @@ const processPaymentData = (data) => {
     )
   );
 
-  // Add Payment Trends Chart
-  const renderPaymentTrendsChart = () => (
-    <div className="bg-white rounded-xl shadow-sm p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Recent Payment Trends</h3>
-        <select
-          className="p-1.5 text-sm border border-gray-300 rounded-md"
-          onChange={(e) => {
-            // Trigger re-fetch with new timeframe
-            fetchPayments();
-          }}
-        >
-          <option value="week">Last 7 Days</option>
-          <option value="month">Last 30 Days</option>
-          <option value="quarter">Last 3 Months</option>
-        </select>
-      </div>
-      
-      {loading ? (
-        <div className="h-64 flex items-center justify-center">
-          <Loader className="animate-spin h-6 w-6 text-blue-600" />
-        </div>
-      ) : paymentTrends.length === 0 ? (
-        <div className="h-64 flex flex-col items-center justify-center text-gray-500">
-          <BarChart2 className="h-12 w-12 mb-2" />
-          <p>No payment data available for this period</p>
-        </div>
-      ) : (
-        <div className="h-64 w-full">
-          <div className="flex h-full items-end">
-            {paymentTrends.map((day, index) => (
-              <div 
-                key={index} 
-                className="flex-1 flex flex-col items-center"
-                title={`${day.date}: Rs. ${day.total.toLocaleString()}`}
-              >
-                <div 
-                  className="w-full mx-1 bg-blue-600 rounded-t"
-                  style={{ 
-                    height: `${Math.max(10, (day.total / Math.max(...paymentTrends.map(d => d.total))) * 100)}%`,
-                    opacity: 0.7 + (index / 10)
-                  }}
-                ></div>
-                <p className="text-xs mt-2 text-gray-600">{day.date.split('/')[1]}</p>
-                <p className="text-xs font-medium">Rs. {day.total.toLocaleString(undefined, {
-                  maximumFractionDigits: 0
-                })}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   // Removed duplicate declaration of renderIncomePanel
   
   const renderIncomePanel = () => {
@@ -1147,16 +1065,6 @@ const processPaymentData = (data) => {
               </div>
             </div>
   
-            <div className="bg-blue-50 p-6 rounded-xl">
-              <p className="text-sm font-medium text-blue-600">Service Provider Income</p>
-              <p className="text-2xl font-bold text-blue-700">
-                Rs. {(paymentStats?.serviceProviderTotal || 0).toLocaleString()}
-              </p>
-              <div className="mt-2 flex items-center text-sm">
-                <ArrowUpRight className="text-blue-500 mr-1" size={16} />
-                <span className="text-blue-600">+8.3% from last month</span>
-              </div>
-            </div>
             
             <div className="bg-purple-50 p-6 rounded-xl">
               <p className="text-sm font-medium text-purple-600">Commission Income</p>
@@ -1173,7 +1081,6 @@ const processPaymentData = (data) => {
               <p className="text-sm font-medium text-indigo-600">Total Income</p>
               <p className="text-2xl font-bold text-indigo-700">
                 Rs. {((paymentStats?.inventorySalesTotal || 0) + 
-                      (paymentStats?.serviceProviderTotal || 0) + 
                       (paymentStats?.commissionIncome || 0)).toLocaleString()}
               </p>
               <div className="mt-2 flex items-center text-sm">
@@ -1456,9 +1363,6 @@ const processPaymentData = (data) => {
               </div>
             )}
             
-            {/* New: Payment Trends Chart */}
-            {renderPaymentTrendsChart()}
-            
             {/* Payment Methods Distribution */}
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
@@ -1533,12 +1437,6 @@ const processPaymentData = (data) => {
                     {paymentStats.activeProviders.size}
                   </p>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <p className="text-sm text-blue-600 font-medium">Completed Milestones</p>
-                  <p className="text-2xl font-bold text-blue-700">
-                    {serviceProviderPayments.length}
-                  </p>
-                </div>
               </div>
               
               <div className="overflow-x-auto">
@@ -1559,9 +1457,6 @@ const processPaymentData = (data) => {
                       </th>
                       <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
-                      </th>
-                      <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -1594,14 +1489,6 @@ const processPaymentData = (data) => {
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap">
                             {getStatusBadge(payment.status)}
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-right text-sm">
-                            <button 
-                              onClick={() => viewPaymentDetails(payment)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              View Details
-                            </button>
                           </td>
                         </tr>
                       ))
@@ -1637,12 +1524,7 @@ const processPaymentData = (data) => {
                     Rs. {(paymentStats?.inventorySalesTotal || 0).toLocaleString()}
                   </p>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <p className="text-sm text-green-600 font-medium">Items Sold</p>
-                  <p className="text-2xl font-bold text-green-700">
-                    {paymentStats.itemsPurchased}
-                  </p>
-                </div>
+                
                 <div className="bg-green-50 p-4 rounded-lg">
                   <p className="text-sm text-green-600 font-medium">Transactions</p>
                   <p className="text-2xl font-bold text-green-700">
@@ -1669,9 +1551,6 @@ const processPaymentData = (data) => {
                       </th>
                       <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
-                      </th>
-                      <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -1716,113 +1595,11 @@ const processPaymentData = (data) => {
                           <td className="px-3 py-4 whitespace-nowrap">
                             {getStatusBadge(payment.status)}
                           </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-right text-sm">
-                            <button 
-                              onClick={() => viewPaymentDetails(payment)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              View Details
-                            </button>
-                          </td>
                         </tr>
                       ))
                     )}
                   </tbody>
                 </table>
-              </div>
-              {/* Item Purchase Summary */}
-              <div className="mb-6 mt-8">
-                <h3 className="text-lg font-semibold mb-4">Item Purchase Summary</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Item Name
-                        </th>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Total Quantity Sold
-                        </th>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Total Revenue
-                        </th>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Average Unit Price
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {(() => {
-                        // Aggregate item data
-                        const itemSummary = {};
-                        
-                        itemsPayments.forEach(payment => {
-                          if (payment.itemDetails && Array.isArray(payment.itemDetails)) {
-                            payment.itemDetails.forEach(item => {
-                              if (!itemSummary[item.name]) {
-                                itemSummary[item.name] = {
-                                  totalQuantity: 0,
-                                  totalRevenue: 0
-                                };
-                              }
-                              itemSummary[item.name].totalQuantity += item.quantity;
-                              itemSummary[item.name].totalRevenue += item.subtotal;
-                            });
-                          }
-                        });
-                        
-                        const sortedItems = Object.entries(itemSummary)
-                          .map(([name, data]) => ({
-                            name,
-                            ...data,
-                            averagePrice: data.totalRevenue / data.totalQuantity
-                          }))
-                          .sort((a, b) => b.totalRevenue - a.totalRevenue);
-                          
-                        if (sortedItems.length === 0) {
-                          return (
-                            <tr>
-                              <td colSpan="4" className="px-3 py-10 text-center text-gray-500">
-                                No item purchase data available
-                              </td>
-                            </tr>
-                          );
-                        }
-                        
-                        return sortedItems.map((item, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-3 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                {item.name}
-                              </div>
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                {item.totalQuantity}
-                              </div>
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                Rs. {item.totalRevenue.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}
-                              </div>
-                            </td>
-                            <td className="px-3 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                Rs. {item.averagePrice.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}
-                              </div>
-                            </td>
-                          </tr>
-                        ));
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
               </div>
             </div>
           </div>
@@ -2140,9 +1917,6 @@ const processPaymentData = (data) => {
                       <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Commission Amount
                       </th>
-                      <th scope="col" className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -2188,14 +1962,6 @@ const processPaymentData = (data) => {
                                 maximumFractionDigits: 2
                               })}
                           </div>
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-right text-sm">
-                            <button 
-                              onClick={() => viewPaymentDetails(payment)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              View Details
-                            </button>
                           </td>
                         </tr>
                       ))
@@ -2287,12 +2053,7 @@ const processPaymentData = (data) => {
 
               {/* User Profile Section */}
               <div className="flex items-center space-x-6">
-                <button className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-all duration-200">
-                  <Calendar size={20} />
-                </button>
-                <button className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-all duration-200">
-                  <Activity size={20} />
-                </button>
+                
                 
                 {/* Enhanced Profile Button */}
                 <div className="relative">
@@ -2303,7 +2064,7 @@ const processPaymentData = (data) => {
                       alt="User"
                     />
                     <div className="flex flex-col items-start">
-                      <span className="text-sm font-semibold text-gray-700">Mr. S.S. Silva</span>
+                      <span className="text-sm font-semibold text-gray-700">Miss Amanda Thenuwra</span>
                       <span className="text-xs text-gray-500">Administrator</span>
                     </div>
                     <ChevronDown size={16} className="text-gray-400" />
