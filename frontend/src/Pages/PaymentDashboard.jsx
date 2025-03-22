@@ -57,6 +57,9 @@ function PaymentDashboard() {
   const [incrementType, setIncrementType] = useState('fixed'); // 'fixed' or 'percentage'
   const [salaryChangeType, setSalaryChangeType] = useState('increment'); // Add this for increment/decrement
 
+  // Add these state variables at the top of the component
+  const [adminExpenses, setAdminExpenses] = useState([]);
+
   // Keep existing paymentStats state
   const [paymentStats, setPaymentStats] = useState({
     totalAmount: 0,
@@ -498,19 +501,63 @@ const processPaymentData = (data) => {
     }
   };
 
-  const handleSalaryPayment = async (adminId) => {
-    try {
-      const response = await axios.post(`http://localhost:5000/api/payments/salary/${adminId}`, {
-        date: new Date().toISOString()
-      });
-      
-      if (response.status === 200) {
-        showNotificationMessage('success', 'Salary payment processed successfully');
-        fetchAdminSalaries(); // Refresh the data
+  const handleSalaryPayment = async (admin) => {
+    const lastPaidDate = admin.lastPaid ? new Date(admin.lastPaid).toLocaleDateString() : 'Not paid yet';
+    
+    // Show confirmation dialog with last paid date
+    const confirmPay = window.confirm(
+      `Do you want to pay salary to ${admin.name}?\n\nLast Paid Date: ${lastPaidDate}`
+    );
+  
+    if (confirmPay) {
+      try {
+        // Calculate salary components
+        const basicSalary = admin.salary || 30000;
+        const epfEmployee = basicSalary * 0.08;
+        const epfEmployer = basicSalary * 0.12;
+        const etf = basicSalary * 0.03;
+        const netSalary = basicSalary - epfEmployee;
+  
+        // Create expense record
+        const salaryExpense = {
+          id: `SAL-${Date.now()}`,
+          date: new Date().toISOString(),
+          type: 'Salary Payment',
+          employeeId: admin.id,
+          employeeName: admin.name,
+          employeeEmail: admin.email,
+          amount: netSalary,
+          details: {
+            basicSalary,
+            epfEmployee,
+            epfEmployer,
+            etf,
+            netSalary,
+            paymentDate: new Date().toISOString()
+          }
+        };
+  
+        // Add to expenses array
+        setAdminExpenses(prev => [...prev, salaryExpense]);
+  
+        // Update admin's last paid date and status
+        const updatedAdmins = adminSalaries.map(a => 
+          a.id === admin.id 
+            ? {...a, 
+               lastPaid: new Date().toLocaleDateString(), 
+               status: 'Paid'
+              } 
+            : a
+        );
+        setAdminSalaries(updatedAdmins);
+  
+        // Show success message
+        alert('Salary payment processed successfully!');
+        
+      } catch (error) {
+        console.error('Error processing salary payment:', error);
+        alert('Failed to process salary payment. Please try again.');
       }
-    } catch (error) {
-      console.error('Error processing salary payment:', error);
-      showNotificationMessage('error', 'Failed to process salary payment');
     }
   };
 
@@ -583,6 +630,8 @@ const processPaymentData = (data) => {
       alert(errorMessage);
     }
   };
+
+  // Removed duplicate declaration of handleSalaryPayment
 
   const toggleSelectAll = () => {
     setIsAllSelected(!isAllSelected);
@@ -1704,7 +1753,7 @@ const processPaymentData = (data) => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex space-x-2">
                               <button 
-                                onClick={() => handleSalaryPayment(admin.id)}
+                                onClick={() => handleSalaryPayment(admin)}
                                 className={`px-3 py-1 rounded-md text-sm font-medium ${
                                   admin.status === 'Paid' 
                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -1850,8 +1899,66 @@ const processPaymentData = (data) => {
             {/* Other Expenses Content */}
             {expensesSubPage === 'Other Expenses' && (
               <div className="bg-white rounded-xl shadow-sm p-6">
-                <h2 className="text-lg font-semibold mb-4">Other Expenses</h2>
-                {/* Add your other expenses content here */}
+                <h2 className="text-lg font-semibold mb-6">Other Expenses</h2>
+                
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {adminExpenses.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
+                            No expenses recorded
+                          </td>
+                        </tr>
+                      ) : (
+                        adminExpenses.map((expense) => (
+                          <tr key={expense.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(expense.date).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {expense.type}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{expense.employeeName}</div>
+                              <div className="text-xs text-gray-500">{expense.employeeEmail}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              Rs. {expense.amount.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <button
+                                onClick={() => {
+                                  alert(
+                                    `Payment Details:\n\n` +
+                                    `Basic Salary: Rs. ${expense.details.basicSalary.toLocaleString()}\n` +
+                                    `EPF (Employee): Rs. ${expense.details.epfEmployee.toLocaleString()}\n` +
+                                    `EPF (Employer): Rs. ${expense.details.epfEmployer.toLocaleString()}\n` +
+                                    `ETF: Rs. ${expense.details.etf.toLocaleString()}\n` +
+                                    `Net Salary: Rs. ${expense.details.netSalary.toLocaleString()}\n` +
+                                    `Payment Date: ${new Date(expense.details.paymentDate).toLocaleString()}`
+                                  );
+                                }}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                View Details
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
