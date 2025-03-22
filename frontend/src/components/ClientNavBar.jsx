@@ -7,6 +7,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { jwtDecode } from 'jwt-decode';
 import logo from "../assets/images/buildmart_logo1.png";
+import { CarTaxiFront, ShoppingCartIcon } from 'lucide-react';
 
 const ClientNavBar = () => {
   const [user, setUser] = useState(null);
@@ -174,6 +175,14 @@ const ClientNavBar = () => {
                     >
                       <span className="w-8"><FaUserCircle /></span>
                       Profile
+                    </Link>
+
+                    <Link 
+                      to="/my-orders"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                    >
+                      <span className="w-8"><ShoppingCartIcon /></span>
+                      My orders
                     </Link>
                     
                     <div className="border-t border-gray-100 my-1"></div>
