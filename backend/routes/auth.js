@@ -1,17 +1,16 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const multer = require('multer');
 const router = express.Router();
-// Multer setup for file upload
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
 const User = require('../models/User');
+const profileUpload = require('../middleware/profileUpload'); // Import our custom middleware
 
-// POST request to register a new user
-router.post('/signup', upload.single('profilePic'), async (req, res) => {
+// Update the signup route
+router.post('/signup', profileUpload.single('profilePic'), async (req, res) => {
   const { username, email, password, role } = req.body;
-  const profilePic = req.file ? req.file.buffer.toString('base64') : null;
+  // Store the file path instead of the base64 data
+  const profilePic = req.file ? `/uploads/profiles/${req.file.filename}` : null;
+  
   try {
     // Check if the user already exists
     const userExists = await User.findOne({ $or: [{ email }, { username }] });
@@ -27,7 +26,7 @@ router.post('/signup', upload.single('profilePic'), async (req, res) => {
       email,
       password: hashedPassword,
       role,
-      profilePic,
+      profilePic,  // Save the file path, not the base64 string
     });
     await newUser.save();
     
@@ -202,7 +201,7 @@ router.post('/admins/pay-salary', async (req, res) => {
   }
 });
 
-// POST request to login a user
+// Update login response to include the correct path to profile pic
 router.post('/login', async (req, res) => {
   const { emailUsername, password } = req.body;
   try {
@@ -239,7 +238,7 @@ router.post('/login', async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        profilePic: user.profilePic
+        profilePic: user.profilePic // This will be the file path now
       },
     });
   } catch (error) {
@@ -247,7 +246,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET request to fetch user data by userId
+// Also update the user route to return correct profile pic path
 router.get('/user/:userId', async (req, res) => {
   try {
     // Find the user by the userId passed in the URL parameter
@@ -265,7 +264,7 @@ router.get('/user/:userId', async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
-        profilePic: user.profilePic
+        profilePic: user.profilePic // This will be the file path now
       }
     });
   } catch (error) {

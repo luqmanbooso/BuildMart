@@ -11,6 +11,7 @@ const SignUp = () => {
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [selectedRole, setSelectedRole] = useState("Client"); // Default role is 'Client'
   const [profilePic, setProfilePic] = useState(null); // State to hold the profile picture
+  const [profilePreview, setProfilePreview] = useState(null); // New state for preview only
   const [username, setUsername] = useState(""); // State for username
   const [email, setEmail] = useState(""); // State for email
   const [password, setPassword] = useState(""); // State for password
@@ -21,9 +22,13 @@ const SignUp = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Store the file object itself for uploading
+      setProfilePic(file);
+      
+      // For preview purposes only
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfilePic(reader.result); // Set the uploaded image as the profile picture
+        setProfilePreview(reader.result); // New state for preview only
       };
       reader.readAsDataURL(file);
     }
@@ -47,6 +52,8 @@ const SignUp = () => {
     formData.append('email', email);
     formData.append('password', password);
     formData.append('role', selectedRole);
+    
+    // Append the actual file object, not a data URL
     if (profilePic) {
       formData.append('profilePic', profilePic);
     }
@@ -274,8 +281,8 @@ const SignUp = () => {
               className="relative w-24 h-24 bg-blue-950 rounded-full flex justify-center items-center"
             >
               {/* Display Profile Picture if available */}
-              {profilePic ? (
-                <img src={profilePic} alt="Profile" className="w-16 h-16 rounded-full" />
+              {profilePreview ? (
+                <img src={profilePreview} alt="Profile" className="w-16 h-16 rounded-full object-cover" />
               ) : (
                 <div className="w-16 h-16 bg-gray-300 rounded-full flex justify-center items-center text-xl text-white">
                   +

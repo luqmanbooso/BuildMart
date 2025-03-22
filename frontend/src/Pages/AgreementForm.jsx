@@ -241,7 +241,7 @@ try {
   }, [jobId, bidId, location.state, navigate]);
   
   const handleSubmit = async (e) => {
-    alert("Button clicked - handleSubmit running");
+    // alert("Button clicked - handleSubmit running");
     
     if (!agreementChecked) {
       toast.warning("Please confirm you agree to the terms and conditions");
@@ -276,7 +276,7 @@ try {
     
     setSubmitting(true);
     try {
-      alert("Starting bid acceptance process...");
+      // alert("Starting bid acceptance process...");
       
       // Now userId is properly defined
       const localClientId = userId;
@@ -284,9 +284,11 @@ try {
                                bidDetails?.contractor || 
                                contractorDetails?._id;
       
+      /* 
       alert(`Contractor ID: ${localContractorId || 'Not found'}`);
       alert(`Job ID: ${jobId || 'Not found'}`);
       alert(`Bid ID: ${bidId || 'Not found'}`);
+      */
       
       if (!localContractorId) {
         throw new Error("Could not determine contractor ID");
@@ -294,11 +296,9 @@ try {
       
       // Check for milestones
       if (!jobDetails?.milestones || !jobDetails?.milestones.length) {
-        alert("Warning: No milestones found in job details");
+        // alert("Warning: No milestones found in job details");
       }
       
-      // Add this before creating ongoingWorkData in handleSubmit function
-
       // Calculate even distribution of price across milestones
       const totalBidPrice = parseFloat(bidDetails.price) || 0;
       const milestoneCount = jobDetails.milestones?.length || 0;
@@ -308,23 +308,25 @@ try {
 
       // Fix 2: Update the bid status with better error handling
       try {
-        alert("Updating bid status...");
+        // alert("Updating bid status...");
         const bidUpdateUrl = `http://localhost:5000/bids/${bidId}/status`;
-        alert(`Using bid update URL: ${bidUpdateUrl}`);
+        // alert(`Using bid update URL: ${bidUpdateUrl}`);
         
         const bidUpdateResponse = await axios.put(bidUpdateUrl, {
           status: 'accepted'
         });
         
-        alert(`Bid status update successful: ${JSON.stringify(bidUpdateResponse.data)}`);
+        // alert(`Bid status update successful: ${JSON.stringify(bidUpdateResponse.data)}`);
+        toast.success("🎯 Contractor bid has been successfully accepted!");
       } catch (bidError) {
-        alert(`Bid status update failed: ${bidError.message}`);
+        // alert(`Bid status update failed: ${bidError.message}`);
+        toast.error(`Failed to accept bid: ${bidError.message}`);
         throw bidError;
       }
       
       // Fix 3: Create ongoing work with proper status values
       try {
-        alert("Creating ongoing work...");
+        // alert("Creating ongoing work...");
         
         // Fix: Use the correct enum values that match your backend schema
         // Get timeline from bidDetails
@@ -357,10 +359,10 @@ try {
           parsedTimeline: timeline
         });
         
-        alert(`Submitting ongoing work data: ${JSON.stringify(ongoingWorkData)}`);
+        // alert(`Submitting ongoing work data: ${JSON.stringify(ongoingWorkData)}`);
         
         const ongoingWorkUrl = 'http://localhost:5000/api/ongoingworks';
-        alert(`Using ongoing work URL: ${ongoingWorkUrl}`);
+        // alert(`Using ongoing work URL: ${ongoingWorkUrl}`);
         
         // Log the exact data being sent
         console.log("Sending data to create ongoing work:", ongoingWorkData);
@@ -376,7 +378,22 @@ try {
         
         const response = await axios.post(ongoingWorkUrl, ongoingWorkData, config);
         
-        alert(`Ongoing work created successfully: ${JSON.stringify(response.data)}`);
+        // alert(`Ongoing work created successfully: ${JSON.stringify(response.data)}`);
+        
+        // Creative toast for successful project workspace creation
+        toast.success(
+          <div>
+            <div className="font-bold mb-1">🎉 Project workspace created!</div>
+            <div className="text-sm">Your partnership with {contractorDetails?.name || bidDetails?.contractorname} begins today.</div>
+            <div className="mt-2 text-xs bg-green-50 p-1 rounded">
+              Timeline: {timeline} days | Budget: LKR {parseFloat(bidDetails?.price).toLocaleString()}
+            </div>
+          </div>,
+          {
+            autoClose: 5000,
+            icon: "🎉",
+          }
+        );
         
         // NEW CODE: Update job status to close the auction
         try {
@@ -386,6 +403,7 @@ try {
           }, config);
           
           console.log("Successfully closed auction after agreement finalization");
+          toast.info("📢 Auction has been closed for this project");
         } catch (jobError) {
           console.error("Failed to update job status, but agreement was created:", jobError);
           // Don't throw error here - we want to continue even if this fails
@@ -395,7 +413,21 @@ try {
         console.log("Other bids are automatically rejected when accepting a bid");
         // No need for separate API call - the backend route '/:bidId/status' already does this
         
-        toast.success('Agreement successfully confirmed!');
+        toast.success(
+          <div className="flex items-center">
+            <div className="bg-blue-100 p-2 rounded-full mr-3">
+              <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <div>
+              <div className="font-bold">Agreement successfully confirmed!</div>
+              <div className="text-sm">Your project is now protected and ready to begin</div>
+            </div>
+          </div>,
+          { autoClose: 6000 }
+        );
+        
         setShowSuccessModal(true);
         
         // Navigate after a successful creation
@@ -408,9 +440,11 @@ try {
         // Capture detailed server error information
         if (workError.response) {
           console.error("Server response:", workError.response.data);
-          alert(`Server Error: ${JSON.stringify(workError.response.data)}`);
+          // alert(`Server Error: ${JSON.stringify(workError.response.data)}`);
+          toast.error(`Server Error: ${JSON.stringify(workError.response.data)}`);
         } else {
-          alert(`Ongoing work creation failed: ${workError.message}`);
+          // alert(`Ongoing work creation failed: ${workError.message}`);
+          toast.error(`Project creation failed: ${workError.message}`);
         }
         
         // If the user has developer console open, they can see this
@@ -425,12 +459,12 @@ try {
         throw workError;
       }
     } catch (err) {
-      alert(`Overall error: ${err.message}`);
+      // alert(`Overall error: ${err.message}`);
       console.error("Error submitting agreement:", err);
       
       // Show error details if available
       if (err.response) {
-        alert(`Response error data: ${JSON.stringify(err.response.data)}`);
+        // alert(`Response error data: ${JSON.stringify(err.response.data)}`);
       }
       
       setError("Failed to process agreement: " + (err.response?.data?.message || err.message));

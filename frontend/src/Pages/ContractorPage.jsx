@@ -9,6 +9,18 @@ import EditContractorProfile from '../components/EditContractorProfile';
 import QualificationsManager from '../components/QualificationsManager';
 import EditUserDetails from '../components/EditUserDetails'; // Import the EditUserDetails component
 
+// Example component that shows a profile picture
+function ProfileImage({ profilePicPath }) {
+  // Check if the path is a full URL or just a relative path
+  const imgSrc = profilePicPath
+    ? profilePicPath.startsWith('http') 
+      ? profilePicPath 
+      : `http://localhost:5000${profilePicPath}`
+    : '/default-profile.png'; // Fallback image
+
+  return <img src={imgSrc} alt="Profile" className="profile-image" />;
+}
+
 const ContractorProfile = () => {
   // Personal info state
   const [personalInfo, setPersonalInfo] = useState({
