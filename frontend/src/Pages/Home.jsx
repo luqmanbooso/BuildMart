@@ -962,7 +962,7 @@ const handleLogout = () => {
                     </span>
                   </div>
 
-                  <Link to={`/shop/product/${product.id}`}>
+                  <Link to={`/shop`}>
                     <button className="border border-gray-300 text-gray-800 px-4 py-1 text-sm hover:bg-gray-100 transition w-full">
                       VIEW DETAILS
                     </button>
@@ -992,7 +992,7 @@ const handleLogout = () => {
           )}
 
           <div className="text-center mt-10">
-            <Link to="/products">
+            <Link to="/shop">
               <motion.button 
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
