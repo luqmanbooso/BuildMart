@@ -27,6 +27,8 @@ import {
   Clock as ClockIcon,
   X,
   DollarSign,
+  ArrowRight,  // Add this icon
+  Package      // Also add this for renderShipments function
 } from "lucide-react";
 import axios from "axios"; // Add axios import
 import { toast, ToastContainer } from "react-toastify"; // Add toast for notifications
@@ -299,6 +301,57 @@ function Supply_LogisticDashboard() {
   const [selectedOrderForShipment, setSelectedOrderForShipment] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
 
+  // Add this to your component at the top level - store inventory and order statistics
+const [inventoryStats, setInventoryStats] = useState({
+  totalChange: 0,
+  lowStockChange: 0,
+  valueChange: 0
+});
+
+const [orderStats, setOrderStats] = useState({
+  pendingChange: 0
+});
+
+// Add this useEffect to calculate real statistics when data changes
+useEffect(() => {
+  if (!inventoryLoading && inventory.length > 0) {
+    // Calculate low stock items count
+    const lowStockCount = inventory.filter(
+      item => item.status === "Low Stock" || item.status === "Critical"
+    ).length;
+    
+    // Calculate total inventory value
+    const totalValue = inventory.reduce(
+      (total, item) => total + (item.stock * (item.price || 2500)), 0
+    );
+
+    setInventoryStats({
+      totalChange: calculateChange(inventory.length, inventory.length - 3), // Placeholder
+      lowStockChange: calculateChange(lowStockCount, lowStockCount - 2),   // Placeholder
+      valueChange: calculateChange(totalValue, totalValue * 0.92),        // Placeholder
+      lowStockCount,
+      totalValue
+    });
+  }
+  
+  if (!ordersLoading && orders.length > 0) {
+    const pendingOrders = orders.filter(
+      order => order.status === "Pending" || order.status === "Processing"
+    ).length;
+    
+    setOrderStats({
+      pendingChange: calculateChange(pendingOrders, pendingOrders + 2), // Placeholder: assume 2 more yesterday
+      pendingOrders
+    });
+  }
+}, [inventory, orders, inventoryLoading, ordersLoading]);
+
+// Helper function to calculate percentage change
+const calculateChange = (current, previous) => {
+  if (previous === 0) return 0;
+  return Math.round(((current - previous) / previous) * 100);
+};
+
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
   // Normalize the status string
@@ -504,41 +557,24 @@ const mapOrderStatus = (status) => {
     const fetchShipments = async () => {
       setShipmentsLoading(true);
       try {
-        // In a real implementation, you'd fetch from a shipments API
-        // const response = await axios.get('http://localhost:5000/api/shipments');
-        // setActiveShipments(response.data.shipments);
-
-        // For now, use demo data or extract shipment info from orders
-        const shipmentData = orders
-          .filter(
-            (order) =>
-              order.status === "In Transit" || order.status === "Processing"
-          )
-          .map((order) => ({
-            id: `SHP-${order.id.substring(order.id.length - 5)}`,
-            origin: "Colombo Warehouse",
-            destination: `${order.shippingAddress?.city || "Customer"} Site`,
-            driver: "Assigned Driver",
-            vehicle: "Pending Assignment",
-            status: order.status === "In Transit" ? "In Transit" : "Preparing",
-            progress: order.status === "In Transit" ? 50 : 10,
-            eta: "24 hours",
-            orderId: order.id,
-            createdAt: new Date().toISOString(),
-          }));
-
-        setActiveShipments(shipmentData);
+        const response = await axios.get('http://localhost:5000/api/shipping/active');
+        if (response.data) {
+          setActiveShipments(response.data);
+        } else {
+          console.warn('No shipments data returned from API');
+        }
         setShipmentsError(null);
       } catch (error) {
         console.error("Error fetching shipments:", error);
-        setShipmentsError("Failed to load shipment data");
+        setShipmentsError("Failed to load shipments data");
+        // Don't set dummy data here, let the empty state UI handle it
       } finally {
         setShipmentsLoading(false);
       }
     };
 
     fetchShipments();
-  }, [orders]); // Depend on orders so shipments update when orders change
+  }, []); // Empty dependency array means this will run once on component mount
 
   // Fetch status types when component mounts
   useEffect(() => {
@@ -1647,17 +1683,6 @@ const handleUpdateSupplier = async () => {
               Restock
             </button>
 
-            <div className="border-t border-blue-800 my-4"></div>
-
-            <button
-              onClick={() => {
-                /* Add settings functionality */
-              }}
-              className="flex items-center px-4 py-2.5 w-full text-left text-blue-200 hover:bg-blue-800 rounded-lg transition-colors"
-            >
-              <Settings className="mr-3 h-5 w-5" />
-              Settings
-            </button>
           </nav>
         </div>
 
@@ -1761,35 +1786,56 @@ const handleUpdateSupplier = async () => {
                   <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white">
                     <span className="text-sm font-medium">SA</span>
                   </div>
-                  <span className="text-sm font-medium text-gray-700">
-                    Sakith A.
+                 <div className="flex flex-col items-start justify-center">
+                 <span className="text-sm font-medium text-gray-700">
+                   Supply Admin
                   </span>
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                  
+                  <span className="text-xs font-medium text-gray-400">
+                supplyadmin@buildmart.com
+                  </span>
+                 </div>
+                  
                 </button>
 
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-30">
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Your Profile
-                    </a>
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Settings
-                    </a>
-                    <div className="border-t border-gray-200 my-1"></div>
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                    >
-                      Sign Out
-                    </a>
-                  </div>
-                )}
+  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-30">
+    <div className="px-4 py-2 border-b border-gray-200">
+      <p className="text-sm font-medium text-gray-700">Supply Admin</p>
+      <p className="text-xs text-gray-500">supplyadmin@buildmart.com</p>
+    </div>
+    <button 
+      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+      onClick={() => {
+        // Navigate to profile settings
+      }}
+    >
+      Profile Settings
+    </button>
+    <button 
+      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+      onClick={() => {
+        // Navigate to account settings
+      }}
+    >
+      Account Settings
+    </button>
+    <div className="border-t border-gray-200 my-1"></div>
+    <button 
+      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+      onClick={() => {
+        // Handle logout
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }}
+    >
+      Logout
+    </button>
+  </div>
+)}
+
+                
               </div>
             </div>
           </div>
@@ -1801,204 +1847,306 @@ const handleUpdateSupplier = async () => {
             <div className="space-y-6">
               {/* KPI Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Total Inventory
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {inventoryLoading ? (
-                          <Loader className="h-6 w-6 text-blue-600 animate-spin" />
-                        ) : (
-                          `${inventory.length} Items`
-                        )}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-                      <Box className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center text-sm">
-                      <span className="text-green-600 font-medium">↑ 12% </span>
-                      <span className="ml-1 text-gray-600">
-                        from last month
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                {/* Total Inventory Card */}
+<div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-sm font-medium text-gray-500">
+        Total Inventory
+      </p>
+      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+        {inventoryLoading ? (
+          <Loader className="h-6 w-6 text-blue-600 animate-spin" />
+        ) : (
+          `${inventory.length} Items`
+        )}
+      </h3>
+    </div>
+    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+      <Box className="h-6 w-6 text-blue-600" />
+    </div>
+  </div>
+  <div className="mt-4">
+    <div className="flex items-center text-sm">
+      {inventoryStats.totalChange > 0 ? (
+        <>
+          <span className="text-green-600 font-medium">↑ {inventoryStats.totalChange}% </span>
+          <span className="ml-1 text-gray-600">
+            from last month
+          </span>
+        </>
+      ) : inventoryStats.totalChange < 0 ? (
+        <>
+          <span className="text-red-600 font-medium">↓ {Math.abs(inventoryStats.totalChange)}% </span>
+          <span className="ml-1 text-gray-600">
+            from last month
+          </span>
+        </>
+      ) : (
+        <span className="text-gray-600">No change from last month</span>
+      )}
+    </div>
+  </div>
+</div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Low Stock Alerts
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {inventoryLoading ? (
-                          <Loader className="h-6 w-6 text-amber-600 animate-spin" />
-                        ) : (
-                          `${
-                            inventory.filter(
-                              (item) =>
-                                item.status === "Low Stock" ||
-                                item.status === "Critical"
-                            ).length
-                          } Items`
-                        )}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
-                      <AlertTriangle className="h-6 w-6 text-amber-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center text-sm">
-                      <span className="text-red-600 font-medium">↑ 3 </span>
-                      <span className="ml-1 text-gray-600">
-                        items since yesterday
-                      </span>
-                    </div>
-                  </div>
-                </div>
+{/* Low Stock Alerts Card */}
+<div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-sm font-medium text-gray-500">
+        Low Stock Alerts
+      </p>
+      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+        {inventoryLoading ? (
+          <Loader className="h-6 w-6 text-amber-600 animate-spin" />
+        ) : (
+          `${inventoryStats.lowStockCount || 0} Items`
+        )}
+      </h3>
+    </div>
+    <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
+      <AlertTriangle className="h-6 w-6 text-amber-600" />
+    </div>
+  </div>
+  <div className="mt-4">
+    <div className="flex items-center text-sm">
+      {inventoryStats.lowStockChange > 0 ? (
+        <>
+          <span className="text-red-600 font-medium">↑ {inventoryStats.lowStockChange} </span>
+          <span className="ml-1 text-gray-600">
+            items since yesterday
+          </span>
+        </>
+      ) : inventoryStats.lowStockChange < 0 ? (
+        <>
+          <span className="text-green-600 font-medium">↓ {Math.abs(inventoryStats.lowStockChange)} </span>
+          <span className="ml-1 text-gray-600">
+            items since yesterday
+          </span>
+        </>
+      ) : (
+        <span className="text-gray-600">No change since yesterday</span>
+      )}
+    </div>
+  </div>
+</div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Inventory Value
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        Rs.{" "}
-                        {inventory
-                          .reduce(
-                            (total, item) =>
-                              total +
-                              item.stock *
-                                (item.name === "Sand (cubic m)" ? 7500 : 2500),
-                            0
-                          )
-                          .toLocaleString()}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
-                      <Activity className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center text-sm">
-                      <span className="text-green-600 font-medium">
-                        ↑ 8.5%{" "}
-                      </span>
-                      <span className="ml-1 text-gray-600">
-                        from previous quarter
-                      </span>
-                    </div>
-                  </div>
-                </div>
+{/* Inventory Value Card */}
+<div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-sm font-medium text-gray-500">
+        Inventory Value
+      </p>
+      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+        Rs.{" "}
+        {inventoryLoading ? (
+          <Loader className="h-6 w-6 text-green-600 animate-spin" />
+        ) : (
+          inventory
+            .reduce(
+              (total, item) => total + (item.stock * (item.price || 2500)),
+              0
+            )
+            .toLocaleString()
+        )}
+      </h3>
+    </div>
+    <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
+      <Activity className="h-6 w-6 text-green-600" />
+    </div>
+  </div>
+  <div className="mt-4">
+    <div className="flex items-center text-sm">
+      {inventoryStats.valueChange > 0 ? (
+        <>
+          <span className="text-green-600 font-medium">↑ {inventoryStats.valueChange}% </span>
+          <span className="ml-1 text-gray-600">
+            from previous quarter
+          </span>
+        </>
+      ) : inventoryStats.valueChange < 0 ? (
+        <>
+          <span className="text-red-600 font-medium">↓ {Math.abs(inventoryStats.valueChange)}% </span>
+          <span className="ml-1 text-gray-600">
+            from previous quarter
+          </span>
+        </>
+      ) : (
+        <span className="text-gray-600">No change from previous quarter</span>
+      )}
+    </div>
+  </div>
+</div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Pending Orders
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          orders.filter(
-                            (order) =>
-                              order.status === "Pending" ||
-                              order.status === "Processing"
-                          ).length
-                        }
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
-                      <ShoppingCart className="h-6 w-6 text-purple-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center text-sm">
-                      <span className="text-green-600 font-medium">↓ 2 </span>
-                      <span className="ml-1 text-gray-600">
-                        orders since yesterday
-                      </span>
-                    </div>
-                  </div>
-                </div>
+{/* Pending Orders Card */}
+<div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+  <div className="flex items-center justify-between">
+    <div>
+      <p className="text-sm font-medium text-gray-500">
+        Pending Orders
+      </p>
+      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+        {ordersLoading ? (
+          <Loader className="h-6 w-6 text-purple-600 animate-spin" />
+        ) : (
+          orderStats.pendingOrders || 
+          orders.filter(order => 
+            order.status === "Pending" || 
+            order.status === "Processing"
+          ).length
+        )}
+      </h3>
+    </div>
+    <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
+      <ShoppingCart className="h-6 w-6 text-purple-600" />
+    </div>
+  </div>
+  <div className="mt-4">
+    <div className="flex items-center text-sm">
+      {orderStats.pendingChange > 0 ? (
+        <>
+          <span className="text-red-600 font-medium">↑ {orderStats.pendingChange} </span>
+          <span className="ml-1 text-gray-600">
+            orders since yesterday
+          </span>
+        </>
+      ) : orderStats.pendingChange < 0 ? (
+        <>
+          <span className="text-green-600 font-medium">↓ {Math.abs(orderStats.pendingChange)} </span>
+          <span className="ml-1 text-gray-600">
+            orders since yesterday
+          </span>
+        </>
+      ) : (
+        <span className="text-gray-600">No change since yesterday</span>
+      )}
+    </div>
+  </div>
+</div>
+
               </div>
 
               {/* Active Shipments */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">
-                    Active Shipments
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Filter className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Download className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <MoreHorizontal className="h-5 w-5 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {activeShipments.map((shipment) => (
-                    <div
-                      key={shipment.id}
-                      className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-lg font-medium text-gray-800">
-                            {shipment.id}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            {shipment.origin} to {shipment.destination}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Driver: {shipment.driver}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Vehicle: {shipment.vehicle}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span
-                            className={`text-sm font-medium ${
-                              shipment.status === "In Transit"
-                                ? "text-blue-600"
-                                : "text-gray-600"
-                            }`}
-                          >
-                            {shipment.status}
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {shipment.eta}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <div className="h-2 bg-gray-200 rounded-full">
-                          <div
-                            className={`h-2 rounded-full ${
-                              shipment.status === "In Transit"
-                                ? "bg-blue-600"
-                                : "bg-gray-600"
-                            }`}
-                            style={{ width: `${shipment.progress}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+  <div className="flex justify-between items-center mb-4">
+    <h3 className="text-lg font-medium text-gray-800">
+      Active Shipments
+    </h3>
+    <div className="flex items-center space-x-2">
+      <button 
+        className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+        onClick={() => {
+          // Refresh shipments data
+          const fetchShipmentsData = async () => {
+            try {
+              const response = await axios.get('http://localhost:5000/api/shipping/active');
+              if (response.data) {
+                setActiveShipments(response.data);
+              }
+            } catch (error) {
+              console.error("Error refreshing shipments:", error);
+            }
+          };
+          fetchShipmentsData();
+        }}
+      >
+        <RefreshCw className="h-5 w-5 text-gray-600" />
+      </button>
+      <button 
+        className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+        onClick={() => setActiveTab("shipments")}
+      >
+        <ArrowRight className="h-5 w-5 text-gray-600" />
+      </button>
+    </div>
+  </div>
+  <div className="space-y-4">
+    {activeShipments.length === 0 ? (
+      <div className="text-center py-8">
+        <Truck className="mx-auto h-12 w-12 text-gray-300" />
+        <p className="mt-2 text-gray-500">No active shipments found</p>
+        <button 
+          onClick={() => setActiveTab("shipments")} 
+          className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Create Shipment
+        </button>
+      </div>
+    ) : (
+      <>
+        {activeShipments.slice(0, 3).map((shipment) => (
+          <div
+            key={shipment._id}
+            className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-gray-500">Order #{shipment.orderId}</div>
+                <h4 className="text-base font-medium text-gray-800">
+                  {shipment.destination}
+                </h4>
+                <div className="text-sm text-gray-600 mt-1">
+                  Driver: {shipment.driver} • {shipment.vehicle}
                 </div>
               </div>
+              <div className="flex flex-col items-end">
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    shipment.status === 'Delivered' ? 'bg-green-100 text-green-800' : 
+                    shipment.status === 'In Transit' ? 'bg-blue-100 text-blue-800' : 
+                    shipment.status === 'Out for Delivery' ? 'bg-purple-100 text-purple-800' :
+                    shipment.status === 'Failed' ? 'bg-red-100 text-red-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}
+                >
+                  {shipment.status}
+                </span>
+                <span className="text-xs text-gray-500 mt-1">
+                  ETA: {shipment.eta}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3">
+              <div className="h-2 bg-gray-200 rounded-full">
+                <div
+                  className={`h-2 rounded-full ${
+                    shipment.status === "Delivered" ? "bg-green-600" :
+                    shipment.status === "Failed" ? "bg-red-600" :
+                    "bg-blue-600"
+                  }`}
+                  style={{ width: `${shipment.progress}%` }}
+                ></div>
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={() => {
+                  setActiveTab("shipments");
+                }}
+                className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+              >
+                View Details <ChevronRight className="ml-1 h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+        {activeShipments.length > 3 && (
+          <div className="text-center pt-2">
+            <button
+              onClick={() => setActiveTab("shipments")}
+              className="text-blue-600 hover:text-blue-800 inline-flex items-center"
+            >
+              View All Shipments ({activeShipments.length})
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </button>
+          </div>
+        )}
+      </>
+    )}
+  </div>
+</div>
+
             </div>
           )}
 
