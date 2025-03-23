@@ -45,6 +45,19 @@ const Login = () => {
         navigate('/admindashboard');
         return; // Exit early
       }
+
+      if ((emailUsername === "supplyadmin@buildmart.com" || emailUsername === "Supply Admin") && password === "1234") {
+        // For admin login, store a simple admin token
+        const adminToken = "admin-token-placeholder";
+        if (rememberMe) {
+          localStorage.setItem('token', adminToken);
+        } else {
+          sessionStorage.setItem('token', adminToken);
+        }
+        console.log("Admin login detected");
+        navigate('/supply-logistics');
+        return; // Exit early
+      }
       
       // Special case handling for inventory admin logins
       if ((emailUsername === "inventoryadmin@buildmart.com" || emailUsername === "Lithira") && password === "1234") {
