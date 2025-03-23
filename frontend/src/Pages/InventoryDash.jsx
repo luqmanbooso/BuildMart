@@ -447,10 +447,11 @@ const handleEditProduct = async (editedProduct) => {
       // Show loading toast
       const toastId = toast.loading("Sending restock request...");
       
-      await axios.post('http://localhost:5000/api/orders/restock-request', {
+      // Use the correct endpoint from restockService
+      await axios.post('http://localhost:5000/api/restock', {
         productId: orderRequestItem._id || orderRequestItem.id,
         productName: orderRequestItem.name,
-        productSku: orderRequestItem.sku,
+        sku: orderRequestItem.sku,
         currentStock: orderRequestItem.stock,
         threshold: orderRequestItem.threshold,
         quantity: orderRequestDetails.quantity,
@@ -478,7 +479,21 @@ const handleEditProduct = async (editedProduct) => {
       });
     } catch (error) {
       console.error('Error sending restock request:', error);
-      toast.error(`Failed to send restock request: ${error.response?.data?.message || error.message}`);
+      
+      // Add more specific error handling
+      let errorMessage = "Failed to send restock request";
+      if (error.response) {
+        if (error.response.status === 404) {
+          errorMessage += ": API endpoint not found";
+        } else if (error.response.data && error.response.data.message) {
+          errorMessage += `: ${error.response.data.message}`;
+        }
+      }
+      
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000
+      });
     }
   };
 
