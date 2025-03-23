@@ -121,3 +121,32 @@ exports.updateOrderStatus = async (req, res) => {
     });
   }
 };
+
+exports.getUserOrders = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+    
+    // Find orders where the customer.userId matches the provided userId
+    const orders = await Order.find({ 'customer.userId': userId }).sort({ orderDate: -1 });
+    
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      orders
+    });
+  } catch (error) {
+    console.error('Error fetching user orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch orders',
+      error: error.message
+    });
+  }
+};
