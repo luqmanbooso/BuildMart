@@ -44,6 +44,7 @@ const ShippingManager = ({
   const [viewMode, setViewMode] = useState('active'); // 'active' or 'completed'
   const [completedShipments, setCompletedShipments] = useState([]);
   const [expandedShipmentId, setExpandedShipmentId] = useState(null); // Add this state for tracking expanded rows
+  const [showAdditionalDetails, setShowAdditionalDetails] = useState(false); // Add this state for toggling additional details
   
   // Add this function at the top of your component
   const mockUpdateOrderStatus = (orderId, status) => {
@@ -225,101 +226,163 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
     }
   }, [selectedOrderForShipment]);
 
-  // Handle form input changes
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    
-    // Prevent changes to order-related fields if creating from an order
-    if (selectedOrderForShipment && (name === 'orderId' || name === 'destination')) {
-      return; // Don't allow changes to these fields
-    }
-    
-    // For contact number, only allow digits and limit to 10
-    if (name === 'contactNumber') {
-      const onlyDigits = value.replace(/\D/g, '');
-      const limitedValue = onlyDigits.slice(0, 10);
-      
-      setFormData({
-        ...formData,
-        [name]: limitedValue
-      });
-      
-      // Validate contact number
-      if (!limitedValue) {
-        setFormErrors({...formErrors, [name]: 'Contact number is required'});
-      } else if (limitedValue.length !== 10) {
-        setFormErrors({...formErrors, [name]: 'Contact number must be 10 digits'});
-      } else {
-        setFormErrors({...formErrors, [name]: ''});
-      }
-      return;
-    }
-    
-    // For progress, ensure it's between 0-100
-    if (name === 'progress') {
-      const numValue = parseInt(value) || 0;
-      const clampedValue = Math.min(Math.max(numValue, 0), 100);
-      
-      setFormData({
-        ...formData,
-        [name]: clampedValue
-      });
-      
-      setFormErrors({...formErrors, [name]: ''});
-      return;
-    }
-    
-    // For dates, validate not in past
-    if (name === 'estimatedDeliveryDate' && value) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const selectedDate = new Date(value);
-      
-      setFormData({
-        ...formData,
-        [name]: value
-      });
-      
-      if (selectedDate < today) {
-        setFormErrors({...formErrors, [name]: 'Delivery date cannot be in the past'});
-      } else {
-        setFormErrors({...formErrors, [name]: ''});
-      }
-      return;
-    }
-    
-    // For other fields, check length constraints
-    const maxLengths = {
-      orderId: 50,
-      origin: 100,
-      destination: 100,
-      driver: 50,
-      vehicle: 30,
-      eta: 30
-    };
-    
-    let finalValue = value;
-    if (maxLengths[name] && value.length > maxLengths[name]) {
-      finalValue = value.slice(0, maxLengths[name]);
-    }
+  // Add this to your component imports
+const validateVehicleNumber = (vehicleNumber) => {
+  // Sri Lankan vehicle number patterns
+  const traditionalPattern = /^[A-Z]{1,3}-\d{4}$/;             // KA-1234
+  const newFormat = /^[A-Z]{2,3}-\d{4}$/;                      // CAB-1234
+  const modernFormat = /^[A-Z]{2}-[A-Z]{1,3}-\d{4}$/;          // WP-CAB-1234
+  const spaceFormat = /^[A-Z]{2}\s[A-Z]{2,3}-\d{4}$/;          // CP BAC-1234
+
+  if (vehicleNumber.trim() === '') {
+    return 'Vehicle number is required';
+  } else if (
+    !traditionalPattern.test(vehicleNumber) && 
+    !newFormat.test(vehicleNumber) && 
+    !modernFormat.test(vehicleNumber) && 
+    !spaceFormat.test(vehicleNumber)
+  ) {
+    return 'Invalid Sri Lankan vehicle number format (e.g., KA-1234, CAB-1234, WP-CAB-1234)';
+  }
+  return '';
+};
+
+// Add this to your component imports
+const validateSriLankanPhoneNumber = (phone) => {
+  // Sri Lankan mobile: 07XXXXXXXX or +947XXXXXXXX
+  // Sri Lankan landline: 0XXXXXXXXX or +94XXXXXXXXX
+  const mobilePattern = /^(?:0|(?:\+94))7\d{8}$/;
+  const landlinePattern = /^(?:0|(?:\+94))[1-9][0-9]{8}$/;
+
+  if (phone.trim() === '') {
+    return 'Phone number is required';
+  } else if (!mobilePattern.test(phone) && !landlinePattern.test(phone)) {
+    return 'Invalid Sri Lankan phone number format (e.g., 0771234567 or +94771234567)';
+  }
+  return '';
+};
+
+// Update handleInputChange function
+const handleInputChange = (e) => {
+  const { name, value } = e.target;
+  
+  // Vehicle number validation
+  if (name === 'vehicle') {
+    const error = validateVehicleNumber(value);
+    setFormData({
+      ...formData,
+      [name]: value.toUpperCase() // Automatically convert to uppercase
+    });
+    setFormErrors({...formErrors, [name]: error});
+    return;
+  }
+
+  // For contact number, validate Sri Lankan format
+  if (name === 'contactNumber') {
+    const sanitizedValue = value.replace(/\s/g, ''); // Remove spaces
     
     setFormData({
       ...formData,
-      [name]: finalValue
+      [name]: sanitizedValue
     });
     
-    // Check if it's a required field and validate
-    if (['orderId', 'origin', 'destination', 'driver', 'vehicle'].includes(name)) {
-      if (!finalValue.trim()) {
-        setFormErrors({
-          ...formErrors, 
-          [name]: `${name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1')} is required`
-        });
-      } else {
-        setFormErrors({...formErrors, [name]: ''});
-      }
+    const error = validateSriLankanPhoneNumber(sanitizedValue);
+    setFormErrors({...formErrors, [name]: error});
+    return;
+  }
+
+  // Rest of your existing handleInputChange logic...
+  // Prevent changes to order-related fields if creating from an order
+  if (selectedOrderForShipment && (name === 'orderId' || name === 'destination')) {
+    return; // Don't allow changes to these fields
+  }
+  
+  // For contact number, only allow digits and limit to 10
+  if (name === 'contactNumber') {
+    const onlyDigits = value.replace(/\D/g, '');
+    const limitedValue = onlyDigits.slice(0, 10);
+    
+    setFormData({
+      ...formData,
+      [name]: limitedValue
+    });
+    
+    // Validate contact number
+    if (!limitedValue) {
+      setFormErrors({...formErrors, [name]: 'Contact number is required'});
+    } else if (limitedValue.length !== 10) {
+      setFormErrors({...formErrors, [name]: 'Contact number must be 10 digits'});
+    } else {
+      setFormErrors({...formErrors, [name]: ''});
     }
+    return;
+  }
+  
+  // For progress, ensure it's between 0-100
+  if (name === 'progress') {
+    const numValue = parseInt(value) || 0;
+    const clampedValue = Math.min(Math.max(numValue, 0), 100);
+    
+    setFormData({
+      ...formData,
+      [name]: clampedValue
+    });
+    
+    setFormErrors({...formErrors, [name]: ''});
+    return;
+  }
+  
+  // For dates, validate not in past
+  if (name === 'estimatedDeliveryDate' && value) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(value);
+    
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+    
+    if (selectedDate < today) {
+      setFormErrors({...formErrors, [name]: 'Delivery date cannot be in the past'});
+    } else {
+      setFormErrors({...formErrors, [name]: ''});
+    }
+    return;
+  }
+  
+  // For other fields, check length constraints
+  const maxLengths = {
+    orderId: 50,
+    origin: 100,
+    destination: 100,
+    driver: 50,
+    vehicle: 30,
+    eta: 30
   };
+  
+  let finalValue = value;
+  if (maxLengths[name] && value.length > maxLengths[name]) {
+    finalValue = value.slice(0, maxLengths[name]);
+  }
+  
+  setFormData({
+    ...formData,
+    [name]: finalValue
+  });
+  
+  // Check if it's a required field and validate
+  if (['orderId', 'origin', 'destination', 'driver', 'vehicle'].includes(name)) {
+    if (!finalValue.trim()) {
+      setFormErrors({
+        ...formErrors, 
+        [name]: `${name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1')} is required`
+      });
+    } else {
+      setFormErrors({...formErrors, [name]: ''});
+    }
+  }
+};
   
   // Enhanced form validation function
   const validateForm = () => {
@@ -382,65 +445,70 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
     return errors;
   };
   
-  // Modify handleSubmit to use the mock function as fallback
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Update in your handleSubmit function
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  // Validate form
+  const errors = validateForm();
+  
+  // If no status is provided, default to "Pending"
+  if (!formData.status) {
+    formData.status = 'Pending';
+  }
+  
+  // Update all form errors
+  setFormErrors(errors);
+  
+  // Check if there are any errors
+  if (Object.keys(errors).length > 0) {
+    // Display first error as toast notification
+    toast.error(Object.values(errors)[0]);
+    return;
+  }
+  
+  try {
+    setLoading(true);
     
-    // Validate form
-    const errors = validateForm();
-    
-    // Update all form errors
-    setFormErrors(errors);
-    
-    // Check if there are any errors
-    if (Object.keys(errors).length > 0) {
-      // Display first error as toast notification
-      toast.error(Object.values(errors)[0]);
-      return;
-    }
-    
-    try {
-      setLoading(true);
+    if (selectedShipment) {
+      // Update existing shipment
+      const response = await axios.put(`http://localhost:5000/api/shipping/${selectedShipment._id}`, formData);
+      setActiveShipments(activeShipments.map(s => s._id === selectedShipment._id ? response.data : s));
+      toast.success('Shipment updated successfully');
+    } else {
+      // Create new shipment
+      const response = await axios.post('http://localhost:5000/api/shipping', formData);
+      setActiveShipments([...activeShipments, response.data]);
+      toast.success('Shipment created successfully');
       
-      if (selectedShipment) {
-        // Update existing shipment
-        const response = await axios.put(`http://localhost:5000/api/shipping/${selectedShipment._id}`, formData);
-        setActiveShipments(activeShipments.map(s => s._id === selectedShipment._id ? response.data : s));
-        toast.success('Shipment updated successfully');
-      } else {
-        // Create new shipment
-        const response = await axios.post('http://localhost:5000/api/shipping', formData);
-        setActiveShipments([...activeShipments, response.data]);
-        toast.success('Shipment created successfully');
-        
-        // Update the order status if this shipment was created from an order
-        if (selectedOrderForShipment) {
-          try {
-            if (updateOrderStatus) {
-              await updateOrderStatus(selectedOrderForShipment.id, 'In Transit');
-            } else {
-              // Use mock function if real function isn't available
-              await mockUpdateOrderStatus(selectedOrderForShipment.id, 'In Transit');
-            }
-          } catch (orderError) {
-            console.error('Failed to update order status:', orderError);
-            toast.warning(`Shipment created, but couldn't update order status`);
+      // Update the order status if this shipment was created from an order
+      if (selectedOrderForShipment) {
+        try {
+          if (updateOrderStatus) {
+            await updateOrderStatus(selectedOrderForShipment.id, 'In Transit');
+          } else {
+            // Use mock function if real function isn't available
+            await mockUpdateOrderStatus(selectedOrderForShipment.id, 'In Transit');
           }
+        } catch (orderError) {
+          console.error('Failed to update order status:', orderError);
+          toast.warning(`Shipment created, but couldn't update order status`);
         }
       }
-      
-      // Reset form and order selection
-      resetForm();
-      if (setSelectedOrderForShipment) {
-        setSelectedOrderForShipment(null);
-      }
-    } catch (error) {
-      console.error('Error saving shipment:', error);
-      toast.error(error.response?.data?.error || 'Failed to save shipment');
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    // Reset form and order selection
+    resetForm();
+    if (setSelectedOrderForShipment) {
+      setSelectedOrderForShipment(null);
+    }
+  } catch (error) {
+    console.error('Error saving shipment:', error);
+    toast.error(error.response?.data?.error || 'Failed to save shipment');
+  } finally {
+    setLoading(false);
+  }
+};
   
   // Update the handleStatusUpdate function to move shipments to completed
   const handleStatusUpdate = async (id, newStatus, newProgress) => {
@@ -722,50 +790,41 @@ const handleDelete = async (id) => {
       
       {/* Shipment Form */}
       {showShipmentForm && (
-        <div className="bg-gray-50 rounded-md p-4 mb-6">
-          <h3 className="text-lg font-medium mb-4">
-            {selectedShipment ? 'Edit Shipment' : (selectedOrderForShipment ? `Create Shipment for Order #${selectedOrderForShipment.id}` : 'Create New Shipment')}
-          </h3>
+  <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center">
+    {/* Blurred backdrop */}
+    <div className="fixed inset-0 bg-gray-500/30 backdrop-filter backdrop-blur-md" onClick={resetForm}></div>
+    
+    {/* Modal content */}
+    <div className="relative bg-white rounded-xl shadow-xl w-full max-w-4xl mx-4 my-6 z-10 animate-fade-in-up">
+      <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
+        <h3 className="text-lg font-semibold text-gray-800">
+          {selectedShipment ? 'Edit Shipment' : (selectedOrderForShipment ? `Create Shipment for Order #${selectedOrderForShipment.id}` : 'Create New Shipment')}
+        </h3>
+        <button 
+          onClick={resetForm} 
+          className="text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <div className="p-6 overflow-y-auto max-h-[80vh]">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Hidden Status field */}
+          <input 
+            type="hidden"
+            name="status"
+            value="Pending" 
+          />
           
-          {/* Add order details section when creating from an order */}
-          {selectedOrderForShipment && (
-            <div className="mb-6 bg-blue-50 p-3 rounded-md border border-blue-200">
-              <h4 className="font-medium text-blue-800 mb-2">Order Details</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                <div>
-                  <p className="text-gray-500">Order ID</p>
-                  <p className="font-medium">{selectedOrderForShipment.id}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Customer</p>
-                  <p className="font-medium">{selectedOrderForShipment.customer}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Items</p>
-                  <p className="font-medium">{selectedOrderForShipment.items}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Value</p>
-                  <p className="font-medium">{selectedOrderForShipment.value ? `$${selectedOrderForShipment.value}` : 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Address</p>
-                  <p className="font-medium">{selectedOrderForShipment.shippingAddress?.address || 'Not specified'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Status</p>
-                  <p className="font-medium">{selectedOrderForShipment.status || 'Pending'}</p>
-                </div>
-              </div>
-              <p className="text-xs text-blue-700 mt-2">Note: These order details cannot be changed</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Order ID - visibly marked as read-only */}
+          {/* Order Details Section */}
+          <div className="border-b border-gray-100 pb-5">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Order Information</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
+                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
                   Order ID<span className="text-red-500">*</span>
                   {selectedOrderForShipment && <span className="text-xs text-blue-600 ml-2">(From order)</span>}
                 </label>
@@ -774,39 +833,59 @@ const handleDelete = async (id) => {
                   name="orderId"
                   value={formData.orderId}
                   onChange={handleInputChange}
-                  className={`w-full border ${formErrors.orderId ? 'border-red-500' : (selectedOrderForShipment ? 'bg-gray-100 border-gray-300 text-gray-700' : 'border-gray-300')} rounded px-3 py-2`}
+                  onBlur={() => {
+                    if (!formData.orderId.trim()) {
+                      setFormErrors({...formErrors, orderId: 'Order ID is required'});
+                    }
+                  }}
+                  maxLength={50}
+                  className={`w-full h-10 border ${formErrors.orderId ? 'border-red-500' : (selectedOrderForShipment ? 'bg-gray-100 border-gray-300 text-gray-700' : 'border-gray-300')} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
                   required
                   readOnly={selectedOrderForShipment !== null}
                 />
-                {selectedOrderForShipment && (
-                  <p className="text-xs text-gray-500 mt-1">Order ID cannot be changed</p>
-                )}
                 {formErrors.orderId && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.orderId}</p>
                 )}
               </div>
-              
-              {/* Origin */}
+            </div>
+          </div>
+          
+          {/* Locations Section */}
+          <div className="border-b border-gray-100 pb-5">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Shipment Locations</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
+                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
                   Origin<span className="text-red-500">*</span>
                 </label>
                 <input 
                   type="text"
                   name="origin"
                   value={formData.origin}
-                  onChange={handleInputChange}
-                  className={`w-full border ${formErrors.origin ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2`}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    // Check if origin and destination are the same
+                    if (e.target.value.trim() && e.target.value.trim().toLowerCase() === formData.destination.toLowerCase()) {
+                      setFormErrors({...formErrors, origin: 'Origin and destination cannot be the same'});
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!formData.origin.trim()) {
+                      setFormErrors({...formErrors, origin: 'Origin is required'});
+                    }
+                  }}
+                  maxLength={100}
+                  className={`w-full h-10 border ${formErrors.origin ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
                   required
+                  placeholder="Warehouse or pickup location"
                 />
                 {formErrors.origin && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.origin}</p>
                 )}
               </div>
               
-              {/* Destination - visibly marked as from order */}
               <div>
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
+                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
                   Destination<span className="text-red-500">*</span>
                   {selectedOrderForShipment && <span className="text-xs text-blue-600 ml-2">(From order)</span>}
                 </label>
@@ -814,95 +893,131 @@ const handleDelete = async (id) => {
                   type="text"
                   name="destination"
                   value={formData.destination}
-                  onChange={handleInputChange}
-                  className={`w-full border ${formErrors.destination ? 'border-red-500' : (selectedOrderForShipment ? 'bg-gray-100 border-gray-300' : 'border-gray-300')} rounded px-3 py-2`}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    // Check if origin and destination are the same
+                    if (e.target.value.trim() && e.target.value.trim().toLowerCase() === formData.origin.toLowerCase()) {
+                      setFormErrors({...formErrors, destination: 'Origin and destination cannot be the same'});
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!formData.destination.trim()) {
+                      setFormErrors({...formErrors, destination: 'Destination is required'});
+                    }
+                  }}
+                  maxLength={100}
+                  className={`w-full h-10 border ${formErrors.destination ? 'border-red-500' : (selectedOrderForShipment ? 'bg-gray-100 border-gray-300' : 'border-gray-300')} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
                   required
                   readOnly={selectedOrderForShipment !== null}
+                  placeholder="Delivery address"
                 />
-                {selectedOrderForShipment && (
-                  <p className="text-xs text-gray-500 mt-1">Address from customer order</p>
-                )}
                 {formErrors.destination && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.destination}</p>
                 )}
               </div>
-              
-              {/* Rest of the inputs remain the same */}
+            </div>
+          </div>
+          
+          {/* Driver & Vehicle Section */}
+          <div className="border-b border-gray-100 pb-5">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Transport Details</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div>
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
+                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
                   Driver Name<span className="text-red-500">*</span>
                 </label>
                 <input 
                   type="text"
                   name="driver"
                   value={formData.driver}
-                  onChange={handleInputChange}
-                  className={`w-full border ${formErrors.driver ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2`}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    handleInputChange(e);
+                    // Only allow letters, spaces and periods for driver names
+                    if (value && !/^[A-Za-z\s.]+$/.test(value)) {
+                      setFormErrors({...formErrors, driver: 'Driver name should only contain letters'});
+                    } else {
+                      setFormErrors({...formErrors, driver: ''});
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!formData.driver.trim()) {
+                      setFormErrors({...formErrors, driver: 'Driver name is required'});
+                    }
+                  }}
+                  maxLength={50}
+                  className={`w-full h-10 border ${formErrors.driver ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
                   required
+                  placeholder="Full name of driver"
                 />
                 {formErrors.driver && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.driver}</p>
                 )}
               </div>
-              
+
               <div>
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
-                  Vehicle ID<span className="text-red-500">*</span>
+                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
+                  Vehicle Number<span className="text-red-500">*</span>
                 </label>
                 <input 
                   type="text"
                   name="vehicle"
                   value={formData.vehicle}
                   onChange={handleInputChange}
-                  className={`w-full border ${formErrors.vehicle ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2`}
+                  onBlur={() => {
+                    if (!formData.vehicle.trim()) {
+                      setFormErrors({...formErrors, vehicle: 'Vehicle number is required'});
+                    }
+                  }}
+                  maxLength={30}
+                  className={`w-full h-10 border ${formErrors.vehicle ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
+                  placeholder="KA-1234 or WP-CAB-1234"
                   required
                 />
                 {formErrors.vehicle && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.vehicle}</p>
                 )}
+                <p className="text-xs text-gray-500 mt-1">Valid formats: KA-1234, CAB-1234, WP-CAB-1234</p>
               </div>
-              
-              {/* Update the form inputs to display errors (example for contact number) */}
+
               <div>
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
+                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
                   Contact Number<span className="text-red-500">*</span>
                 </label>
-                <input 
-                  type="text"
-                  name="contactNumber"
-                  value={formData.contactNumber}
-                  onChange={handleInputChange}
-                  className={`w-full border ${formErrors.contactNumber ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2`}
-                  placeholder="0777123456"
-                  required
-                />
+                <div className="relative">
+                  <input 
+                    type="text"
+                    name="contactNumber"
+                    value={formData.contactNumber}
+                    onChange={handleInputChange}
+                    onBlur={() => {
+                      if (!formData.contactNumber.trim()) {
+                        setFormErrors({...formErrors, contactNumber: 'Contact number is required'});
+                      }
+                    }}
+                    maxLength={12}
+                    className={`w-full h-10 border ${formErrors.contactNumber ? 'border-red-500' : 'border-gray-300'} rounded-md pl-10 pr-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
+                    placeholder="0771234567 or +94771234567"
+                    required
+                  />
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3">
+                    <Phone size={16} className="text-gray-400" />
+                  </div>
+                </div>
                 {formErrors.contactNumber && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.contactNumber}</p>
                 )}
+                <p className="text-xs text-gray-500 mt-1">Sri Lankan format (e.g., 0771234567 or +94771234567)</p>
               </div>
-              
+            </div>
+          </div>
+          
+          {/* Delivery Timeline Section */}
+          <div className="border-b border-gray-100 pb-5">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Delivery Timeline</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div>
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
-                  Status
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="Loading">Loading</option>
-                  <option value="In Transit">In Transit</option>
-                  <option value="Out for Delivery">Out for Delivery</option>
-                  <option value="Delivered">Delivered</option>
-                  <option value="Failed">Failed</option>
-                  <option value="Returned">Returned</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
+                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
                   Progress (%)
                 </label>
                 <input 
@@ -910,9 +1025,17 @@ const handleDelete = async (id) => {
                   name="progress"
                   value={formData.progress}
                   onChange={handleInputChange}
-                  className={`w-full border ${formErrors.progress ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2`}
+                  onBlur={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (isNaN(value) || value < 0 || value > 100) {
+                      setFormErrors({...formErrors, progress: 'Progress must be between 0 and 100'});
+                    } else {
+                      setFormErrors({...formErrors, progress: ''});
+                    }
+                  }}
                   min="0"
                   max="100"
+                  className={`w-full h-10 border ${formErrors.progress ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
                 />
                 {formErrors.progress && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.progress}</p>
@@ -920,16 +1043,26 @@ const handleDelete = async (id) => {
               </div>
               
               <div>
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
-                  ETA
+                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
+                  ETA (hours)
                 </label>
                 <input 
-                  type="text"
+                  type="number"
                   name="eta"
                   value={formData.eta}
                   onChange={handleInputChange}
-                  className={`w-full border ${formErrors.eta ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2`}
-                  placeholder="e.g. 2 hours"
+                  onBlur={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (value !== undefined && value !== null && (isNaN(value) || value <= 0 || value > 240)) {
+                      setFormErrors({...formErrors, eta: 'ETA must be between 1 and 240 hours'});
+                    } else {
+                      setFormErrors({...formErrors, eta: ''});
+                    }
+                  }}
+                  min="1"
+                  max="240"
+                  className={`w-full h-10 border ${formErrors.eta ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
+                  placeholder="24"
                 />
                 {formErrors.eta && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.eta}</p>
@@ -937,7 +1070,7 @@ const handleDelete = async (id) => {
               </div>
               
               <div>
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
+                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
                   Estimated Delivery Date
                 </label>
                 <input 
@@ -945,48 +1078,92 @@ const handleDelete = async (id) => {
                   name="estimatedDeliveryDate"
                   value={formData.estimatedDeliveryDate}
                   onChange={handleInputChange}
-                  className={`w-full border ${formErrors.estimatedDeliveryDate ? 'border-red-500' : 'border-gray-300'} rounded px-3 py-2`}
+                  onBlur={(e) => {
+                    const selectedDate = new Date(e.target.value);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    if (e.target.value && selectedDate < today) {
+                      setFormErrors({...formErrors, estimatedDeliveryDate: 'Delivery date cannot be in the past'});
+                    } else {
+                      setFormErrors({...formErrors, estimatedDeliveryDate: ''});
+                    }
+                  }}
+                  min={new Date().toISOString().split('T')[0]} // Today as minimum date
+                  className={`w-full h-10 border ${formErrors.estimatedDeliveryDate ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
                 />
                 {formErrors.estimatedDeliveryDate && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.estimatedDeliveryDate}</p>
                 )}
               </div>
-              
-              {/* Notes with order reference */}
-              <div className="md:col-span-2">
-                <label className="block text-gray-700 mb-1 text-sm font-medium">
-                  Notes
-                  {selectedOrderForShipment && <span className="text-xs text-blue-600 ml-2">(Pre-filled with order details)</span>}
-                </label>
-                <textarea
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                  rows="3"
-                ></textarea>
-              </div>
             </div>
-            
-            <div className="flex justify-end space-x-3">
-              <button 
-                type="button"
-                onClick={resetForm}
-                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit"
-                className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
-                disabled={loading}
-              >
-                {loading ? 'Saving...' : (selectedShipment ? 'Update' : 'Create')}
-              </button>
+          </div>
+          
+          {/* Notes Section */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Additional Information</h4>
+            <div>
+              <label className="block text-gray-700 mb-1.5 text-sm font-medium">
+                Notes
+                {selectedOrderForShipment && <span className="text-xs text-blue-600 ml-2">(Pre-filled with order details)</span>}
+              </label>
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={(e) => {
+                  handleInputChange(e);
+                  if (e.target.value.length > 500) {
+                    setFormErrors({...formErrors, notes: 'Notes cannot exceed 500 characters'});
+                  } else {
+                    setFormErrors({...formErrors, notes: ''});
+                  }
+                }}
+                maxLength={500}
+                className={`w-full border ${formErrors.notes ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none`}
+                rows="3"
+                placeholder="Additional delivery instructions or information"
+              ></textarea>
+              {formErrors.notes && (
+                <p className="text-red-500 text-xs mt-1">{formErrors.notes}</p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                <span className={formData.notes.length > 450 ? 'text-orange-500 font-medium' : ''}>
+                  {formData.notes.length}
+                </span>/500 characters
+              </p>
             </div>
-          </form>
-        </div>
-      )}
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-3 mt-6 pt-2">
+            <button 
+              type="button"
+              onClick={resetForm}
+              className="h-10 px-5 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              className="h-10 px-5 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={loading || Object.keys(formErrors).some(key => formErrors[key])}
+            >
+              {loading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </span>
+              ) : (selectedShipment ? 'Update' : 'Create Shipment')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+)}
       
       {/* Shipment Tabs */}
       <div className="border-b mb-4 pb-1">
@@ -1039,7 +1216,12 @@ const handleDelete = async (id) => {
                       <span className="text-xs text-gray-500">Order #{shipment.orderId}</span>
                       <h4 className="font-medium">{shipment.destination}</h4>
                     </div>
-                    {getStatusBadge(shipment.status)}
+                    <div className="flex flex-col items-end">
+                      {getStatusBadge(shipment.status)}
+                      <span className="text-xs text-gray-500 mt-1">
+                        Updated: {new Date(shipment.updatedAt).toLocaleTimeString()}
+                      </span>
+                    </div>
                   </div>
                   
                   {/* Progress bar */}
