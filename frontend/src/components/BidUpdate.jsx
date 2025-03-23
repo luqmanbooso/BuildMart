@@ -152,7 +152,7 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
           </p>
         </div>
 
-        {projectDetails.lowestBid && projectDetails.minDecrement && (
+        {projectDetails.minDecrement && (
           <div className="bg-yellow-50 p-4 rounded-lg mb-4">
             <div className="flex items-center mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -161,11 +161,16 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
               <span className="text-yellow-800 font-medium">Bid Requirements</span>
             </div>
             <p className="text-sm text-yellow-700">
-              Your new bid must be at least <span className="font-semibold">LKR {projectDetails.minDecrement.toLocaleString()}</span> less than the current lowest bid (LKR {projectDetails.lowestBid.toLocaleString()}).
+              Your new bid must be at least <span className="font-semibold">LKR {projectDetails.minDecrement.toLocaleString()}</span> less than your current bid.
             </p>
             <p className="text-sm text-yellow-700 mt-1">
-              Maximum valid bid: <span className="font-semibold">LKR {(projectDetails.lowestBid - projectDetails.minDecrement).toLocaleString()}</span>
+              Maximum valid bid: <span className="font-semibold">LKR {(parseFloat(bid.price) - projectDetails.minDecrement).toLocaleString()}</span>
             </p>
+            {parseFloat(bid.price) > projectDetails.lowestBid && (
+              <p className="text-sm text-yellow-700 mt-1">
+                To beat the lowest bid (LKR {projectDetails.lowestBid.toLocaleString()}), bid at most: <span className="font-semibold">LKR {(projectDetails.lowestBid - projectDetails.minDecrement).toLocaleString()}</span>
+              </p>
+            )}
           </div>
         )}
 
@@ -206,6 +211,17 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                     positive: v => parseFloat(v) > 0 || 'Bid must be greater than 0',
                     lowerThanCurrent: v => parseFloat(v) < parseFloat(bid.price) || 
                       'New bid must be lower than your current bid',
+                    minDecrementFromCurrentBid: v => {
+                      // Enforce minimum decrement from user's current bid
+                      if (!projectDetails.minDecrement) return true;
+                      
+                      const newBid = parseFloat(v);
+                      const currentBid = parseFloat(bid.price);
+                      const minDecrement = projectDetails.minDecrement;
+                      
+                      return (currentBid - newBid) >= minDecrement || 
+                        `Your new bid must be at least LKR ${minDecrement.toLocaleString()} less than your current bid`;
+                    },
                     minDecrement: v => {
                       // Only validate if we have lowestBid data
                       if (!projectDetails.lowestBid || !projectDetails.minDecrement) return true;
@@ -214,12 +230,12 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                       const lowestBid = projectDetails.lowestBid;
                       const minDecrement = projectDetails.minDecrement;
                       
-                      // If this is the current lowest bid, no need to check this
+                      // If this is the current lowest bid, we've already validated the min decrement from current bid
                       if (parseFloat(bid.price) <= lowestBid) return true;
                       
-                      // Otherwise, check if new bid meets the decrement requirement
+                      // Otherwise, check if new bid meets the decrement requirement from lowest bid
                       return newBid <= (lowestBid - minDecrement) || 
-                        `Your bid must be at least LKR ${minDecrement.toLocaleString()} less than the current lowest bid`;
+                        `To beat the lowest bid, you must bid at least LKR ${minDecrement.toLocaleString()} less than LKR ${lowestBid.toLocaleString()}`;
                     },
                     minBudget: v => {
                       if (!projectDetails.minBudget) return true;
