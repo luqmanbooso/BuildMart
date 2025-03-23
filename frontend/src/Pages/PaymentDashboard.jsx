@@ -21,6 +21,7 @@ function PaymentDashboard() {
   const [serviceProviderPayments, setServiceProviderPayments] = useState([]);
   const [itemsPayments, setItemsPayments] = useState([]);
   const [commissionPayments, setCommissionPayments] = useState([]); // Add this line
+  const [agreementFeePayments, setAgreementFeePayments] = useState([]); // Add this line
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -66,6 +67,7 @@ function PaymentDashboard() {
     serviceProviderTotal: 0,  // Ensure this has a default value of 0
     inventorySalesTotal: 0,
     commissionIncome: 0,
+    agreementFeeIncome: 0, // Add this new counter
     pendingCount: 0,
     failedCount: 0,
     completedCount: 0,
@@ -242,6 +244,7 @@ const processPaymentData = (data) => {
   const serviceProviderPaymentsArray = [];
   const inventoryPaymentsArray = [];
   const commissionPaymentsArray = [];
+  const agreementFeePaymentsArray = []; // Add this new array
 
   // Initialize stats counters with default values
   const stats = {
@@ -249,6 +252,7 @@ const processPaymentData = (data) => {
     serviceProviderTotal: 0,
     inventorySalesTotal: 0,
     commissionIncome: 0,
+    agreementFeeIncome: 0, // Add this new counter
     pendingAmount: 0,
     completedCount: 0,
     pendingCount: 0,
@@ -309,7 +313,10 @@ const processPaymentData = (data) => {
         cardTypes[payment.cardType]++;
       }
 
-      // CATEGORIZATION LOGIC - FIXED & IMPROVED:
+      // CATEGORIZATION LOGIC:
+      
+      // Check if this is an agreement fee
+      const isAgreementFee = payment.paymentType === 'agreementFee';
       
       // Check whether the payment has order items (which indicates inventory sale)
       const hasOrderItems = payment.order && 
@@ -325,8 +332,18 @@ const processPaymentData = (data) => {
                                payment.workId || 
                                (payment.user?.role === 'contractor' || payment.user?.role === 'supplier');
       
-      // 1. Service Provider Payments (milestone payments)
-      if (isServiceProvider) {        
+      // 1. Agreement Fee (NEW CATEGORY)
+      if (isAgreementFee) {
+        stats.agreementFeeIncome += payment.amount;
+        
+        agreementFeePaymentsArray.push({
+          ...formattedPayment,
+          clientName: payment.user?.name || payment.cardholderName || 'Client',
+          agreementType: 'Service Agreement'
+        });
+      }
+      // 2. Service Provider Payments (milestone payments)
+      else if (isServiceProvider) {        
         stats.serviceProviderTotal += payment.amount;
         stats.activeProviders.add(payment.user?.name || payment.cardholderName || 'Unknown Provider');
         
@@ -338,7 +355,7 @@ const processPaymentData = (data) => {
           itemName: 'Milestone Payment'
         });
       }
-      // 2. Inventory Sales - exclude service provider payments
+      // 3. Inventory Sales - exclude service provider payments and agreement fees
       else if (isInventorySale) {
         const itemCount = hasOrderItems ? 
           payment.order.items.reduce((total, item) => total + (item.quantity || 0), 0) : 1;
@@ -357,7 +374,7 @@ const processPaymentData = (data) => {
           commissionRate: 0
         });
       }
-      // 3. Fallback for any unclassified payments (not service provider or inventory)
+      // 4. Fallback for any unclassified payments
       else {
         // Add to inventory by default for now
         stats.inventorySalesTotal += payment.amount;
@@ -372,7 +389,7 @@ const processPaymentData = (data) => {
         });
       }
       
-      // 4. Commission Income - SEPARATE logic (can apply to any payment)
+      // 5. Commission Income - SEPARATE logic (can apply to any payment)
       if (payment.commissionAmount > 0) {
         stats.commissionIncome += payment.commissionAmount;
         
@@ -391,6 +408,7 @@ const processPaymentData = (data) => {
     console.log("Categorized payments:", {
       serviceProviders: serviceProviderPaymentsArray.length,
       inventorySales: inventoryPaymentsArray.length,
+      agreementFees: agreementFeePaymentsArray.length,
       commissions: commissionPaymentsArray.length
     });
 
@@ -411,6 +429,8 @@ const processPaymentData = (data) => {
     setServiceProviderPayments(serviceProviderPaymentsArray);
     setItemsPayments(inventoryPaymentsArray);
     setCommissionPayments(commissionPaymentsArray);
+    // Add this line to set agreement fee payments
+    setAgreementFeePayments(agreementFeePaymentsArray);
   } else {
     console.log("No payment data or empty array");
     
@@ -419,6 +439,7 @@ const processPaymentData = (data) => {
     setServiceProviderPayments([]);
     setItemsPayments([]);
     setCommissionPayments([]);
+    setAgreementFeePayments([]);
   }
 };
 
@@ -901,6 +922,14 @@ const processPaymentData = (data) => {
       isIncome: true
     },
     {
+      title: "Agreement Fees",
+      value: `Rs. ${(paymentStats?.agreementFeeIncome || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+      change: "+3.5%",
+      icon: <FileText className="h-6 w-6 text-orange-600" />,
+      trend: "up",
+      isIncome: true
+    },
+    {
       title: "Commission Income",
       value: `Rs. ${(paymentStats?.commissionIncome || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
       change: "+5.7%",
@@ -911,7 +940,8 @@ const processPaymentData = (data) => {
     {
       title: "Total Income",
       value: `Rs. ${((paymentStats?.inventorySalesTotal || 0) + 
-              (paymentStats?.commissionIncome || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+              (paymentStats?.commissionIncome || 0) + 
+              (paymentStats?.agreementFeeIncome || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
       change: "+10.4%",
       icon: <DollarSign className="h-6 w-6 text-indigo-600" />,
       trend: "up",
@@ -923,6 +953,7 @@ const processPaymentData = (data) => {
     { name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { name: 'Service Providers', icon: <Users size={20} /> },
     { name: 'Inventory Sales', icon: <ShoppingCart size={20} /> },
+    { name: 'Agreement Fees', icon: <FileText size={20} /> }, // Add this line
     { name: 'Commission Income', icon: <Percent size={20} /> },
     { name: 'Wages', icon: <Wallet size={20} /> },
     { name: 'Incomes', icon: <ArrowUpRight size={20} /> },
@@ -1199,16 +1230,109 @@ const processPaymentData = (data) => {
               </div>
             </div>
   
+            <div className="bg-orange-50 p-6 rounded-xl">
+              <p className="text-sm font-medium text-orange-600">Agreement Fee Income</p>
+              <p className="text-2xl font-bold text-orange-700">
+                Rs. {(paymentStats?.agreementFeeIncome || 0).toLocaleString()}
+              </p>
+              <div className="mt-2 flex items-center text-sm">
+                <ArrowUpRight className="text-orange-500 mr-1" size={16} />
+                <span className="text-orange-600">+3.2% from last month</span>
+              </div>
+            </div>
+  
             <div className="bg-indigo-50 p-6 rounded-xl">
               <p className="text-sm font-medium text-indigo-600">Total Income</p>
               <p className="text-2xl font-bold text-indigo-700">
                 Rs. {((paymentStats?.inventorySalesTotal || 0) + 
-                      (paymentStats?.commissionIncome || 0)).toLocaleString()}
+                      (paymentStats?.commissionIncome || 0) + 
+                      (paymentStats?.agreementFeeIncome || 0)).toLocaleString()}
               </p>
               <div className="mt-2 flex items-center text-sm">
                 <ArrowUpRight className="text-indigo-500 mr-1" size={16} />
                 <span className="text-indigo-600">+10.4% from last month</span>
               </div>
+            </div>
+          </div>
+          
+          {/* Agreement Fee Section */}
+          <div className="mt-8 mb-8">
+            <h3 className="text-lg font-semibold mb-4">Agreement Fees</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Client
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Agreement Type
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {agreementFeePayments.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="px-6 py-10 text-center text-gray-500">
+                        No agreement fee records found
+                      </td>
+                    </tr>
+                  ) : (
+                    agreementFeePayments
+                      .slice(0, 5)
+                      .map((payment, index) => (
+                        <tr key={payment.id || index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {payment.date}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {payment.clientName}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {payment.user?.email || 'No email'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {payment.agreementType}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-orange-700">
+                              Rs. {parseFloat(payment.amount).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                  {agreementFeePayments.length > 5 && (
+                    <tr>
+                      <td colSpan="4" className="px-6 py-3 text-center">
+                        <button
+                          onClick={() => {
+                            // You could add logic to focus on agreement fees
+                          }}
+                          className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          View All Agreement Fee Records
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
           
@@ -2175,6 +2299,114 @@ const processPaymentData = (data) => {
             </div>
           </div>
         );
+      case 'Agreement Fees':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold">Agreement Fee Income</h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => exportAgreementFeeData()}
+                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                  >
+                    <FileText size={16} className="mr-2" />
+                    Export Records
+                  </button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <p className="text-sm text-orange-600 font-medium">Total Agreement Fee Income</p>
+                  <p className="text-2xl font-bold text-orange-700">
+                    Rs. {(paymentStats?.agreementFeeIncome || 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <p className="text-sm text-orange-600 font-medium">Average Agreement Fee</p>
+                  <p className="text-2xl font-bold text-orange-700">
+                    Rs. {agreementFeePayments.length > 0
+                      ? (paymentStats?.agreementFeeIncome / agreementFeePayments.length).toLocaleString(undefined, {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        })
+                      : 0}
+                  </p>
+                </div>
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <p className="text-sm text-orange-600 font-medium">Total Agreements</p>
+                  <p className="text-2xl font-bold text-orange-700">
+                    {agreementFeePayments.length}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Client
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Agreement Type
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment Status
+                      </th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {agreementFeePayments.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-3 py-10 text-center text-gray-500">
+                          No agreement fee records found
+                        </td>
+                      </tr>
+                    ) : (
+                      agreementFeePayments.map((payment, index) => (
+                        <tr key={payment.id || index} className="hover:bg-gray-50">
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{payment.date}</div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {payment.clientName}
+                            </div>
+                            <div className="text-xs text-gray-500">ID: {payment.id}</div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {payment.agreementType}
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            {getStatusBadge(payment.status)}
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-orange-700">
+                              Rs. {parseFloat(payment.amount).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -2564,6 +2796,29 @@ const exportExpensesData = () => {
   const link = document.createElement('a');
   link.setAttribute('href', url);
   link.setAttribute('download', `expenses_${new Date().toISOString()}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const exportAgreementFeeData = () => {
+  // CSV export for agreement fee data
+  const headers = ['Client Name', 'Payment ID', 'Amount', 'Date', 'Status'];
+  const csvData = agreementFeePayments.map(payment => [
+    payment.clientName,
+    payment.id,
+    payment.amount,
+    payment.date,
+    payment.status
+  ]);
+  
+  const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `agreement_fee_payments_${new Date().toISOString()}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();

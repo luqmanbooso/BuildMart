@@ -158,7 +158,7 @@ const ShipmentArrangementForm = ({ orders, onArrangeShipment, selectedOrder: pre
 
   return (
     // You may want to highlight the form when a pre-selected order is provided
-    <div className={`max-w-4xl mx-auto ${preSelectedOrder ? 'animate-pulse' : ''}`}>
+    <div className="max-w-4xl mx-auto">
       <div className={`bg-white p-6 rounded-xl shadow-lg border ${preSelectedOrder ? 'border-blue-400' : 'border-gray-200'}`}>
         {/* If there's a pre-selected order, you can add an indicator */}
         {preSelectedOrder && (
