@@ -5,6 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 import ClientNavBar from '../components/ClientNavBar';
 import AddJobForm from '../components/AddJobForm';
+import EditUserDetails from '../components/EditUserDetails'; // Add this import
 
 // Enhanced ProfileImage component with larger size options
 
@@ -362,105 +363,59 @@ const UserProfilePage = () => {
   };
 
   const handleEditProfileClick = () => {
-    // Initialize form with current user data
-    setEditedProfile({
-      name: user.name || '',
-      email: user.email || ''
-    });
     setShowEditProfileForm(true);
-  };
-
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    
-    try {
-      // Get token from storage
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
-      if (!token) {
-        setError("You must be logged in to update your profile");
-        return;
-      }
-      
-      // Get user ID from JWT token by parsing it
-      const tokenData = JSON.parse(atob(token.split('.')[1]));
-      const userId = tokenData.userId; // This is how to get userId from the token
-      
-      if (!userId) {
-        setError("Unable to identify user. Please login again.");
-        return;
-      }
-      
-      // Show loading state
-      setIsLoading(true);
-      
-      // Make API request to update profile
-      const response = await axios.patch(
-        `http://localhost:5000/auth/user/${userId}`,
-        {
-          name: editedProfile.name,
-          email: editedProfile.email
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      // Update the user state with the returned data
-      setUser({
-        ...user,
-        name: response.data.user.username,
-        email: response.data.user.email
-      });
-      
-      // Show success message
-      setSuccessMessage("Profile updated successfully");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      
-      // Close the edit profile modal
-      setShowEditProfileForm(false);
-      
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      
-      // Display appropriate error message
-      if (error.response) {
-        if (error.response.status === 400) {
-          setError(error.response.data.error || "Invalid input");
-        } else {
-          setError(error.response.data.error || "Server error");
-        }
-      } else if (error.request) {
-        setError("No response from server. Please check your connection.");
-      } else {
-        setError("An unexpected error occurred");
-      }
-      
-      setTimeout(() => setError(""), 5000);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleDeleteAccount = async () => {
     try {
-      // Here you would make an API call to delete the account
-      // Using the auth endpoint we can see in the attached files
+      setIsLoading(true);
       
-      // Clear tokens from storage
-      localStorage.removeItem('token');
-      sessionStorage.removeItem('token');
+      // Get the authentication token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        setError("You must be logged in to delete your account");
+        return;
+      }
       
-      // Redirect to login page
-      navigate('/login');
+      // Get user ID from token
+      const decoded = jwtDecode(token);
+      const userId = decoded.userId;
       
-      alert('Your account has been deleted successfully.');
+      // Make the API call to delete the account
+      const response = await axios.delete(
+        `http://localhost:5000/auth/users/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      // Handle successful deletion
+      if (response.status === 200) {
+        // Clear tokens from storage
+        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
+        
+        // Show success message (could use a more subtle approach like toast)
+        alert('Your account has been deleted successfully.');
+        
+        // Redirect to login page
+        navigate('/login');
+      }
     } catch (error) {
       console.error('Error deleting account:', error);
-      alert('Failed to delete account. Please try again.');
+      
+      // Show a meaningful error message
+      const errorMessage = error.response?.data?.error || 
+                          'Failed to delete account. Please try again.';
+      setError(errorMessage);
+      
+      // Hide the error message after a few seconds
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setIsLoading(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -946,97 +901,43 @@ const debugPaymentData = async () => {
   />
 )}
 
-                {/* Edit Profile Modal */}
-                {showEditProfileForm && (
-                  <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                      {/* Background overlay */}
-                      <div 
-                        className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity" 
-                        aria-hidden="true"
-                        onClick={() => setShowEditProfileForm(false)}
-                      ></div>
+                {/* Replace the existing Edit Profile Modal with EditUserDetails component */}
+{showEditProfileForm && (
+  <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      {/* Background overlay */}
+      <div 
+        className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity" 
+        aria-hidden="true"
+        onClick={() => setShowEditProfileForm(false)}
+      ></div>
 
-                      {/* Modal Panel */}
-                      <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-blue-100">
-                        <div className="relative">
-                          {/* Modal Header */}
-                          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 relative">
-                            <div className="flex justify-between items-center relative">
-                              <h3 className="text-xl font-bold text-white">Edit Profile</h3>
-                              <button 
-                                onClick={() => setShowEditProfileForm(false)}
-                                className="rounded-full p-1 text-white bg-white/20 hover:bg-white/30 focus:outline-none transition-colors"
-                              >
-                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Form Content */}
-                          <form onSubmit={handleSaveProfile} className="p-6">
-                            <div className="space-y-6">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Full Name
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editedProfile.name}
-                                  onChange={(e) => setEditedProfile({...editedProfile, name: e.target.value})}
-                                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="Your name"
-                                  required
-                                />
-                              </div>
-                              
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Email Address
-                                </label>
-                                <input
-                                  type="email"
-                                  value={editedProfile.email}
-                                  onChange={(e) => setEditedProfile({...editedProfile, email: e.target.value})}
-                                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="Your email address"
-                                  required
-                                />
-                              </div>
-                            </div>
-                            
-                            <div className="mt-8 flex justify-end space-x-3">
-                              <button
-                                type="button"
-                                onClick={() => setShowEditProfileForm(false)}
-                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-800 transition-colors"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="submit" 
-                                disabled={isLoading}
-                                className={`px-6 py-2 ${isLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-lg transition-colors flex items-center`}
-                              >
-                                {isLoading ? (
-                                  <>
-                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Saving...
-                                  </>
-                                ) : "Save Changes"}
-                              </button>
-                            </div>
-                          </form>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+      {/* Modal Panel */}
+      <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <EditUserDetails 
+          userData={{
+            _id: undefined, // Will be extracted from token in the component
+            username: user.name,
+            email: user.email,
+            profilePic: user.profilePic
+          }}
+          onClose={() => setShowEditProfileForm(false)}
+          onUserUpdate={(updatedUser) => {
+            setUser({
+              ...user,
+              name: updatedUser.username,
+              email: updatedUser.email,
+              profilePic: updatedUser.profilePic
+            });
+            // Show success message
+            setSuccessMessage("Profile updated successfully");
+            setTimeout(() => setSuccessMessage(""), 3000);
+          }}
+        />
+      </div>
+    </div>
+  </div>
+)}
 
                 {/* Delete Account Confirmation Modal */}
                 {showDeleteConfirm && (
