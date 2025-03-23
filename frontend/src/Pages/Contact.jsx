@@ -6,6 +6,7 @@ import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import ClientNavBar from '../components/ClientNavBar';
 import ContractorUserNav from '../components/ContractorUserNav';
+import Footer from '../components/Footer'; // Import the Footer component
 
 const ContactUs = () => {
   // Add auth state
@@ -348,6 +349,9 @@ const ContactUs = () => {
             title="BuildMart Office Location"
           ></iframe>
         </div>
+
+        {/* Add Footer component here */}
+        <Footer />
       </div>
 
       {/* Chatbot Button - keep outside the pt-[72px] div for proper fixed positioning */}

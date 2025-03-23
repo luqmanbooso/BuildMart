@@ -7,6 +7,7 @@ import left_img from '../assets/images/signin_pic.png';
 import { jwtDecode } from 'jwt-decode';
 import ClientNavBar from '../components/ClientNavBar';
 import ContractorUserNav from '../components/ContractorUserNav';
+import Footer from '../components/Footer'; // Add this import
 
 const AboutPage = () => {
   // Add state hooks for user authentication
@@ -208,124 +209,7 @@ const AboutPage = () => {
           </div>
         </div>
         
-        {/* Timeline Section */}
-        <div className="py-24 bg-white">
-          <div className="container mx-auto px-6">
-            <div className="text-center mb-16">
-              <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">OUR JOURNEY</span>
-              <h2 className="text-4xl font-bold text-gray-900 mt-2 mb-6">BuildMart Through the Years</h2>
-              <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                From humble beginnings to industry innovation, follow our path of growth and development.
-              </p>
-            </div>
-            
-            <div className="relative">
-              {/* Vertical line */}
-              <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-blue-100"></div>
-              
-              {/* Timeline items */}
-              {[
-                { year: "2020", title: "Foundation", description: "BuildMart was established with a mission to revolutionize construction bidding." },
-                { year: "2021", title: "Platform Launch", description: "Our first version launched connecting dozens of contractors with local clients." },
-                { year: "2022", title: "Expansion", description: "Expanded to serve the entire Sri Lankan market with hundreds of projects." },
-                { year: "2023", title: "Innovation", description: "Introduced secure payment escrow and advanced project management tools." },
-                { year: "2025", title: "Today", description: "Leading the construction marketplace with thousands of successful projects." }
-              ].map((item, index) => (
-                <motion.div 
-                  key={index}
-                  initial={{ opacity: 0, x: index % 2 === 0 ? -50 : 50 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.8 }}
-                  viewport={{ once: true, margin: "-100px" }}
-                  className={`relative mb-16 ${index % 2 === 0 ? 'md:text-right md:ml-auto md:mr-[50%] md:pr-12' : 'md:text-left md:mr-auto md:ml-[50%] md:pl-12'} max-w-md z-10`}
-                >
-                  <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
-                    <div className={`absolute top-6 hidden md:block ${index % 2 === 0 ? 'right-0 transform translate-x-1/2' : 'left-0 transform -translate-x-1/2'}`}>
-                      <div className="h-5 w-5 bg-blue-600 rounded-full border-4 border-white shadow-md"></div>
-                    </div>
-                    <span className="text-blue-600 font-bold text-xl">{item.year}</span>
-                    <h3 className="text-xl font-bold text-gray-900 mt-1 mb-2">{item.title}</h3>
-                    <p className="text-gray-600">{item.description}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Team Section */}
-        <div className="py-24 bg-gray-50">
-          <div className="container mx-auto px-6">
-            <div className="text-center mb-16">
-              <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">OUR TEAM</span>
-              <h2 className="text-4xl font-bold text-gray-900 mt-2 mb-6">Meet the Experts</h2>
-              <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                Our diverse team brings decades of combined experience in construction, technology, and customer service.
-              </p>
-            </div>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[
-                
-              ].map((member, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                  className="bg-white rounded-xl overflow-hidden shadow-lg group"
-                >
-                  <div className="overflow-hidden">
-                    <img 
-                      src={member.image} 
-                      alt={member.name} 
-                      className="w-full h-80 object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                    />
-                  </div>
-                  <div className="p-6 text-center">
-                    <h3 className="text-xl font-bold text-gray-900">{member.name}</h3>
-                    <p className="text-blue-600 font-medium">{member.role}</p>
-                    <div className="flex justify-center mt-4 space-x-4">
-                      <a href="#" className="text-gray-400 hover:text-blue-600 transition-colors">
-                        <FaLinkedinIn />
-                      </a>
-                      <a href="#" className="text-gray-400 hover:text-blue-600 transition-colors">
-                        <FaTwitter />
-                      </a>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Section */}
-        <div className="py-20 bg-gradient-to-r from-blue-800 to-indigo-800 text-white">
-          <div className="container mx-auto px-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-              {[
-                { value: "5000+", label: "Projects Completed" },
-                { value: "1200+", label: "Verified Contractors" },
-                { value: "98%", label: "Client Satisfaction" },
-                { value: "24/7", label: "Customer Support" }
-              ].map((stat, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <div className="text-4xl md:text-5xl font-bold mb-2">{stat.value}</div>
-                  <div className="text-blue-200 font-medium">{stat.label}</div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-
+        
         {/* CTA Section */}
         <div className="py-20 bg-white">
           <div className="container mx-auto px-6">
@@ -351,7 +235,8 @@ const AboutPage = () => {
           </div>
         </div>
         
-        {/* Remove the footer - it will be handled by the layout/navbar components */}
+        {/* Add the Footer component here */}
+        <Footer />
       </div>
     </div>
   );
