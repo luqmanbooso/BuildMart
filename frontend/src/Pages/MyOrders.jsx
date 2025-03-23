@@ -27,6 +27,27 @@ import ClientNavBar from '../components/ClientNavBar';
 import ContractorUserNav from '../components/ContractorUserNav'; // Import ContractorUserNav
 import { jwtDecode } from 'jwt-decode';
 
+// Add this near the top of your file or in a style tag
+const modalStyles = `
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  
+  @keyframes slideIn {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  
+  .modal-enter {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+  
+  .modal-content-enter {
+    animation: slideIn 0.3s ease-out forwards;
+  }
+`;
+
 const FooterFallback = () => (
   <div className="bg-gray-800 p-4 text-center text-white">
     <div className="container mx-auto">
@@ -335,9 +356,9 @@ const viewOrderDetails = async (order) => {
 };
 
   // Function to close modal
-  const closeModal = () => {
-    setSelectedOrderDetails(null);
-  };
+const closeModal = () => {
+  setSelectedOrderDetails(null);
+};
 
   // Fix the getFilteredOrders function
   const getFilteredOrders = () => {
@@ -390,6 +411,29 @@ const viewOrderDetails = async (order) => {
   // Add a retry function
   const retryFetchOrders = () => {
     setRetryCount(prev => prev + 1);
+  };
+
+  // Add this useEffect for keyboard events (Escape key)
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape' && selectedOrderDetails) {
+        closeModal();
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscKey);
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [selectedOrderDetails]);
+
+  // Add this function to handle outside clicks
+  const handleModalBackdropClick = (e) => {
+    // Only close if clicking directly on the backdrop (not on the modal content)
+    if (e.target === e.currentTarget) {
+      closeModal();
+    }
   };
 
   return (
@@ -465,15 +509,9 @@ const viewOrderDetails = async (order) => {
               <div className="flex justify-between items-center p-6 border-b border-gray-200">
                 <h3 className="text-lg font-medium text-gray-800">Your Orders</h3>
                 <div className="relative">
-                  <input 
-                    type="text" 
-                    className="px-4 py-2 pl-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                    placeholder="Search by order ID or status..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
+                  
                   <div className="absolute left-3 top-2.5 text-gray-400">
-                    <Search className="h-5 w-5" />
+                    
                   </div>
                 </div>
               </div>
@@ -517,7 +555,11 @@ const viewOrderDetails = async (order) => {
                       </tr>
                     ) : (
                       getFilteredOrders().map((order) => (
-                        <tr key={order._id} className="hover:bg-gray-50">
+                        <tr 
+                          key={order._id} 
+                          className="hover:bg-blue-50/50 cursor-pointer transition-colors duration-150"
+                          onClick={() => viewOrderDetails(order)}
+                        >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
                               {order._id ? `#${order._id.substring(0, 8)}` : 'No ID'}
@@ -537,13 +579,16 @@ const viewOrderDetails = async (order) => {
                               {formatStatus(order.orderStatus)}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                             <button 
-                              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
                               onClick={() => viewOrderDetails(order)}
+                              className="group inline-flex items-center justify-center px-3.5 py-2 text-sm font-medium rounded-md
+                              bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 hover:from-blue-100 hover:to-indigo-100 
+                              border border-blue-200 hover:border-blue-300 hover:shadow-sm transition-all duration-200 transform hover:-translate-y-0.5"
+                              aria-label="View order details"
                             >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
+                              <Eye className="h-4 w-4 mr-1.5 transition-transform group-hover:scale-110" />
+                              <span>View Details</span>
                             </button>
                           </td>
                         </tr>
@@ -557,235 +602,224 @@ const viewOrderDetails = async (order) => {
         )}
 
         {selectedOrderDetails && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 p-0 overflow-hidden">
-              <div className="flex justify-between items-center p-4 border-b">
-                <h3 className="text-lg font-semibold">Order Details</h3>
-                <button 
-                  onClick={closeModal}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="h-6 w-6" />
-                </button>
+          <div 
+            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center backdrop-blur-sm modal-enter p-4"
+            onClick={handleModalBackdropClick}
+          >
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-auto overflow-hidden modal-content-enter">
+              {/* Header with gradient background - more compact */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-white/20 p-2.5 rounded-full">
+                      <ShoppingCart className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Order #{selectedOrderDetails._id.substring(0, 8)}</h3>
+                      <p className="text-blue-100 text-xs mt-0.5">Placed on {formatDate(selectedOrderDetails.orderDate)}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={closeModal}
+                    className="bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4 text-white" />
+                  </button>
+                </div>
               </div>
               
-              <div className="p-6">
-                <div className="flex flex-col md:flex-row justify-between border-b pb-6 mb-6">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Order Number</h4>
-                    <p className="text-xl font-semibold">#{selectedOrderDetails._id.substring(0, 8)}</p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Placed on {formatDate(selectedOrderDetails.orderDate)}
-                    </p>
-                  </div>
-                  
-                  <div className="mt-4 md:mt-0 text-right">
-                    <h4 className="text-sm font-medium text-gray-500">Total Amount</h4>
-                    <p className="text-xl font-semibold">Rs. {selectedOrderDetails.totalAmount?.toLocaleString() || 0}</p>
-                    <p className="text-sm text-gray-600 mt-1">
+              {/* Content area - more compact padding */}
+              <div className="p-5 max-h-[80vh] overflow-y-auto">
+                {/* Order Summary - more compact */}
+                <div className="flex flex-col md:flex-row justify-between mb-6">
+                  <div className="md:w-1/2">
+                    <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                      {formatStatus(selectedOrderDetails.orderStatus).toUpperCase()}
+                    </span>
+                    <h4 className="text-lg font-bold text-gray-800 mt-2">Rs. {selectedOrderDetails.totalAmount?.toLocaleString() || 0}</h4>
+                    <p className="text-gray-500 text-sm mt-0.5">
                       Payment via {selectedOrderDetails.paymentDetails?.method || "N/A"}
                     </p>
                   </div>
+                  
+                  {selectedOrderDetails.orderStatus !== 'delivered' && selectedOrderDetails.orderStatus !== 'cancelled' && (
+                    <div className="mt-4 md:mt-0 md:w-1/2 md:text-right">
+                      <p className="text-sm font-medium text-gray-600">Estimated Delivery</p>
+                      <p className="text-lg font-bold text-gray-800 mt-0.5">
+                        {selectedOrderDetails.estimatedDelivery ? 
+                          formatDate(selectedOrderDetails.estimatedDelivery) : 
+                          formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 4*24*60*60*1000))}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
+                {/* Order Timeline - More compact */}
                 <div className="mb-6">
-                  <h4 className="text-base font-medium mb-4">Order Timeline</h4>
-                  <div className="relative pb-4">
-                    {/* Order Placed */}
-                    <div className="flex items-center">
-                      <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center z-10">
-                        <Check className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="font-medium">Order Placed</p>
-                        <p className="text-sm text-gray-600">{formatDate(selectedOrderDetails.orderDate)}</p>
-                      </div>
+                  <h4 className="text-base font-bold text-gray-800 mb-4">Order Progress</h4>
+                  
+                  {/* Progress bar */}
+                  <div className="w-full bg-gray-100 h-1.5 rounded-full mb-4 relative">
+                    <div 
+                      className="absolute top-0 left-0 h-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-700"
+                      style={{ 
+                        width: 
+                          selectedOrderDetails.orderStatus === 'delivered' ? '100%' :
+                          selectedOrderDetails.orderStatus === 'shipped' ? '66%' :
+                          selectedOrderDetails.orderStatus === 'processing' ? '33%' :
+                          '10%'
+                      }}
+                    ></div>
+                    
+                    {/* Step indicators */}
+                    <div className="absolute top-0 left-0 transform -translate-y-1/2 w-2.5 h-2.5 bg-indigo-600 rounded-full"></div>
+                    <div className="absolute top-0 left-1/3 transform -translate-y-1/2 w-2.5 h-2.5 
+                      bg-indigo-600 rounded-full"></div>
+                    <div className="absolute top-0 left-2/3 transform -translate-y-1/2 w-2.5 h-2.5 
+                      bg-indigo-600 rounded-full"></div>
+                    <div className="absolute top-0 right-0 transform -translate-y-1/2 w-2.5 h-2.5 
+                      bg-indigo-600 rounded-full"></div>
+                  </div>
+                  
+                  <div className="flex justify-between text-xs">
+                    <div className="text-center">
+                      <div className="font-semibold text-gray-800">Placed</div>
+                      <div className="text-xs text-gray-500 mt-1">{formatDate(selectedOrderDetails.orderDate).split(' ').slice(0, 2).join(' ')}</div>
                     </div>
-                    <div className="absolute top-8 left-4 h-full w-0 border-l-2 border-gray-200"></div>
-
-                    {/* Processing */}
-                    <div className="flex items-center mt-6">
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center z-10 
-                        ${['processing', 'shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) 
-                          ? 'bg-blue-100' : 'bg-gray-100'}`}
-                      >
-                        <Package className={`h-5 w-5 ${['processing', 'shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) 
-                          ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <div className="text-center">
+                      <div className={`font-semibold ${['processing', 'shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) ? 'text-gray-800' : 'text-gray-400'}`}>
+                        Processing
                       </div>
-                      <div className="ml-4">
-                        <p className={`font-medium ${['processing', 'shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) ? '' : 'text-gray-400'}`}>
-                          Processing
-                        </p>
-                        {['processing', 'shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) && (
-                          <p className="text-sm text-gray-600">
-                            {selectedOrderDetails.processedDate ? 
-                              formatDate(selectedOrderDetails.processedDate) : 
-                              formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 24*60*60*1000))}
-                          </p>
-                        )}
-                      </div>
+                      {['processing', 'shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {selectedOrderDetails.processedDate ? 
+                            formatDate(selectedOrderDetails.processedDate).split(' ').slice(0, 2).join(' ') : 
+                            formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 24*60*60*1000)).split(' ').slice(0, 2).join(' ')}
+                        </div>
+                      )}
                     </div>
-
-                    {/* Shipped */}
-                    <div className="flex items-center mt-6">
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center z-10 
-                        ${['shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) 
-                          ? 'bg-blue-100' : 'bg-gray-100'}`}
-                      >
-                        <Truck className={`h-5 w-5 ${['shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) 
-                          ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <div className="text-center">
+                      <div className={`font-semibold ${['shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) ? 'text-gray-800' : 'text-gray-400'}`}>
+                        Shipped
                       </div>
-                      <div className="ml-4">
-                        <p className={`font-medium ${['shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) ? '' : 'text-gray-400'}`}>
-                          Shipped
-                        </p>
-                        {['shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) && (
-                          <p className="text-sm text-gray-600">
-                            {selectedOrderDetails.shippedDate ? 
-                              formatDate(selectedOrderDetails.shippedDate) : 
-                              formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 2*24*60*60*1000))}
-                          </p>
-                        )}
-                      </div>
+                      {['shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {selectedOrderDetails.shippedDate ? 
+                            formatDate(selectedOrderDetails.shippedDate).split(' ').slice(0, 2).join(' ') : 
+                            formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 2*24*60*60*1000)).split(' ').slice(0, 2).join(' ')}
+                        </div>
+                      )}
                     </div>
-
-                    {/* Delivered */}
-                    <div className="flex items-center mt-6">
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center z-10 
-                        ${selectedOrderDetails.orderStatus === 'delivered'
-                          ? 'bg-green-100' : 'bg-gray-100'}`}
-                      >
-                        <CheckCircle className={`h-5 w-5 ${selectedOrderDetails.orderStatus === 'delivered'
-                          ? 'text-green-600' : 'text-gray-400'}`} />
+                    <div className="text-center">
+                      <div className={`font-semibold ${selectedOrderDetails.orderStatus === 'delivered' ? 'text-gray-800' : 'text-gray-400'}`}>
+                        Delivered
                       </div>
-                      <div className="ml-4">
-                        <p className={`font-medium ${selectedOrderDetails.orderStatus === 'delivered' ? '' : 'text-gray-400'}`}>
-                          Delivered
-                        </p>
-                        {selectedOrderDetails.orderStatus === 'delivered' && (
-                          <p className="text-sm text-gray-600">
-                            {selectedOrderDetails.deliveredDate ? 
-                              formatDate(selectedOrderDetails.deliveredDate) : 
-                              formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 4*24*60*60*1000))}
-                          </p>
-                        )}
-                      </div>
+                      {selectedOrderDetails.orderStatus === 'delivered' && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {selectedOrderDetails.deliveredDate ? 
+                            formatDate(selectedOrderDetails.deliveredDate).split(' ').slice(0, 2).join(' ') : 
+                            formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 4*24*60*60*1000)).split(' ').slice(0, 2).join(' ')}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="text-base font-medium mb-3">Items</h4>
-                    <div className="space-y-3 max-h-60 overflow-y-auto p-2">
+                {/* Items and Shipping Info in a Compact Card Layout */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Items Card */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                      <Package className="h-4 w-4 mr-2 text-blue-600" />
+                      Order Items
+                    </h4>
+                    <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
                       {selectedOrderDetails.items?.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div key={index} className="flex items-center justify-between p-3 bg-white rounded-md shadow-sm">
                           <div>
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                            <p className="font-medium text-gray-800 text-sm">{item.name}</p>
+                            <div className="mt-0.5 flex items-center text-xs text-gray-500">
+                              <span className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">Qty: {item.quantity}</span>
+                            </div>
                           </div>
-                          <p className="font-medium">Rs. {item.totalPrice?.toLocaleString() || 0}</p>
+                          <p className="font-bold text-gray-800 text-sm">Rs. {item.totalPrice?.toLocaleString() || 0}</p>
                         </div>
                       ))}
                     </div>
                   </div>
                   
-                  <div>
-                    <h4 className="text-base font-medium mb-3">Shipping Details</h4>
-                    <div className="border rounded-lg p-4 space-y-2">
-                      <div className="flex items-start">
-                        <User className="h-5 w-5 text-gray-500 mr-2 mt-0.5" />
-                        <div>
-                          <p className="font-medium">{selectedOrderDetails.customer?.name || 'N/A'}</p>
+                  {/* Customer & Delivery Card */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                      <Truck className="h-4 w-4 mr-2 text-blue-600" />
+                      Delivery Details
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="bg-white p-3 rounded-md shadow-sm">
+                        <div className="flex items-start">
+                          <User className="h-4 w-4 text-blue-600 mr-2 mt-0.5" />
+                          <div>
+                            <p className="font-bold text-gray-800 text-sm">{selectedOrderDetails.customer?.name || 'N/A'}</p>
+                            <p className="text-gray-500 text-xs mt-0.5">{selectedOrderDetails.customer?.email || ''}</p>
+                          </div>
                         </div>
                       </div>
                       
-                      {selectedOrderDetails.customer?.email && (
-                        <div className="flex items-start">
-                          <Mail className="h-5 w-5 text-gray-500 mr-2 mt-0.5" />
-                          <p>{selectedOrderDetails.customer.email}</p>
-                        </div>
-                      )}
-                      
                       {selectedOrderDetails.shippingAddress && (
-                        <>
+                        <div className="bg-white p-3 rounded-md shadow-sm">
                           <div className="flex items-start">
-                            <MapPin className="h-5 w-5 text-gray-500 mr-2 mt-0.5" />
-                            <p>
-                              {selectedOrderDetails.shippingAddress.address}<br />
-                              {selectedOrderDetails.shippingAddress.city}, {selectedOrderDetails.shippingAddress.postalCode}
-                            </p>
+                            <MapPin className="h-4 w-4 text-blue-600 mr-2 mt-0.5" />
+                            <div>
+                              <p className="font-bold text-gray-800 text-sm">Shipping Address</p>
+                              <p className="text-gray-500 text-xs mt-0.5">
+                                {selectedOrderDetails.shippingAddress.address}<br />
+                                {selectedOrderDetails.shippingAddress.city}, {selectedOrderDetails.shippingAddress.postalCode}
+                              </p>
+                            </div>
                           </div>
                           
                           {selectedOrderDetails.shippingAddress.phone && (
-                            <div className="flex items-start">
-                              <Phone className="h-5 w-5 text-gray-500 mr-2 mt-0.5" />
-                              <p>{selectedOrderDetails.shippingAddress.phone}</p>
+                            <div className="flex items-center mt-2 text-xs text-gray-500">
+                              <Phone className="h-3.5 w-3.5 text-blue-600 mr-1" />
+                              {selectedOrderDetails.shippingAddress.phone}
                             </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                    
-                    {selectedOrderDetails.shippingAddress?.notes && (
-                      <div className="mt-4">
-                        <h5 className="text-sm font-medium mb-2">Notes</h5>
-                        <p className="text-sm text-gray-600 border-l-2 border-gray-300 pl-3">
-                          {selectedOrderDetails.shippingAddress.notes}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {selectedOrderDetails.orderStatus !== 'delivered' && selectedOrderDetails.orderStatus !== 'cancelled' && (
-                  <div className="mt-6 border-t pt-4">
-                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                      <h4 className="text-sm font-medium text-blue-800">Track Your Shipment</h4>
-                      <p className="text-sm text-blue-700 mt-1">
-                        {selectedOrderDetails.orderStatus === 'shipped' ? 
-                          'Your order is on its way! You can expect delivery within 2-3 business days.' :
-                          selectedOrderDetails.orderStatus === 'processing' ?
-                          'Your order is being processed and will be shipped soon.' :
-                          'Your order has been placed and will be processed shortly.'
-                        }
-                      </p>
-                      
-                      {selectedOrderDetails.orderStatus === 'shipped' && (
-                        <div className="mt-3">
-                          <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            {/* Show different progress percentages based on shipping status */}
-                            <div 
-                              className="bg-blue-600 h-2.5 rounded-full" 
-                              style={{ 
-                                width: selectedOrderDetails.shippingProgress ? 
-                                  `${selectedOrderDetails.shippingProgress}%` : '65%' 
-                              }}
-                            ></div>
-                          </div>
-                          <div className="flex justify-between text-xs text-gray-600 mt-1">
-                            <span>Shipped</span>
-                            <span>Out for delivery</span>
-                            <span>Delivered</span>
-                          </div>
-                          {selectedOrderDetails.estimatedDelivery && (
-                            <p className="text-xs text-gray-600 mt-2">
-                              Estimated delivery: {formatDate(selectedOrderDetails.estimatedDelivery)}
-                            </p>
                           )}
                         </div>
                       )}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Tracking Information for In-Transit Orders - More compact */}
+                {selectedOrderDetails.orderStatus === 'shipped' && (
+                  <div className="mt-4 bg-blue-50 rounded-lg p-4 border border-blue-100">
+                    <div className="flex flex-col md:flex-row justify-between items-center">
+                      <div>
+                        <h4 className="text-sm font-bold text-blue-800 flex items-center">
+                          <Truck className="h-4 w-4 mr-1.5" />
+                          Your order is on the way!
+                        </h4>
+                        <p className="text-blue-700 mt-1 text-xs">
+                          Your package is out for delivery. You can expect it within 2-3 business days.
+                        </p>
+                      </div>
+                      <button className="mt-3 md:mt-0 bg-white px-3 py-1.5 rounded text-blue-700 text-xs font-medium border border-blue-200 hover:bg-blue-700 hover:text-white transition-colors">
+                        Track Package
+                      </button>
                     </div>
                   </div>
                 )}
                 
-                <div className="mt-6 pt-4 border-t text-right">
+                {/* Footer Actions - More compact */}
+                <div className="mt-5 pt-4 border-t border-gray-200 flex justify-end space-x-2">
                   <button
                     onClick={closeModal}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                    className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 font-medium text-sm transition-all duration-200"
                   >
                     Close
                   </button>
+                
                 </div>
               </div>
             </div>
@@ -795,6 +829,8 @@ const viewOrderDetails = async (order) => {
       
       <FooterFallback />
       <ToastContainer position="top-right" autoClose={3000} />
+      {/* Add this near the top of your render function */}
+      <style dangerouslySetInnerHTML={{ __html: modalStyles }} />
     </div>
   );
 };
