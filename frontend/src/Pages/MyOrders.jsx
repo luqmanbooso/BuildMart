@@ -17,7 +17,8 @@ import {
   MapPin,
   Phone,
   Mail,
-  User
+  User,
+  Info // Add this import
 } from 'lucide-react';
 
 import { ToastContainer, toast } from 'react-toastify';
@@ -46,7 +47,9 @@ const MyOrders = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // For development testing - set to false to use real API
-  const [mockMode, setMockMode] = useState(false);
+  
+  // Add a way to trigger a retry
+  const [retryCount, setRetryCount] = useState(0);
   
   // Mock data for testing or fallback
   const mockOrders = [
@@ -128,52 +131,37 @@ const MyOrders = () => {
   useEffect(() => {
     const checkAuthStatus = () => {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const user = localStorage.getItem('user');
       
       if (token) {
         try {
           // Decode the token to get user data
           const decoded = jwtDecode(token);
-          console.log("Decoded token:", decoded); // Debug what's in the token
           
-          // Set user role from token using the same format as Shop.jsx
+          // Set user role from token
           setUserRole(decoded.role || decoded.userType);
           setIsLoggedIn(true);
           
-          const userData = {
-            id: decoded.userId || decoded.id || decoded._id,
-            email: decoded.email || '',
-            name: decoded.username || decoded.name || '',
-          };
+          // Extract userId correctly - handle all possible property names
+          const userId = decoded.userId || decoded.id || decoded._id;
           
-          setUserId(userData.id);
-          
+          if (!userId) {
+            console.warn("No valid userId found in token");
+            setError("Unable to identify your account. Please try logging in again.");
+            setIsLoggedIn(false);
+          } else {
+            setUserId(userId);
+          }
         } catch (error) {
           console.error("Error decoding token:", error);
-          setMockMode(true);
-          toast.warning("Using demo data - not connected to your account");
-          setIsLoggedIn(false);
-          setUserRole(null);
-        }
-      } else if (user) {
-        try {
-          const parsedUser = JSON.parse(user);
-          setUserId(parsedUser._id);
-          setUserRole(parsedUser.role || parsedUser.userType);
-          setIsLoggedIn(true);
-        } catch (error) {
-          console.error("Error parsing user data:", error);
-          setMockMode(true);
-          toast.warning("Using demo data - not connected to your account");
+          setError("Authentication error. Please try logging in again.");
           setIsLoggedIn(false);
           setUserRole(null);
         }
       } else {
-        // No user found, show a notification
-        toast.info("Please log in to view your actual orders");
-        setMockMode(true);
+        // No token found
         setIsLoggedIn(false);
         setUserRole(null);
+        navigate('/login', { state: { from: '/orders', message: 'Please log in to view your orders' } });
       }
     };
     
@@ -183,85 +171,75 @@ const MyOrders = () => {
   // Fetch orders - either from API or use mock data
   useEffect(() => {
     const fetchOrders = async () => {
-      setLoading(true);
-      
-      if (mockMode) {
-        // Use mock data instead of API call
-        setTimeout(() => {
-          setOrders(mockOrders);
-          setLoading(false);
-        }, 500); // Simulate network delay for better UX
-        return;
-      }
-      
+      // Only fetch if we have a userId
       if (!userId) {
-        setMockMode(true);
-        setOrders(mockOrders);
         setLoading(false);
         return;
       }
       
+      setLoading(true);
+      
       try {
-        // Get the auth token if you need it for authenticated requests
-        const token = localStorage.getItem('token');
+        // Get the auth token
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
         // Set the headers with the auth token
         const config = token ? {
           headers: { Authorization: `Bearer ${token}` }
         } : {};
         
-        // Make the API call to get the user's orders
-        // Modified to fetch only user's orders by properly passing the userId parameter
-        const response = await axios.get(`/api/orders?userId=${userId}`, config);
+        // Make API call
+        const response = await axios.get(`http://localhost:5000/api/orders`, {
+          ...config,
+          params: { userId: userId }
+        });
         
-        if (response.data.success) {
-          // Filter orders by the current user's ID if backend doesn't already filter them
-          const userOrders = response.data.orders.filter(order => 
-            order.customer?.userId === userId || 
-            (order.customer?.email && order.customer?.email === JSON.parse(localStorage.getItem('user'))?.email)
-          );
+        if (response.data && Array.isArray(response.data.orders)) {
+          // Format the order data
+          const formattedOrders = response.data.orders.map(order => ({
+            ...order,
+            orderDate: order.orderDate || new Date().toISOString(),
+            orderStatus: order.orderStatus ? order.orderStatus.toLowerCase() : 'placed'
+          }));
           
-          if (userOrders.length > 0) {
-            setOrders(userOrders);
-          } else {
-            // If no orders found for user, check if we need to show all orders (for admin)
-            const userRole = JSON.parse(localStorage.getItem('user'))?.role;
-            if (userRole === 'admin') {
-              setOrders(response.data.orders);
-              toast.info("Showing all orders (admin view)");
-            } else {
-              setOrders([]);
-              toast.info("You haven't placed any orders yet");
-            }
-          }
+          // Sort orders by date (newest first)
+          formattedOrders.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
+          
+          setOrders(formattedOrders);
+          
+          // Clear any previous error
+          setError(null);
         } else {
-          throw new Error(response.data.message || 'Failed to fetch orders');
+          // Empty array is valid - just means no orders yet
+          if (response.data && Array.isArray(response.data.orders) && response.data.orders.length === 0) {
+            setOrders([]);
+          } else {
+            console.warn("Invalid response format:", response.data);
+            setError("We couldn't properly load your orders. Please try again later.");
+          }
         }
       } catch (err) {
         console.error("Error fetching orders:", err);
-        toast.error("Couldn't load your orders. Showing sample data instead.");
-        
-        // Fallback to mock data if API call fails
-        setMockMode(true);
-        setOrders(mockOrders);
+        setError("We couldn't load your orders. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
     
     fetchOrders();
-  }, [userId, mockMode]);
+  }, [userId, retryCount]);
 
   // Function to get appropriate status badge styling
   const getOrderStatusBadge = (status) => {
     let bgColor, textColor;
     
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'delivered':
         bgColor = 'bg-green-100';
         textColor = 'text-green-600';
         break;
       case 'shipped':
+      case 'in transit':
         bgColor = 'bg-blue-100';
         textColor = 'text-blue-600';
         break;
@@ -270,6 +248,7 @@ const MyOrders = () => {
         textColor = 'text-amber-600';
         break;
       case 'placed':
+      case 'pending':
         bgColor = 'bg-purple-100';
         textColor = 'text-purple-600';
         break;
@@ -298,53 +277,73 @@ const MyOrders = () => {
     }
   };
 
-  // Function to handle view order details
-  const viewOrderDetails = async (order) => {
-    // If we're in mock mode or already have details, just set them
-    if (mockMode || (order.items && order.shippingAddress)) {
-      setSelectedOrderDetails(order);
-      return;
-    }
+  // Update viewOrderDetails function to remove mockMode references
+const viewOrderDetails = async (order) => {
+  // If the order already has complete details, just use those
+  if (order.items && order.shippingAddress) {
+    setSelectedOrderDetails(order);
+    return;
+  }
+  
+  // Otherwise, fetch the complete order details from the API
+  try {
+    setLoading(true);
     
-    // Otherwise, fetch the complete order details from the API
-    try {
-      setLoading(true);
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    const config = token ? {
+      headers: { Authorization: `Bearer ${token}` }
+    } : {};
+    
+    const response = await axios.get(`http://localhost:5000/api/orders/${order._id}`, config);
+    
+    if (response.data.success) {
+      const orderData = response.data.order;
       
-      // Get the auth token if needed
-      const token = sessionStorage.getItem('token');
-      
-      // Set the headers with the auth token
-      const config = token ? {
-        headers: { Authorization: `Bearer ${token}` }
-      } : {};
-      
-      // Fetch complete order details
-      const response = await axios.get(`/api/orders/${order._id}`, config);
-      
-      if (response.data.success) {
-        setSelectedOrderDetails(response.data.order);
-      } else {
-        throw new Error(response.data.message || 'Failed to fetch order details');
+      // If shipping information is available, include it
+      let shippingData = {};
+      try {
+        const shippingResponse = await axios.get(`http://localhost:5000/api/shipments/order/${order._id}`, config);
+        if (shippingResponse.data && shippingResponse.data.shipment) {
+          shippingData = {
+            shippingProgress: shippingResponse.data.shipment.progress || 0,
+            estimatedDelivery: shippingResponse.data.shipment.estimatedDeliveryDate,
+            shippedDate: shippingResponse.data.shipment.createdAt || orderData.updatedAt
+          };
+        }
+      } catch (shippingError) {
+        console.log("No shipping information available");
       }
-    } catch (err) {
-      console.error("Error fetching order details:", err);
-      toast.error("Couldn't load order details.");
       
-      // Still show what we have
-      setSelectedOrderDetails(order);
-    } finally {
-      setLoading(false);
+      setSelectedOrderDetails({
+        ...orderData,
+        ...shippingData,
+        orderStatus: orderData.orderStatus ? orderData.orderStatus.toLowerCase() : 'placed'
+      });
+    } else {
+      throw new Error(response.data.message || 'Failed to fetch order details');
     }
-  };
+  } catch (err) {
+    console.error("Error fetching order details:", err);
+    toast.error("Couldn't load complete order details.");
+    
+    // Still show what we have
+    setSelectedOrderDetails(order);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Function to close modal
   const closeModal = () => {
     setSelectedOrderDetails(null);
   };
 
-  // Function to get filtered orders
+  // Fix the getFilteredOrders function
   const getFilteredOrders = () => {
-    if (!orders || !Array.isArray(orders)) return [];
+    if (!orders || !Array.isArray(orders)) {
+      return [];
+    }
     
     return orders.filter(order => 
       (order.orderStatus?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -352,10 +351,23 @@ const MyOrders = () => {
     );
   };
 
-  // Function to display status text in a more user-friendly way
+  // Fix the formatStatus function
   const formatStatus = (status) => {
     if (!status) return 'Unknown';
-    return status.charAt(0).toUpperCase() + status.slice(1);
+    
+    // Map statuses to more user-friendly terms
+    const statusMap = {
+      'placed': 'Order Placed',
+      'processing': 'Processing',
+      'shipped': 'Shipped',
+      'in transit': 'In Transit',
+      'delivering': 'Out for Delivery',
+      'delivered': 'Delivered',
+      'cancelled': 'Cancelled',
+    };
+    
+    const formattedStatus = statusMap[status.toLowerCase()];
+    return formattedStatus || (status.charAt(0).toUpperCase() + status.slice(1));
   };
 
   // Function to render the appropriate navbar based on user role - matches Shop.jsx
@@ -375,6 +387,11 @@ const MyOrders = () => {
     }
   };
 
+  // Add a retry function
+  const retryFetchOrders = () => {
+    setRetryCount(prev => prev + 1);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {renderNavbar()}
@@ -383,9 +400,10 @@ const MyOrders = () => {
           <br /><br /><br /><br />
           <h1 className="text-3xl font-bold text-gray-800">My Orders</h1>
           <p className="text-gray-600 mt-1">Track and manage your orders</p>
-          {mockMode && (
-            <div className="mt-2 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-md inline-block">
-              <p>Viewing sample data</p>
+          {orders.length === 0 && !loading && !error && (
+            <div className="mt-2 bg-gray-50 border border-gray-200 text-gray-700 px-4 py-2 rounded-md inline-flex items-center">
+              <Info className="h-4 w-4 mr-2" />
+              <p>You haven't placed any orders yet</p>
             </div>
           )}
         </div>
@@ -501,7 +519,9 @@ const MyOrders = () => {
                       getFilteredOrders().map((order) => (
                         <tr key={order._id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">#{order._id.substring(0, 8)}</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {order._id ? `#${order._id.substring(0, 8)}` : 'No ID'}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{formatDate(order.orderDate)}</div>
@@ -598,7 +618,9 @@ const MyOrders = () => {
                         </p>
                         {['processing', 'shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) && (
                           <p className="text-sm text-gray-600">
-                            {formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 24*60*60*1000))}
+                            {selectedOrderDetails.processedDate ? 
+                              formatDate(selectedOrderDetails.processedDate) : 
+                              formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 24*60*60*1000))}
                           </p>
                         )}
                       </div>
@@ -619,7 +641,9 @@ const MyOrders = () => {
                         </p>
                         {['shipped', 'delivered'].includes(selectedOrderDetails.orderStatus) && (
                           <p className="text-sm text-gray-600">
-                            {formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 2*24*60*60*1000))}
+                            {selectedOrderDetails.shippedDate ? 
+                              formatDate(selectedOrderDetails.shippedDate) : 
+                              formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 2*24*60*60*1000))}
                           </p>
                         )}
                       </div>
@@ -640,7 +664,9 @@ const MyOrders = () => {
                         </p>
                         {selectedOrderDetails.orderStatus === 'delivered' && (
                           <p className="text-sm text-gray-600">
-                            {formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 4*24*60*60*1000))}
+                            {selectedOrderDetails.deliveredDate ? 
+                              formatDate(selectedOrderDetails.deliveredDate) : 
+                              formatDate(new Date(new Date(selectedOrderDetails.orderDate).getTime() + 4*24*60*60*1000))}
                           </p>
                         )}
                       </div>
@@ -719,20 +745,34 @@ const MyOrders = () => {
                       <p className="text-sm text-blue-700 mt-1">
                         {selectedOrderDetails.orderStatus === 'shipped' ? 
                           'Your order is on its way! You can expect delivery within 2-3 business days.' :
-                          'Your order is being processed and will be shipped soon.'
+                          selectedOrderDetails.orderStatus === 'processing' ?
+                          'Your order is being processed and will be shipped soon.' :
+                          'Your order has been placed and will be processed shortly.'
                         }
                       </p>
                       
                       {selectedOrderDetails.orderStatus === 'shipped' && (
                         <div className="mt-3">
                           <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '65%' }}></div>
+                            {/* Show different progress percentages based on shipping status */}
+                            <div 
+                              className="bg-blue-600 h-2.5 rounded-full" 
+                              style={{ 
+                                width: selectedOrderDetails.shippingProgress ? 
+                                  `${selectedOrderDetails.shippingProgress}%` : '65%' 
+                              }}
+                            ></div>
                           </div>
                           <div className="flex justify-between text-xs text-gray-600 mt-1">
                             <span>Shipped</span>
                             <span>Out for delivery</span>
                             <span>Delivered</span>
                           </div>
+                          {selectedOrderDetails.estimatedDelivery && (
+                            <p className="text-xs text-gray-600 mt-2">
+                              Estimated delivery: {formatDate(selectedOrderDetails.estimatedDelivery)}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
