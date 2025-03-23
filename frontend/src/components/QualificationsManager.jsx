@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrashAlt, FaPlusCircle, FaCheckCircle, FaTimesCircle, FaHourglassHalf, FaFileUpload } from 'react-icons/fa';
+import { FaEdit, FaTrashAlt, FaPlusCircle, FaCheckCircle, FaTimesCircle, FaHourglassHalf, FaFileUpload, FaExclamationTriangle } from 'react-icons/fa';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -11,6 +11,15 @@ const QualificationsManager = ({ userId }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingQualification, setEditingQualification] = useState(null);
   
+  // Form validation state
+  const [formErrors, setFormErrors] = useState({
+    name: '',
+    issuer: '',
+    year: '',
+    expiry: '',
+    documentFile: ''
+  });
+  
   // New qualification state with image
   const [newQualification, setNewQualification] = useState({
     type: 'Certification',
@@ -18,11 +27,22 @@ const QualificationsManager = ({ userId }) => {
     issuer: '',
     year: '',
     expiry: '',
-    documentImage: ''
+    documentFile: null
   });
   
   // Preview image state
   const [previewImage, setPreviewImage] = useState(null);
+
+  // Max lengths for fields
+  const MAX_LENGTHS = {
+    name: 100,
+    issuer: 100,
+    year: 4,
+    expiry: 5
+  };
+  
+  // File size limit in bytes (1MB)
+  const MAX_FILE_SIZE = 1024 * 1024;
 
   // Fetch qualifications from API
   const fetchQualifications = async () => {
@@ -47,80 +67,226 @@ const QualificationsManager = ({ userId }) => {
   useEffect(() => {
     fetchQualifications();
   }, [userId]);
+  
+  // Validate individual fields
+  const validateField = (name, value) => {
+    let errorMessage = '';
+    
+    switch (name) {
+      case 'name':
+        if (!value.trim()) {
+          errorMessage = 'Name is required';
+        } else if (value.length > MAX_LENGTHS.name) {
+          errorMessage = `Name must be ${MAX_LENGTHS.name} characters or less`;
+        }
+        break;
+        
+      case 'issuer':
+        if (!value.trim()) {
+          errorMessage = 'Issuing organization is required';
+        } else if (value.length > MAX_LENGTHS.issuer) {
+          errorMessage = `Issuer must be ${MAX_LENGTHS.issuer} characters or less`;
+        }
+        break;
+        
+      case 'year':
+        if (!value.trim()) {
+          errorMessage = 'Year is required';
+        } else if (!/^\d{4}$/.test(value)) {
+          errorMessage = 'Year must be a 4-digit number';
+        } else {
+          const currentYear = new Date().getFullYear();
+          const yearValue = parseInt(value);
+          if (yearValue > currentYear) {
+            errorMessage = 'Year cannot be in the future';
+          } else if (yearValue < 1900) {
+            errorMessage = 'Please enter a year after 1900';
+          }
+        }
+        break;
+        
+      case 'expiry':
+        if (value.trim() && value.toLowerCase() !== 'n/a') {
+          if (value.length > MAX_LENGTHS.expiry) {
+            errorMessage = `Expiry must be ${MAX_LENGTHS.expiry} characters or less`;
+          }
+          // Additional validation for date format could be added here
+        }
+        break;
+        
+      case 'documentFile':
+        if (value && value.size > MAX_FILE_SIZE) {
+          errorMessage = 'File size must be less than 1MB';
+        }
+        break;
+        
+      default:
+        break;
+    }
+    
+    return errorMessage;
+  };
+  
+  // Check if the form is valid
+  const isFormValid = () => {
+    return !Object.values(formErrors).some(error => error !== '');
+  };
 
-  // Handle file selection and conversion to base64
+  // Handle file selection and validation
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
     
-    // File type validation
-    if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      toast.error('Please select a PNG or JPEG image');
-      return;
-    }
-    
-    // File size validation (1MB limit)
-    if (file.size > 1024 * 1024) {
-      toast.error('File size must be less than 1MB');
-      return;
-    }
-    
-    // Convert to base64
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64String = event.target.result;
+    if (file) {
+      // Validate file size
+      const fileError = validateField('documentFile', file);
+      setFormErrors({
+        ...formErrors,
+        documentFile: fileError
+      });
       
-      setNewQualification(prev => ({
-        ...prev,
-        documentImage: base64String
-      }));
+      // Store the File object directly for FormData if valid
+      setNewQualification({
+        ...newQualification,
+        documentFile: file
+      });
       
-      setPreviewImage(base64String);
-    };
-    
-    reader.readAsDataURL(file);
+      // Create preview URL for display
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPreviewImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  // Handle form input changes
+  // Handle form input changes with validation
   const handleNewQualificationChange = (e) => {
     const { name, value } = e.target;
-    setNewQualification(prev => ({ 
-      ...prev, 
-      [name]: value 
-    }));
+    
+    // Apply maxLength restrictions
+    let finalValue = value;
+    if (MAX_LENGTHS[name] && value.length > MAX_LENGTHS[name]) {
+      finalValue = value.slice(0, MAX_LENGTHS[name]);
+    }
+    
+    // Special case for year to ensure only numbers
+    if (name === 'year') {
+      finalValue = finalValue.replace(/[^0-9]/g, '').slice(0, 4);
+    }
+    
+    // Special case for expiry to auto-format as MM/YYYY
+    if (name === 'expiry' && value.trim() && value.toLowerCase() !== 'n/a') {
+      // Remove any non-numeric characters except the forward slash
+      finalValue = value.replace(/[^0-9/]/g, '');
+      
+      // Handle the format MM/YYYY
+      if (finalValue.length > 0) {
+        // Extract digits only for processing
+        const digits = finalValue.replace(/\D/g, '');
+        
+        // Format as MM/YYYY
+        if (digits.length <= 2) {
+          // Just the month part
+          finalValue = digits;
+        } else {
+          // Format with the slash after the month part
+          const month = digits.substring(0, 2);
+          const year = digits.substring(2, 6);
+          
+          // Validate month (01-12)
+          const monthNum = parseInt(month);
+          if (monthNum > 12) {
+            // If month > 12, correct it to 12
+            finalValue = '12/' + year;
+          } else if (monthNum < 1 && month.length === 2) {
+            // If month < 01 but has 2 digits, correct to 01
+            finalValue = '01/' + year;
+          } else {
+            finalValue = month + '/' + year;
+          }
+        }
+      }
+      
+      // Maximum length for MM/YYYY is 7 characters
+      finalValue = finalValue.slice(0, 7);
+    }
+    
+    // Update form data
+    setNewQualification({
+      ...newQualification,
+      [name]: finalValue
+    });
+    
+    // Validate and set errors
+    const errorMessage = validateField(name, finalValue);
+    setFormErrors({
+      ...formErrors,
+      [name]: errorMessage
+    });
   };
 
-  // Add new qualification
+  // Add new qualification with validation
   const handleAddQualification = async (e) => {
     e.preventDefault();
+    
+    // Validate all fields before submission
+    const errors = {
+      name: validateField('name', newQualification.name),
+      issuer: validateField('issuer', newQualification.issuer),
+      year: validateField('year', newQualification.year),
+      expiry: validateField('expiry', newQualification.expiry),
+      documentFile: validateField('documentFile', newQualification.documentFile)
+    };
+    
+    setFormErrors(errors);
+    
+    // Check if there are any validation errors
+    if (Object.values(errors).some(error => error !== '')) {
+      toast.error('Please correct the form errors before submitting');
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
     
     try {
-      // Add userId to the payload
-      const qualificationData = {
-        ...newQualification,
-        userId
-      };
+      const formData = new FormData();
       
-      const response = await axios.post(
-        'http://localhost:5000/qualify/',
-        qualificationData
-      );
+      // Add text fields
+      formData.append('userId', userId);
+      formData.append('type', newQualification.type);
+      formData.append('name', newQualification.name);
+      formData.append('issuer', newQualification.issuer);
+      formData.append('year', newQualification.year);
+      formData.append('expiry', newQualification.expiry || 'N/A');
       
-      // Update state with new qualification
+      // Add file if available
+      if (newQualification.documentFile) {
+        formData.append('documentImage', newQualification.documentFile);
+      }
+      
+      const response = await axios.post('http://localhost:5000/qualify/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
       setQualifications([...qualifications, response.data]);
-      
-      // Reset form
       setNewQualification({
         type: 'Certification',
         name: '',
         issuer: '',
         year: '',
         expiry: '',
-        documentImage: ''
+        documentFile: null
       });
-      
+      setFormErrors({
+        name: '',
+        issuer: '',
+        year: '',
+        expiry: '',
+        documentFile: ''
+      });
       setPreviewImage(null);
       setShowAddForm(false);
       toast.success('Qualification added successfully!');
@@ -133,32 +299,61 @@ const QualificationsManager = ({ userId }) => {
     }
   };
 
-  // Update qualification
+  // Update qualification with validation
   const handleUpdateQualification = async (e) => {
     e.preventDefault();
     
     if (!editingQualification) return;
     
+    // Validate all fields before submission
+    const errors = {
+      name: validateField('name', newQualification.name),
+      issuer: validateField('issuer', newQualification.issuer),
+      year: validateField('year', newQualification.year),
+      expiry: validateField('expiry', newQualification.expiry),
+      documentFile: validateField('documentFile', newQualification.documentFile)
+    };
+    
+    setFormErrors(errors);
+    
+    // Check if there are any validation errors
+    if (Object.values(errors).some(error => error !== '')) {
+      toast.error('Please correct the form errors before submitting');
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
     
     try {
+      const formData = new FormData();
+      
+      // Add text fields
+      formData.append('type', newQualification.type);
+      formData.append('name', newQualification.name);
+      formData.append('issuer', newQualification.issuer);
+      formData.append('year', newQualification.year);
+      formData.append('expiry', newQualification.expiry || 'N/A');
+      
+      // Add file if available and changed
+      if (newQualification.documentFile) {
+        formData.append('documentImage', newQualification.documentFile);
+      }
+      
       const response = await axios.put(
         `http://localhost:5000/qualify/${editingQualification._id}`,
-        newQualification,
+        formData,
         {
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'multipart/form-data'
           }
         }
       );
       
-      // Immediately update UI with returned data
       setQualifications(qualifications.map(q => 
         q._id === editingQualification._id ? response.data : q
       ));
       
-      // Reset form
       setEditingQualification(null);
       setNewQualification({
         type: 'Certification',
@@ -166,27 +361,22 @@ const QualificationsManager = ({ userId }) => {
         issuer: '',
         year: '',
         expiry: '',
-        documentImage: ''
+        documentFile: null
       });
-      
+      setFormErrors({
+        name: '',
+        issuer: '',
+        year: '',
+        expiry: '',
+        documentFile: ''
+      });
       setPreviewImage(null);
       setShowAddForm(false);
-      toast.success('Updated successfully!');
+      toast.success('Qualification updated successfully!');
     } catch (error) {
-      console.error('Update error details:', error);
-      
-      let errorMessage = 'Update failed';
-      
-      if (error.response) {
-        if (error.response.status === 404) {
-          errorMessage = 'Qualification not found';
-        } else if (error.response.data?.error) {
-          errorMessage = error.response.data.error;
-        }
-      }
-      
-      setError(errorMessage);
-      toast.error(errorMessage);
+      console.error('Error updating qualification:', error);
+      setError(error.response?.data?.error || 'Failed to update qualification');
+      toast.error('Failed to update qualification');
     } finally {
       setIsLoading(false);
     }
@@ -225,12 +415,50 @@ const QualificationsManager = ({ userId }) => {
       issuer: qualification.issuer || '',
       year: qualification.year || '',
       expiry: qualification.expiry || '',
-      documentImage: qualification.documentImage || ''
+      documentFile: null
+    });
+    // Reset form errors when starting to edit
+    setFormErrors({
+      name: '',
+      issuer: '',
+      year: '',
+      expiry: '',
+      documentFile: ''
     });
     
     setPreviewImage(qualification.documentImage || null);
     setShowAddForm(true);
   };
+
+  // Format input field with validation
+  const renderInputField = (label, name, placeholder, required = true) => (
+    <div>
+      <label className="block text-gray-700 mb-1">
+        {label}{required && <span className="text-red-500">*</span>}
+        {MAX_LENGTHS[name] && (
+          <span className="text-xs text-gray-500 float-right">
+            {newQualification[name]?.length || 0}/{MAX_LENGTHS[name]}
+          </span>
+        )}
+      </label>
+      <input 
+        type="text"
+        name={name}
+        value={newQualification[name]}
+        onChange={handleNewQualificationChange}
+        className={`w-full border ${formErrors[name] ? 'border-red-300' : 'border-gray-300'} rounded px-3 py-2`}
+        placeholder={placeholder}
+        required={required}
+        disabled={isLoading}
+        maxLength={MAX_LENGTHS[name] || undefined}
+      />
+      {formErrors[name] && (
+        <p className="text-red-500 text-xs mt-1">
+          {formErrors[name]}
+        </p>
+      )}
+    </div>
+  );
 
   // Render verification status badge
   const renderVerificationStatus = (status) => {
@@ -267,7 +495,14 @@ const QualificationsManager = ({ userId }) => {
               issuer: '',
               year: '',
               expiry: '',
-              documentImage: ''
+              documentFile: null
+            });
+            setFormErrors({
+              name: '',
+              issuer: '',
+              year: '',
+              expiry: '',
+              documentFile: ''
             });
             setPreviewImage(null);
             setShowAddForm(!showAddForm);
@@ -289,9 +524,9 @@ const QualificationsManager = ({ userId }) => {
           </h3>
           <form onSubmit={editingQualification ? handleUpdateQualification : handleAddQualification}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              {/* Form fields */}
+              {/* Type field */}
               <div>
-                <label className="block text-gray-700 mb-1">Type</label>
+                <label className="block text-gray-700 mb-1">Type<span className="text-red-500">*</span></label>
                 <select 
                   name="type"
                   value={newQualification.type}
@@ -308,61 +543,17 @@ const QualificationsManager = ({ userId }) => {
                 </select>
               </div>
               
-              {/* More form fields */}
-              <div>
-                <label className="block text-gray-700 mb-1">Name</label>
-                <input 
-                  type="text"
-                  name="name"
-                  value={newQualification.name}
-                  onChange={handleNewQualificationChange}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                  placeholder="e.g. Licensed Contractor"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
+              {/* Name field */}
+              {renderInputField('Name', 'name', 'e.g. Licensed Contractor')}
               
-              <div>
-                <label className="block text-gray-700 mb-1">Issuing Organization</label>
-                <input 
-                  type="text"
-                  name="issuer"
-                  value={newQualification.issuer}
-                  onChange={handleNewQualificationChange}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                  placeholder="e.g. National Construction Authority"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
+              {/* Issuer field */}
+              {renderInputField('Issuing Organization', 'issuer', 'e.g. National Construction Authority')}
               
-              <div>
-                <label className="block text-gray-700 mb-1">Year</label>
-                <input 
-                  type="text"
-                  name="year"
-                  value={newQualification.year}
-                  onChange={handleNewQualificationChange}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                  placeholder="e.g. 2022"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
+              {/* Year field */}
+              {renderInputField('Year', 'year', 'e.g. 2022')}
               
-              <div>
-                <label className="block text-gray-700 mb-1">Expiry (if applicable)</label>
-                <input 
-                  type="text"
-                  name="expiry"
-                  value={newQualification.expiry}
-                  onChange={handleNewQualificationChange}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                  placeholder="N/A if not applicable"
-                  disabled={isLoading}
-                />
-              </div>
+              {/* Expiry field (optional) */}
+              {renderInputField('Expiry (if applicable)', 'expiry', 'N/A if not applicable', false)}
               
               {/* Image upload field */}
               <div className="md:col-span-2">
@@ -370,7 +561,7 @@ const QualificationsManager = ({ userId }) => {
                   Certificate Image <span className="text-xs text-gray-500">(PNG/JPEG, max 1MB)</span>
                 </label>
                 <div className="flex items-center">
-                  <label className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50">
+                  <label className={`flex items-center px-4 py-2 bg-white border ${formErrors.documentFile ? 'border-red-300' : 'border-gray-300'} rounded cursor-pointer hover:bg-gray-50`}>
                     <FaFileUpload className="mr-2 text-gray-600" />
                     <span>{previewImage ? 'Change Image' : 'Upload Image'}</span>
                     <input
@@ -387,13 +578,20 @@ const QualificationsManager = ({ userId }) => {
                       className="ml-2 text-sm text-red-600 hover:text-red-800"
                       onClick={() => {
                         setPreviewImage(null);
-                        setNewQualification({...newQualification, documentImage: ''});
+                        setNewQualification({...newQualification, documentFile: null});
+                        setFormErrors({...formErrors, documentFile: ''});
                       }}
                     >
                       Remove
                     </button>
                   )}
                 </div>
+                
+                {formErrors.documentFile && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {formErrors.documentFile}
+                  </p>
+                )}
                 
                 {/* Image preview */}
                 {previewImage && (
@@ -409,12 +607,36 @@ const QualificationsManager = ({ userId }) => {
               </div>
             </div>
             
+            {/* Form validation warning */}
+            {!isFormValid() && (
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 p-3 rounded-md mb-4 flex items-start">
+                <FaExclamationTriangle className="text-yellow-500 mt-0.5 mr-2" />
+                <div>
+                  <p className="font-medium text-sm">Please correct the following errors:</p>
+                  <ul className="text-xs mt-1 list-disc list-inside">
+                    {Object.entries(formErrors)
+                      .filter(([_, value]) => value !== '')
+                      .map(([key, value]) => (
+                        <li key={key}>{value}</li>
+                      ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+            
             <div className="flex justify-end space-x-3 mt-4">
               <button 
                 type="button" 
                 onClick={() => {
                   setShowAddForm(false);
                   setPreviewImage(null);
+                  setFormErrors({
+                    name: '',
+                    issuer: '',
+                    year: '',
+                    expiry: '',
+                    documentFile: ''
+                  });
                 }}
                 className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
                 disabled={isLoading}
@@ -423,8 +645,8 @@ const QualificationsManager = ({ userId }) => {
               </button>
               <button 
                 type="submit"
-                className={`px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                disabled={isLoading}
+                className={`px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 ${(isLoading || !isFormValid()) ? 'opacity-70 cursor-not-allowed' : ''}`}
+                disabled={isLoading || !isFormValid()}
               >
                 {isLoading ? 'Saving...' : editingQualification ? 'Update' : 'Save'}
               </button>

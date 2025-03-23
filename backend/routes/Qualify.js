@@ -1,153 +1,196 @@
 const express = require('express');
 const router = express.Router();
 const Qualification = require('../models/Qualification');
+const qualificationUpload = require('../middleware/qualificationUpload');
+const path = require('path');
+const fs = require('fs');
 
-// Update the GET route for qualifications
-
+// GET qualifications for a user
 router.get('/user/:userId', async (req, res) => {
-    try {
-      const { userId } = req.params;
+  try {
+    const { userId } = req.params;
+    const qualifications = await Qualification.find({ userId });
+    
+    // Convert relative file paths to full URLs for frontend display
+    const processedQualifications = qualifications.map(qual => {
+      const qualObj = qual.toObject();
       
-      const qualifications = await Qualification.find({ userId });
-      
-      // Ensure all document images have proper format
-      const processedQualifications = qualifications.map(qual => {
-        const qualObj = qual.toObject();
-        
-        // Check if image exists but doesn't have the data:image prefix
-        if (qualObj.documentImage && !qualObj.documentImage.startsWith('data:')) {
-          // Add the proper prefix if missing
-          qualObj.documentImage = `data:image/jpeg;base64,${qualObj.documentImage}`;
+      // Check if documentImage exists and is a path (not a base64 string)
+      if (qualObj.documentImage && !qualObj.documentImage.startsWith('data:')) {
+        // Convert to full URL if it's a local path
+        if (!qualObj.documentImage.startsWith('http')) {
+          qualObj.documentImage = `http://localhost:5000${qualObj.documentImage}`;
         }
-        
-        return qualObj;
-      });
+      }
       
-      res.json(processedQualifications);
-    } catch (error) {
-      console.error('Error fetching qualifications:', error);
-      res.status(500).json({ error: 'Failed to fetch qualifications' });
-    }
-  });
+      return qualObj;
+    });
+    
+    res.json(processedQualifications);
+  } catch (error) {
+    console.error('Error fetching qualifications:', error);
+    res.status(500).json({ error: 'Failed to fetch qualifications' });
+  }
+});
 
 // GET a specific qualification
 router.get('/:id', async (req, res) => {
   try {
     const qualification = await Qualification.findById(req.params.id);
-    if (!qualification) return res.status(404).json({ error: 'Qualification not found' });
-    res.json(qualification);
+    
+    if (!qualification) {
+      return res.status(404).json({ error: 'Qualification not found' });
+    }
+    
+    // Convert to object to modify
+    const qualObj = qualification.toObject();
+    
+    // Convert relative file path to full URL if needed
+    if (qualObj.documentImage && !qualObj.documentImage.startsWith('data:')) {
+      if (!qualObj.documentImage.startsWith('http')) {
+        qualObj.documentImage = `http://localhost:5000${qualObj.documentImage}`;
+      }
+    }
+    
+    res.json(qualObj);
   } catch (error) {
-    res.status(500).json({ error: 'Error fetching qualification' });
+    res.status(500).json({ error: 'Failed to fetch qualification' });
   }
 });
 
-// POST a new qualification
-// POST a new qualification
-router.post('/', async (req, res) => {
-    try {
-      const { userId, type, name, issuer, year, expiry, documentUrls } = req.body;
-      
-      if (!userId) {
-        return res.status(400).json({ error: 'userId is required' });
-      }
-      
-      const qualification = new Qualification({
-        userId,  // Get from request body for now
-        type,
-        name,
-        issuer,
-        year,
-        expiry,
-        documentUrls
-      });
-      
-      const savedQualification = await qualification.save();
-      res.status(201).json(savedQualification);
-    } catch (error) {
-      console.error('Error creating qualification:', error);
-      res.status(500).json({ error: 'Error creating qualification', details: error.message });
+// POST new qualification with file upload
+router.post('/', qualificationUpload.single('documentImage'), async (req, res) => {
+  try {
+    const { userId, type, name, issuer, year, expiry } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
     }
-  });
-
-// PUT (update) a qualification
-// PUT (update) a qualification
-// On your backend route for updating qualifications
-const multer = require('multer');
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+    
+    const qualificationData = {
+      userId,
+      type,
+      name,
+      issuer,
+      year,
+      expiry: expiry || 'N/A'
+    };
+    
+    // If file was uploaded, save the file path
+    if (req.file) {
+      qualificationData.documentImage = `/uploads/qualifications/${req.file.filename}`;
+    }
+    
+    const qualification = new Qualification(qualificationData);
+    const savedQualification = await qualification.save();
+    
+    res.status(201).json(savedQualification);
+  } catch (error) {
+    console.error('Error creating qualification:', error);
+    res.status(500).json({ error: 'Error creating qualification' });
+  }
 });
 
-// Update route
-// Update route - FIXED VERSION
-router.put('/:id', upload.single('documentImage'), async (req, res) => {
-    try {
-      const { id } = req.params;
-      const updateData = req.body;
-      
-      console.log('Update request received for qualification:', id);
-      console.log('Fields being updated:', Object.keys(updateData));
-      
-      // Handle file upload if present
-      if (req.file) {
-        console.log('Received file upload:', req.file.originalname, req.file.size, 'bytes');
-        
-        // Convert buffer to base64 for storage
-        const base64Image = req.file.buffer.toString('base64');
-        const imageUrl = `data:${req.file.mimetype};base64,${base64Image}`;
-        
-        // Update the documentImage field directly
-        updateData.documentImage = imageUrl;
-        
-        // Also add to documentUrls array if your schema uses that
-        if (!updateData.documentUrls) updateData.documentUrls = [];
-        updateData.documentUrls.push(imageUrl);
-      }
-      // Handle base64 string if no file but base64 string is provided
-      else if (req.body.documentImageBase64) {
-        console.log('Received base64 image data');
-        
-        // Update both fields
-        updateData.documentImage = req.body.documentImageBase64;
-        
-        if (!updateData.documentUrls) updateData.documentUrls = [];
-        updateData.documentUrls.push(req.body.documentImageBase64);
-        
-        // Remove the temporary field
-        delete updateData.documentImageBase64;
-      }
-      
-      // THIS IS THE MISSING PART - ACTUALLY PERFORM THE DATABASE UPDATE
-      const updatedQualification = await Qualification.findByIdAndUpdate(
-        id,
-        updateData,
-        { new: true, runValidators: true }
-      );
-      
-      if (!updatedQualification) {
-        return res.status(404).json({ error: 'Qualification not found' });
-      }
-      
-      console.log('Qualification updated successfully');
-      res.json(updatedQualification);
-    } catch (error) {
-      console.error('Error updating qualification:', error);
-      res.status(500).json({ error: 'Error updating qualification', details: error.message });
+// PUT (update) qualification with file upload
+router.put('/:id', qualificationUpload.single('documentImage'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    // Find existing qualification first to get current data
+    const existingQualification = await Qualification.findById(id);
+    if (!existingQualification) {
+      return res.status(404).json({ error: 'Qualification not found' });
     }
-  });
+    
+    // If file was uploaded, save the file path and delete old file
+    if (req.file) {
+      updateData.documentImage = `/uploads/qualifications/${req.file.filename}`;
+      
+      // If old image exists and isn't a base64 string
+      if (existingQualification.documentImage && 
+          !existingQualification.documentImage.startsWith('data:') &&
+          !existingQualification.documentImage.startsWith('http')) {
+        
+        try {
+          // Remove the leading slash and construct full file path
+          const oldPath = existingQualification.documentImage.replace(/^\//, '');
+          const filePath = path.join(__dirname, '..', oldPath);
+          
+          // Delete if file exists
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`Deleted old file: ${filePath}`);
+          }
+        } catch (fileError) {
+          console.error('Error deleting old file:', fileError);
+          // Continue with update even if file deletion fails
+        }
+      }
+    }
+    
+    // Update the qualification
+    const updatedQualification = await Qualification.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+    
+    // Convert file path to full URL for frontend
+    const responseObj = updatedQualification.toObject();
+    if (responseObj.documentImage && !responseObj.documentImage.startsWith('data:')) {
+      if (!responseObj.documentImage.startsWith('http')) {
+        responseObj.documentImage = `http://localhost:5000${responseObj.documentImage}`;
+      }
+    }
+    
+    res.json(responseObj);
+  } catch (error) {
+    console.error('Error updating qualification:', error);
+    res.status(500).json({ error: 'Error updating qualification', details: error.message });
+  }
+});
 
-// DELETE a qualification
+// DELETE qualification
 router.delete('/:id', async (req, res) => {
   try {
-    const qualification = await Qualification.findById(req.params.id);
-    if (!qualification) return res.status(404).json({ error: 'Qualification not found' });
+    const { id } = req.params;
     
-   
-    await Qualification.findByIdAndDelete(req.params.id);
+    // Find the qualification to get the image path before deleting
+    const qualification = await Qualification.findById(id);
+    
+    if (!qualification) {
+      return res.status(404).json({ error: 'Qualification not found' });
+    }
+    
+    // Delete the associated image file if it exists
+    if (qualification.documentImage && 
+        !qualification.documentImage.startsWith('data:') &&
+        !qualification.documentImage.startsWith('http')) {
+      
+      try {
+        // Remove the leading slash and construct full file path
+        const imagePath = qualification.documentImage.replace(/^\//, '');
+        const filePath = path.join(__dirname, '..', imagePath);
+        
+        // Delete if file exists
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`Deleted file: ${filePath}`);
+        }
+      } catch (fileError) {
+        console.error('Error deleting file:', fileError);
+        // Continue with deletion even if file removal fails
+      }
+    }
+    
+    // Delete the qualification from the database
+    await Qualification.findByIdAndDelete(id);
+    
     res.json({ message: 'Qualification deleted successfully' });
   } catch (error) {
-    res.status(500).json({ error: 'Error deleting qualification' });
+    console.error('Error deleting qualification:', error);
+    res.status(500).json({ error: 'Error deleting qualification', details: error.message });
   }
 });
 
