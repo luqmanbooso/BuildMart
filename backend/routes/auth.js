@@ -428,7 +428,7 @@ router.put('/user/:userId', async (req, res) => {
   }
 });
 
-// DELETE request to delete a user
+// DELETE request to delete a user and associated contractor profile
 router.delete('/users/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -439,10 +439,29 @@ router.delete('/users/:userId', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
+    
+    
+    // Only delete contractor profile if user is a Service Provider
+    if (user.role === 'Service Provider') {
+      // Delete the associated contractor profile if exists
+
+      // Delete all qualifications associated with this user
+    const Qualification = require('../models/Qualification');
+    await Qualification.deleteMany({ userId: userId.toString() });
+
+      const Contractor = require('../models/Contractor');
+      await Contractor.findOneAndDelete({ userId: userId });
+    }
+    
     // Delete the user
     await User.findByIdAndDelete(userId);
     
-    res.json({ message: 'User deleted successfully' });
+    // Return appropriate message based on user role
+    if (user.role === 'Service Provider') {
+      res.json({ message: 'User, associated contractor profile, and qualifications deleted successfully' });
+    } else {
+      res.json({ message: 'User and associated qualifications deleted successfully' });
+    }
   } catch (error) {
     console.error('Error deleting user:', error);
     res.status(500).json({ error: 'Server error. Please try again.' });

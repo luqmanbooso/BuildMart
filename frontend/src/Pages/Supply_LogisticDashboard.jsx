@@ -296,6 +296,7 @@ function Supply_LogisticDashboard() {
   const [statusTypesLoading, setStatusTypesLoading] = useState(true);
   const [restockRequests, setRestockRequests] = useState([]);
   const [selectedOrderForShipment, setSelectedOrderForShipment] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
@@ -908,83 +909,137 @@ const handleRestockRequest = async (itemName) => {
   };
 
   // Supplier management functions
-  const handleAddSupplier = async () => {
-    try {
-      setIsLoading(true);
-      const newSupplier = {
-        name: supplierName,
-        value: parseInt(supplierValue) || 0,
-        contact: supplierContact,
-        email: supplierEmail,
-        address: supplierAddress,
-        category: supplierCategory,
-        phone: supplierPhone,
-        city: supplierCity,
-        country: supplierCountry,
-        website: supplierWebsite,
-        paymentTerms: paymentTerms,
-        leadTime: leadTime,
-        notes: supplierNotes,
-      };
+  const validateSupplierForm = () => {
+    const errors = {};
 
-      const createdSupplier = await supplierService.createSupplier(newSupplier);
-      setSuppliers([...suppliers, createdSupplier]);
-      resetForm();
-      setError(null);
-    } catch (error) {
-      setError("Failed to add supplier. Please try again.");
-    } finally {
-      setIsLoading(false);
+    // Supplier name validation (required)
+    if (!supplierName.trim()) {
+      errors.supplierName = "Supplier name is required";
     }
+
+    // Category validation (required)
+    if (!supplierCategory.trim()) {
+      errors.supplierCategory = "Category is required";
+    }
+
+    // Contact person validation (required)
+    if (!supplierContact.trim()) {
+      errors.supplierContact = "Contact person is required";
+    }
+
+    // Email validation (required)
+    if (!supplierEmail.trim()) {
+      errors.supplierEmail = "Email address is required";
+    } else if (!/^[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/.test(supplierEmail)) {
+      errors.supplierEmail = "Please enter a valid email address";
+    }
+
+    // Phone number validation (required)
+    if (!supplierPhone.trim()) {
+      errors.supplierPhone = "Phone number is required";
+    } else if (!/^(?:\+94|0)[0-9]{9,10}$/.test(supplierPhone.replace(/\s+/g, ''))) {
+      errors.supplierPhone = "Please enter a valid Sri Lankan phone number";
+    }
+
+    // Rest of your existing validation code...
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  const handleUpdateSupplier = async () => {
-    if (!currentSupplier || !currentSupplier.id) {
-      setError("Cannot update: Missing supplier ID");
-      return;
-    }
+  // Update handleAddSupplier function
+const handleAddSupplier = async () => {
+  // Validate form first
+  if (!validateSupplierForm()) {
+    toast.error("Please correct the errors in the form");
+    return;
+  }
 
-    try {
-      setIsLoading(true);
-      const updatedSupplierData = {
-        name: supplierName,
-        value: parseInt(supplierValue) || 0,
-        contact: supplierContact,
-        email: supplierEmail,
-        address: supplierAddress,
-        category: supplierCategory,
-        phone: supplierPhone,
-        city: supplierCity,
-        country: supplierCountry,
-        website: supplierWebsite,
-        paymentTerms: paymentTerms,
-        leadTime: parseInt(leadTime) || 0,
-        notes: supplierNotes,
-      };
+  try {
+    setIsLoading(true);
+    const newSupplier = {
+      name: supplierName,
+      value: parseInt(supplierValue) || 0,
+      contact: supplierContact,
+      email: supplierEmail,
+      address: supplierAddress,
+      category: supplierCategory,
+      phone: supplierPhone,
+      city: supplierCity,
+      country: supplierCountry,
+      website: supplierWebsite,
+      paymentTerms: paymentTerms,
+      leadTime: leadTime,
+      notes: supplierNotes,
+    };
 
-      const updatedSupplier = await supplierService.updateSupplier(
-        currentSupplier.id,
-        updatedSupplierData
-      );
+    const createdSupplier = await supplierService.createSupplier(newSupplier);
+    setSuppliers([...suppliers, createdSupplier]);
+    resetForm();
+    setError(null);
+    toast.success("Supplier added successfully");
+  } catch (error) {
+    setError("Failed to add supplier. Please try again.");
+    toast.error("Failed to add supplier");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-      setSuppliers(
-        suppliers.map((supplier) =>
-          supplier._id === currentSupplier.id
-            ? { ...supplier, ...updatedSupplierData }
-            : supplier
-        )
-      );
+// Similarly update handleUpdateSupplier
+const handleUpdateSupplier = async () => {
+  if (!currentSupplier || !currentSupplier.id) {
+    setError("Cannot update: Missing supplier ID");
+    return;
+  }
 
-      toast.success("Supplier updated successfully");
-      resetForm();
-      setError(null);
-    } catch (error) {
-      setError(`Failed to update supplier: ${error.message || 'Server error'}`);
-      toast.error(`Failed to update supplier: ${error.message || 'Server error'}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Validate form first
+  if (!validateSupplierForm()) {
+    toast.error("Please correct the errors in the form");
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+    const updatedSupplierData = {
+      name: supplierName,
+      value: parseInt(supplierValue) || 0,
+      contact: supplierContact,
+      email: supplierEmail,
+      address: supplierAddress,
+      category: supplierCategory,
+      phone: supplierPhone,
+      city: supplierCity,
+      country: supplierCountry,
+      website: supplierWebsite,
+      paymentTerms: paymentTerms,
+      leadTime: parseInt(leadTime) || 0,
+      notes: supplierNotes,
+    };
+
+    const updatedSupplier = await supplierService.updateSupplier(
+      currentSupplier.id,
+      updatedSupplierData
+    );
+
+    setSuppliers(
+      suppliers.map((supplier) =>
+        supplier._id === currentSupplier.id
+          ? { ...supplier, ...updatedSupplierData }
+          : supplier
+      )
+    );
+
+    toast.success("Supplier updated successfully");
+    resetForm();
+    setError(null);
+  } catch (error) {
+    setError(`Failed to update supplier: ${error.message || 'Server error'}`);
+    toast.error(`Failed to update supplier: ${error.message || 'Server error'}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleDeleteSupplier = async (supplierId) => {
     const confirmed = window.confirm(
@@ -1438,6 +1493,11 @@ const handleRestockRequest = async (itemName) => {
             className="flex items-center px-4 py-2 w-full text-blue-200 hover:bg-blue-800 rounded-lg transition-colors"
             onClick={() => {
               /* Add logout functionality */
+              sessionStorage.removeItem('token');
+                    toast.success('You have logged out successfully');
+                    
+                    // Redirect to home page
+                    navigate('/');
             }}
           >
             <LogOut className="mr-3 h-5 w-5" />
@@ -2432,68 +2492,83 @@ const handleRestockRequest = async (itemName) => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Supplier Name{" "}
-                                <span className="text-red-500">*</span>
+                                Supplier Name <span className="text-red-500">*</span>
                               </label>
-                              <input
-                                type="text"
-                                value={supplierName}
-                                onChange={(e) =>
-                                  setSupplierName(e.target.value)
-                                }
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                                placeholder="Enter company name"
-                                required
-                              />
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={supplierName}
+                                  onChange={(e) => {
+                                    setSupplierName(e.target.value);
+                                    if (validationErrors.supplierName) {
+                                      setValidationErrors({
+                                        ...validationErrors,
+                                        supplierName: null
+                                      });
+                                    }
+                                  }}
+                                  className={`w-full px-3 py-2 bg-gray-50 border ${
+                                    validationErrors.supplierName 
+                                      ? "border-red-500 focus:ring-red-500" 
+                                      : "border-gray-300 focus:ring-blue-500"
+                                  } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                                  placeholder="Enter company name"
+                                  required
+                                />
+                                {supplierName.trim() && !validationErrors.supplierName && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              {validationErrors.supplierName && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierName}</p>
+                              )}
                             </div>
 
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Category
+                                Category <span className="text-red-500">*</span>
                               </label>
-                              <select
-                                value={supplierCategory}
-                                onChange={(e) =>
-                                  setSupplierCategory(e.target.value)
-                                }
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                              >
-                                <option value="">Select a category</option>
-                                <option
-                                  value="Safety Gear & Accessories
-"
+                              <div className="relative">
+                                <select
+                                  value={supplierCategory}
+                                  onChange={(e) => {
+                                    setSupplierCategory(e.target.value);
+                                    if (validationErrors.supplierCategory) {
+                                      setValidationErrors({
+                                        ...validationErrors,
+                                        supplierCategory: null
+                                      });
+                                    }
+                                  }}
+                                  className={`w-full px-3 py-2 bg-gray-50 border ${
+                                    validationErrors.supplierCategory 
+                                      ? "border-red-500 focus:ring-red-500" 
+                                      : "border-gray-300 focus:ring-blue-500"
+                                  } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
                                 >
-                                  Safety Gear & Accessories
-                                </option>
-                                <option
-                                  value="Tools & Equipment
-"
-                                >
-                                  Tools & Equipment
-                                </option>
-                                <option
-                                  value="Construction Materials
-"
-                                >
-                                  Construction Materials
-                                </option>
-                                <option
-                                  value="Safety Gear & Accessories
-"
-                                >
-                                  Safety Gear & Accessories
-                                </option>
-                                <option
-                                  value="Plumbing & Electrical Supplies
-"
-                                >
-                                  Plumbing & Electrical Supplies
-                                </option>
-                              </select>
+                                  <option value="">Select a category</option>
+                                  <option value="Safety Gear & Accessories">Safety Gear & Accessories</option>
+                                  <option value="Tools & Equipment">Tools & Equipment</option>
+                                  <option value="Construction Materials">Construction Materials</option>
+                                  <option value="Plumbing & Electrical Supplies">Plumbing & Electrical Supplies</option>
+                                </select>
+                                {supplierCategory && !validationErrors.supplierCategory && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              {validationErrors.supplierCategory && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierCategory}</p>
+                              )}
                             </div>
-                          </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Website
@@ -2517,6 +2592,11 @@ const handleRestockRequest = async (itemName) => {
                                   placeholder="example.com"
                                 />
                               </div>
+                              {validationErrors.supplierWebsite && (
+                                <p className="text-red-500 text-xs mt-1">
+                                  {validationErrors.supplierWebsite}
+                                </p>
+                              )}
                             </div>
 
                             <div>
@@ -2534,6 +2614,11 @@ const handleRestockRequest = async (itemName) => {
                                 className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                                 placeholder="Percentage of business"
                               />
+                              {validationErrors.supplierValue && (
+                                <p className="text-red-500 text-xs mt-1">
+                                  {validationErrors.supplierValue}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2547,46 +2632,117 @@ const handleRestockRequest = async (itemName) => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Contact Person
+                                Contact Person <span className="text-red-500">*</span>
                               </label>
-                              <input
-                                type="text"
-                                value={supplierContact}
-                                onChange={(e) =>
-                                  setSupplierContact(e.target.value)
-                                }
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                                placeholder="Full name"
-                              />
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={supplierContact}
+                                  onChange={(e) => {
+                                    setSupplierContact(e.target.value);
+                                    if (validationErrors.supplierContact) {
+                                      setValidationErrors({
+                                        ...validationErrors,
+                                        supplierContact: null
+                                      });
+                                    }
+                                  }}
+                                  className={`w-full px-3 py-2 bg-gray-50 border ${
+                                    validationErrors.supplierContact 
+                                      ? "border-red-500 focus:ring-red-500" 
+                                      : "border-gray-300 focus:ring-blue-500"
+                                  } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                                  placeholder="Full name"
+                                />
+                                {supplierContact.trim() && !validationErrors.supplierContact && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              {validationErrors.supplierContact && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierContact}</p>
+                              )}
                             </div>
 
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Phone Number
+                                Phone Number <span className="text-red-500">*</span>
                               </label>
-                              <input
-                                type="tel"
-                                value={supplierPhone}
-                                onChange={(e) =>
-                                  setSupplierPhone(e.target.value)
-                                }
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                                placeholder="+94 XX XXX XXXX"
-                              />
+                              <div className="relative">
+                                <input
+                                  type="tel"
+                                  value={supplierPhone}
+                                  onChange={(e) => {
+                                    setSupplierPhone(e.target.value);
+                                    if (validationErrors.supplierPhone) {
+                                      setValidationErrors({
+                                        ...validationErrors,
+                                        supplierPhone: null
+                                      });
+                                    }
+                                  }}
+                                  className={`w-full px-3 py-2 bg-gray-50 border ${
+                                    validationErrors.supplierPhone 
+                                      ? "border-red-500 focus:ring-red-500" 
+                                      : "border-gray-300 focus:ring-blue-500"
+                                  } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                                  placeholder="+94 XX XXX XXXX"
+                                  required
+                                />
+                                {supplierPhone && !validationErrors.supplierPhone && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              {validationErrors.supplierPhone && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierPhone}</p>
+                              )}
                             </div>
+
                           </div>
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Email Address
+                              Email Address <span className="text-red-500">*</span>
                             </label>
-                            <input
-                              type="email"
-                              value={supplierEmail}
-                              onChange={(e) => setSupplierEmail(e.target.value)}
-                              className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                              placeholder="email@example.com"
-                            />
+                            <div className="relative">
+                              <input
+                                type="email"
+                                value={supplierEmail}
+                                onChange={(e) => {
+                                  setSupplierEmail(e.target.value);
+                                  if (validationErrors.supplierEmail) {
+                                    setValidationErrors({
+                                      ...validationErrors,
+                                      supplierEmail: null
+                                    });
+                                  }
+                                }}
+                                className={`w-full px-3 py-2 bg-gray-50 border ${
+                                  validationErrors.supplierEmail 
+                                    ? "border-red-500 focus:ring-red-500" 
+                                    : "border-gray-300 focus:ring-blue-500"
+                                } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                                placeholder="email@example.com"
+                                required
+                              />
+                              {supplierEmail && !validationErrors.supplierEmail && (
+                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                            {validationErrors.supplierEmail && (
+                              <p className="mt-1 text-sm text-red-600">{validationErrors.supplierEmail}</p>
+                            )}
                           </div>
                         </div>
 
@@ -2673,6 +2829,11 @@ const handleRestockRequest = async (itemName) => {
                                 className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                                 placeholder="Estimated lead time"
                               />
+                              {validationErrors.leadTime && (
+                                <p className="text-red-500 text-xs mt-1">
+                                  {validationErrors.leadTime}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
