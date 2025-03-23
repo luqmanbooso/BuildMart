@@ -381,10 +381,10 @@ function Ongoingworks() {
             <h2 className="text-2xl font-bold text-gray-700 mb-2">No Ongoing Projects</h2>
             <p className="text-gray-500 mb-6">You don't have any ongoing projects at the moment.</p>
             <Link 
-              to="/dashboard" 
+              to="/userprofile" 
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              Return to Dashboard
+              Add New Job
             </Link>
           </div>
         </div>
