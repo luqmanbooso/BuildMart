@@ -40,6 +40,7 @@ import { supplierService } from "../services/supplierService";
 import { restockService } from "../services/restockService";
 import RestockRequests from '../components/RestockRequests';
 import ShippingManager from '../components/ShippingManager';
+import { useNavigate } from 'react-router-dom';
 
 // Mock data for the dashboard
 const inventoryData = [
@@ -298,11 +299,12 @@ function Supply_LogisticDashboard() {
   const [restockRequests, setRestockRequests] = useState([]);
   const [selectedOrderForShipment, setSelectedOrderForShipment] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
+  const navigate = useNavigate(); // Add this line to define the navigate function
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
-  switch (status?.toLowerCase()) {
-    case 'placed':
+  switch (status) {
+    case 'pending':
       return 'Pending';
     case 'processing':
       return 'Processing';
@@ -1514,12 +1516,9 @@ const handleUpdateSupplier = async () => {
           <button
             className="flex items-center px-4 py-2 w-full text-blue-200 hover:bg-blue-800 rounded-lg transition-colors"
             onClick={() => {
-              /* Add logout functionality */
-              sessionStorage.removeItem('token');
-                    toast.success('You have logged out successfully');
-                    
-                    // Redirect to home page
-                    navigate('/');
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              window.location.href = '/login';
             }}
           >
             <LogOut className="mr-3 h-5 w-5" />

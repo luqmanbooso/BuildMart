@@ -150,3 +150,40 @@ exports.getUserOrders = async (req, res) => {
     });
   }
 };
+
+// Add this new function to handle order updates by order number instead of MongoDB ID
+exports.updateOrderStatusByOrderNumber = async (req, res) => {
+  try {
+    const { orderNumber } = req.params;
+    const { status } = req.body;
+    
+    console.log(`Updating order ${orderNumber} to status: ${status}`);
+    
+    // Find the order by the custom order number field (not _id)
+    const order = await Order.findOne({ orderNumber: orderNumber });
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: `Order with number ${orderNumber} not found`
+      });
+    }
+    
+    // Update the order status
+    order.orderStatus = status;
+    await order.save();
+    
+    res.status(200).json({
+      success: true,
+      message: `Order ${orderNumber} status updated to ${status}`,
+      order
+    });
+  } catch (error) {
+    console.error('Order status update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update order status',
+      error: error.message
+    });
+  }
+};

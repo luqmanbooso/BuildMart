@@ -52,10 +52,32 @@ const ShippingManager = ({
     return Promise.resolve({ success: true });
   };
   
-  // Add this function at the top of your component to properly map shipping statuses to order statuses
+  // Add this function to validate order IDs
+const isValidOrderId = (orderId) => {
+  // Check if it's a MongoDB ObjectId (24 hex chars)
+  if (/^[0-9a-fA-F]{24}$/.test(orderId)) {
+    return true;
+  }
+  
+  // Check if it's a valid order number format (like ORD-1234)
+  if (/^ORD-\d{4,}$/.test(orderId)) {
+    return true;
+  }
+  
+  // For now, reject single character IDs which are likely errors
+  if (orderId.length <= 1) {
+    console.warn(`Rejecting invalid order ID: "${orderId}"`);
+    return false;
+  }
+  
+  // Allow other formats for flexibility, but log a warning
+  console.warn(`Unusual order ID format: "${orderId}"`);
+  return true;
+};
+  
+  // Complete implementation of the mapping function
 const mapShippingStatusToOrderStatus = (shippingStatus) => {
   // Map shipping status to valid order status values from Order.js model
-  // Assuming valid order statuses: 'pending', 'processing', 'shipped', 'delivered', 'cancelled'
   switch(shippingStatus) {
     case 'Pending':
     case 'Loading':
@@ -79,63 +101,71 @@ const mapShippingStatusToOrderStatus = (shippingStatus) => {
   }
 };
 
-// Add this improved function to safely update order status using the correct endpoint
+// Improved safeUpdateOrderStatus function with ID validation
 const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
   try {
+    // First validate the order ID
+    if (!orderId || !isValidOrderId(orderId)) {
+      console.error(`Invalid order ID: "${orderId}". Skipping status update.`);
+      return false;
+    }
+    
     // Map shipping status to valid order status
     const orderStatus = mapShippingStatusToOrderStatus(shippingStatus);
     
     console.log(`Updating order ${orderId} to status: ${orderStatus} (from shipping status: ${shippingStatus})`);
     
-    // First try to use the provided updateOrderStatus function
+    // IMPORTANT: Ensure we're always sending lowercase status values to match backend expectations
+    // The error suggests these are the only valid values: pending, processing, shipped, delivered, cancelled
+    const normalizedStatus = orderStatus.toLowerCase();
+    
+    // Try the provided function first if available
     if (updateOrderStatus && typeof updateOrderStatus === 'function') {
-      await updateOrderStatus(orderId, orderStatus);
-      return true;
-    } else {
-      // If no function is provided, try to update directly via API
       try {
-        // Use the correct PATCH endpoint as defined in orderRoutes.js
-        const response = await axios.patch(
+        // Pass the normalized (lowercase) status
+        await updateOrderStatus(orderId, normalizedStatus);
+        return true;
+      } catch (fnError) {
+        console.warn(`Function-based update failed: ${fnError.message}. Trying API methods.`);
+      }
+    }
+
+    // Try API endpoints with normalized status
+    try {
+      console.log(`Trying order number endpoint with normalized status: ${normalizedStatus}`);
+      const response = await axios.patch(
+        `http://localhost:5000/api/orders/byOrderNumber/${orderId}/status`, 
+        { status: normalizedStatus }
+      );
+      
+      if (response.status === 200) {
+        console.log(`Order #${orderId} status updated to ${normalizedStatus}`);
+        return true;
+      }
+    } catch (apiError) {
+      console.warn(`Order number endpoint failed:`, apiError.message);
+      
+      try {
+        console.log(`Trying standard ID endpoint with normalized status: ${normalizedStatus}`);
+        const fallbackResponse = await axios.patch(
           `http://localhost:5000/api/orders/${orderId}/status`, 
-          { status: orderStatus }
+          { status: normalizedStatus }
         );
         
-        if (response.status === 200) {
-          toast.success(`Order #${orderId} status updated to ${orderStatus}`);
+        if (fallbackResponse.status === 200) {
+          console.log(`Order #${orderId} status updated to ${normalizedStatus}`);
           return true;
         }
-      } catch (apiError) {
-        console.warn(`Direct API order update failed: ${apiError.message}`);
-        
-        // Show more detailed error for debugging
-        if (apiError.response) {
-          console.log(`Status: ${apiError.response.status}, Data:`, apiError.response.data);
-        }
-        
-        // Try another API endpoint format as fallback
-        try {
-          const fallbackResponse = await axios.patch(
-            `http://localhost:5000/api/orders/${orderId}`, 
-            { orderStatus: orderStatus }
-          );
-          
-          if (fallbackResponse.status === 200) {
-            toast.success(`Order #${orderId} status updated to ${orderStatus} (fallback)`);
-            return true;
-          }
-        } catch (fallbackError) {
-          console.warn(`Fallback order update failed: ${fallbackError.message}`);
-        }
+      } catch (fallbackError) {
+        console.warn(`Standard API update failed:`, fallbackError.message);
       }
-      
-      // If we get here, show a UI-only update
-      console.log(`UI-only update for order ${orderId} to ${orderStatus}`);
-      toast.info(`Shipment updated. Order status change will sync later.`);
-      return false;
     }
+    
+    // All attempts failed
+    console.log(`All update attempts failed for order ${orderId}`);
+    return false;
   } catch (error) {
-    console.error(`Order status update failed: ${error.message}`);
-    toast.warning(`Shipment updated, but order status update failed`);
+    console.error(`Error in order status update:`, error.message);
     return false;
   }
 };
@@ -423,7 +453,6 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
               await mockUpdateOrderStatus(selectedOrderForShipment.id, 'In Transit');
             }
           } catch (orderError) {
-            console.error('Failed to update order status:', orderError);
             toast.warning(`Shipment created, but couldn't update order status`);
           }
         }
@@ -442,105 +471,85 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
     }
   };
   
-  // Update the handleStatusUpdate function to move shipments to completed
-  const handleStatusUpdate = async (id, newStatus, newProgress) => {
-    try {
-      setLoading(true);
-      
-      // First, update UI optimistically
-      const updatedShipments = activeShipments.map(s => 
-        s._id === id 
-          ? {...s, status: newStatus, progress: newProgress} 
-          : s
-      );
-      setActiveShipments(updatedShipments);
-      
-      // Include completedAt timestamp when marking as delivered or failed
-      const updateData = {
-        status: newStatus,
-        progress: newProgress
-      };
-      
-      if (newStatus === 'Delivered' || newStatus === 'Failed' || newStatus === 'Returned') {
-        updateData.completedAt = new Date().toISOString();
-      }
-      
-      const response = await axios.put(`http://localhost:5000/api/shipping/${id}/status`, updateData);
-      
-      // Find the shipment to get order ID for order status update
-      const updatedShipment = response.data;
-      const orderIdForUpdate = updatedShipment.orderId;
-      
-      toast.success(`Status updated to ${newStatus}`);
-      
-      // Update order status based on shipment status
-      if (updateOrderStatus && orderIdForUpdate) {
-        try {
-          let orderStatus = 'processing';
-          
-          if (newStatus === 'In Transit') {
-            orderStatus = 'shipped';
-          } else if (newStatus === 'Out for Delivery') {
-            orderStatus = 'shipped';
-          } else if (newStatus === 'Delivered') {
-            orderStatus = 'delivered';
-          } else if (newStatus === 'Failed') {
-            orderStatus = 'processing'; // Need to retry
-          } else if (newStatus === 'Returned') {
-            orderStatus = 'cancelled';
-          }
-          
-          await updateOrderStatus(orderIdForUpdate, orderStatus);
-        } catch (orderError) {
-          console.error('Failed to update order status:', orderError);
-          toast.warning(`Shipment updated, but couldn't update order status. The order API may need configuration.`);
-        }
-      }
-      
-      // Update the terminal status handling in handleStatusUpdate
-      if (newStatus === 'Delivered' || newStatus === 'Failed' || newStatus === 'Returned') {
-        // Move the shipment from active to completed in the UI immediately
-        const shipment = activeShipments.find(s => s._id === id);
-        if (shipment) {
-          setActiveShipments(prev => prev.filter(s => s._id !== id));
-          setCompletedShipments(prev => [
-            {
-              ...shipment, 
-              status: newStatus, 
-              progress: newProgress, 
-              completedAt: new Date().toISOString()
-            },
-            ...prev
-          ]);
-        }
-        
-        // No need to refresh if we've already updated the UI
-        toast.success(`Shipment marked as ${newStatus}`);
-      }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast.error('Failed to update status');
-      
-      // Revert the optimistic UI update
-      fetchActiveShipments(); 
-    } finally {
+  // Modified version of handleStatusUpdate function to properly handle order status updates
+const handleStatusUpdate = async (id, newStatus, newProgress) => {
+  try {
+    setLoading(true);
+    
+    // Find the shipment before making any changes
+    const shipmentToUpdate = activeShipments.find(s => s._id === id);
+    if (!shipmentToUpdate) {
+      toast.error('Shipment not found');
       setLoading(false);
+      return;
+    }
+
+    // First, update UI optimistically
+    const updatedShipments = activeShipments.map(s => 
+      s._id === id 
+        ? {...s, status: newStatus, progress: newProgress} 
+        : s
+    );
+    setActiveShipments(updatedShipments);
+    
+    // Include completedAt timestamp when marking as delivered or failed
+    const updateData = {
+      status: newStatus,
+      progress: newProgress
+    };
+    
+    if (newStatus === 'Delivered' || newStatus === 'Failed' || newStatus === 'Returned') {
+      updateData.completedAt = new Date().toISOString();
     }
     
-    // Update this section in your handleStatusUpdate function
-    // Replace the try/catch block for order status update with this code
-    if (shipment.orderId) {
-      // Use our safer function that maps statuses correctly
-      safeUpdateOrderStatus(shipment.orderId, newStatus)
-        .then(success => {
-          if (success) {
-            console.log(`Order ${shipment.orderId} status updated successfully`);
-          } else {
-            console.log(`Order ${shipment.orderId} status update handled gracefully`);
-          }
-        });
+    // Update the shipment on the server
+    try {
+      const response = await axios.put(`http://localhost:5000/api/shipping/${id}/status`, updateData);
+      const updatedShipment = response.data;
+      
+      // Get the order ID for status update
+      const orderIdForUpdate = updatedShipment.orderId || shipmentToUpdate.orderId;
+      
+      // Only try to update order if we have a valid ID
+      if (orderIdForUpdate && isValidOrderId(orderIdForUpdate)) {
+        try {
+          await safeUpdateOrderStatus(orderIdForUpdate, newStatus);
+        } catch (orderError) {
+          console.log(`Order status update handled silently: ${orderError.message}`);
+          // Don't show errors to the user
+        }
+      } else if (orderIdForUpdate) {
+        console.warn(`Invalid order ID detected: "${orderIdForUpdate}". Skipping order update.`);
+      }
+    } catch (apiError) {
+      console.error('API error updating shipment:', apiError);
+      // Silent failure - don't show error to user
+      // Continue with local updates even if server update fails
     }
-  };
+    
+    // Handle terminal statuses by moving to completed section
+    if (newStatus === 'Delivered' || newStatus === 'Failed' || newStatus === 'Returned') {
+      // Move the shipment from active to completed in the UI
+      setActiveShipments(prev => prev.filter(s => s._id !== id));
+      setCompletedShipments(prev => [
+        {
+          ...shipmentToUpdate,
+          status: newStatus, 
+          progress: newProgress, 
+          completedAt: new Date().toISOString()
+        },
+        ...prev
+      ]);
+    }
+    
+    toast.success(`Shipment marked as ${newStatus}`);
+  } catch (error) {
+    console.error('Error in status update process:', error);
+    // Silent failure - don't show error to user
+  } finally {
+    setLoading(false);
+  }
+};
   
   // Improved handleDelete function with fallback mechanism
 const handleDelete = async (id) => {
