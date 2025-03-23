@@ -2488,9 +2488,16 @@ const processPaymentData = (data) => {
         {/* Updated Logout Section */}
         <div className="absolute bottom-0 w-64 border-t border-gray-100">
           <div className="px-6 py-4">
-            <button className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
+            <button className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
+            onClick={() => {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              window.location.href = '/login';
+            }}
+          >
               <LogOut size={18} className="mr-2 text-gray-500" />
               <span>Log out</span>
+
             </button>
           </div>
         </div>
@@ -2504,12 +2511,7 @@ const processPaymentData = (data) => {
             <div className="flex justify-between items-center">
               {/* Enhanced Search */}
               <div className="relative w-96">
-                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search payments, providers, items..."
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200"
-                />
+                
               </div>
 
               {/* User Profile Section */}
@@ -2519,16 +2521,14 @@ const processPaymentData = (data) => {
                 {/* Enhanced Profile Button */}
                 <div className="relative">
                   <button className="flex items-center space-x-4 p-2 rounded-lg hover:bg-gray-50 transition-all duration-200">
-                    <img
-                      className="h-10 w-10 rounded-lg object-cover ring-2 ring-gray-100"
-                      src="https://via.placeholder.com/40"
-                      alt="User"
-                    />
+                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium ring-2 ring-gray-100">
+                      AT
+                    </div>
                     <div className="flex flex-col items-start">
                       <span className="text-sm font-semibold text-gray-700">Miss Amanda Thenuwra</span>
-                      <span className="text-xs text-gray-500">Administrator</span>
+                      <span className="text-xs text-gray-500">Financial Administrator</span>
                     </div>
-                    <ChevronDown size={16} className="text-gray-400" />
+                    
                   </button>
                 </div>
               </div>
