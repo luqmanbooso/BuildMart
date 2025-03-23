@@ -1652,17 +1652,7 @@ const handleUpdateSupplier = async () => {
               Restock
             </button>
 
-            <div className="border-t border-blue-800 my-4"></div>
-
-            <button
-              onClick={() => {
-                /* Add settings functionality */
-              }}
-              className="flex items-center px-4 py-2.5 w-full text-left text-blue-200 hover:bg-blue-800 rounded-lg transition-colors"
-            >
-              <Settings className="mr-3 h-5 w-5" />
-              Settings
-            </button>
+            
           </nav>
         </div>
 
@@ -1670,12 +1660,15 @@ const handleUpdateSupplier = async () => {
           <button
             className="flex items-center px-4 py-2 w-full text-blue-200 hover:bg-blue-800 rounded-lg transition-colors"
             onClick={() => {
-              /* Add logout functionality */
-              sessionStorage.removeItem('token');
-                    toast.success('You have logged out successfully');
-                    
-                    // Redirect to home page
-                    navigate('/');
+              // Clear authentication data from localStorage
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              
+              // Show success message
+              toast.success('Logged out successfully');
+              
+              // Redirect to login page
+              window.location.href = '/login';
             }}
           >
             <LogOut className="mr-3 h-5 w-5" />
@@ -1766,35 +1759,17 @@ const handleUpdateSupplier = async () => {
                   <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white">
                     <span className="text-sm font-medium">SA</span>
                   </div>
+                  <div className="flex flex-col items-start">
                   <span className="text-sm font-medium text-gray-700">
-                    Sakith A.
+                  Supply Admin
                   </span>
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
+
+                  <span className="text-xs font-medium text-gray-400">
+                  supplyadmin@buildmart.com
+                  </span>
+                  </div>
                 </button>
 
-                {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-30">
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Your Profile
-                    </a>
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Settings
-                    </a>
-                    <div className="border-t border-gray-200 my-1"></div>
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                    >
-                      Sign Out
-                    </a>
-                  </div>
-                )}
               </div>
             </div>
           </div>
