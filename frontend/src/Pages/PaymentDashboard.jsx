@@ -908,7 +908,7 @@ const processPaymentData = (data) => {
     {
       title: "Service Provider Payments",
       value: `Rs. ${(paymentStats?.serviceProviderTotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-      change: "+12.5%",
+    
       icon: <Users className="h-6 w-6 text-blue-600" />,
       trend: "up",
       isIncome: false // Mark this as not income
@@ -916,7 +916,7 @@ const processPaymentData = (data) => {
     {
       title: "Inventory Sales",
       value: `Rs. ${(paymentStats?.inventorySalesTotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-      change: "+8.2%",
+  
       icon: <ShoppingCart className="h-6 w-6 text-green-600" />,
       trend: "up",
       isIncome: true
@@ -924,7 +924,7 @@ const processPaymentData = (data) => {
     {
       title: "Agreement Fees",
       value: `Rs. ${(paymentStats?.agreementFeeIncome || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-      change: "+3.5%",
+
       icon: <FileText className="h-6 w-6 text-orange-600" />,
       trend: "up",
       isIncome: true
@@ -932,7 +932,7 @@ const processPaymentData = (data) => {
     {
       title: "Commission Income",
       value: `Rs. ${(paymentStats?.commissionIncome || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-      change: "+5.7%",
+
       icon: <Percent className="h-6 w-6 text-purple-600" />,
       trend: "up",
       isIncome: true
@@ -942,7 +942,7 @@ const processPaymentData = (data) => {
       value: `Rs. ${((paymentStats?.inventorySalesTotal || 0) + 
               (paymentStats?.commissionIncome || 0) + 
               (paymentStats?.agreementFeeIncome || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-      change: "+10.4%",
+   
       icon: <DollarSign className="h-6 w-6 text-indigo-600" />,
       trend: "up",
       isIncome: true
@@ -1214,7 +1214,7 @@ const processPaymentData = (data) => {
               </p>
               <div className="mt-2 flex items-center text-sm">
                 <ArrowUpRight className="text-green-500 mr-1" size={16} />
-                <span className="text-green-600">+12.5% from last month</span>
+              
               </div>
             </div>
   
@@ -1226,7 +1226,7 @@ const processPaymentData = (data) => {
               </p>
               <div className="mt-2 flex items-center text-sm">
                 <ArrowUpRight className="text-purple-500 mr-1" size={16} />
-                <span className="text-purple-600">+5.7% from last month</span>
+              
               </div>
             </div>
   
@@ -1237,7 +1237,7 @@ const processPaymentData = (data) => {
               </p>
               <div className="mt-2 flex items-center text-sm">
                 <ArrowUpRight className="text-orange-500 mr-1" size={16} />
-                <span className="text-orange-600">+3.2% from last month</span>
+                
               </div>
             </div>
   
@@ -1250,172 +1250,7 @@ const processPaymentData = (data) => {
               </p>
               <div className="mt-2 flex items-center text-sm">
                 <ArrowUpRight className="text-indigo-500 mr-1" size={16} />
-                <span className="text-indigo-600">+10.4% from last month</span>
               </div>
-            </div>
-          </div>
-          
-          {/* Agreement Fee Section */}
-          <div className="mt-8 mb-8">
-            <h3 className="text-lg font-semibold mb-4">Agreement Fees</h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Client
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Agreement Type
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {agreementFeePayments.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="px-6 py-10 text-center text-gray-500">
-                        No agreement fee records found
-                      </td>
-                    </tr>
-                  ) : (
-                    agreementFeePayments
-                      .slice(0, 5)
-                      .map((payment, index) => (
-                        <tr key={payment.id || index} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {payment.date}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {payment.clientName}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {payment.user?.email || 'No email'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {payment.agreementType}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-orange-700">
-                              Rs. {parseFloat(payment.amount).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              })}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                  )}
-                  {agreementFeePayments.length > 5 && (
-                    <tr>
-                      <td colSpan="4" className="px-6 py-3 text-center">
-                        <button
-                          onClick={() => {
-                            // You could add logic to focus on agreement fees
-                          }}
-                          className="text-sm text-blue-600 hover:text-blue-800"
-                        >
-                          View All Agreement Fee Records
-                        </button>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          
-          {/* Commission Income Section */}
-          <div className="mt-8 mb-8">
-            <h3 className="text-lg font-semibold mb-4">Commission Income</h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Transaction
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Original Amount
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Commission Rate
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Commission Amount
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {commissionPayments.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
-                        No commission income records found
-                      </td>
-                    </tr>
-                  ) : (
-                    commissionPayments.slice(0, 5).map((payment, index) => (
-                      <tr key={payment.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{payment.date}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {payment.paymentType || 'Transaction'} #{payment.id.substring(payment.id.length - 6)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            Rs. {payment.originalAmount.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2
-                            })}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {(payment.commissionRate * 100).toFixed(1)}%
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-purple-700">
-                            Rs. {payment.commissionAmount.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2
-                            })}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                  {commissionPayments.length > 5 && (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-3 text-center">
-                        <button 
-                          onClick={() => setActivePage('Commission Income')}
-                          className="text-sm text-blue-600 hover:text-blue-800"
-                        >
-                          View All Commission Income Records
-                        </button>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
             </div>
           </div>
   
@@ -1470,6 +1305,197 @@ const processPaymentData = (data) => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             Rs. {month.averageTransaction.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className={`inline-flex items-center text-sm font-medium ${
+                            growth > 0 ? 'text-green-600' : growth < 0 ? 'text-red-600' : 'text-gray-600'
+                          }`}>
+                            {growth > 0 ? <ArrowUpRight size={16} className="mr-1" /> : 
+                             growth < 0 ? <ArrowDownRight size={16} className="mr-1" /> : null}
+                            {growth.toFixed(1)}%
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Monthly Commission Income */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold mb-4">Monthly Commission Income</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Month/Year
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Commission
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Transaction Count
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Average Rate
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Growth
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Object.entries(commissionPayments.reduce((acc, payment) => {
+                    const date = new Date(payment.date);
+                    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    if (!acc[monthYear]) {
+                      acc[monthYear] = {
+                        month: date.toLocaleString('default', { month: 'long' }),
+                        year: date.getFullYear(),
+                        totalCommission: 0,
+                        transactionCount: 0,
+                        totalCommissionRate: 0
+                      };
+                    }
+                    
+                    acc[monthYear].totalCommission += payment.commissionAmount;
+                    acc[monthYear].transactionCount += 1;
+                    acc[monthYear].totalCommissionRate += payment.commissionRate;
+                    
+                    return acc;
+                  }, {}))
+                  .sort(([a], [b]) => b.localeCompare(a))
+                  .map(([key, data], index, array) => {
+                    const prevMonth = array[index + 1];
+                    const growth = prevMonth 
+                      ? ((data.totalCommission - prevMonth[1].totalCommission) / prevMonth[1].totalCommission) * 100 
+                      : 0;
+                    const averageRate = (data.totalCommissionRate / data.transactionCount) * 100;
+      
+                    return (
+                      <tr key={key} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {data.month} {data.year}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-purple-700">
+                            Rs. {data.totalCommission.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {data.transactionCount.toLocaleString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {averageRate.toFixed(1)}%
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className={`inline-flex items-center text-sm font-medium ${
+                            growth > 0 ? 'text-green-600' : growth < 0 ? 'text-red-600' : 'text-gray-600'
+                          }`}>
+                            {growth > 0 ? <ArrowUpRight size={16} className="mr-1" /> : 
+                             growth < 0 ? <ArrowDownRight size={16} className="mr-1" /> : null}
+                            {growth.toFixed(1)}%
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Monthly Agreement Fee Income */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold mb-4">Monthly Agreement Fee Income</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Month/Year
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Fees
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Agreement Count
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Average Fee
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Growth
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Object.entries(agreementFeePayments.reduce((acc, payment) => {
+                    const date = new Date(payment.date);
+                    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    if (!acc[monthYear]) {
+                      acc[monthYear] = {
+                        month: date.toLocaleString('default', { month: 'long' }),
+                        year: date.getFullYear(),
+                        totalFees: 0,
+                        agreementCount: 0
+                      };
+                    }
+                    
+                    acc[monthYear].totalFees += parseFloat(payment.amount);
+                    acc[monthYear].agreementCount += 1;
+                    
+                    return acc;
+                  }, {}))
+                  .sort(([a], [b]) => b.localeCompare(a))
+                  .map(([key, data], index, array) => {
+                    const prevMonth = array[index + 1];
+                    const growth = prevMonth 
+                      ? ((data.totalFees - prevMonth[1].totalFees) / prevMonth[1].totalFees) * 100 
+                      : 0;
+                    const averageFee = data.totalFees / data.agreementCount;
+      
+                    return (
+                      <tr key={key} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {data.month} {data.year}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-orange-700">
+                            Rs. {data.totalFees.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {data.agreementCount.toLocaleString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            Rs. {averageFee.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2
                             })}
