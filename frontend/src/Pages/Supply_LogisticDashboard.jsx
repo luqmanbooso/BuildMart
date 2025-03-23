@@ -725,7 +725,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
     toast.success(`Order #${orderId} status updated to ${newStatus}`);
   } catch (error) {
     console.error('Error updating order status:', error);
-    toast.error('Failed to update order status');
+
     
     // Show more detailed error info for debugging
     if (error.response) {
