@@ -1,3 +1,4 @@
+//imports and helper functions
 import React, { useRef } from "react";
 import { motion } from "framer-motion";
 import { FiPrinter, FiDownload, FiX, FiCheckCircle } from "react-icons/fi";
@@ -12,6 +13,7 @@ const generateInvoiceNumber = () => {
   return `INV-${Math.floor(100000 + Math.random() * 900000)}`;
 };
 
+//component definition and initialization
 const Invoice = ({ isOpen, onClose, cartItems, total, paymentDetails }) => {
   const invoiceRef = useRef(null);
   const invoiceNumber = generateInvoiceNumber();
@@ -24,6 +26,7 @@ const Invoice = ({ isOpen, onClose, cartItems, total, paymentDetails }) => {
   const shipping = 350;
   const tax = subtotal * 0.15;
   
+  //print and download functions
   const handlePrint = () => {
     const printContent = invoiceRef.current.innerHTML;
     const originalContent = document.body.innerHTML;
@@ -41,6 +44,7 @@ const Invoice = ({ isOpen, onClose, cartItems, total, paymentDetails }) => {
 
   if (!isOpen) return null;
 
+//modal content
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -54,6 +58,7 @@ const Invoice = ({ isOpen, onClose, cartItems, total, paymentDetails }) => {
         exit={{ scale: 0.95, opacity: 0 }}
         className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
       >
+        {/* Header */}
         <div className="sticky top-0 z-10 flex justify-between items-center p-6 border-b bg-white">
           <h2 className="text-2xl font-bold text-gray-800">Invoice</h2>
           <div className="flex gap-2">
