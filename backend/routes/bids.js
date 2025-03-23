@@ -328,4 +328,15 @@ router.get('/project/:projectId/lowest', async (req, res) => {
   }
 });
 
+router.get('/auction/:projectId', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const bids = await Bid.find({ projectId });
+    res.json(bids);
+  } catch (error) {
+    console.error('Error fetching project bids:', error);
+    res.status(500).json({ message: 'Error fetching project bids' });
+  }
+});
+
 module.exports = router;

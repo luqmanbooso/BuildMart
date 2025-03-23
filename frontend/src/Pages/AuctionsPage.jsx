@@ -200,6 +200,20 @@ const AuctionsPage = () => {
   const categories = ['All', 'Construction', 'Plumbing', 'Electrical', 'Renovation', 'Interior'];
   const statuses = ['All', 'active', 'pending', 'ended'];
   
+  // Add this function near the top of AuctionsPage component
+  const fetchBidCounts = async (jobIds) => {
+    try {
+      // Get bid counts for all jobs in one request
+      const response = await axios.get(`http://localhost:5000/api/bids/counts`, {
+        params: { jobIds: jobIds.join(',') }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching bid counts:', error);
+      return {};
+    }
+  };
+  
   // Fetch auctions from API
   useEffect(() => {
     const fetchAuctions = async () => {
@@ -245,17 +259,39 @@ const AuctionsPage = () => {
             endDate: job.biddingEndTime || new Date().toISOString(),
             status: job.status || 'Pending',
             date: job.date || new Date().toISOString(),
-            bids: job.bids?.length || 0 // Use the length of the bids array if available
+            bids: job.bids || 0 // Initially use the stored value
           };
         });
         
-        console.log('Jobs fetched from database:', formattedJobs);
+        // Set auctions with initial bid count
         setAuctions(formattedJobs);
+        
+        // Now fetch actual bid counts
+        if (formattedJobs.length > 0) {
+          const jobIds = formattedJobs.map(job => job._id);
+          try {
+            // Get individual bid counts
+            const bidCounts = {};
+            for (const jobId of jobIds) {
+              // Use the auction endpoint instead of project endpoint
+              const response = await axios.get(`http://localhost:5000/bids/auction/${jobId}`);
+              bidCounts[jobId] = response.data.length;
+            }
+            
+            // Update auctions with actual bid counts
+            setAuctions(prevAuctions => prevAuctions.map(auction => ({
+              ...auction,
+              bids: bidCounts[auction._id] || auction.bids || 0
+            })));
+          } catch (error) {
+            console.error('Error fetching bid counts:', error);
+          }
+        }
+        
         setLoading(false);
       } catch (error) {
         console.error('Error fetching auctions:', error);
         setLoading(false);
-        // Optionally show an error message to the user
       }
     };
     
