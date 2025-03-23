@@ -1792,266 +1792,616 @@ const handleUpdateSupplier = async () => {
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
           {activeTab === "dashboard" && (
-            <div className="space-y-6">
-              {/* KPI Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Total Inventory
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {inventoryLoading ? (
-                          <Loader className="h-6 w-6 text-blue-600 animate-spin" />
-                        ) : (
-                          `${inventory.length} Items`
-                        )}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-                      <Box className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center text-sm">
-                      <span className="text-green-600 font-medium">↑ 12% </span>
-                      <span className="ml-1 text-gray-600">
-                        from last month
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Low Stock Alerts
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {inventoryLoading ? (
-                          <Loader className="h-6 w-6 text-amber-600 animate-spin" />
-                        ) : (
-                          `${
-                            inventory.filter(
-                              (item) =>
-                                item.status === "Low Stock" ||
-                                item.status === "Critical"
-                            ).length
-                          } Items`
-                        )}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
-                      <AlertTriangle className="h-6 w-6 text-amber-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center text-sm">
-                      <span className="text-red-600 font-medium">↑ 3 </span>
-                      <span className="ml-1 text-gray-600">
-                        items since yesterday
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Inventory Value
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        Rs.{" "}
-                        {inventory
-                          .reduce(
-                            (total, item) =>
-                              total +
-                              item.stock *
-                                (item.name === "Sand (cubic m)" ? 7500 : 2500),
-                            0
-                          )
-                          .toLocaleString()}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
-                      <Activity className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center text-sm">
-                      <span className="text-green-600 font-medium">
-                        ↑ 8.5%{" "}
-                      </span>
-                      <span className="ml-1 text-gray-600">
-                        from previous quarter
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Pending Orders
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          orders.filter(
-                            (order) =>
-                              order.status === "Pending" ||
-                              order.status === "Processing"
-                          ).length
-                        }
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
-                      <ShoppingCart className="h-6 w-6 text-purple-600" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex items-center text-sm">
-                      <span className="text-green-600 font-medium">↓ 2 </span>
-                      <span className="ml-1 text-gray-600">
-                        orders since yesterday
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Active Shipments Section in Dashboard */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">
-                    Active Shipments
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={() => {
-                        const fetchShipmentData = async () => {
-                          try {
-                            setShipmentsLoading(true);
-                            const response = await axios.get('http://localhost:5000/api/shipping/active');
-                            setActiveShipments(response.data);
-                            setShipmentsError(null);
-                            toast.success("Shipment data refreshed");
-                          } catch (error) {
-                            console.error('Error fetching shipments:', error);
-                            toast.error("Failed to refresh shipments");
-                          } finally {
-                            setShipmentsLoading(false);
-                          }
-                        };
-                        fetchShipmentData();
-                      }} 
-                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                    >
-                      <RefreshCw className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Filter className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Download className="h-5 w-5 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {shipmentsLoading ? (
-                    <div className="flex justify-center p-6">
-                      <Loader className="animate-spin" size={24} />
-                    </div>
-                  ) : shipmentsError ? (
-                    <div className="text-center p-6 text-red-500">
-                      <AlertTriangle className="h-10 w-10 mx-auto mb-2" />
-                      <p>{shipmentsError}</p>
-                    </div>
-                  ) : activeShipments.length === 0 ? (
-                    <div className="text-center p-6 text-gray-500">
-                      <Package className="h-10 w-10 mx-auto mb-2" />
-                      <p>No active shipments found</p>
-                    </div>
+  <div className="space-y-8">
+    {/* Dashboard Header */}
+    <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg overflow-hidden">
+      <div className="px-8 py-6 text-white">
+        <h2 className="text-2xl font-bold tracking-tight">Dashboard Overview</h2>
+        <p className="mt-1 text-blue-100 text-sm">Track, analyze, and manage your supply chain operations</p>
+        
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg px-5 py-4 border border-white/20">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-blue-100 text-xs font-medium">TOTAL INVENTORY</p>
+                <h3 className="text-3xl font-bold text-white mt-1">
+                  {inventoryLoading ? (
+                    <Loader className="h-6 w-6 text-white animate-spin" />
                   ) : (
-                    <>
-                      {/* Display the first 3 shipments only */}
-                      {activeShipments.slice(0, 3).map((shipment) => (
-                        <div
-                          key={shipment._id}
-                          className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="text-lg font-medium text-gray-800">
-                                Order #{shipment.orderId}
-                              </h4>
-                              <p className="text-sm text-gray-600">
-                                {shipment.origin} to {shipment.destination}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                Driver: {shipment.driver}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                Vehicle: {shipment.vehicle}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end space-y-2">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                shipment.status === "In Transit" ? "bg-blue-100 text-blue-700" :
-                                shipment.status === "Out for Delivery" ? "bg-amber-100 text-amber-700" :
-                                shipment.status === "Delivered" ? "bg-green-100 text-green-700" :
-                                "bg-gray-100 text-gray-600"
-                              }`}>
-                                {shipment.status}
-                              </span>
-                              <span className="text-sm text-gray-600">
-                                ETA: {shipment.eta || "Not specified"}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="mt-4">
-                            <div className="h-2 bg-gray-200 rounded-full">
-                              <div
-                                className={`h-2 rounded-full ${
-                                  shipment.status === "In Transit"
-                                    ? "bg-blue-600"
-                                    : "bg-gray-600"
-                                }`}
-                                style={{ width: `${shipment.progress || 0}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* View More button */}
-                      {activeShipments.length > 3 && (
-                        <div className="text-center mt-2">
-                          <span className="text-sm text-gray-500">
-                            Showing 3 of {activeShipments.length} active shipments
-                          </span>
-                        </div>
-                      )}
-                      
-                      <div className="text-center mt-4">
-                        <button
-                          onClick={() => setActiveTab("shipments")}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-flex items-center"
-                        >
-                          View All Shipments
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </button>
-                      </div>
-                    </>
+                    `${inventory.length}`
                   )}
-                </div>
+                </h3>
+                <p className="mt-1 text-blue-100 text-xs">unique items</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+                <Box className="h-5 w-5 text-white" />
               </div>
             </div>
+            {inventoryLoading ? null : (
+              <div className="mt-3 flex items-center text-xs">
+                <span className="text-green-300 font-medium">↑ 12% </span>
+                <span className="ml-1 text-blue-100">from last month</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg px-5 py-4 border border-white/20">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-blue-100 text-xs font-medium">LOW STOCK ALERTS</p>
+                <h3 className="text-3xl font-bold text-white mt-1">
+                  {inventoryLoading ? (
+                    <Loader className="h-6 w-6 text-white animate-spin" />
+                  ) : (
+                    `${inventory.filter(item => item.status === "Low Stock" || item.status === "Critical").length}`
+                  )}
+                </h3>
+                <p className="mt-1 text-blue-100 text-xs">items need attention</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-amber-300" />
+              </div>
+            </div>
+            {inventoryLoading ? null : (
+              <div className="mt-3 flex items-center text-xs">
+                <span className="text-red-300 font-medium">↑ 3 </span>
+                <span className="ml-1 text-blue-100">items since yesterday</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg px-5 py-4 border border-white/20">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-blue-100 text-xs font-medium">INVENTORY VALUE</p>
+                <h3 className="text-3xl font-bold text-white mt-1">
+                  {inventoryLoading ? (
+                    <Loader className="h-6 w-6 text-white animate-spin" />
+                  ) : (
+                    `Rs. ${inventory
+                      .reduce((total, item) => 
+                        total + item.stock * (item.name === "Sand (cubic m)" ? 7500 : 2500), 0)
+                      .toLocaleString()}`
+                  )}
+                </h3>
+                <p className="mt-1 text-blue-100 text-xs">total investment</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+                <Activity className="h-5 w-5 text-green-300" />
+              </div>
+            </div>
+            {inventoryLoading ? null : (
+              <div className="mt-3 flex items-center text-xs">
+                <span className="text-green-300 font-medium">↑ 8.5% </span>
+                <span className="ml-1 text-blue-100">from previous quarter</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg px-5 py-4 border border-white/20">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-blue-100 text-xs font-medium">PENDING ORDERS</p>
+                <h3 className="text-3xl font-bold text-white mt-1">
+                  {orders.filter(order => order.status === "Pending" || order.status === "Processing").length}
+                </h3>
+                <p className="mt-1 text-blue-100 text-xs">awaiting processing</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+                <ShoppingCart className="h-5 w-5 text-purple-300" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-center text-xs">
+              <span className="text-green-300 font-medium">↓ 2 </span>
+              <span className="ml-1 text-blue-100">orders since yesterday</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    {/* Supply Chain Health Overview */}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Critical Inventory Items */}
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden lg:col-span-2">
+        <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">Critical Inventory Status</h3>
+            <p className="text-sm text-gray-500">Items requiring immediate attention</p>
+          </div>
+          <button 
+            onClick={() => setActiveTab("inventory")}
+            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+          >
+            View Inventory
+          </button>
+        </div>
+        <div className="p-6">
+          {inventoryLoading ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader className="h-8 w-8 text-blue-600 animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-amber-50 p-4 rounded-lg border border-amber-100">
+                  <h4 className="text-amber-700 text-sm font-medium">Low Stock</h4>
+                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                    {inventory.filter(item => item.status === "Low Stock").length}
+                  </p>
+                  <div className="mt-2 text-xs text-amber-600">
+                    Below threshold, order soon
+                  </div>
+                </div>
+                
+                <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                  <h4 className="text-red-700 text-sm font-medium">Critical</h4>
+                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                    {inventory.filter(item => item.status === "Critical").length}
+                  </p>
+                  <div className="mt-2 text-xs text-red-600">
+                    Immediate action required
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                  <h4 className="text-green-700 text-sm font-medium">Healthy</h4>
+                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                    {inventory.filter(item => item.status === "In Stock").length}
+                  </p>
+                  <div className="mt-2 text-xs text-green-600">
+                    Stock levels sufficient
+                  </div>
+                </div>
+              </div>
+              
+              {/* Critical Items List */}
+              <div className="rounded-lg border border-gray-200 overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 text-xs font-medium text-gray-500 uppercase">
+                  Critical & Low Stock Items
+                </div>
+                <div className="divide-y divide-gray-200 max-h-[300px] overflow-y-auto">
+                  {inventory
+                    .filter(item => item.status === "Critical" || item.status === "Low Stock")
+                    .slice(0, 5)
+                    .map(item => (
+                      <div key={item._id} className={`px-4 py-3 ${item.status === "Critical" ? "bg-red-50" : ""}`}>
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="font-medium text-gray-800">{item.name}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {item.supplier} • {item.category || "General"}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <div className="flex items-center space-x-1">
+                              <span className="font-bold text-gray-700">{item.stock}</span>
+                              <span className="text-gray-400">/</span>
+                              <span className="text-gray-500">{item.threshold}</span>
+                            </div>
+                            <div className={`mt-1 text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center
+                              ${item.status === "Critical" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full mr-1 
+                                ${item.status === "Critical" ? "bg-red-500" : "bg-amber-500"}`}>
+                              </span>
+                              {item.status}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {!item.restockRequested && (
+                          <button
+                            onClick={() => handleRestockRequest(item.name)}
+                            className="mt-2 text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded inline-flex items-center"
+                          >
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Request Restock
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                </div>
+                {inventory.filter(item => item.status === "Critical" || item.status === "Low Stock").length > 5 && (
+                  <div className="bg-gray-50 px-4 py-2 text-xs text-center border-t border-gray-200">
+                    <button 
+                      onClick={() => setActiveTab("inventory")}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      View all {inventory.filter(item => item.status === "Critical" || item.status === "Low Stock").length} items
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
           )}
+        </div>
+      </div>
+      
+      {/* Active Supply Chain Stats */}
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+          <h3 className="text-lg font-semibold text-gray-800">Supply Chain Overview</h3>
+          <p className="text-sm text-gray-500">Current status & performance</p>
+        </div>
+        <div className="p-6">
+          <div className="space-y-6">
+            {/* Restock Stats */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-500 mb-3">RESTOCK REQUESTS</h4>
+              <div className="flex items-center mb-4">
+                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mr-4">
+                  <RefreshCw className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {restockRequests.length}
+                  </p>
+                  <p className="text-sm text-gray-500">active requests</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">Pending</span>
+                  <span className="font-medium text-gray-800">
+                    {restockRequests.filter(req => 
+                      ['requested', 'approved', 'ordered', 'shipped'].includes(req.status)
+                    ).length}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2">
+                  <div 
+                    className="h-2 rounded-full bg-amber-500"
+                    style={{ 
+                      width: `${restockRequests.length ? 
+                        (restockRequests.filter(req => 
+                          ['requested', 'approved', 'ordered', 'shipped'].includes(req.status)
+                        ).length / restockRequests.length) * 100 : 0}%` 
+                    }}
+                  ></div>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={() => setActiveTab("restock")}
+                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
+                >
+                  Manage Restock Requests
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="border-t border-gray-100 pt-5">
+              <h4 className="text-sm font-medium text-gray-500 mb-3">SHIPMENT STATUS</h4>
+              <div className="flex items-center mb-4">
+                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mr-4">
+                  <Truck className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {activeShipments.length}
+                  </p>
+                  <p className="text-sm text-gray-500">active shipments</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center text-sm">
+                  <span className="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
+                  <span className="text-gray-600 flex-1">In Transit</span>
+                  <span className="font-medium text-gray-800">
+                    {activeShipments.filter(s => s.status === "In Transit").length}
+                  </span>
+                </div>
+                <div className="flex items-center text-sm">
+                  <span className="w-3 h-3 rounded-full bg-amber-500 mr-2"></span>
+                  <span className="text-gray-600 flex-1">Loading/Preparing</span>
+                  <span className="font-medium text-gray-800">
+                    {activeShipments.filter(s => s.status === "Loading" || s.status === "Preparing").length}
+                  </span>
+                </div>
+                <div className="flex items-center text-sm">
+                  <span className="w-3 h-3 rounded-full bg-purple-500 mr-2"></span>
+                  <span className="text-gray-600 flex-1">Out for Delivery</span>
+                  <span className="font-medium text-gray-800">
+                    {activeShipments.filter(s => s.status === "Out for Delivery").length}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={() => setActiveTab("shipments")}
+                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
+                >
+                  Manage Shipments
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    {/* Active Shipments Section */}
+    <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+      <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800">Active Shipments</h3>
+          <p className="text-sm text-gray-500">Track ongoing deliveries & shipments</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => {
+              const fetchShipmentData = async () => {
+                try {
+                  setShipmentsLoading(true);
+                  const response = await axios.get('http://localhost:5000/api/shipping/active');
+                  setActiveShipments(response.data);
+                  setShipmentsError(null);
+                  toast.success("Shipment data refreshed");
+                } catch (error) {
+                  console.error('Error fetching shipments:', error);
+                  toast.error("Failed to refresh shipments");
+                } finally {
+                  setShipmentsLoading(false);
+                }
+              };
+              fetchShipmentData();
+            }} 
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <RefreshCw className="h-5 w-5 text-gray-600" />
+          </button>
+          <button 
+            onClick={() => setActiveTab("shipments")}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            All Shipments
+          </button>
+        </div>
+      </div>
+      
+      <div className="p-6">
+        {shipmentsLoading ? (
+          <div className="flex justify-center items-center py-10">
+            <Loader className="h-10 w-10 text-blue-600 animate-spin mr-3" />
+            <p className="text-gray-600">Loading shipment data...</p>
+          </div>
+        ) : shipmentsError ? (
+          <div className="bg-red-50 p-4 rounded-lg text-red-700 border border-red-200">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              <span>Error loading shipment data</span>
+            </div>
+            <p className="mt-2 text-sm">{shipmentsError}</p>
+          </div>
+        ) : activeShipments.length === 0 ? (
+          <div className="text-center py-10">
+            <Truck className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <h3 className="text-lg font-medium text-gray-900">No active shipments</h3>
+            <p className="text-gray-500 mt-1">There are no ongoing shipments at the moment</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {activeShipments.slice(0, 3).map((shipment) => (
+              <div key={shipment.id || shipment._id} className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                    <div className="mb-3 md:mb-0">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                          <Truck className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-medium text-gray-800">{shipment.id}</h4>
+                          <p className="text-sm text-gray-600">
+                            Order #{shipment.orderId?.substring(0, 8) || "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col md:items-end">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        shipment.status === "In Transit" ? "bg-blue-100 text-blue-800" :
+                        shipment.status === "Loading" ? "bg-amber-100 text-amber-800" :
+                        shipment.status === "Out for Delivery" ? "bg-purple-100 text-purple-800" :
+                        "bg-gray-100 text-gray-800"
+                      }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${
+                          shipment.status === "In Transit" ? "bg-blue-500" :
+                          shipment.status === "Loading" ? "bg-amber-500" :
+                          shipment.status === "Out for Delivery" ? "bg-purple-500" :
+                          "bg-gray-500"
+                        }`}></span>
+                        {shipment.status}
+                      </span>
+                      
+                      <span className="text-sm text-gray-500 mt-1">
+                        ETA: {shipment.eta || "Unknown"}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500">FROM</p>
+                      <p className="text-sm font-medium text-gray-800">{shipment.origin || "Warehouse"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">TO</p>
+                      <p className="text-sm font-medium text-gray-800">{shipment.destination || "Customer Site"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">DRIVER</p>
+                      <p className="text-sm font-medium text-gray-800">{shipment.driver || "Not Assigned"}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>Progress</span>
+                      <span>{shipment.progress || 0}%</span>
+                    </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          shipment.status === "In Transit" ? "bg-blue-500" :
+                          shipment.status === "Loading" ? "bg-amber-500" :
+                          shipment.status === "Out for Delivery" ? "bg-purple-500" :
+                          "bg-gray-500"
+                        }`}
+                        style={{ width: `${shipment.progress || 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {activeShipments.length > 3 && (
+              <div className="text-center mt-4">
+                <button
+                  onClick={() => setActiveTab("shipments")}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium inline-flex items-center"
+                >
+                  View All {activeShipments.length} Shipments
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+    
+    {/* Recent Orders Overview */}
+    <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+      <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800">Recent Orders</h3>
+          <p className="text-sm text-gray-500">Latest customer orders requiring fulfillment</p>
+        </div>
+        <button 
+          onClick={() => setActiveTab("orders")}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+        >
+          View All Orders
+        </button>
+      </div>
+      
+      <div className="p-6">
+        {ordersLoading ? (
+          <div className="flex justify-center items-center py-10">
+            <Loader className="h-10 w-10 text-blue-600 animate-spin mr-3" />
+            <p className="text-gray-600">Loading order data...</p>
+          </div>
+        ) : ordersError ? (
+          <div className="bg-red-50 p-4 rounded-lg text-red-700 border border-red-200">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              <span>Error loading order data</span>
+            </div>
+            <p className="mt-2 text-sm">{ordersError}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Order ID
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Value
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {orders
+                  .filter(order => order.status === "Pending")
+                  .slice(0, 5)
+                  .map((order) => (
+                    <tr key={order.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          #{order.id.substring(0, 8)}...
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{order.customer}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          Rs. {order.value.toLocaleString()}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : 
+                          order.status === 'In Transit' ? 'bg-blue-100 text-blue-800' : 
+                          order.status === 'Processing' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-gray-100 text-gray-800'}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {order.date}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => {
+                            setSelectedOrderForShipment(order);
+                            setActiveTab("shipments");
+                          }}
+                          className="text-blue-600 hover:text-blue-900 inline-flex items-center"
+                        >
+                          <Truck className="mr-1 h-4 w-4" /> 
+                          Ship
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            
+            {orders.filter(order => order.status === "Pending").length === 0 && (
+              <div className="text-center py-8">
+                <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-lg font-medium text-gray-900">No pending orders</h3>
+                <p className="text-gray-500 mt-1">All orders have been processed</p>
+              </div>
+            )}
+            
+            {orders.filter(order => order.status === "Pending").length > 5 && (
+              <div className="text-right mt-4">
+                <button
+                  onClick={() => setActiveTab("orders")}
+                  className="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center"
+                >
+                  View all {orders.filter(order => order.status === "Pending").length} pending orders
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
           {activeTab === "inventory" && (
             <div className="space-y-6">
               {/* Inventory Filter Section */}
