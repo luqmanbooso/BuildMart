@@ -509,11 +509,20 @@ const mapOrderStatus = (status) => {
     const fetchShipments = async () => {
       setShipmentsLoading(true);
       try {
-        // In a real implementation, you'd fetch from a shipments API
-        // const response = await axios.get('http://localhost:5000/api/shipments');
-        // setActiveShipments(response.data.shipments);
+        // Try to fetch from real API first
+        try {
+          const response = await axios.get('http://localhost:5000/api/shipping/active');
+          if (response.data && Array.isArray(response.data)) {
+            setActiveShipments(response.data);
+            setShipmentsError(null);
+            return; // If successful, exit early
+          }
+        } catch (apiError) {
+          console.log('API fetch failed, using order-based shipments:', apiError);
+          // Continue to fallback approach if API fails
+        }
 
-        // For now, use demo data or extract shipment info from orders
+        // Fallback: extract shipment info from orders
         const shipmentData = orders
           .filter(
             (order) =>
@@ -1909,74 +1918,130 @@ const handleUpdateSupplier = async () => {
                 </div>
               </div>
 
-              {/* Active Shipments */}
+              {/* Active Shipments Section in Dashboard */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-gray-800">
                     Active Shipments
                   </h3>
                   <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => {
+                        const fetchShipmentData = async () => {
+                          try {
+                            setShipmentsLoading(true);
+                            const response = await axios.get('http://localhost:5000/api/shipping/active');
+                            setActiveShipments(response.data);
+                            setShipmentsError(null);
+                            toast.success("Shipment data refreshed");
+                          } catch (error) {
+                            console.error('Error fetching shipments:', error);
+                            toast.error("Failed to refresh shipments");
+                          } finally {
+                            setShipmentsLoading(false);
+                          }
+                        };
+                        fetchShipmentData();
+                      }} 
+                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                    >
+                      <RefreshCw className="h-5 w-5 text-gray-600" />
+                    </button>
                     <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                       <Filter className="h-5 w-5 text-gray-600" />
                     </button>
                     <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                       <Download className="h-5 w-5 text-gray-600" />
                     </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <MoreHorizontal className="h-5 w-5 text-gray-600" />
-                    </button>
                   </div>
                 </div>
                 <div className="space-y-4">
-                  {activeShipments.map((shipment) => (
-                    <div
-                      key={shipment.id}
-                      className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-lg font-medium text-gray-800">
-                            {shipment.id}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            {shipment.origin} to {shipment.destination}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Driver: {shipment.driver}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Vehicle: {shipment.vehicle}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span
-                            className={`text-sm font-medium ${
-                              shipment.status === "In Transit"
-                                ? "text-blue-600"
-                                : "text-gray-600"
-                            }`}
-                          >
-                            {shipment.status}
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {shipment.eta}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <div className="h-2 bg-gray-200 rounded-full">
-                          <div
-                            className={`h-2 rounded-full ${
-                              shipment.status === "In Transit"
-                                ? "bg-blue-600"
-                                : "bg-gray-600"
-                            }`}
-                            style={{ width: `${shipment.progress}%` }}
-                          ></div>
-                        </div>
-                      </div>
+                  {shipmentsLoading ? (
+                    <div className="flex justify-center p-6">
+                      <Loader className="animate-spin" size={24} />
                     </div>
-                  ))}
+                  ) : shipmentsError ? (
+                    <div className="text-center p-6 text-red-500">
+                      <AlertTriangle className="h-10 w-10 mx-auto mb-2" />
+                      <p>{shipmentsError}</p>
+                    </div>
+                  ) : activeShipments.length === 0 ? (
+                    <div className="text-center p-6 text-gray-500">
+                      <Package className="h-10 w-10 mx-auto mb-2" />
+                      <p>No active shipments found</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Display the first 3 shipments only */}
+                      {activeShipments.slice(0, 3).map((shipment) => (
+                        <div
+                          key={shipment._id}
+                          className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="text-lg font-medium text-gray-800">
+                                Order #{shipment.orderId}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {shipment.origin} to {shipment.destination}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Driver: {shipment.driver}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Vehicle: {shipment.vehicle}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end space-y-2">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                shipment.status === "In Transit" ? "bg-blue-100 text-blue-700" :
+                                shipment.status === "Out for Delivery" ? "bg-amber-100 text-amber-700" :
+                                shipment.status === "Delivered" ? "bg-green-100 text-green-700" :
+                                "bg-gray-100 text-gray-600"
+                              }`}>
+                                {shipment.status}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                ETA: {shipment.eta || "Not specified"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <div className="h-2 bg-gray-200 rounded-full">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  shipment.status === "In Transit"
+                                    ? "bg-blue-600"
+                                    : "bg-gray-600"
+                                }`}
+                                style={{ width: `${shipment.progress || 0}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* View More button */}
+                      {activeShipments.length > 3 && (
+                        <div className="text-center mt-2">
+                          <span className="text-sm text-gray-500">
+                            Showing 3 of {activeShipments.length} active shipments
+                          </span>
+                        </div>
+                      )}
+                      
+                      <div className="text-center mt-4">
+                        <button
+                          onClick={() => setActiveTab("shipments")}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-flex items-center"
+                        >
+                          View All Shipments
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -2103,7 +2168,7 @@ const handleUpdateSupplier = async () => {
                                       <Wrench className="h-5 w-5 text-blue-500" />
                                     ) : item.name?.toLowerCase().includes("cement") || item.name?.toLowerCase().includes("brick") ? (
                                       <Package className="h-5 w-5 text-amber-500" />
-                                    ) : item.name?.toLowerCase().includes("pvc") || item.name?.toLowerCase().includes("pipe") ? (
+                                    ) : item.name?.toLowerCase().includes("pvc") || item.category?.toLowerCase().includes("pipe") ? (
                                       <ArrowRight className="h-5 w-5 text-blue-500" />
                                     ) : (
                                       <Box className="h-5 w-5 text-gray-500" />
@@ -2297,13 +2362,17 @@ const handleUpdateSupplier = async () => {
 
           {activeTab === "shipments" && (
             <div className="space-y-6" id="shipping-manager-container">
-              {/* Replace the old shipping code with the ShippingManager component */}
               <ShippingManager 
                 selectedOrderForShipment={selectedOrderForShipment} 
                 setSelectedOrderForShipment={setSelectedOrderForShipment}
                 onArrangeShipment={handleArrangeShipment}
                 updateOrderStatus={updateOrderStatus}
-                // Pass any other props that ShippingManager might need
+                activeShipments={activeShipments}
+                setActiveShipments={setActiveShipments}
+                shipmentsLoading={shipmentsLoading}
+                setShipmentsLoading={setShipmentsLoading}
+                shipmentsError={shipmentsError}
+                setShipmentsError={setShipmentsError}
               />
             </div>
           )}
@@ -2533,6 +2602,7 @@ const handleUpdateSupplier = async () => {
                           <X className="h-5 w-5" />
                         </button>
                       </div>
+
                       <p className="mt-1 text-sm text-gray-500">
                         {currentSupplier
                           ? "Update supplier information in the system."
@@ -2559,11 +2629,11 @@ const handleUpdateSupplier = async () => {
                                   value={supplierName}
                                   onChange={(e) => {
                                     setSupplierName(e.target.value);
+                                    // Clear validation error when user types
                                     if (validationErrors.supplierName) {
-                                      setValidationErrors({
-                                        ...validationErrors,
-                                        supplierName: null
-                                      });
+                                      const newErrors = {...validationErrors};
+                                      delete newErrors.supplierName;
+                                      setValidationErrors(newErrors);
                                     }
                                   }}
                                   className={`w-full px-3 py-2 bg-gray-50 border ${
@@ -2576,9 +2646,7 @@ const handleUpdateSupplier = async () => {
                                 />
                                 {supplierName.trim() && !validationErrors.supplierName && (
                                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
                                   </div>
                                 )}
                               </div>
@@ -2617,9 +2685,7 @@ const handleUpdateSupplier = async () => {
                                 </select>
                                 {supplierCategory && !validationErrors.supplierCategory && (
                                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
                                   </div>
                                 )}
                               </div>
@@ -2715,9 +2781,7 @@ const handleUpdateSupplier = async () => {
                                 />
                                 {supplierContact.trim() && !validationErrors.supplierContact && (
                                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
                                   </div>
                                 )}
                               </div>
@@ -2753,9 +2817,7 @@ const handleUpdateSupplier = async () => {
                                 />
                                 {supplierPhone && !validationErrors.supplierPhone && (
                                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
                                   </div>
                                 )}
                               </div>
@@ -2793,9 +2855,7 @@ const handleUpdateSupplier = async () => {
                               />
                               {supplierEmail && !validationErrors.supplierEmail && (
                                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
+                                  <CheckCircle className="h-5 w-5 text-green-500" />
                                 </div>
                               )}
                             </div>
