@@ -236,6 +236,27 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
           body: JSON.stringify(paymentData)
         });
 
+        // Improved error handling with more detailed logging
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Payment API error response:", {
+            status: response.status,
+            statusText: response.statusText,
+            responseBody: errorText
+          });
+          
+          let errorMessage = 'Payment processing failed';
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.message || errorData.error || errorMessage;
+            console.error("Parsed error details:", errorData);
+          } catch (e) {
+            console.error("Failed to parse error response:", e);
+            errorMessage = `Payment failed with status: ${response.status} ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+
         const data = await response.json();
         
         console.log("Payment response:", data);

@@ -534,7 +534,7 @@ const Shop = () => {
               exit={{ opacity: 0, x: -100 }}
               transition={{ duration: 0.5 }}
             >
-              <div className="relative w-full h-full bg-gradient-to-r from-indigo-900 to-purple-900">
+              <div className="relative w-full h-full bg-gradient-to-r from-[#002855] to-[#0057B7]">
                 <div className="absolute inset-0 opacity-20 mix-blend-overlay">
                   <div className="w-full h-full bg-pattern-dot"></div>
                 </div>
@@ -646,7 +646,7 @@ const Shop = () => {
                     addToCart(product);
                   }}
                   disabled={product.stock <= 0}
-                  className={`bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium ${
+                  className={`bg-[#002855] text-white px-4 py-2 rounded-lg font-medium ${
                     product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
@@ -660,7 +660,7 @@ const Shop = () => {
                     e.stopPropagation();
                     navigate('/login');
                   }}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium"
+                  className="bg-[#002855] text-white px-4 py-2 rounded-lg font-medium"
                 >
                   Log In to Purchase
                 </motion.button>
@@ -697,7 +697,7 @@ const Shop = () => {
             <p className="text-sm text-gray-500 mb-2">SKU: {product.sku}</p>
           )}
           
-          <p className="text-2xl font-bold text-indigo-600 mb-4">
+          <p className="text-2xl font-bold text-[#002855] mb-4">
             {formatCurrency(product.price)}
           </p>
           
@@ -743,7 +743,7 @@ const Shop = () => {
       <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="relative bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-24 overflow-hidden"
+        className="relative bg-gradient-to-r from-[#002855] to-[#0057B7] text-white py-24 overflow-hidden"
       >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -805,7 +805,7 @@ const Shop = () => {
               onClick={() => setSelectedCategory(category)}
               className={`px-6 py-2 rounded-full ${
                 selectedCategory === category
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-[#002855] text-white'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               } transition-colors duration-200`}
             >

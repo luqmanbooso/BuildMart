@@ -337,7 +337,7 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
           >
             <div className="h-full w-full flex flex-col bg-gradient-to-br from-white to-gray-50 shadow-2xl overflow-hidden">
               {/* Cart Header */}
-              <div className="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-6">
+              <div className="bg-gradient-to-r from-[#002855] to-[#0057B7] text-white p-6">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-3">
                     {step !== 'cart' && (
@@ -415,7 +415,7 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={onClose}
-                      className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-3 rounded-lg font-medium hover:shadow-lg transition-shadow"
+                      className="bg-gradient-to-r from-[#002855] to-[#0057B7] text-white px-8 py-3 rounded-lg font-medium hover:shadow-lg transition-shadow"
                     >
                       Continue Shopping
                     </motion.button>
@@ -474,7 +474,7 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                                     <FiPlus size={14} />
                                   </button>
                                 </div>
-                                <p className="font-semibold text-indigo-600">
+                                <p className="font-semibold text-[#002855]">
                                   {formatCurrency(item.price * item.quantity)}
                                 </p>
                               </div>
@@ -805,7 +805,7 @@ const Cart = ({ isOpen, onClose, cartItems, removeFromCart, onCheckout }) => {
                     className={`w-full ${
                       step === 'shipping' && !isFormValid()
                         ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'
+                        : 'bg-gradient-to-r from-[#002855] to-[#0057B7] hover:from-indigo-700 hover:to-purple-700'
                     } text-white py-4 px-6 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2 shadow-md`}
                   >
                     <span>

@@ -277,7 +277,7 @@ const InitialPayment = () => {
             amount={agreementFee} // Instead of AGREEMENT_FEE
             onSuccess={handleAgreementFeeSuccess}
             onCancel={handlePaymentCancel}
-            context="agreementFee"
+            context="agreement_fee"  // CHANGE THIS LINE - use underscore to match enum in model
             userData={clientDetails}
             order={{
               orderId: `AGREEMENT-${jobId}-${bidId}-${Date.now()}`,
