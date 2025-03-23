@@ -27,6 +27,20 @@ router.get('/active', async (req, res) => {
   }
 });
 
+// Add this route to get completed shipments right after your active shipments route
+router.get('/completed', async (req, res) => {
+  try {
+    const completedShipments = await Shipping.find({
+      status: { $in: ['Delivered', 'Failed', 'Returned'] }
+    }).sort({ updatedAt: -1 });
+    
+    res.json(completedShipments);
+  } catch (error) {
+    console.error('Error fetching completed shipments:', error);
+    res.status(500).json({ error: 'Failed to fetch completed shipments' });
+  }
+});
+
 // Get shipment by ID
 router.get('/:id', async (req, res) => {
   try {

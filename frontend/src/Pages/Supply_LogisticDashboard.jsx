@@ -669,9 +669,11 @@ const mapOrderStatus = (status) => {
     }
   };
 
-  // Fix the updateOrderStatus function to use the correct endpoint
+  // Enhanced updateOrderStatus function with better debugging
 const updateOrderStatus = async (orderId, newStatus) => {
   try {
+    console.log(`Attempting to update order ${orderId} to status '${newStatus}'`);
+    
     // First, update the UI optimistically
     const updatedOrders = orders.map(order => 
       order.id === orderId 
@@ -680,15 +682,20 @@ const updateOrderStatus = async (orderId, newStatus) => {
     );
     setOrders(updatedOrders);
     
-    // Log what we're trying to update for debugging
-    console.log(`Updating order ${orderId} to status ${newStatus}`);
+    // Try to match to valid status values if necessary
+    // This depends on what valid statuses your Order model accepts
+    let statusToSend = newStatus.toLowerCase();
     
-    // Then, send the update to the server - try a simpler endpoint pattern
-    // Note: This depends on your actual API structure
-    await axios.put(`http://localhost:5000/api/orders/${orderId}`, { 
-      status: newStatus 
-    });
+    // For debugging: log what we're actually sending
+    console.log(`Sending status update: ${statusToSend}`);
     
+    // Then, send the update to the server
+    const response = await axios.patch(
+      `http://localhost:5000/api/orders/${orderId}/status`, 
+      { status: statusToSend }
+    );
+    
+    console.log('Order update response:', response.data);
     toast.success(`Order #${orderId} status updated to ${newStatus}`);
   } catch (error) {
     console.error('Error updating order status:', error);
@@ -697,10 +704,14 @@ const updateOrderStatus = async (orderId, newStatus) => {
     // Show more detailed error info for debugging
     if (error.response) {
       console.log('Error response:', error.response.status, error.response.data);
+      
+      // If we get a 400 error with "Invalid order status", show what valid statuses might be
+      if (error.response.status === 400 && 
+          error.response.data?.message?.includes('Invalid order status')) {
+        console.log('Hint: Check your Order.js model for valid status values!');
+        console.log('Common status values are: pending, processing, shipped, delivered, cancelled');
+      }
     }
-    
-    // Don't revert the UI change to avoid confusion
-    // The user can refresh if needed
   }
 };
 
