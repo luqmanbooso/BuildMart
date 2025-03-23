@@ -69,11 +69,11 @@ const Login = () => {
         }
         console.log("Admin login detected");
         navigate('/paymentdashboard');
-        return; // Exit early
+        return; // Exit early 
       }
       
       // Special case handling for inventory admin logins
-      if ((emailUsername === "inventoryadmin@buildmart.com" || emailUsername === "Lithira") && password === "1234") {
+      if ((emailUsername === "inventoryadmin@buildmart.com" || emailUsername === "Inventory Admin") && password === "1234") {
         // For inventory admin login, store a simple inventory admin token
         const inventoryAdminToken = "inventory-admin-token-placeholder";
         if (rememberMe) {
