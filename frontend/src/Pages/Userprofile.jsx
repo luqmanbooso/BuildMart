@@ -115,6 +115,11 @@ const UserProfilePage = () => {
   // Add this state to track form steps
   const [formStep, setFormStep] = useState(1);
 
+  // Add these state variables in the UserProfilePage component
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
+
   useEffect(() => {
     // Get token from localStorage or sessionStorage
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -145,6 +150,9 @@ const UserProfilePage = () => {
         
         // Fetch jobs from API
         fetchJobs();
+        
+        // Add these lines:
+        fetchPaymentHistory();
       } catch (error) {
         console.error('Error decoding token:', error);
       }
@@ -502,11 +510,116 @@ const UserProfilePage = () => {
     { id: '02', title: 'Fence Installation', contractor: 'Garden Pros', completionDate: '5 Dec 2024', rating: 5.0 }
   ];
 
-  const paymentHistory = [
+  const paymentHistoryStatic = [
     { id: 'PMT001', description: 'Advance Payment - Kitchen Renovation', amount: 'LKR 25,000', date: '15 Jan 2025', status: 'Completed' },
     { id: 'PMT002', description: 'Final Payment - Living Room Painting', amount: 'LKR 15,000', date: '12 Jan 2025', status: 'Completed' },
     { id: 'PMT003', description: 'Advance Payment - Bathroom Plumbing', amount: 'LKR 8,000', date: '1 Mar 2025', status: 'Pending' }
   ];
+
+  // Add this function to fetch payment history
+const fetchPaymentHistory = async () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  if (!token) return;
+
+  try {
+    setIsLoadingPayments(true);
+    setPaymentError(null);
+    
+    const decoded = jwtDecode(token);
+    const userId = decoded.userId;
+    
+    // Fetch payments for this user - ensure userId is properly passed
+    const response = await axios.get(`http://localhost:5000/api/payments`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      params: { userId: userId } // This will properly include userId as a query param
+    });
+    
+    // Check if response contains payments data
+    if (!response.data || !Array.isArray(response.data)) {
+      console.error('Invalid payment data received:', response.data);
+      setPaymentError('Failed to load payment history: Invalid data format');
+      setPaymentHistory([]);
+      return;
+    }
+    
+    // Filter payments to include only this user's payments
+    // This is a client-side safety measure in case server filtering isn't working
+    const userPayments = response.data.filter(payment => 
+      payment.user && 
+      (payment.user.userId === userId || payment.user.userId?.toString() === userId.toString())
+    );
+    
+    // Format the payment data for display
+    const formattedPayments = userPayments.map(payment => ({
+      id: payment._id,
+      description: getPaymentDescription(payment),
+      amount: `LKR ${payment.amount.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}`,
+      date: new Date(payment.createdAt).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      }),
+      status: payment.status === 'completed' ? 'Completed' : 
+              payment.status === 'pending' ? 'Pending' : 'Failed',
+      paymentType: payment.paymentType || 'other',
+      cardType: payment.cardType,
+      lastFourDigits: payment.lastFourDigits
+    }));
+    
+    console.log(`Found ${formattedPayments.length} payments for user ${userId}`);
+    setPaymentHistory(formattedPayments);
+  } catch (error) {
+    console.error('Error fetching payment history:', error);
+    setPaymentError('Failed to load payment history. Please try again later.');
+  } finally {
+    setIsLoadingPayments(false);
+  }
+};
+
+  // Helper function to generate payment descriptions
+  const getPaymentDescription = (payment) => {
+    if (payment.paymentType === 'milestone') {
+      return `Milestone Payment - Work #${payment.workId}`;
+    } else if (payment.paymentType === 'inventory') {
+      return `Purchase - ${payment.order?.items.length || 0} items`;
+    } else if (payment.paymentType === 'agreement_fee') {
+      return 'Agreement Fee';
+    } else {
+      return 'Payment';
+    }
+  };
+  
+
+  // Add this debugging function
+const debugPaymentData = async () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  if (!token) return;
+  
+  try {
+    const decoded = jwtDecode(token);
+    const userId = decoded.userId;
+    
+    console.log('Current user ID:', userId);
+    
+    // Fetch all payments without filtering
+    const response = await axios.get(`http://localhost:5000/api/payments`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    console.log('All payments:', response.data);
+    
+    // Check which payments match this user
+    const matchingPayments = response.data.filter(payment => 
+      payment.user && payment.user.userId === userId
+    );
+    
+    console.log('Matching payments count:', matchingPayments.length);
+    console.log('Matching payments:', matchingPayments);
+  } catch (error) {
+    console.error('Debug error:', error);
+  }
+};
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-800">
@@ -590,7 +703,7 @@ const UserProfilePage = () => {
             {/* Right Content */}
             <div className="lg:w-3/4">
               <div className="flex flex-wrap justify-start gap-2 mb-6">
-                {['requirements', 'ongoing', 'past', 'payments', 'transactions'].map((tab) => (
+                {['requirements', 'ongoing', 'past', 'payments'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => handleTabClick(tab)}
@@ -603,8 +716,7 @@ const UserProfilePage = () => {
                     {tab === 'requirements' ? 'My Requirements' : 
                      tab === 'ongoing' ? 'Ongoing Works' :
                      tab === 'past' ? 'Past Works' :
-                     tab === 'payments' ? 'Payment History' :
-                     'Transaction History'}
+                     'Payment History'}
                   </button>
                 ))}
                 <button
@@ -719,54 +831,108 @@ const UserProfilePage = () => {
                 )}
 
                 {activeTab === 'payments' && (
-                  <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Description
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Amount
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Date
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {paymentHistory.map((payment) => (
-                          <tr key={payment.id}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{payment.description}</div>
-                              <div className="text-xs text-gray-500">{payment.id}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {payment.amount}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {payment.date}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                payment.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {payment.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+  <div>
+    <div className="mb-4 flex justify-between items-center">
+      <h3 className="text-xl font-semibold text-gray-800">Payment History</h3>
+      <button
+        className="px-4 py-2 bg-blue-50 text-blue-600 font-medium rounded-lg hover:bg-blue-100"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        </svg>
+        Export
+      </button>
+    </div>
+    
+    {isLoadingPayments ? (
+      <div className="flex items-center justify-center h-48 bg-white rounded-lg border border-gray-200">
+        <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    ) : paymentError ? (
+      <div className="p-6 bg-red-50 rounded-lg border border-red-200">
+        <p className="text-red-600">{paymentError}</p>
+        <button 
+          onClick={fetchPaymentHistory}
+          className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+        >
+          Try Again
+        </button>
+      </div>
+    ) : paymentHistory.length === 0 ? (
+      <div className="bg-white rounded-lg shadow-md p-10 text-center border border-dashed border-gray-300">
+        <div className="flex justify-center">
+          <div className="h-20 w-20 bg-blue-50 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          </div>
+        </div>
+        <h3 className="text-xl font-medium text-gray-800 mt-5">No Payment History Yet</h3>
+        <p className="text-gray-600 mt-2 max-w-md mx-auto">
+          Your payment history will appear here once you make payments for projects or purchase construction materials.
+        </p>
+      </div>
+    ) : (
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Description
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Amount
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Card
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {paymentHistory.map((payment) => (
+              <tr key={payment.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-gray-900">{payment.description}</div>
+                  <div className="text-xs text-gray-500">{payment.id}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {payment.amount}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {payment.date}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    payment.status === 'Completed' ? 'bg-green-100 text-green-800' : 
+                    payment.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {payment.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <div className="flex items-center">
+                    <span className="capitalize">{payment.cardType}</span>
+                    <span className="ml-1 text-xs">•••• {payment.lastFourDigits}</span>
                   </div>
-                )}
-
-                {activeTab === 'transactions' && (
-                  <p className="mt-4 text-gray-500">Your transaction history will be displayed here soon.</p>
-                )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+)}
 
                 {showAddJobForm && (
   <AddJobForm 
