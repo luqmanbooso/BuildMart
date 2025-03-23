@@ -17,6 +17,13 @@ const SignUp = () => {
   const [password, setPassword] = useState(""); // State for password
   const [confirmPassword, setConfirmPassword] = useState(""); // State for confirm password
   const [errorMessage, setErrorMessage] = useState(""); // State to handle error messages
+  const [errors, setErrors] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false); // Add this state to track form submission attempts
 
   // Handle file input change (profile picture upload)
   const handleFileChange = (e) => {
@@ -36,13 +43,138 @@ const SignUp = () => {
 
   const navigate = useNavigate();
 
+  // Update the validateForm function for consistent password validation
+  const validateForm = () => {
+    // Trigger all validations explicitly
+    const isUsernameValid = validateUsername(true);
+    const isEmailValid = validateEmail(true);
+    const isPasswordValid = validatePassword(true);
+    const isConfirmPasswordValid = validateConfirmPassword(true);
+    
+    // Optional: validate profile picture
+    let isProfilePicValid = true;
+    if (profilePic) {
+      // Check file size (max 5MB)
+      if (profilePic.size > 5 * 1024 * 1024) {
+        setErrors(prev => ({
+          ...prev,
+          profilePic: 'Profile picture must be less than 5MB'
+        }));
+        isProfilePicValid = false;
+      }
+      
+      // Check file type
+      const fileType = profilePic.type;
+      if (!fileType.match(/^image\/(jpeg|jpg|png|gif)$/)) {
+        setErrors(prev => ({
+          ...prev,
+          profilePic: 'File must be an image (JPG, PNG, or GIF)'
+        }));
+        isProfilePicValid = false;
+      }
+    }
+    
+    return isUsernameValid && isEmailValid && isPasswordValid && isConfirmPasswordValid && isProfilePicValid;
+  };
+
+  // Update each validation function to consider the attemptedSubmit state
+
+  const validateUsername = (showError = attemptedSubmit) => {
+    if (username.trim().length < 3) {
+      if (showError) {
+        setErrors(prev => ({
+          ...prev,
+          username: 'Username must be at least 3 characters'
+        }));
+      }
+      return false;
+    } else {
+      setErrors(prev => ({ ...prev, username: '' }));
+      return true;
+    }
+  };
+
+  const validateEmail = (showError = attemptedSubmit) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      if (showError) {
+        setErrors(prev => ({
+          ...prev,
+          email: 'Please enter a valid email address'
+        }));
+      }
+      return false;
+    } else {
+      setErrors(prev => ({ ...prev, email: '' }));
+      return true;
+    }
+  };
+
+  // First, let's fix the password validation function
+  const validatePassword = (showError = attemptedSubmit) => {
+    // Simplified password regex that just requires 8+ chars with at least one letter and one number
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+    
+    if (!password) {
+      if (showError) {
+        setErrors(prev => ({
+          ...prev,
+          password: 'Password is required'
+        }));
+      }
+      return false;
+    } else if (!passwordRegex.test(password)) {
+      if (showError) {
+        setErrors(prev => ({
+          ...prev,
+          password: 'Password must be at least 8 characters with at least one letter and one number'
+        }));
+      }
+      return false;
+    } else {
+      setErrors(prev => ({ ...prev, password: '' }));
+      return true;
+    }
+  };
+
+  // Update the confirm password validation function
+  const validateConfirmPassword = (showError = attemptedSubmit) => {
+    if (!confirmPassword) {
+      if (showError) {
+        setErrors(prev => ({
+          ...prev,
+          confirmPassword: 'Please confirm your password'
+        }));
+      }
+      return false;
+    } else if (password !== confirmPassword) {
+      if (showError) {
+        setErrors(prev => ({
+          ...prev,
+          confirmPassword: 'Passwords do not match'
+        }));
+      }
+      return false;
+    } else {
+      setErrors(prev => ({ ...prev, confirmPassword: '' }));
+      return true;
+    }
+  };
 
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (password !== confirmPassword) {
-      setErrorMessage("Passwords do not match");
+    
+    // Mark that the user has attempted to submit the form
+    setAttemptedSubmit(true);
+    
+    // Validate form before submission
+    if (!validateForm()) {
+      // Scroll to the first error if validation fails
+      const firstErrorElement = document.querySelector('.text-red-500');
+      if (firstErrorElement) {
+        firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -88,8 +220,6 @@ const SignUp = () => {
         navigate('/');
       }
 
-      // Success message
-      alert('Signup successful!');
 
       // Reset form fields
       setUsername('');
@@ -127,6 +257,18 @@ const SignUp = () => {
               Sign Up
             </motion.h1>
             <form onSubmit={handleSubmit}>
+              {attemptedSubmit && (errors.username || errors.email || errors.password || errors.confirmPassword) && (
+                <div className="p-3 border border-red-300 bg-red-50 text-red-700 rounded-md mb-6 animate-fadeIn">
+                  <p className="font-medium">Please fix the following errors:</p>
+                  <ul className="list-disc pl-5 mt-1 text-sm">
+                    {errors.username && <li>{errors.username}</li>}
+                    {errors.email && <li>{errors.email}</li>}
+                    {errors.password && <li>{errors.password}</li>}
+                    {errors.confirmPassword && <li>{errors.confirmPassword}</li>}
+                    {errors.profilePic && <li>{errors.profilePic}</li>}
+                  </ul>
+                </div>
+              )}
               {errorMessage && (
                 <div className="text-red-500 mb-4">{errorMessage}</div>
               )}
@@ -143,11 +285,16 @@ const SignUp = () => {
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    if (attemptedSubmit) validateUsername(true);
+                  }}
+                  onBlur={() => validateUsername(true)}
+                  className={`w-full px-4 py-3 border ${errors.username ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md`}
                   placeholder="Enter username"
                   required
                 />
+                {errors.username && <div className="text-red-500 text-sm mt-1">{errors.username}</div>}
               </motion.div>
 
               <motion.div
@@ -189,11 +336,16 @@ const SignUp = () => {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (attemptedSubmit) validateEmail(true);
+                  }}
+                  onBlur={() => validateEmail(true)}
+                  className={`w-full px-4 py-3 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md`}
                   placeholder="Enter email address"
                   required
                 />
+                {errors.email && <div className="text-red-500 text-sm mt-1">{errors.email}</div>}
               </motion.div>
 
               <motion.div
@@ -209,8 +361,29 @@ const SignUp = () => {
                   <input
                     type={passwordVisible ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
+                    onChange={(e) => {
+                      // Update the password state
+                      setPassword(e.target.value);
+                      
+                      // Perform live validation if user has attempted to submit once already
+                      // or if the field has been focused and then changed
+                      if (attemptedSubmit || e.target.dataset.focused === "true") {
+                        validatePassword(true);
+                        // Also update confirm password validation if it's not empty
+                        if (confirmPassword) {
+                          validateConfirmPassword(true);
+                        }
+                      }
+                    }}
+                    onFocus={(e) => {
+                      // Mark the field as having been focused
+                      e.target.dataset.focused = "true";
+                    }}
+                    onBlur={(e) => {
+                      // Validate on blur unconditionally
+                      validatePassword(true);
+                    }}
+                    className={`w-full px-4 py-3 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md`}
                     placeholder="Enter password"
                     required
                   />
@@ -222,6 +395,11 @@ const SignUp = () => {
                     {passwordVisible ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
+                {errors.password && (
+                  <div className="text-red-500 text-sm mt-1 animate-fadeIn">
+                    {errors.password}
+                  </div>
+                )}
               </motion.div>
 
               <motion.div
@@ -237,8 +415,23 @@ const SignUp = () => {
                   <input
                     type={confirmPasswordVisible ? "text" : "password"}
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md"
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      // Perform live validation if user has attempted to submit once already
+                      // or if the field has been focused and then changed
+                      if (attemptedSubmit || e.target.dataset.focused === "true") {
+                        validateConfirmPassword(true);
+                      }
+                    }}
+                    onFocus={(e) => {
+                      // Mark the field as having been focused
+                      e.target.dataset.focused = "true";
+                    }}
+                    onBlur={(e) => {
+                      // Validate on blur unconditionally
+                      validateConfirmPassword(true);
+                    }}
+                    className={`w-full px-4 py-3 border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-md`}
                     placeholder="Confirm password"
                     required
                   />
@@ -250,17 +443,30 @@ const SignUp = () => {
                     {confirmPasswordVisible ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
+                {errors.confirmPassword && (
+                  <div className="text-red-500 text-sm mt-1 animate-fadeIn">
+                    {errors.confirmPassword}
+                  </div>
+                )}
               </motion.div>
 
+              {/* Update the submit button to show validation status */}
               <motion.button
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 1.4 }}
                 type="submit"
-                className="w-full bg-[#002855] text-white py-3 rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-xl"
+                className={`w-full py-3 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-xl ${
+                  attemptedSubmit && (errors.username || errors.email || errors.password || errors.confirmPassword)
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-[#002855] hover:bg-blue-700 text-white'
+                }`}
               >
-                Register
+                {attemptedSubmit && (errors.username || errors.email || errors.password || errors.confirmPassword)
+                  ? 'Please Fix Validation Errors'
+                  : 'Register'}
               </motion.button>
+
               <div className="mt-4 text-center">
                 <p className="text-sm text-gray-600">
                   Already have an account?{' '}
@@ -298,6 +504,15 @@ const SignUp = () => {
                 <img src="https://img.icons8.com/ios/50/000000/upload.png" alt="Upload" width={"20px"} />
               </label>
             </motion.div>
+            {errors.profilePic && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-red-500 text-sm mt-2 text-center"
+              >
+                {errors.profilePic}
+              </motion.p>
+            )}
 
             {/* Logo below Profile Picture */}
             <motion.div
