@@ -560,6 +560,35 @@ const calculateBidScore = async (bid) => {
         </div>
       )}
 
+      <div className="bg-blue-50 p-3 rounded-lg mb-4 flex items-start space-x-3 border border-blue-200">
+  <div className="text-blue-500 mt-0.5">
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
+    </svg>
+  </div>
+  <div className="text-sm text-blue-800">
+    <p className="font-medium">About Bid Scores</p>
+    <p className="mt-1 text-blue-700">
+      Bid scores are calculated based on: price (40%), timeline (30%), contractor experience (15%), 
+      and qualifications (15%). Higher scores indicate bids with better overall value.
+    </p>
+  </div>
+  <button onClick={() => document.getElementById('score-info').classList.toggle('hidden')} 
+    className="text-blue-600 hover:text-blue-800 text-sm font-medium flex-shrink-0">
+    Learn more
+  </button>
+</div>
+
+<div id="score-info" className="hidden bg-white p-4 rounded-lg mb-4 border border-blue-200 text-sm text-gray-700">
+  <p className="mb-2 font-medium">How Scores Are Calculated:</p>
+  <ul className="list-disc pl-5 space-y-1">
+    <li><span className="font-medium">Price (40%):</span> Lower bids receive higher scores</li>
+    <li><span className="font-medium">Timeline (30%):</span> Faster completion times receive higher scores</li>
+    <li><span className="font-medium">Experience (15%):</span> More years of experience receive higher scores</li>
+    <li><span className="font-medium">Qualifications (15%):</span> Verified qualifications improve scores</li>
+  </ul>
+</div>
+
       {/* Comparison panel */}
       {showCompare && selectedBids.length > 0 && (
         <div className="bg-blue-50 p-4 rounded-lg mb-6 border border-blue-200 animate-fade-in">
@@ -590,14 +619,6 @@ const calculateBidScore = async (bid) => {
                   {getSelectedBidsData().map((bid, index) => (
                     <td key={index} className="py-3 px-4 text-sm text-gray-900">
                       {bid.timeline} days
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="py-3 px-4 text-sm font-medium text-gray-700">Rating</td>
-                  {getSelectedBidsData().map((bid, index) => (
-                    <td key={index} className="py-3 px-4 text-sm text-gray-900">
-                      {bid.contractor?.rating || 'N/A'} <span className="text-yellow-500">★</span>
                     </td>
                   ))}
                 </tr>
@@ -650,30 +671,102 @@ const calculateBidScore = async (bid) => {
       )}
       
       {bids && bids.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="rounded-xl border border-gray-200 shadow-lg bg-white">
+          <table className="min-w-full divide-y divide-gray-100 table-fixed">
             <thead>
-              <tr className="bg-gray-50">
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
-                  Select
+              <tr className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                {/* Checkbox column - keep narrow */}
+                <th scope="col" className="px-3 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[5%]">
+                  <span className="sr-only">Select</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                  </svg>
                 </th>
-                {renderSortableHeader('Contractor', 'contractor')}
-                {renderSortableHeader('Bid Amount', 'price')}
-                {renderSortableHeader('Timeline', 'timeline')}
-                {renderSortableHeader('Rating', 'rating')}
-                {renderSortableHeader('Date', 'date')}
-                {renderSortableHeader('Score', 'score')}
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                {/* Contractor column - slightly wider */}
+                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[18%]">
+                  <div className="flex items-center space-x-1">
+                    <span>Contractor</span>
+                    {sortField === 'contractor' ? (
+                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                    ) : (
+                      <FaSort className="text-gray-400" />
+                    )}
+                  </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                {/* Bid amount column */}
+                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[13%]">
+                  <div className="flex items-center space-x-1" onClick={() => handleSort('price')}>
+                    <span>Bid Amount</span>
+                    {sortField === 'price' ? (
+                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                    ) : (
+                      <FaSort className="text-gray-400" />
+                    )}
+                  </div>
+                </th>
+                {/* Timeline column */}
+                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[10%]">
+                  <div className="flex items-center space-x-1" onClick={() => handleSort('timeline')}>
+                    <span>Timeline</span>
+                    {sortField === 'timeline' ? (
+                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                    ) : (
+                      <FaSort className="text-gray-400" />
+                    )}
+                  </div>
+                </th>
+                {/* Experience column */}
+                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[12%]">
+                  <div className="flex items-center space-x-1" onClick={() => handleSort('experience')}>
+                    <span>Experience</span>
+                    {sortField === 'experience' ? (
+                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                    ) : (
+                      <FaSort className="text-gray-400" />
+                    )}
+                  </div>
+                </th>
+                {/* Date column */}
+                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[10%]">
+                  <div className="flex items-center space-x-1" onClick={() => handleSort('date')}>
+                    <span>Date</span>
+                    {sortField === 'date' ? (
+                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                    ) : (
+                      <FaSort className="text-gray-400" />
+                    )}
+                  </div>
+                </th>
+                {/* Score column */}
+                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[10%]">
+                  <div className="flex items-center space-x-1" onClick={() => handleSort('score')}>
+                    <span>Score</span>
+                    {sortField === 'score' ? (
+                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                    ) : (
+                      <FaSort className="text-gray-400" />
+                    )}
+                  </div>
+                </th>
+                {/* Status column */}
+                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[10%]">
+                  <span>Status</span>
+                </th>
+                {/* Actions column */}
+                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[12%]">
+                  <span>Actions</span>
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-50">
               {isLoadingBids ? (
-                <tr><td colSpan="9" className="px-6 py-4 text-center text-gray-500">Calculating scores...</td></tr>
+                <tr><td colSpan="9" className="px-6 py-8 text-center">
+                  <div className="flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-blue-600 rounded-full border-t-transparent animate-spin mr-2"></div>
+                    <span className="text-gray-500 text-sm">Calculating scores...</span>
+                  </div>
+                </td></tr>
               ) : sortedBids.map((bid) => {
                 const bidId = bid.id || bid._id;
                 const isSelected = selectedBids.includes(bidId);
@@ -681,90 +774,95 @@ const calculateBidScore = async (bid) => {
                 const bidScore = getBidScore(bid);
                 
                 return (
-                  <tr key={bidId} className={`hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''} ${isShortlisted ? 'border-l-4 border-green-400' : ''}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
+                  <tr key={bidId} className={`group transition-all duration-200 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'} ${isShortlisted ? 'border-l-4 border-green-400' : ''}`}>
+                    {/* Keep the column widths matching the headers */}
+                    <td className="px-3 py-4 whitespace-nowrap">
+                      <div className="flex items-center justify-center">
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleBidSelection(bid)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                         />
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-800 font-medium">
+                        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full flex items-center justify-center shadow-sm border border-blue-200">
+                          <span className="text-blue-800 font-semibold text-lg">
                             {(bid.contractor?.name || bid.contractorname || 'Unknown').charAt(0)}
                           </span>
                         </div>
-                        <div className="ml-4">
+                        <div className="ml-3">
                           <div className="text-sm font-medium text-gray-900 flex items-center">
                             {bid.contractor?.name || bid.contractorname || 'Unknown'}
                             {isShortlisted && (
-                              <span className="ml-2 text-xs px-1.5 py-0.5 bg-green-100 text-green-800 rounded-full">Shortlisted</span>
+                              <span className="ml-1 text-xs px-1.5 py-0.5 bg-green-100 text-green-800 rounded-full">Shortlisted</span>
                             )}
                           </div>
-                          {bid.contractor?.experience && (
-                            <div className="text-xs text-gray-500">{bid.contractor.experience} years experience</div>
-                          )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">LKR {parseFloat(bid.price).toLocaleString()}</div>
+                      <div className="text-xs text-gray-500">Bid amount</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-700">{bid.timeline} days</div>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-800">{bid.timeline} days</div>
+                      <div className="text-xs text-gray-500">Completion time</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <span className="text-sm font-medium text-gray-900 mr-1">
-                          {bid.contractor?.rating || 'N/A'}
-                        </span>
-                        {bid.contractor?.rating && (
-                          <span className="text-yellow-400">
-                            <FaStar size={14} />
+                        <div className="text-sm font-medium text-gray-900">
+                          {bid.contractor?.experience || bid.experience || '2'} years
+                        </div>
+                        {(parseInt(bid.contractor?.experience || bid.experience || 0) > 5) && (
+                          <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            Senior
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-700">
                         {new Date(bid.createdAt).toLocaleDateString()}
                       </div>
+                      <div className="text-xs text-gray-500">Bid date</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm font-bold rounded-full w-12 h-8 flex items-center justify-center 
-                        ${parseFloat(bidScore) >= 80 ? 'bg-green-100 text-green-800' : 
-                         parseFloat(bidScore) >= 60 ? 'bg-blue-100 text-blue-800' : 
-                         parseFloat(bidScore) >= 40 ? 'bg-yellow-100 text-yellow-800' : 
-                         'bg-red-100 text-red-800'}`}
-                      >
-                        {bidScore}
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                          parseFloat(bidScore) >= 80 ? 'bg-gradient-to-br from-green-50 to-green-100 text-green-800 ring-1 ring-green-200' : 
+                          parseFloat(bidScore) >= 60 ? 'bg-gradient-to-br from-blue-50 to-blue-100 text-blue-800 ring-1 ring-blue-200' : 
+                          parseFloat(bidScore) >= 40 ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 text-yellow-800 ring-1 ring-yellow-200' : 
+                          'bg-gradient-to-br from-red-50 to-red-100 text-red-800 ring-1 ring-red-200'
+                        }`}>
+                          <div className="text-lg font-bold">{bidScore}</div>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm font-medium rounded-full px-3 py-1 inline-flex items-center
-                        ${bid.status === 'accepted' ? 'bg-green-100 text-green-800' : 
-                          bid.status === 'rejected' ? 'bg-red-100 text-red-800' : 
-                          'bg-yellow-100 text-yellow-800'}`}
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs
+                        ${bid.status === 'accepted' ? 'bg-green-50 text-green-800 ring-1 ring-green-200' : 
+                          bid.status === 'rejected' ? 'bg-red-50 text-red-800 ring-1 ring-red-200' : 
+                          'bg-yellow-50 text-yellow-800 ring-1 ring-yellow-200'}`}
                       >
-                        <span className={`h-2 w-2 rounded-full mr-2 
+                        <span className={`h-2 w-2 rounded-full mr-1.5 
                           ${bid.status === 'accepted' ? 'bg-green-500' : 
                             bid.status === 'rejected' ? 'bg-red-500' : 
                             'bg-yellow-500'}`}
                         ></span>
+                        <span className="font-medium">
                         {bid.status === 'accepted' ? 'Accepted' : 
                          bid.status === 'rejected' ? 'Rejected' : 
                          'Pending'}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex space-x-2">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm">
+                      <div className="flex space-x-1">
                         <button 
-                          className={`inline-flex items-center px-2 py-1 border text-xs font-medium rounded ${
+                          className={`inline-flex items-center px-2 py-1 border text-xs font-medium rounded-full transition-all duration-200 ${
                             isShortlisted 
                               ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100' 
                               : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
@@ -773,7 +871,7 @@ const calculateBidScore = async (bid) => {
                         >
                           {isShortlisted ? (
                             <>
-                              <FaCheck className="mr-1" /> Shortlisted
+                              <FaCheck className="mr-1" size={10} /> Shortlisted
                             </>
                           ) : (
                             'Shortlist'
@@ -781,7 +879,7 @@ const calculateBidScore = async (bid) => {
                         </button>
                         
                         <button 
-                          className="inline-flex items-center px-2 py-1 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-white hover:bg-blue-50"
+                          className="inline-flex items-center px-2 py-1 border border-blue-300 text-xs font-medium rounded-full text-blue-700 bg-white hover:bg-blue-50 transition-all duration-200"
                           onClick={() => navigate(`/contractor/${bid.contractorId}/bid/${bidId}/project/${jobId}`)}
                         >
                           Details
@@ -789,7 +887,7 @@ const calculateBidScore = async (bid) => {
                         
                         {bid.status === 'pending' && (
                           <button 
-                            className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200"
+                            className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-full text-green-700 bg-green-100 hover:bg-green-200 transition-all duration-200"
                             onClick={() => handleBidSelection(bidId)}
                           >
                             Accept
