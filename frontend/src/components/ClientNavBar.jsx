@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FaSearch, FaUserCircle, FaChevronDown, FaChartBar, 
-  FaCog, FaSignOutAlt 
+  FaCog, FaSignOutAlt, FaPlus 
 } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import { jwtDecode } from 'jwt-decode';
 import logo from "../assets/images/buildmart_logo1.png";
 import { CarTaxiFront, ShoppingCartIcon } from 'lucide-react';
+import AddJobForm from './AddJobForm';
 
 // Import ProfileImage component from Userprofile.jsx
 function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
@@ -79,6 +80,7 @@ const ClientNavBar = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showAddJobForm, setShowAddJobForm] = useState(false);
   const userMenuRef = useRef(null);
   const navigate = useNavigate();
   
@@ -156,6 +158,15 @@ const ClientNavBar = () => {
     navigate("/login");
   };
 
+  const handleJobAdded = (newJob) => {
+    // You can implement any additional logic here when a job is added
+    console.log("New job added:", newJob);
+    // Close the form
+    setShowAddJobForm(false);
+    // Show a success message
+    alert('Job created successfully!');
+  };
+
   return (
     <>
       <nav 
@@ -170,7 +181,7 @@ const ClientNavBar = () => {
         </div>
         
         <div className="hidden lg:flex items-center space-x-6">
-          {['Home', 'Shop', 'Ongoing Projects', 'About Us', 'Contact Us'].map((item, index) => (
+          {['Home', 'Shop', 'Ongoing Projects'].map((item, index) => (
             <Link 
               key={index}
               to={item === 'Home' ? '/' : item === 'Ongoing Projects' ? '/ongoing-works' : `/${item.toLowerCase().replace(' ', '-')}`} 
@@ -186,6 +197,35 @@ const ClientNavBar = () => {
                 window.location.pathname === (
                   item === 'Home' ? '/' : 
                   item === 'Ongoing Projects' ? '/ongoing-works' : 
+                  `/${item.toLowerCase().replace(' ', '-')}`
+                ) ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
+            </Link>
+          ))}
+          
+          {/* Add Job Link After Ongoing Projects */}
+          {user && (
+            <button
+              onClick={() => setShowAddJobForm(true)}
+              className="relative py-2 px-1 text-gray-700 hover:text-blue-600 font-medium transition-colors duration-300 group flex items-center"
+            >
+              
+              Add New Job
+              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100"></span>
+            </button>
+          )}
+
+          {['About Us', 'Contact Us'].map((item, index) => (
+            <Link 
+              key={index}
+              to={`/${item.toLowerCase().replace(' ', '-')}`} 
+              className={`relative py-2 px-1 ${
+                window.location.pathname === (
+                  `/${item.toLowerCase().replace(' ', '-')}`
+                ) ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
+            >
+              {item}
+              <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${
+                window.location.pathname === (
                   `/${item.toLowerCase().replace(' ', '-')}`
                 ) ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
             </Link>
@@ -292,7 +332,7 @@ const ClientNavBar = () => {
             className="fixed top-[74px] left-0 w-full bg-white z-40 shadow-lg lg:hidden overflow-hidden"
           >
             <div className="p-5 flex flex-col space-y-4">
-              {['Home', 'Shop', 'Ongoing Projects', 'About Us', 'Contact Us'].map((item, index) => (
+              {['Home', 'Shop', 'Ongoing Projects'].map((item, index) => (
                 <Link 
                   key={index}
                   to={item === 'Home' ? '/' : item === 'Ongoing Projects' ? '/ongoing-works' : `/${item.toLowerCase().replace(' ', '-')}`} 
@@ -302,6 +342,33 @@ const ClientNavBar = () => {
                       item === 'Ongoing Projects' ? '/ongoing-works' : 
                       `/${item.toLowerCase().replace(' ', '-')}`
                     ) ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'} font-medium`}
+                  onClick={() => setShowMobileMenu(false)}
+                >
+                  {item}
+                </Link>
+              ))}
+
+              {/* Add Job Link in Mobile Menu */}
+              {user && (
+                <button
+                  onClick={() => {
+                    setShowAddJobForm(true);
+                    setShowMobileMenu(false);
+                  }}
+                  className="py-2 px-3 rounded-lg hover:bg-blue-50 text-blue-600 font-medium flex items-center"
+                >
+                  <FaPlus className="mr-2" />
+                  Add New Job
+                </button>
+              )}
+              
+              {['About Us', 'Contact Us'].map((item, index) => (
+                <Link 
+                  key={index}
+                  to={`/${item.toLowerCase().replace(' ', '-')}`} 
+                  className={`py-2 px-3 rounded-lg ${
+                    window.location.pathname === `/${item.toLowerCase().replace(' ', '-')}` 
+                    ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'} font-medium`}
                   onClick={() => setShowMobileMenu(false)}
                 >
                   {item}
@@ -375,6 +442,16 @@ const ClientNavBar = () => {
               )}
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Job Form Modal */}
+      <AnimatePresence>
+        {showAddJobForm && (
+          <AddJobForm 
+            onClose={() => setShowAddJobForm(false)} 
+            onJobAdded={handleJobAdded} 
+          />
         )}
       </AnimatePresence>
     </>
