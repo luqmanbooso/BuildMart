@@ -42,7 +42,7 @@ const paymentSchema = new mongoose.Schema({
   },
   paymentType: {
     type: String,
-    enum: ['other', 'milestone', 'inventory', 'agreement_fee'],
+    enum: ['other', 'milestone', 'inventory', 'agreement_fee', 'customer'],
     default: 'other'
   },
   // User information
