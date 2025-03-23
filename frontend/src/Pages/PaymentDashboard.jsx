@@ -316,7 +316,7 @@ const processPaymentData = (data) => {
       // CATEGORIZATION LOGIC:
       
       // Check if this is an agreement fee
-      const isAgreementFee = payment.paymentType === 'agreementFee';
+      const isAgreementFee = payment.paymentType === 'agreement_fee';
       
       // Check whether the payment has order items (which indicates inventory sale)
       const hasOrderItems = payment.order && 

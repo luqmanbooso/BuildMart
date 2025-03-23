@@ -52,6 +52,15 @@ router.post('/process-payment', extractUserFromToken, async (req, res) => {
       user: requestUser
     } = req.body;
 
+    // Validate context type against allowed payment types
+    const validPaymentTypes = ['other', 'milestone', 'inventory', 'agreement_fee', 'customer'];
+    const paymentType = validPaymentTypes.includes(context) ? context : 'other';
+    
+    // Log if there's a mismatch
+    if (context && context !== paymentType) {
+      console.warn(`Payment context '${context}' not recognized. Using '${paymentType}' instead.`);
+    }
+
     // Get user data either from request body or from token
     const userData = requestUser || req.userData || null;
     
@@ -104,7 +113,7 @@ router.post('/process-payment', extractUserFromToken, async (req, res) => {
       commissionAmount: commissionAmount ? parseFloat(commissionAmount) : 0,
       commissionRate: commissionRate || 0,
       status: 'completed',
-      paymentType: context || 'other',
+      paymentType: paymentType,  // Use the validated payment type
       user: userObject,
       workId: workId || null,
       milestoneId: milestoneId || null,
@@ -299,5 +308,12 @@ router.post('/milestone-payment', async (req, res) => {
     });
   }
 });
+
+// Test your backend connectivity
+fetch('http://localhost:5000/api/payments/process-payment', {
+  method: 'HEAD'
+})
+.then(res => console.log('Server accessible:', res.ok))
+.catch(err => console.error('Server connection error:', err));
 
 module.exports = router;
