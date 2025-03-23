@@ -6,6 +6,71 @@ import axios from 'axios';
 import ClientNavBar from '../components/ClientNavBar';
 import AddJobForm from '../components/AddJobForm';
 
+// Enhanced ProfileImage component with larger size options
+
+function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
+  // Check if the path is a full URL or just a relative path
+  const imgSrc = profilePicPath
+    ? profilePicPath.startsWith('http') 
+      ? profilePicPath 
+      : `http://localhost:5000${profilePicPath}`
+    : '/default-profile.png'; // Fallback image
+
+  // Size map with expanded options
+  const sizeMap = {
+    small: "h-10 w-10",
+    medium: "h-16 w-16", 
+    large: "h-20 w-20",
+    xlarge: "h-24 w-24",  // New larger size (96px)
+    xxlarge: "h-32 w-32"  // New extra large size (128px)
+  };
+  
+  // Get size class or default to passed dimensions
+  const sizeClass = sizeMap[size] || "";
+  
+  // Combine size with passed className
+  const containerClasses = `${sizeClass} ${className} rounded-full overflow-hidden flex-shrink-0 bg-gray-50`;
+
+  return (
+    <div className={containerClasses} style={{
+      position: 'relative',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      {/* Background placeholder with subtle pattern */}
+      <div
+        className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200"
+        style={{
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(248,250,252,0.2) 100%)"
+        }}
+      ></div>
+      {/* Perfect circle mask with aspect ratio enforcement */}
+      <div className="absolute inset-0 rounded-full overflow-hidden">
+        <div style={{ 
+          width: '100%', 
+          height: '100%', 
+          position: 'relative' 
+        }}>
+          <img 
+            src={imgSrc} 
+            alt="Profile" 
+            className="absolute inset-0 w-full h-full rounded-full"
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'center',
+            }}
+            onError={(e) => {
+              e.target.src = '/default-profile.png';
+              console.log("Failed to load profile image:", profilePicPath);
+            }} 
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const UserProfilePage = () => {
   const navigate = useNavigate(); // Add this hook
   
@@ -54,7 +119,7 @@ const UserProfilePage = () => {
     // Get token from localStorage or sessionStorage
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     
-    // Fetch user info from token
+    // Fetch user info from token and then get complete profile from API
     if (token) {
       try {
         // Decode the token to get user data
@@ -68,12 +133,15 @@ const UserProfilePage = () => {
           role: decoded.role,
         };
 
-        // Set the user state from the decoded data
+        // Set basic user data from token
         setUser(prevUser => ({
           ...prevUser,
           name: userData.username || prevUser.name,
           email: userData.email || prevUser.email,
         }));
+        
+        // Fetch complete user profile including profile pic
+        fetchUserProfile(decoded.userId, token);
         
         // Fetch jobs from API
         fetchJobs();
@@ -82,6 +150,28 @@ const UserProfilePage = () => {
       }
     }
   }, []);
+
+  // Add this new function to fetch complete user profile
+  const fetchUserProfile = async (userId, token) => {
+    try {
+      const response = await axios.get(`http://localhost:5000/auth/user/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data && response.data.user) {
+        setUser(prevUser => ({
+          ...prevUser,
+          name: response.data.user.username || prevUser.name,
+          email: response.data.user.email || prevUser.email,
+          profilePic: response.data.user.profilePic || null
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   // Function to fetch jobs
   const fetchJobs = async () => {
@@ -439,55 +529,63 @@ const UserProfilePage = () => {
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Updated Left Sidebar */}
             <div className="lg:w-1/4">
-              <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
-                <div className="h-20 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
-                <div className="relative px-6 pb-6">
-                  <div className="flex justify-center">
-                    <div className="absolute -top-10 rounded-full border-4 border-white p-1 bg-white">
-                      <div className="h-16 w-16 bg-blue-500 rounded-full flex justify-center items-center">
-                        <span className="text-white text-xl">{user.name ? user.name[0] : 'U'}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-12 text-center">
-                    <h2 className="text-lg font-bold text-gray-800">{user.name || 'User'}</h2>
-                    <p className="text-sm text-gray-500 mb-6">{user.email || 'email@example.com'}</p>
-                    
-                    <div className="space-y-3">
-                      <button 
-                        onClick={handleEditProfileClick}
-                        className="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center justify-center"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        Edit Profile
-                      </button>
-                      
-                      <button 
-                        onClick={handleLogout}
-                        className="w-full py-2 px-3 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center justify-center"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        Log Out
-                      </button>
-                      
-                      <button 
-                        onClick={() => setShowDeleteConfirm(true)}
-                        className="w-full py-2 px-3 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center justify-center"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Delete Account
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+  <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
+    <div className="h-28 bg-gradient-to-r from-blue-600 to-indigo-600"></div> {/* Increased header height */}
+    <div className="relative px-6 pb-6">
+      <div className="flex justify-center">
+        <div className="absolute -top-14 rounded-full border-4 border-white p-1 bg-white shadow-md"> {/* Lower position and add shadow */}
+          {user.profilePic ? (
+            <ProfileImage 
+              profilePicPath={user.profilePic}
+              size="xlarge" // Use xlarge size instead of explicit dimensions
+              className="rounded-full object-cover shadow-inner"
+            />
+          ) : (
+            <div className="h-24 w-24 bg-blue-500 rounded-full flex justify-center items-center"> {/* Increased size */}
+              <span className="text-white text-2xl font-semibold">{user.name ? user.name[0].toUpperCase() : 'U'}</span>
             </div>
+          )}
+        </div>
+      </div>
+      <div className="mt-20 text-center"> {/* Increased margin-top to accommodate larger image */}
+        <h2 className="text-lg font-bold text-gray-800">{user.name || 'User'}</h2>
+        <p className="text-sm text-gray-500 mb-6">{user.email || 'email@example.com'}</p>
+        
+        <div className="space-y-3">
+          <button 
+            onClick={handleEditProfileClick}
+            className="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center justify-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Edit Profile
+          </button>
+          
+          <button 
+            onClick={handleLogout}
+            className="w-full py-2 px-3 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center justify-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Log Out
+          </button>
+          
+          <button 
+            onClick={() => setShowDeleteConfirm(true)}
+            className="w-full py-2 px-3 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center justify-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete Account
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
             {/* Right Content */}
             <div className="lg:w-3/4">

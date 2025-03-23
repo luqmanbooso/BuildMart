@@ -9,6 +9,71 @@ import { jwtDecode } from 'jwt-decode';
 import logo from "../assets/images/buildmart_logo1.png";
 import { CarTaxiFront, ShoppingCartIcon } from 'lucide-react';
 
+// Import ProfileImage component from Userprofile.jsx
+function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
+  // Check if the path is a full URL or just a relative path
+  const imgSrc = profilePicPath
+    ? profilePicPath.startsWith('http') 
+      ? profilePicPath 
+      : `http://localhost:5000${profilePicPath}`
+    : '/default-profile.png'; // Fallback image
+
+  // Size map with expanded options
+  const sizeMap = {
+    tiny: "h-8 w-8",
+    small: "h-10 w-10",
+    medium: "h-16 w-16", 
+    large: "h-20 w-20",
+    xlarge: "h-24 w-24",
+    xxlarge: "h-32 w-32"
+  };
+  
+  // Get size class or default to passed dimensions
+  const sizeClass = sizeMap[size] || "";
+  
+  // Combine size with passed className
+  const containerClasses = `${sizeClass} ${className} rounded-full overflow-hidden flex-shrink-0 bg-gray-50`;
+
+  return (
+    <div className={containerClasses} style={{
+      position: 'relative',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      {/* Background placeholder with subtle pattern */}
+      <div
+        className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200"
+        style={{
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(248,250,252,0.2) 100%)"
+        }}
+      ></div>
+      {/* Perfect circle mask with aspect ratio enforcement */}
+      <div className="absolute inset-0 rounded-full overflow-hidden">
+        <div style={{ 
+          width: '100%', 
+          height: '100%', 
+          position: 'relative' 
+        }}>
+          <img 
+            src={imgSrc} 
+            alt="Profile" 
+            className="absolute inset-0 w-full h-full rounded-full"
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'center',
+            }}
+            onError={(e) => {
+              e.target.src = '/default-profile.png';
+              console.log("Failed to load profile image:", profilePicPath);
+            }} 
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const ClientNavBar = () => {
   const [user, setUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -93,7 +158,6 @@ const ClientNavBar = () => {
 
   return (
     <>
-      {/* Enhanced Sticky Navbar with dynamic glassmorphism effect */}
       <nav 
         className={`fixed w-full backdrop-blur-md py-3 px-4 md:px-8 flex items-center justify-between transition-all duration-500 z-50 ${
           isScrolled ? "bg-white/90 shadow-lg" : "bg-white/50"
@@ -106,7 +170,6 @@ const ClientNavBar = () => {
         </div>
         
         <div className="hidden lg:flex items-center space-x-6">
-          {/* UPDATED: Added 'Ongoing Projects' to the navigation array */}
           {['Home', 'Shop', 'Ongoing Projects', 'About Us', 'Contact Us'].map((item, index) => (
             <Link 
               key={index}
@@ -128,8 +191,6 @@ const ClientNavBar = () => {
             </Link>
           ))}
           
-          {/* Search icon removed */}
-          
           {user ? (
             <div className="relative" ref={userMenuRef}>
               <div 
@@ -137,10 +198,10 @@ const ClientNavBar = () => {
                 onClick={() => setShowUserMenu(!showUserMenu)}
               >
                 {user.profilePic ? (
-                  <img
-                    src={user.profilePic}
-                    alt="Profile"
-                    className="w-8 h-8 rounded-full border-2 border-blue-500 object-cover"
+                  <ProfileImage 
+                    profilePicPath={user.profilePic}
+                    size="tiny" 
+                    className="border-2 border-blue-500"
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center text-white">
@@ -209,7 +270,6 @@ const ClientNavBar = () => {
           )}
         </div>
         
-        {/* Mobile menu button */}
         <div className="lg:hidden">
           <button 
             className="text-gray-700 focus:outline-none p-2"
@@ -222,7 +282,6 @@ const ClientNavBar = () => {
         </div>
       </nav>
 
-      {/* Mobile menu */}
       <AnimatePresence>
         {showMobileMenu && (
           <motion.div
@@ -233,7 +292,6 @@ const ClientNavBar = () => {
             className="fixed top-[74px] left-0 w-full bg-white z-40 shadow-lg lg:hidden overflow-hidden"
           >
             <div className="p-5 flex flex-col space-y-4">
-              {/* UPDATED: Added 'Ongoing Projects' to mobile navigation */}
               {['Home', 'Shop', 'Ongoing Projects', 'About Us', 'Contact Us'].map((item, index) => (
                 <Link 
                   key={index}
@@ -267,10 +325,10 @@ const ClientNavBar = () => {
                 <div className="pt-4 border-t border-gray-200">
                   <div className="flex items-center space-x-3 mb-4">
                     {user.profilePic ? (
-                      <img
-                        src={user.profilePic}
-                        alt="Profile"
-                        className="w-10 h-10 rounded-full border-2 border-blue-500 object-cover"
+                      <ProfileImage 
+                        profilePicPath={user.profilePic}
+                        size="small" 
+                        className="border-2 border-blue-500"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center text-white text-lg">

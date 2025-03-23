@@ -1,15 +1,84 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaSave, FaTimes, FaUser, FaEnvelope, FaIdCard, FaLock } from 'react-icons/fa';
+import { FaSave, FaTimes, FaUser, FaEnvelope, FaIdCard, FaLock, FaCamera } from 'react-icons/fa';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
 import {jwtDecode} from 'jwt-decode'; 
 
+// ProfileImage component for consistent display
+function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
+  // Check if the path is a full URL or just a relative path
+  const imgSrc = profilePicPath
+    ? profilePicPath.startsWith('http') 
+      ? profilePicPath 
+      : `http://localhost:5000${profilePicPath}`
+    : '/default-profile.png'; // Fallback image
+
+  // Size map with expanded options
+  const sizeMap = {
+    small: "h-10 w-10",
+    medium: "h-16 w-16", 
+    large: "h-20 w-20",
+    xlarge: "h-24 w-24",  // New larger size (96px)
+    xxlarge: "h-32 w-32"  // New extra large size (128px)
+  };
+  
+  // Get size class or default to passed dimensions
+  const sizeClass = sizeMap[size] || "";
+  
+  // Combine size with passed className
+  const containerClasses = `${sizeClass} ${className} rounded-full overflow-hidden flex-shrink-0 bg-gray-50`;
+
+  return (
+    <div className={containerClasses} style={{
+      position: 'relative',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      {/* Background placeholder with subtle pattern */}
+      <div
+        className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200"
+        style={{
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(248,250,252,0.2) 100%)"
+        }}
+      ></div>
+      {/* Perfect circle mask with aspect ratio enforcement */}
+      <div className="absolute inset-0 rounded-full overflow-hidden">
+        <div style={{ 
+          width: '100%', 
+          height: '100%', 
+          position: 'relative' 
+        }}>
+          <img 
+            src={imgSrc} 
+            alt="Profile" 
+            className="absolute inset-0 w-full h-full rounded-full"
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'center',
+            }}
+            onError={(e) => {
+              e.target.src = '/default-profile.png';
+              console.log("Failed to load profile image:", profilePicPath);
+            }} 
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const EditUserDetails = ({ onClose, userData, onUserUpdate }) => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const fileInputRef = useRef(null);
+  
+  // Add new state for profile image
+  const [profileImage, setProfileImage] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -22,7 +91,6 @@ const EditUserDetails = ({ onClose, userData, onUserUpdate }) => {
 
   // Validation state
   const [validation, setValidation] = useState({
-
     email: { valid: true, message: '' },
     username: { valid: true, message: '' },
     currentPassword: { valid: true, message: '' },
@@ -42,6 +110,185 @@ const EditUserDetails = ({ onClose, userData, onUserUpdate }) => {
       });
     }
   }, [userData]);
+
+  // Handle profile image change
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfileImage(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Trigger file input click
+  const triggerFileInput = () => {
+    fileInputRef.current.click();
+  };
+
+  // Update handleSubmit function to use correct endpoints
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!isFormValid()) {
+    setError('Please fill all required fields correctly.');
+    return;
+  }
+  
+  // Check if new password and confirm password match
+  if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
+    setError('New password and confirm password do not match');
+    return;
+  }
+  
+  setIsLoading(true);
+  setError('');
+
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    
+    if (!token) {
+      toast.error('Authentication required');
+      navigate('/login');
+      return;
+    }
+
+    // Get userId from userData
+    let userId = userData?._id || userData?.id;
+    
+    // If userId is undefined, try to get it from token
+    if (!userId && token) {
+      try {
+        const decoded = jwtDecode(token);
+        userId = decoded.userId || decoded.id;
+      } catch (decodeError) {
+        console.error('Error decoding token:', decodeError);
+      }
+    }
+    
+    // If still no userId, show error
+    if (!userId) {
+      toast.error('Could not determine user ID. Please try logging out and back in.');
+      setError('User ID not found');
+      setIsLoading(false);
+      return;
+    }
+    
+    // Create the base update data
+    const requestData = {
+      name: formData.username,
+      email: formData.email
+    };
+    
+    // Add password fields if provided
+    if (formData.currentPassword && formData.newPassword) {
+      requestData.currentPassword = formData.currentPassword;
+      requestData.newPassword = formData.newPassword;
+    }
+    
+    // Set up updated user data for state update
+    let updatedUserData = { 
+      ...userData,
+      username: formData.username,
+      email: formData.email
+    };
+
+    // Handle profile image upload if a new one was selected
+    if (profileImage) {
+      try {
+        // First upload the image
+        const imageFormData = new FormData();
+        imageFormData.append('profilePic', profileImage);
+        
+        const uploadResponse = await axios.post(
+          'http://localhost:5000/auth/upload/profile',
+          imageFormData,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+        
+        console.log('Image upload response:', uploadResponse.data);
+        
+        if (uploadResponse.data && uploadResponse.data.filePath) {
+          // Add the profile pic path to the request data
+          requestData.profilePic = uploadResponse.data.filePath;
+          
+          // Update the user data to be returned
+          updatedUserData.profilePic = uploadResponse.data.filePath;
+        }
+      } catch (uploadError) {
+        console.error('Image upload failed:', uploadError);
+        toast.error('Profile image upload failed, but other details will still be updated.');
+      }
+    }
+    
+    // Now update the user with all data including profile pic if uploaded
+    console.log(`Making PUT request to /auth/user/${userId} with data:`, requestData);
+    
+    const response = await axios.put(
+      `http://localhost:5000/auth/user/${userId}`,
+      requestData,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    console.log('Update successful:', response.data);
+    
+    // If the response includes updated user data, use it
+    if (response.data && response.data.user) {
+      updatedUserData = {
+        ...updatedUserData,
+        ...response.data.user,
+        username: response.data.user.username,
+        email: response.data.user.email,
+        profilePic: response.data.user.profilePic
+      };
+    }
+    
+    toast.success('Profile updated successfully!');
+    
+    if (onUserUpdate) {
+      onUserUpdate(updatedUserData);
+    }
+    
+    if (onClose) {
+      onClose();
+    }
+    
+  } catch (error) {
+    console.error('Error updating user details:', error);
+    
+    let errorMsg = 'Failed to update user details';
+    if (error.response) {
+      if (error.response.status === 401) {
+        errorMsg = 'Current password is incorrect';
+      } else if (error.response.status === 409) {
+        errorMsg = error.response.data?.error || 'Username or email already in use';
+      } else {
+        errorMsg += `: ${error.response.data?.error || error.response.statusText}`;
+      }
+    }
+    
+    setError(errorMsg);
+    toast.error(errorMsg);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Validation functions
   const validateName = (name, fieldName) => {
@@ -146,125 +393,6 @@ const EditUserDetails = ({ onClose, userData, onUserUpdate }) => {
     return requiredFieldsValid;
   };
 
-  // Update the handleSubmit function to properly handle userIds
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  if (!isFormValid()) {
-    setError('Please fill all required fields correctly.');
-    return;
-  }
-  
-  // Check if new password and confirm password match
-  if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-    setError('New password and confirm password do not match');
-    return;
-  }
-  
-  setIsLoading(true);
-  setError('');
-
-  try {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    
-    if (!token) {
-      toast.error('Authentication required');
-      navigate('/login');
-      return;
-    }
-
-    // Debug to check what userData contains
-    console.log('userData received:', userData);
-    
-    // Get userId directly from userData first
-    let userId = userData?._id || userData?.id;
-    
-    // If userId is undefined, try to get it from token
-    if (!userId && token) {
-      try {
-        // Fix: Use jwtDecode (no curly braces)
-        const decoded = jwtDecode(token);
-        userId = decoded.userId || decoded.id;
-      } catch (decodeError) {
-        console.error('Error decoding token:', decodeError);
-      }
-    }
-    
-    // If still no userId, show error
-    if (!userId) {
-      toast.error('Could not determine user ID. Please try logging out and back in.');
-      setError('User ID not found');
-      setIsLoading(false);
-      return;
-    }
-    
-    // Prepare request data
-    const requestData = {
-      name: formData.username,
-      email: formData.email
-    };
-    
-    // Add password data if provided
-    if (formData.currentPassword && formData.newPassword) {
-      requestData.currentPassword = formData.currentPassword;
-      requestData.newPassword = formData.newPassword;
-    }
-    
-    console.log(`Making PUT request to /auth/user/${userId}`);
-    
-    // Make the PUT request
-    const response = await axios.put(
-      `http://localhost:5000/auth/user/${userId}`,
-      requestData,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    
-    console.log('Update successful:', response.data);
-    toast.success('User details updated successfully!');
-    
-    const updatedUserData = {
-      ...userData,
-      username: formData.username, 
-      email: formData.email
-    };
-    
-    if (onUserUpdate) {
-      onUserUpdate(updatedUserData);
-    }
-    
-    if (onClose) {
-      onClose();
-    }
-    
-  } catch (error) {
-    console.error('Error updating user details:', error);
-    
-    let errorMsg = 'Failed to update user details';
-    if (error.response) {
-      // Check for specific error status codes
-      if (error.response.status === 401) {
-        errorMsg = 'Current password is incorrect';
-      } else if (error.response.status === 409) {
-        // For duplicate entry errors
-        errorMsg = error.response.data?.error || 'Username or email already in use';
-      } else {
-        // General error handling
-        errorMsg += `: ${error.response.data?.error || error.response.statusText}`;
-      }
-    }
-    
-    setError(errorMsg);
-    toast.error(errorMsg);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
   return (
     <motion.div 
       className="bg-white rounded-lg shadow-lg p-6 border border-gray-200"
@@ -298,6 +426,53 @@ const handleSubmit = async (e) => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Profile Image Section */}
+        <div className="flex flex-col items-center mb-6 pt-2">
+          <div className="relative group">
+            {profileImagePreview ? (
+              <div className="h-24 w-24 rounded-full overflow-hidden">
+                <img 
+                  src={profileImagePreview} 
+                  alt="Profile Preview" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              userData?.profilePic ? (
+                <ProfileImage 
+                  profilePicPath={userData.profilePic}
+                  size="xlarge"
+                  className="border-2 border-blue-200"
+                />
+              ) : (
+                <div className="h-24 w-24 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xl font-semibold">
+                    {userData?.username ? userData.username[0].toUpperCase() : 'U'}
+                  </span>
+                </div>
+              )
+            )}
+            
+            <button
+              type="button"
+              onClick={triggerFileInput}
+              className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full shadow-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Change profile picture"
+            >
+              <FaCamera size={14} />
+            </button>
+            
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageChange}
+              accept="image/*"
+              className="hidden"
+              id="profile-image-upload"
+            />
+          </div>
+          <p className="mt-3 text-sm text-gray-500">Click the camera icon to change your profile picture</p>
+        </div>
 
         {/* Account Information */}
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -306,6 +481,7 @@ const handleSubmit = async (e) => {
             Account Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Username field */}
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
                 Username <span className="text-red-500">*</span>
@@ -326,6 +502,7 @@ const handleSubmit = async (e) => {
               )}
             </div>
 
+            {/* Email field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email <span className="text-red-500">*</span>
@@ -345,9 +522,6 @@ const handleSubmit = async (e) => {
                 <p className="mt-1 text-sm text-red-600">{validation.email.message}</p>
               )}
             </div>
-          </div>
-          <div className="mt-3">
-            <p className="text-xs text-gray-500">Note: To change your password, please use the "Reset Password" option on the login page.</p>
           </div>
         </div>
 
