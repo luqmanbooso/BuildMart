@@ -80,10 +80,16 @@ const ContractorProfileSetup = () => {
 const validatePhone = (phone) => {
   if (!phone) return { valid: false, message: 'Phone number is required' };
   const digits = phone.replace(/[^0-9]/g, '');
-  if (digits.length!==10) {
+  if (digits.length !== 10) {
     return { 
       valid: false, 
       message: 'Phone number should be 10 digits' 
+    };
+  }
+  if (!digits.startsWith('07')) {
+    return {
+      valid: false,
+      message: 'Phone number must start with 07'
     };
   }
   return { valid: true, message: '' };
@@ -91,11 +97,20 @@ const validatePhone = (phone) => {
 
 const handlePhoneInput = (event) => {
   // Get the input value
-  const input = event.target.value;
-
-  // Remove non-numeric characters and limit to 10 digits
-  const digits = input.replace(/[^0-9]/g, '').slice(0, 10);
-
+  let input = event.target.value;
+  
+  // Remove non-numeric characters
+  let digits = input.replace(/[^0-9]/g, '').slice(0, 10);
+  
+  // If user is starting to type and hasn't entered '07' yet, help them out
+  if (digits.length <= 2) {
+    if (digits.length === 1 && digits !== '0') {
+      digits = '0' + digits;
+    } else if (digits.length === 2 && !digits.startsWith('07')) {
+      digits = '07';
+    }
+  }
+  
   // Update the input field with the valid digits
   event.target.value = digits;
 };
@@ -434,8 +449,8 @@ const handleSubmit = async (e) => {
                           name="phone"
                           value={formData.phone}
                           onChange={handleChange}
-                          onInput={handlePhoneInput} // Add this line to connect the existing function
-                          maxLength={10} // Add this to limit input length
+                          onInput={handlePhoneInput}
+                          maxLength={10}
                           className={`w-full border ${
                             formData.phone && !validatePhone(formData.phone).valid
                               ? 'border-red-300 focus:ring-red-500'
@@ -534,7 +549,7 @@ const handleSubmit = async (e) => {
                           name="companyName"
                           value={formData.companyName}
                           onChange={handleChange}
-                          maxLength={100} // Add reasonable maximum length
+                          maxLength={50} // Add reasonable maximum length
                           className="w-full border border-gray-300 rounded-md px-4 py-2 
                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                             transition-all duration-200"
