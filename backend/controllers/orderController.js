@@ -124,12 +124,23 @@ exports.updateOrderStatus = async (req, res) => {
 
 exports.getUserOrders = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const { userId, all } = req.query;
     
+    // For admin/supply dashboard view that needs all orders
+    if (all === 'true') {
+      const orders = await Order.find().sort({ orderDate: -1 });
+      return res.status(200).json({
+        success: true,
+        count: orders.length,
+        orders
+      });
+    }
+    
+    // For regular user orders - must provide userId
     if (!userId) {
       return res.status(400).json({
         success: false,
-        message: 'User ID is required'
+        message: 'User ID is required for filtering orders by user'
       });
     }
     
@@ -146,43 +157,6 @@ exports.getUserOrders = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch orders',
-      error: error.message
-    });
-  }
-};
-
-// Add this new function to handle order updates by order number instead of MongoDB ID
-exports.updateOrderStatusByOrderNumber = async (req, res) => {
-  try {
-    const { orderNumber } = req.params;
-    const { status } = req.body;
-    
-    console.log(`Updating order ${orderNumber} to status: ${status}`);
-    
-    // Find the order by the custom order number field (not _id)
-    const order = await Order.findOne({ orderNumber: orderNumber });
-    
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: `Order with number ${orderNumber} not found`
-      });
-    }
-    
-    // Update the order status
-    order.orderStatus = status;
-    await order.save();
-    
-    res.status(200).json({
-      success: true,
-      message: `Order ${orderNumber} status updated to ${status}`,
-      order
-    });
-  } catch (error) {
-    console.error('Order status update error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update order status',
       error: error.message
     });
   }
