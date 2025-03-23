@@ -5,6 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 import ClientNavBar from '../components/ClientNavBar';
 import AddJobForm from '../components/AddJobForm';
+import EditUserDetails from '../components/EditUserDetails'; // Add this import
 
 // Enhanced ProfileImage component with larger size options
 
@@ -115,6 +116,11 @@ const UserProfilePage = () => {
   // Add this state to track form steps
   const [formStep, setFormStep] = useState(1);
 
+  // Add these state variables in the UserProfilePage component
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
+
   useEffect(() => {
     // Get token from localStorage or sessionStorage
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -145,6 +151,9 @@ const UserProfilePage = () => {
         
         // Fetch jobs from API
         fetchJobs();
+        
+        // Add these lines:
+        fetchPaymentHistory();
       } catch (error) {
         console.error('Error decoding token:', error);
       }
@@ -354,105 +363,59 @@ const UserProfilePage = () => {
   };
 
   const handleEditProfileClick = () => {
-    // Initialize form with current user data
-    setEditedProfile({
-      name: user.name || '',
-      email: user.email || ''
-    });
     setShowEditProfileForm(true);
-  };
-
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    
-    try {
-      // Get token from storage
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      
-      if (!token) {
-        setError("You must be logged in to update your profile");
-        return;
-      }
-      
-      // Get user ID from JWT token by parsing it
-      const tokenData = JSON.parse(atob(token.split('.')[1]));
-      const userId = tokenData.userId; // This is how to get userId from the token
-      
-      if (!userId) {
-        setError("Unable to identify user. Please login again.");
-        return;
-      }
-      
-      // Show loading state
-      setIsLoading(true);
-      
-      // Make API request to update profile
-      const response = await axios.patch(
-        `http://localhost:5000/auth/user/${userId}`,
-        {
-          name: editedProfile.name,
-          email: editedProfile.email
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      // Update the user state with the returned data
-      setUser({
-        ...user,
-        name: response.data.user.username,
-        email: response.data.user.email
-      });
-      
-      // Show success message
-      setSuccessMessage("Profile updated successfully");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      
-      // Close the edit profile modal
-      setShowEditProfileForm(false);
-      
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      
-      // Display appropriate error message
-      if (error.response) {
-        if (error.response.status === 400) {
-          setError(error.response.data.error || "Invalid input");
-        } else {
-          setError(error.response.data.error || "Server error");
-        }
-      } else if (error.request) {
-        setError("No response from server. Please check your connection.");
-      } else {
-        setError("An unexpected error occurred");
-      }
-      
-      setTimeout(() => setError(""), 5000);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleDeleteAccount = async () => {
     try {
-      // Here you would make an API call to delete the account
-      // Using the auth endpoint we can see in the attached files
+      setIsLoading(true);
       
-      // Clear tokens from storage
-      localStorage.removeItem('token');
-      sessionStorage.removeItem('token');
+      // Get the authentication token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        setError("You must be logged in to delete your account");
+        return;
+      }
       
-      // Redirect to login page
-      navigate('/login');
+      // Get user ID from token
+      const decoded = jwtDecode(token);
+      const userId = decoded.userId;
       
-      alert('Your account has been deleted successfully.');
+      // Make the API call to delete the account
+      const response = await axios.delete(
+        `http://localhost:5000/auth/users/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      // Handle successful deletion
+      if (response.status === 200) {
+        // Clear tokens from storage
+        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
+        
+        // Show success message (could use a more subtle approach like toast)
+        alert('Your account has been deleted successfully.');
+        
+        // Redirect to login page
+        navigate('/login');
+      }
     } catch (error) {
       console.error('Error deleting account:', error);
-      alert('Failed to delete account. Please try again.');
+      
+      // Show a meaningful error message
+      const errorMessage = error.response?.data?.error || 
+                          'Failed to delete account. Please try again.';
+      setError(errorMessage);
+      
+      // Hide the error message after a few seconds
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setIsLoading(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -502,11 +465,116 @@ const UserProfilePage = () => {
     { id: '02', title: 'Fence Installation', contractor: 'Garden Pros', completionDate: '5 Dec 2024', rating: 5.0 }
   ];
 
-  const paymentHistory = [
+  const paymentHistoryStatic = [
     { id: 'PMT001', description: 'Advance Payment - Kitchen Renovation', amount: 'LKR 25,000', date: '15 Jan 2025', status: 'Completed' },
     { id: 'PMT002', description: 'Final Payment - Living Room Painting', amount: 'LKR 15,000', date: '12 Jan 2025', status: 'Completed' },
     { id: 'PMT003', description: 'Advance Payment - Bathroom Plumbing', amount: 'LKR 8,000', date: '1 Mar 2025', status: 'Pending' }
   ];
+
+  // Add this function to fetch payment history
+const fetchPaymentHistory = async () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  if (!token) return;
+
+  try {
+    setIsLoadingPayments(true);
+    setPaymentError(null);
+    
+    const decoded = jwtDecode(token);
+    const userId = decoded.userId;
+    
+    // Fetch payments for this user - ensure userId is properly passed
+    const response = await axios.get(`http://localhost:5000/api/payments`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      params: { userId: userId } // This will properly include userId as a query param
+    });
+    
+    // Check if response contains payments data
+    if (!response.data || !Array.isArray(response.data)) {
+      console.error('Invalid payment data received:', response.data);
+      setPaymentError('Failed to load payment history: Invalid data format');
+      setPaymentHistory([]);
+      return;
+    }
+    
+    // Filter payments to include only this user's payments
+    // This is a client-side safety measure in case server filtering isn't working
+    const userPayments = response.data.filter(payment => 
+      payment.user && 
+      (payment.user.userId === userId || payment.user.userId?.toString() === userId.toString())
+    );
+    
+    // Format the payment data for display
+    const formattedPayments = userPayments.map(payment => ({
+      id: payment._id,
+      description: getPaymentDescription(payment),
+      amount: `LKR ${payment.amount.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}`,
+      date: new Date(payment.createdAt).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      }),
+      status: payment.status === 'completed' ? 'Completed' : 
+              payment.status === 'pending' ? 'Pending' : 'Failed',
+      paymentType: payment.paymentType || 'other',
+      cardType: payment.cardType,
+      lastFourDigits: payment.lastFourDigits
+    }));
+    
+    console.log(`Found ${formattedPayments.length} payments for user ${userId}`);
+    setPaymentHistory(formattedPayments);
+  } catch (error) {
+    console.error('Error fetching payment history:', error);
+    setPaymentError('Failed to load payment history. Please try again later.');
+  } finally {
+    setIsLoadingPayments(false);
+  }
+};
+
+  // Helper function to generate payment descriptions
+  const getPaymentDescription = (payment) => {
+    if (payment.paymentType === 'milestone') {
+      return `Milestone Payment - Work #${payment.workId}`;
+    } else if (payment.paymentType === 'inventory') {
+      return `Purchase - ${payment.order?.items.length || 0} items`;
+    } else if (payment.paymentType === 'agreement_fee') {
+      return 'Agreement Fee';
+    } else {
+      return 'Payment';
+    }
+  };
+  
+
+  // Add this debugging function
+const debugPaymentData = async () => {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  if (!token) return;
+  
+  try {
+    const decoded = jwtDecode(token);
+    const userId = decoded.userId;
+    
+    console.log('Current user ID:', userId);
+    
+    // Fetch all payments without filtering
+    const response = await axios.get(`http://localhost:5000/api/payments`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    console.log('All payments:', response.data);
+    
+    // Check which payments match this user
+    const matchingPayments = response.data.filter(payment => 
+      payment.user && payment.user.userId === userId
+    );
+    
+    console.log('Matching payments count:', matchingPayments.length);
+    console.log('Matching payments:', matchingPayments);
+  } catch (error) {
+    console.error('Debug error:', error);
+  }
+};
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-800">
@@ -590,7 +658,7 @@ const UserProfilePage = () => {
             {/* Right Content */}
             <div className="lg:w-3/4">
               <div className="flex flex-wrap justify-start gap-2 mb-6">
-                {['requirements', 'ongoing', 'past', 'payments', 'transactions'].map((tab) => (
+                {['requirements', 'ongoing', 'past', 'payments'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => handleTabClick(tab)}
@@ -603,8 +671,7 @@ const UserProfilePage = () => {
                     {tab === 'requirements' ? 'My Requirements' : 
                      tab === 'ongoing' ? 'Ongoing Works' :
                      tab === 'past' ? 'Past Works' :
-                     tab === 'payments' ? 'Payment History' :
-                     'Transaction History'}
+                     'Payment History'}
                   </button>
                 ))}
                 <button
@@ -719,54 +786,108 @@ const UserProfilePage = () => {
                 )}
 
                 {activeTab === 'payments' && (
-                  <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Description
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Amount
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Date
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {paymentHistory.map((payment) => (
-                          <tr key={payment.id}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{payment.description}</div>
-                              <div className="text-xs text-gray-500">{payment.id}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {payment.amount}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {payment.date}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                payment.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {payment.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+  <div>
+    <div className="mb-4 flex justify-between items-center">
+      <h3 className="text-xl font-semibold text-gray-800">Payment History</h3>
+      <button
+        className="px-4 py-2 bg-blue-50 text-blue-600 font-medium rounded-lg hover:bg-blue-100"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        </svg>
+        Export
+      </button>
+    </div>
+    
+    {isLoadingPayments ? (
+      <div className="flex items-center justify-center h-48 bg-white rounded-lg border border-gray-200">
+        <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    ) : paymentError ? (
+      <div className="p-6 bg-red-50 rounded-lg border border-red-200">
+        <p className="text-red-600">{paymentError}</p>
+        <button 
+          onClick={fetchPaymentHistory}
+          className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+        >
+          Try Again
+        </button>
+      </div>
+    ) : paymentHistory.length === 0 ? (
+      <div className="bg-white rounded-lg shadow-md p-10 text-center border border-dashed border-gray-300">
+        <div className="flex justify-center">
+          <div className="h-20 w-20 bg-blue-50 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          </div>
+        </div>
+        <h3 className="text-xl font-medium text-gray-800 mt-5">No Payment History Yet</h3>
+        <p className="text-gray-600 mt-2 max-w-md mx-auto">
+          Your payment history will appear here once you make payments for projects or purchase construction materials.
+        </p>
+      </div>
+    ) : (
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Description
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Amount
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Card
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {paymentHistory.map((payment) => (
+              <tr key={payment.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-gray-900">{payment.description}</div>
+                  <div className="text-xs text-gray-500">{payment.id}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {payment.amount}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {payment.date}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    payment.status === 'Completed' ? 'bg-green-100 text-green-800' : 
+                    payment.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {payment.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <div className="flex items-center">
+                    <span className="capitalize">{payment.cardType}</span>
+                    <span className="ml-1 text-xs">•••• {payment.lastFourDigits}</span>
                   </div>
-                )}
-
-                {activeTab === 'transactions' && (
-                  <p className="mt-4 text-gray-500">Your transaction history will be displayed here soon.</p>
-                )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+)}
 
                 {showAddJobForm && (
   <AddJobForm 
@@ -780,97 +901,43 @@ const UserProfilePage = () => {
   />
 )}
 
-                {/* Edit Profile Modal */}
-                {showEditProfileForm && (
-                  <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                      {/* Background overlay */}
-                      <div 
-                        className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity" 
-                        aria-hidden="true"
-                        onClick={() => setShowEditProfileForm(false)}
-                      ></div>
+                {/* Replace the existing Edit Profile Modal with EditUserDetails component */}
+{showEditProfileForm && (
+  <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      {/* Background overlay */}
+      <div 
+        className="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm transition-opacity" 
+        aria-hidden="true"
+        onClick={() => setShowEditProfileForm(false)}
+      ></div>
 
-                      {/* Modal Panel */}
-                      <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-blue-100">
-                        <div className="relative">
-                          {/* Modal Header */}
-                          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 relative">
-                            <div className="flex justify-between items-center relative">
-                              <h3 className="text-xl font-bold text-white">Edit Profile</h3>
-                              <button 
-                                onClick={() => setShowEditProfileForm(false)}
-                                className="rounded-full p-1 text-white bg-white/20 hover:bg-white/30 focus:outline-none transition-colors"
-                              >
-                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Form Content */}
-                          <form onSubmit={handleSaveProfile} className="p-6">
-                            <div className="space-y-6">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Full Name
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editedProfile.name}
-                                  onChange={(e) => setEditedProfile({...editedProfile, name: e.target.value})}
-                                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="Your name"
-                                  required
-                                />
-                              </div>
-                              
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Email Address
-                                </label>
-                                <input
-                                  type="email"
-                                  value={editedProfile.email}
-                                  onChange={(e) => setEditedProfile({...editedProfile, email: e.target.value})}
-                                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="Your email address"
-                                  required
-                                />
-                              </div>
-                            </div>
-                            
-                            <div className="mt-8 flex justify-end space-x-3">
-                              <button
-                                type="button"
-                                onClick={() => setShowEditProfileForm(false)}
-                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-800 transition-colors"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="submit" 
-                                disabled={isLoading}
-                                className={`px-6 py-2 ${isLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-lg transition-colors flex items-center`}
-                              >
-                                {isLoading ? (
-                                  <>
-                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Saving...
-                                  </>
-                                ) : "Save Changes"}
-                              </button>
-                            </div>
-                          </form>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+      {/* Modal Panel */}
+      <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <EditUserDetails 
+          userData={{
+            _id: undefined, // Will be extracted from token in the component
+            username: user.name,
+            email: user.email,
+            profilePic: user.profilePic
+          }}
+          onClose={() => setShowEditProfileForm(false)}
+          onUserUpdate={(updatedUser) => {
+            setUser({
+              ...user,
+              name: updatedUser.username,
+              email: updatedUser.email,
+              profilePic: updatedUser.profilePic
+            });
+            // Show success message
+            setSuccessMessage("Profile updated successfully");
+            setTimeout(() => setSuccessMessage(""), 3000);
+          }}
+        />
+      </div>
+    </div>
+  </div>
+)}
 
                 {/* Delete Account Confirmation Modal */}
                 {showDeleteConfirm && (
