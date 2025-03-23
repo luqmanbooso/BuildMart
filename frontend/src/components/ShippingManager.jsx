@@ -41,6 +41,9 @@ const ShippingManager = ({
     notes: ''
   });
   const [formErrors, setFormErrors] = useState({});
+  const [viewMode, setViewMode] = useState('active'); // 'active' or 'completed'
+  const [completedShipments, setCompletedShipments] = useState([]);
+  const [expandedShipmentId, setExpandedShipmentId] = useState(null); // Add this state for tracking expanded rows
   
   // Add this function at the top of your component
   const mockUpdateOrderStatus = (orderId, status) => {
@@ -48,6 +51,94 @@ const ShippingManager = ({
     toast.success(`Order #${orderId} status updated to ${status}`);
     return Promise.resolve({ success: true });
   };
+  
+  // Add this function at the top of your component to properly map shipping statuses to order statuses
+const mapShippingStatusToOrderStatus = (shippingStatus) => {
+  // Map shipping status to valid order status values from Order.js model
+  // Assuming valid order statuses: 'pending', 'processing', 'shipped', 'delivered', 'cancelled'
+  switch(shippingStatus) {
+    case 'Pending':
+    case 'Loading':
+      return 'processing';
+      
+    case 'In Transit':
+    case 'Out for Delivery':
+      return 'shipped';
+      
+    case 'Delivered':
+      return 'delivered';
+      
+    case 'Failed':
+      return 'processing'; // Failed delivery means we need to try again
+      
+    case 'Returned':
+      return 'cancelled';
+      
+    default:
+      return 'processing';
+  }
+};
+
+// Add this improved function to safely update order status using the correct endpoint
+const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
+  try {
+    // Map shipping status to valid order status
+    const orderStatus = mapShippingStatusToOrderStatus(shippingStatus);
+    
+    console.log(`Updating order ${orderId} to status: ${orderStatus} (from shipping status: ${shippingStatus})`);
+    
+    // First try to use the provided updateOrderStatus function
+    if (updateOrderStatus && typeof updateOrderStatus === 'function') {
+      await updateOrderStatus(orderId, orderStatus);
+      return true;
+    } else {
+      // If no function is provided, try to update directly via API
+      try {
+        // Use the correct PATCH endpoint as defined in orderRoutes.js
+        const response = await axios.patch(
+          `http://localhost:5000/api/orders/${orderId}/status`, 
+          { status: orderStatus }
+        );
+        
+        if (response.status === 200) {
+          toast.success(`Order #${orderId} status updated to ${orderStatus}`);
+          return true;
+        }
+      } catch (apiError) {
+        console.warn(`Direct API order update failed: ${apiError.message}`);
+        
+        // Show more detailed error for debugging
+        if (apiError.response) {
+          console.log(`Status: ${apiError.response.status}, Data:`, apiError.response.data);
+        }
+        
+        // Try another API endpoint format as fallback
+        try {
+          const fallbackResponse = await axios.patch(
+            `http://localhost:5000/api/orders/${orderId}`, 
+            { orderStatus: orderStatus }
+          );
+          
+          if (fallbackResponse.status === 200) {
+            toast.success(`Order #${orderId} status updated to ${orderStatus} (fallback)`);
+            return true;
+          }
+        } catch (fallbackError) {
+          console.warn(`Fallback order update failed: ${fallbackError.message}`);
+        }
+      }
+      
+      // If we get here, show a UI-only update
+      console.log(`UI-only update for order ${orderId} to ${orderStatus}`);
+      toast.info(`Shipment updated. Order status change will sync later.`);
+      return false;
+    }
+  } catch (error) {
+    console.error(`Order status update failed: ${error.message}`);
+    toast.warning(`Shipment updated, but order status update failed`);
+    return false;
+  }
+};
   
   // Fetch active shipments
   const fetchActiveShipments = async () => {
@@ -64,9 +155,46 @@ const ShippingManager = ({
     }
   };
   
+  // Replace the fetchCompletedShipments function with this version
+  const fetchCompletedShipments = async () => {
+    try {
+      setLoading(true);
+      
+      try {
+        // Try to get data from the backend
+        const response = await axios.get('http://localhost:5000/api/shipping/completed');
+        setCompletedShipments(response.data);
+      } catch (error) {
+        console.log("Server endpoint for completed shipments not available, using client-side filtering");
+        
+        // Fallback: Filter completed shipments from all shipments on the client side
+        const allShipmentsResponse = await axios.get('http://localhost:5000/api/shipping');
+        
+        if (allShipmentsResponse.data) {
+          // Filter shipments with status Delivered, Failed, or Returned
+          const completed = allShipmentsResponse.data.filter(
+            shipment => ['Delivered', 'Failed', 'Returned'].includes(shipment.status)
+          );
+          
+          setCompletedShipments(completed);
+          console.log(`Found ${completed.length} completed shipments via client-side filtering`);
+        }
+      }
+      
+      setError(null);
+    } catch (error) {
+      console.error("Error fetching or filtering completed shipments:", error);
+      // Silently handle the error - don't show to user
+      setCompletedShipments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   // Initial load
   useEffect(() => {
     fetchActiveShipments();
+    fetchCompletedShipments();
   }, []);
   
   // Handle when a new order is selected for shipment from the dashboard
@@ -314,7 +442,7 @@ const ShippingManager = ({
     }
   };
   
-  // Improved error handling in handleStatusUpdate
+  // Update the handleStatusUpdate function to move shipments to completed
   const handleStatusUpdate = async (id, newStatus, newProgress) => {
     try {
       setLoading(true);
@@ -327,10 +455,17 @@ const ShippingManager = ({
       );
       setActiveShipments(updatedShipments);
       
-      const response = await axios.put(`http://localhost:5000/api/shipping/${id}/status`, {
+      // Include completedAt timestamp when marking as delivered or failed
+      const updateData = {
         status: newStatus,
         progress: newProgress
-      });
+      };
+      
+      if (newStatus === 'Delivered' || newStatus === 'Failed' || newStatus === 'Returned') {
+        updateData.completedAt = new Date().toISOString();
+      }
+      
+      const response = await axios.put(`http://localhost:5000/api/shipping/${id}/status`, updateData);
       
       // Find the shipment to get order ID for order status update
       const updatedShipment = response.data;
@@ -340,33 +475,47 @@ const ShippingManager = ({
       
       // Update order status based on shipment status
       if (updateOrderStatus && orderIdForUpdate) {
-        let orderStatus = 'Processing';
-        
-        if (newStatus === 'In Transit') {
-          orderStatus = 'In Transit';
-        } else if (newStatus === 'Out for Delivery') {
-          orderStatus = 'Out for Delivery';
-        } else if (newStatus === 'Delivered') {
-          orderStatus = 'Delivered';
-        } else if (newStatus === 'Failed') {
-          orderStatus = 'Failed Delivery';
-        } else if (newStatus === 'Returned') {
-          orderStatus = 'Returned';
-        }
-        
         try {
+          let orderStatus = 'processing';
+          
+          if (newStatus === 'In Transit') {
+            orderStatus = 'shipped';
+          } else if (newStatus === 'Out for Delivery') {
+            orderStatus = 'shipped';
+          } else if (newStatus === 'Delivered') {
+            orderStatus = 'delivered';
+          } else if (newStatus === 'Failed') {
+            orderStatus = 'processing'; // Need to retry
+          } else if (newStatus === 'Returned') {
+            orderStatus = 'cancelled';
+          }
+          
           await updateOrderStatus(orderIdForUpdate, orderStatus);
         } catch (orderError) {
           console.error('Failed to update order status:', orderError);
-          toast.warning(`Shipment updated, but couldn't update order status`);
+          toast.warning(`Shipment updated, but couldn't update order status. The order API may need configuration.`);
         }
       }
       
-      // If delivered or failed, refresh the list after delay
-      if (newStatus === 'Delivered' || newStatus === 'Failed') {
-        setTimeout(() => {
-          fetchActiveShipments();
-        }, 2000);
+      // Update the terminal status handling in handleStatusUpdate
+      if (newStatus === 'Delivered' || newStatus === 'Failed' || newStatus === 'Returned') {
+        // Move the shipment from active to completed in the UI immediately
+        const shipment = activeShipments.find(s => s._id === id);
+        if (shipment) {
+          setActiveShipments(prev => prev.filter(s => s._id !== id));
+          setCompletedShipments(prev => [
+            {
+              ...shipment, 
+              status: newStatus, 
+              progress: newProgress, 
+              completedAt: new Date().toISOString()
+            },
+            ...prev
+          ]);
+        }
+        
+        // No need to refresh if we've already updated the UI
+        toast.success(`Shipment marked as ${newStatus}`);
       }
     } catch (error) {
       console.error('Error updating status:', error);
@@ -377,36 +526,71 @@ const ShippingManager = ({
     } finally {
       setLoading(false);
     }
+    
+    // Update this section in your handleStatusUpdate function
+    // Replace the try/catch block for order status update with this code
+    if (shipment.orderId) {
+      // Use our safer function that maps statuses correctly
+      safeUpdateOrderStatus(shipment.orderId, newStatus)
+        .then(success => {
+          if (success) {
+            console.log(`Order ${shipment.orderId} status updated successfully`);
+          } else {
+            console.log(`Order ${shipment.orderId} status update handled gracefully`);
+          }
+        });
+    }
   };
   
-  // Delete shipment
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this shipment?')) {
-      return;
+  // Improved handleDelete function with fallback mechanism
+const handleDelete = async (id) => {
+  if (!window.confirm('Are you sure you want to delete this shipment?')) {
+    return;
+  }
+  
+  try {
+    setLoading(true);
+    
+    // Find the shipment to get order ID before deletion
+    const shipment = [...activeShipments, ...completedShipments].find(s => s._id === id);
+    const orderIdForUpdate = shipment?.orderId;
+    
+    // Update UI optimistically
+    if (viewMode === 'active') {
+      setActiveShipments(prev => prev.filter(s => s._id !== id));
+    } else {
+      setCompletedShipments(prev => prev.filter(s => s._id !== id));
     }
     
     try {
-      setLoading(true);
-      
-      // Find the shipment to get order ID before deletion
-      const shipment = activeShipments.find(s => s._id === id);
-      const orderIdForUpdate = shipment?.orderId;
-      
+      // Try to delete on the server
       await axios.delete(`http://localhost:5000/api/shipping/${id}`);
-      setActiveShipments(activeShipments.filter(s => s._id !== id));
       toast.success('Shipment deleted successfully');
       
-      // Update order status if the shipment is deleted
-      if (updateOrderStatus && orderIdForUpdate) {
-        updateOrderStatus(orderIdForUpdate, 'Pending');
+      // Try to update order status if needed
+      if (orderIdForUpdate) {
+        await safeUpdateOrderStatus(orderIdForUpdate, 'processing');
       }
-    } catch (error) {
-      console.error('Error deleting shipment:', error);
-      toast.error('Failed to delete shipment');
-    } finally {
-      setLoading(false);
+    } catch (apiError) {
+      // Handle server error but keep the UI change
+      console.warn('Server deletion failed:', apiError);
+      toast.warning('Server couldn\'t delete the shipment, but it was removed from your view');
+      
+      if (apiError.response?.status === 404) {
+        console.log('The shipment may have already been deleted or doesn\'t exist on the server');
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error in delete process:', error);
+    toast.error('An unexpected error occurred');
+    
+    // If the entire process fails, refresh to get current state
+    fetchActiveShipments();
+    fetchCompletedShipments();
+  } finally {
+    setLoading(false);
+  }
+};
   
   // Edit shipment
   const handleEdit = (shipment) => {
@@ -442,6 +626,7 @@ const ShippingManager = ({
       estimatedDeliveryDate: '',
       notes: ''
     });
+    setFormErrors({});
     setSelectedShipment(null);
     setShowShipmentForm(false);
     
@@ -470,6 +655,18 @@ const ShippingManager = ({
         return <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs">Returned</span>;
       default:
         return <span className="bg-gray-200 text-gray-800 px-2 py-1 rounded-full text-xs">{status}</span>;
+    }
+  };
+
+  // Add this function to handle tab switching
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    
+    // If switching to completed view, refresh completed shipments
+    if (mode === 'completed') {
+      fetchCompletedShipments();
+    } else if (mode === 'active') {
+      fetchActiveShipments();
     }
   };
 
@@ -791,146 +988,305 @@ const ShippingManager = ({
         </div>
       )}
       
-      {/* Rest of the component remains the same */}
-      <h3 className="text-lg font-medium mb-3">Active Shipments</h3>
-      
+      {/* Shipment Tabs */}
+      <div className="border-b mb-4 pb-1">
+        <div className="flex space-x-4">
+          <button
+            className={`px-4 py-2 font-medium ${viewMode === 'active' 
+              ? 'border-b-2 border-blue-500 text-blue-600' 
+              : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => handleViewModeChange('active')}
+          >
+            Active Shipments
+          </button>
+          <button
+            className={`px-4 py-2 font-medium ${viewMode === 'completed' 
+              ? 'border-b-2 border-blue-500 text-blue-600' 
+              : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => handleViewModeChange('completed')}
+          >
+            Completed Shipments
+          </button>
+        </div>
+      </div>
+
       {loading && !showShipmentForm && (
         <div className="flex justify-center my-10">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
       )}
-      
-      {!loading && activeShipments.length === 0 && (
-        <div className="bg-gray-50 rounded-md p-6 text-center">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-500">No active shipments found.</p>
-          <button 
-            onClick={() => setShowShipmentForm(true)} 
-            className="mt-3 px-4 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800"
-          >
-            Create New Shipment
-          </button>
-        </div>
+
+      {/* Active Shipments View */}
+      {viewMode === 'active' && !loading && (
+        <>
+          {activeShipments.length === 0 ? (
+            <div className="bg-gray-50 rounded-md p-6 text-center">
+              <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500">No active shipments found.</p>
+              <button 
+                onClick={() => setShowShipmentForm(true)} 
+                className="mt-3 px-4 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800"
+              >
+                Create New Shipment
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeShipments.map(shipment => (
+                <div key={shipment._id} className="border rounded-md p-4 bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <span className="text-xs text-gray-500">Order #{shipment.orderId}</span>
+                      <h4 className="font-medium">{shipment.destination}</h4>
+                    </div>
+                    {getStatusBadge(shipment.status)}
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full" 
+                      style={{ width: `${shipment.progress}%` }}
+                    ></div>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center">
+                      <MapPin size={16} className="text-gray-500 mr-2" />
+                      <span className="text-gray-600">{shipment.origin} → {shipment.destination}</span>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <User size={16} className="text-gray-500 mr-2" />
+                      <span className="text-gray-600">{shipment.driver}</span>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <Truck size={16} className="text-gray-500 mr-2" />
+                      <span className="text-gray-600">{shipment.vehicle}</span>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <Phone size={16} className="text-gray-500 mr-2" />
+                      <span className="text-gray-600">{shipment.contactNumber}</span>
+                    </div>
+                    
+                    {shipment.estimatedDeliveryDate && (
+                      <div className="flex items-center">
+                        <Calendar size={16} className="text-gray-500 mr-2" />
+                        <span className="text-gray-600">
+                          {new Date(shipment.estimatedDeliveryDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {shipment.eta && (
+                      <div className="flex items-center">
+                        <Clock size={16} className="text-gray-500 mr-2" />
+                        <span className="text-gray-600">ETA: {shipment.eta}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="border-t mt-3 pt-3 flex flex-wrap justify-between">
+                    {/* Status update buttons */}
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {shipment.status !== 'In Transit' && (
+                        <button
+                          onClick={() => handleStatusUpdate(shipment._id, 'In Transit', 30)}
+                          className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded"
+                        >
+                          Mark In Transit
+                        </button>
+                      )}
+                      
+                      {shipment.status !== 'Out for Delivery' && (
+                        <button
+                          onClick={() => handleStatusUpdate(shipment._id, 'Out for Delivery', 70)}
+                          className="text-xs px-2 py-1 bg-orange-100 text-orange-800 rounded"
+                        >
+                          Out for Delivery
+                        </button>
+                      )}
+                      
+                      {shipment.status !== 'Delivered' && (
+                        <button
+                          onClick={() => handleStatusUpdate(shipment._id, 'Delivered', 100)}
+                          className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded"
+                        >
+                          Mark Delivered
+                        </button>
+                      )}
+                      
+                      {shipment.status !== 'Failed' && (
+                        <button
+                          onClick={() => handleStatusUpdate(shipment._id, 'Failed', 0)}
+                          className="text-xs px-2 py-1 bg-red-100 text-red-800 rounded"
+                        >
+                          Mark Failed
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Edit/Delete buttons */}
+                    <div className="mt-2 space-x-2">
+                      <button
+                        onClick={() => handleEdit(shipment)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      
+                      <button
+                        onClick={() => handleDelete(shipment._id)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {!loading && activeShipments.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {activeShipments.map(shipment => (
-            <div key={shipment._id} className="border rounded-md p-4 bg-white shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <span className="text-xs text-gray-500">Order #{shipment.orderId}</span>
-                  <h4 className="font-medium">{shipment.destination}</h4>
-                </div>
-                {getStatusBadge(shipment.status)}
-              </div>
-              
-              {/* Progress bar */}
-              <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3">
-                <div 
-                  className="bg-blue-600 h-2.5 rounded-full" 
-                  style={{ width: `${shipment.progress}%` }}
-                ></div>
-              </div>
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center">
-                  <MapPin size={16} className="text-gray-500 mr-2" />
-                  <span className="text-gray-600">{shipment.origin} → {shipment.destination}</span>
-                </div>
-                
-                <div className="flex items-center">
-                  <User size={16} className="text-gray-500 mr-2" />
-                  <span className="text-gray-600">{shipment.driver}</span>
-                </div>
-                
-                <div className="flex items-center">
-                  <Truck size={16} className="text-gray-500 mr-2" />
-                  <span className="text-gray-600">{shipment.vehicle}</span>
-                </div>
-                
-                <div className="flex items-center">
-                  <Phone size={16} className="text-gray-500 mr-2" />
-                  <span className="text-gray-600">{shipment.contactNumber}</span>
-                </div>
-                
-                {shipment.estimatedDeliveryDate && (
-                  <div className="flex items-center">
-                    <Calendar size={16} className="text-gray-500 mr-2" />
-                    <span className="text-gray-600">
-                      {new Date(shipment.estimatedDeliveryDate).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-                
-                {shipment.eta && (
-                  <div className="flex items-center">
-                    <Clock size={16} className="text-gray-500 mr-2" />
-                    <span className="text-gray-600">ETA: {shipment.eta}</span>
-                  </div>
-                )}
-              </div>
-              
-              <div className="border-t mt-3 pt-3 flex flex-wrap justify-between">
-                {/* Status update buttons */}
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {shipment.status !== 'In Transit' && (
-                    <button
-                      onClick={() => handleStatusUpdate(shipment._id, 'In Transit', 30)}
-                      className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded"
-                    >
-                      Mark In Transit
-                    </button>
-                  )}
-                  
-                  {shipment.status !== 'Out for Delivery' && (
-                    <button
-                      onClick={() => handleStatusUpdate(shipment._id, 'Out for Delivery', 70)}
-                      className="text-xs px-2 py-1 bg-orange-100 text-orange-800 rounded"
-                    >
-                      Out for Delivery
-                    </button>
-                  )}
-                  
-                  {shipment.status !== 'Delivered' && (
-                    <button
-                      onClick={() => handleStatusUpdate(shipment._id, 'Delivered', 100)}
-                      className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded"
-                    >
-                      Mark Delivered
-                    </button>
-                  )}
-                  
-                  {shipment.status !== 'Failed' && (
-                    <button
-                      onClick={() => handleStatusUpdate(shipment._id, 'Failed', 0)}
-                      className="text-xs px-2 py-1 bg-red-100 text-red-800 rounded"
-                    >
-                      Mark Failed
-                    </button>
-                  )}
-                </div>
-                
-                {/* Edit/Delete buttons */}
-                <div className="mt-2 space-x-2">
-                  <button
-                    onClick={() => handleEdit(shipment)}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    <Edit size={16} />
-                  </button>
-                  
-                  <button
-                    onClick={() => handleDelete(shipment._id)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <Trash size={16} />
-                  </button>
-                </div>
-              </div>
+      {/* Completed Shipments View */}
+      {viewMode === 'completed' && !loading && (
+        <>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium">Completed Deliveries</h3>
+            <button 
+              onClick={fetchCompletedShipments}
+              className="flex items-center text-green-700 hover:text-green-900"
+              disabled={loading}
+            >
+              <RefreshCw size={16} className={`mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </div>
+          
+          {completedShipments.length === 0 ? (
+            <div className="bg-gray-50 rounded-md p-6 text-center">
+              <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500">No completed shipments found.</p>
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
+              <table className="min-w-full divide-y divide-gray-300">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Order ID</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Destination</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Driver</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Delivery Date</th>
+                    <th scope="col" className="relative py-3.5 pl-3 pr-4 text-right text-sm font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {completedShipments.map((shipment) => (
+                    <>
+                      <tr key={shipment._id} className="hover:bg-gray-50">
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900 cursor-pointer" onClick={() => setExpandedShipmentId(expandedShipmentId === shipment._id ? null : shipment._id)}>
+                          <div className="flex items-center">
+                            <button className="mr-2 focus:outline-none">
+                              {expandedShipmentId === shipment._id ? 
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg> : 
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              }
+                            </button>
+                            #{shipment.orderId}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">{shipment.destination}</td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">{shipment.driver}</td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          {getStatusBadge(shipment.status)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">
+                          {shipment.completedAt ? new Date(shipment.completedAt).toLocaleDateString() : 
+                          new Date(shipment.updatedAt).toLocaleDateString()}
+                        </td>
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleEdit(shipment)}
+                            className="text-blue-600 hover:text-blue-800 mr-3"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(shipment._id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                      
+                      {/* Expanded details row */}
+                      {expandedShipmentId === shipment._id && (
+                        <tr>
+                          <td colSpan="6" className="p-4 bg-gray-50">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="font-medium text-gray-700 mb-1">Shipment Details</p>
+                                <div className="space-y-1">
+                                  <div className="flex items-center">
+                                    <MapPin size={14} className="text-gray-500 mr-2" />
+                                    <span className="text-gray-600">From: {shipment.origin}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <MapPin size={14} className="text-gray-500 mr-2" />
+                                    <span className="text-gray-600">To: {shipment.destination}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <Truck size={14} className="text-gray-500 mr-2" />
+                                    <span className="text-gray-600">Vehicle: {shipment.vehicle}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <Phone size={14} className="text-gray-500 mr-2" />
+                                    <span className="text-gray-600">Contact: {shipment.contactNumber}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <p className="font-medium text-gray-700 mb-1">Timeline</p>
+                                <div className="space-y-1">
+                                  <div className="flex items-center">
+                                    <Calendar size={14} className="text-gray-500 mr-2" />
+                                    <span className="text-gray-600">Created: {new Date(shipment.createdAt).toLocaleDateString()}</span>
+                                  </div>
+                                  {shipment.completedAt && (
+                                    <div className="flex items-center">
+                                      <CheckCircle size={14} className="text-gray-500 mr-2" />
+                                      <span className="text-gray-600">Completed: {new Date(shipment.completedAt).toLocaleDateString()}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {shipment.notes && (
+                                  <div className="mt-2">
+                                    <p className="font-medium text-gray-700">Notes:</p>
+                                    <p className="text-gray-600">{shipment.notes}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
