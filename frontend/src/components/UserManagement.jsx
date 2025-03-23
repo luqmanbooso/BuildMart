@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaSearch, FaUser, FaTimes } from 'react-icons/fa';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -11,17 +11,141 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
   const [userDeleteId, setUserDeleteId] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  // Add this function to your component
+  const refreshUserData = async () => {
+    try {
+      // Update this to match how you're fetching users in your app
+      const clientsResponse = await axios.get('http://localhost:5000/auth/clients');
+      const providersResponse = await axios.get('http://localhost:5000/auth/providers');
+      
+      setAllClients(clientsResponse.data);
+      setAllServiceProviders(providersResponse.data);
+    } catch (error) {
+      console.error("Failed to refresh user data:", error);
+      toast.error('Failed to refresh user list');
+    }
+  };
+
+  // Add this function to your component
+  const testBackendConnection = async () => {
+    try {
+      // Test if the users endpoint is working
+      const testResponse = await axios.get('http://localhost:5000/auth/users');
+      console.log("API test response:", testResponse.data);
+      toast.success('API connection successful');
+      return true;
+    } catch (error) {
+      console.error("API test failed:", error);
+      toast.error('Cannot connect to backend API');
+      return false;
+    }
+  };
+
+  // Call this in useEffect or from a test button
+  useEffect(() => {
+    testBackendConnection();
+  }, []);
+
+  // Add this useEffect after your existing useEffect
+  useEffect(() => {
+    // Expose the tab selector function globally
+    window.tabSelector = (tab) => {
+      if (tab === 'clients' || tab === 'serviceProviders') {
+        setActiveTab(tab);
+      }
+    };
+
+    // Cleanup
+    return () => {
+      window.tabSelector = undefined;
+    };
+  }, []);
+
+  // Add this useEffect to reset userDeleteId when component mounts
+  useEffect(() => {
+    // Reset userDeleteId to avoid stale references
+    setUserDeleteId(null);
+  }, []);
+
   // Handle user deletion
   const handleDeleteUser = async (userId) => {
     try {
-      await axios.delete(`http://localhost:5000/auth/users/${userId}`);
-      // Update state to remove deleted user
-      setAllClients(allClients.filter(user => (user.id || user._id) !== userId));
-      setAllServiceProviders(allServiceProviders.filter(user => (user.id || user._id) !== userId));
-      toast.success('User deleted successfully');
+      // Add more robust logging to track the issue
+      console.log("Attempting to delete user with ID:", userId, typeof userId);
+      
+      // Ensure userId is a string
+      const cleanUserId = String(userId).trim();
+      
+      // More thorough check for userId exists
+      if (!cleanUserId || cleanUserId === 'undefined' || cleanUserId === 'null') {
+        const errorMsg = 'User ID is undefined or null';
+        console.error(errorMsg);
+        toast.error(errorMsg);
+        setShowDeleteModal(false); // Close modal on error
+        throw new Error(errorMsg);
+      }
+      
+      // Get token from localStorage or sessionStorage
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+      
+      // Make the delete request
+      const apiUrl = `http://localhost:5000/auth/users/${cleanUserId}`;
+      console.log("Sending DELETE request to:", apiUrl);
+      
+      const response = await axios.delete(apiUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log("Delete response:", response);
+      
+      if (response.status === 200) {
+        // Update local state immediately to reflect changes
+        setAllClients(prevClients => prevClients.filter(client => 
+          (client._id !== cleanUserId && client.id !== cleanUserId)
+        ));
+        setAllServiceProviders(prevProviders => prevProviders.filter(provider => 
+          (provider._id !== cleanUserId && provider.id !== cleanUserId)
+        ));
+        
+        toast.success('User deleted successfully');
+        
+        // Optional: refresh data to ensure accuracy
+        await refreshUserData();
+      }
     } catch (error) {
       console.error("Failed to delete user:", error);
-      toast.error('Failed to delete user');
+      
+      // Detailed error reporting
+      if (error.response) {
+        console.error("Error response data:", error.response.data);
+        console.error("Error response status:", error.response.status);
+        
+        // Check for specific error codes
+        if (error.response.status === 401) {
+          toast.error('Authentication error. Please log in again.');
+        } else if (error.response.status === 403) {
+          toast.error('You do not have permission to delete this user.');
+        } else if (error.response.status === 404) {
+          toast.error('User not found. It may have been already deleted.');
+          // Update local state to remove the user anyway
+          setAllClients(allClients.filter(client => client._id !== cleanUserId));
+          setAllServiceProviders(allServiceProviders.filter(provider => provider._id !== cleanUserId));
+        } else {
+          toast.error(`Error: ${error.response.data.error || 'Failed to delete user'}`);
+        }
+      } else if (error.request) {
+        console.error("No response received:", error.request);
+        toast.error('Server did not respond. Check your internet connection.');
+      } else {
+        toast.error(error.message || 'Failed to delete user');
+      }
+    } finally {
+      setShowDeleteModal(false);
     }
   };
   
@@ -64,19 +188,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
           />
           <FaSearch className="absolute left-3 top-2.5 text-gray-400" />
         </div>
-        <div className="flex space-x-3">
-          <select className="text-sm border border-gray-300 rounded-md px-3 py-2">
-            <option>All Status</option>
-            <option>Active</option>
-            <option>Inactive</option>
-          </select>
-          <select className="text-sm border border-gray-300 rounded-md px-3 py-2">
-            <option>Sort By</option>
-            <option>Name A-Z</option>
-            <option>Name Z-A</option>
-            <option>Date Joined</option>
-          </select>
-        </div>
+        
       </div>
       
       {/* User List */}
@@ -107,7 +219,15 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                       <div className="flex items-center">
                         <div className="h-10 w-10 flex-shrink-0">
                           {client.profilePic ? (
-                            <img className="h-10 w-10 rounded-full" src={`data:image/jpeg;base64,${client.profilePic}`} alt="" />
+                            <img 
+                              className="h-10 w-10 rounded-full object-cover" 
+                              src={`http://localhost:5000${client.profilePic}`} 
+                              alt={`${client.username}'s profile`}
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "https://via.placeholder.com/40?text=User";
+                              }}
+                            />
                           ) : (
                             <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
                               <FaUser className="text-gray-500" />
@@ -130,24 +250,51 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                       {new Date(client.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button 
-                        onClick={() => {
-                          setSelectedUser(client);
-                          setShowUserModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                      >
-                        View
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setUserDeleteId(client._id);
-                          setShowDeleteModal(true);
-                        }}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex justify-end space-x-3">
+                        {/* View Button */}
+                        <button 
+                          onClick={() => {
+                            setSelectedUser(client);
+                            setShowUserModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          View
+                        </button>
+                        
+                        {/* Delete Button */}
+                        <button 
+                          onClick={() => {
+                            try {
+                              // Validate client exists
+                              if (!client) {
+                                console.error("Client object is undefined");
+                                toast.error("Cannot delete: User data is missing");
+                                return;
+                              }
+                              
+                              // Try different possible ID formats
+                              const clientId = client._id || client.id || null;
+                              
+                              if (!clientId) {
+                                console.error("Client ID is undefined");
+                                toast.error("Cannot delete: User ID is missing");
+                                return;
+                              }
+                              
+                              console.log("Setting client delete ID:", clientId);
+                              setUserDeleteId(clientId);
+                              setShowDeleteModal(true);
+                            } catch (err) {
+                              console.error("Error preparing client deletion:", err);
+                              toast.error("An error occurred while preparing to delete the user");
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -166,7 +313,15 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0">
                         {provider.profilePic ? (
-                          <img className="h-10 w-10 rounded-full" src={`data:image/jpeg;base64,${provider.profilePic}`} alt="" />
+                          <img 
+                            className="h-10 w-10 rounded-full object-cover" 
+                            src={`http://localhost:5000${provider.profilePic}`} 
+                            alt={`${provider.username}'s profile`}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = "https://via.placeholder.com/40?text=User";
+                            }}
+                          />
                         ) : (
                           <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
                             <FaUser className="text-gray-500" />
@@ -189,24 +344,51 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                     {new Date(provider.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
-                      onClick={() => {
-                        setSelectedUser(provider);
-                        setShowUserModal(true);
-                      }}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                    >
-                      View
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setUserDeleteId(provider._id);
-                        setShowDeleteModal(true);
-                      }}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
+                    <div className="flex justify-end space-x-3">
+                      {/* View Button */}
+                      <button 
+                        onClick={() => {
+                          setSelectedUser(provider);
+                          setShowUserModal(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        View
+                      </button>
+                      
+                      {/* Delete Button */}
+                      <button 
+                        onClick={() => {
+                          try {
+                            // Validate provider exists
+                            if (!provider) {
+                              console.error("Provider object is undefined");
+                              toast.error("Cannot delete: User data is missing");
+                              return;
+                            }
+                            
+                            // Try different possible ID formats
+                            const providerId = provider._id || provider.id || null;
+                            
+                            if (!providerId) {
+                              console.error("Provider ID is undefined");
+                              toast.error("Cannot delete: User ID is missing");
+                              return;
+                            }
+                            
+                            console.log("Setting provider delete ID:", providerId);
+                            setUserDeleteId(providerId);
+                            setShowDeleteModal(true);
+                          } catch (err) {
+                            console.error("Error preparing provider deletion:", err);
+                            toast.error("An error occurred while preparing to delete the user");
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -222,10 +404,10 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
       {/* Pagination */}
       <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div className="flex-1 flex justify-between sm:hidden">
-          <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+          <button key="mob-prev" className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             Previous
           </button>
-          <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+          <button key="mob-next" className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
             Next
           </button>
         </div>
@@ -238,19 +420,19 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
           </div>
           <div>
             <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-              <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+              <button key="prev" className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                 Previous
               </button>
-              <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <button key="page1" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                 1
               </button>
-              <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <button key="page2" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                 2
               </button>
-              <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <button key="page3" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                 3
               </button>
-              <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+              <button key="next" className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                 Next
               </button>
             </nav>
@@ -271,9 +453,13 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
             <div className="flex flex-col items-center mb-4">
               {selectedUser.profilePic ? (
                 <img 
-                  className="h-24 w-24 rounded-full mb-3" 
-                  src={`data:image/jpeg;base64,${selectedUser.profilePic}`} 
-                  alt={selectedUser.username} 
+                  className="h-24 w-24 rounded-full mb-3 object-cover" 
+                  src={`http://localhost:5000${selectedUser.profilePic}`} 
+                  alt={selectedUser.username}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "https://via.placeholder.com/96?text=User";
+                  }}
                 />
               ) : (
                 <div className="h-24 w-24 rounded-full bg-gray-300 flex items-center justify-center mb-3">
@@ -283,10 +469,68 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
               <h4 className="text-lg font-semibold">{selectedUser.username}</h4>
               <p className="text-gray-500">{selectedUser.email}</p>
             </div>
-            <div className="border-t pt-4">
+            <div className="border-t pt-4 space-y-2">
               <p><span className="font-semibold">Role:</span> {selectedUser.role}</p>
               <p><span className="font-semibold">Member Since:</span> {new Date(selectedUser.createdAt).toLocaleDateString()}</p>
-              {/* Add more user details as needed */}
+              <p><span className="font-semibold">Email:</span> {selectedUser.email}</p>
+              
+              {/* Show phone number if available */}
+              {selectedUser.phone && (
+                <p><span className="font-semibold">Phone:</span> {selectedUser.phone}</p>
+              )}
+              
+              {/* Show address if available */}
+              {selectedUser.address && (
+                <p><span className="font-semibold">Address:</span> {selectedUser.address}</p>
+              )}
+              
+              {/* Show different fields based on role */}
+              {selectedUser.role === 'serviceProvider' && (
+                <>
+                  {selectedUser.services && (
+                    <div>
+                      <span className="font-semibold">Services:</span>
+                      <ul className="ml-5 list-disc">
+                        {selectedUser.services.map((service, index) => (
+                          <li key={index}>{service}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {selectedUser.skills && (
+                    <p><span className="font-semibold">Skills:</span> {selectedUser.skills.join(', ')}</p>
+                  )}
+                  
+                  {selectedUser.experience && (
+                    <p><span className="font-semibold">Experience:</span> {selectedUser.experience} years</p>
+                  )}
+                </>
+              )}
+              
+              {/* Completed projects count if available */}
+              {selectedUser.completedProjects && (
+                <p><span className="font-semibold">Completed Projects:</span> {selectedUser.completedProjects}</p>
+              )}
+              
+              {/* Status field */}
+              <p>
+                <span className="font-semibold">Status:</span> 
+                <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                  Active
+                </span>
+              </p>
+            </div>
+            
+            {/* Add action buttons at the bottom of the modal */}
+            <div className="mt-6 pt-4 border-t flex justify-end space-x-3">
+              <button 
+                onClick={() => setShowUserModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Close
+              </button>
+              
             </div>
           </div>
         </div>
@@ -307,8 +551,27 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
               </button>
               <button 
                 onClick={() => {
-                  handleDeleteUser(userDeleteId);
-                  setShowDeleteModal(false);
+                  try {
+                    if (!userDeleteId) {
+                      console.error("userDeleteId is undefined or null");
+                      toast.error("Cannot delete: User ID is missing");
+                      setShowDeleteModal(false); // Close modal on error
+                      return;
+                    }
+                    
+                    // Store the ID in a local variable to ensure it doesn't change
+                    const idToDelete = String(userDeleteId); // Convert to string to ensure consistency
+                    
+                    // Log the ID being passed to ensure it's correct
+                    console.log("Executing delete with ID:", idToDelete);
+                    
+                    // Pass the local variable to handleDeleteUser
+                    handleDeleteUser(idToDelete);
+                  } catch (err) {
+                    console.error("Error in delete confirmation:", err);
+                    toast.error("An error occurred while attempting to delete the user");
+                    setShowDeleteModal(false);
+                  }
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
               >

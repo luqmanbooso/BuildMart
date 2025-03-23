@@ -14,8 +14,8 @@ const authMiddleware = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Find user by decoded ID
-    const user = await User.findById(decoded.id);
+    // Find user by decoded ID - change from id to userId to match your token
+    const user = await User.findById(decoded.userId); // Changed from decoded.id to decoded.userId
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid token. User not found.' });
