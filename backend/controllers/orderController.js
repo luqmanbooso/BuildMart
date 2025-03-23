@@ -124,12 +124,23 @@ exports.updateOrderStatus = async (req, res) => {
 
 exports.getUserOrders = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const { userId, all } = req.query;
     
+    // For admin/supply dashboard view that needs all orders
+    if (all === 'true') {
+      const orders = await Order.find().sort({ orderDate: -1 });
+      return res.status(200).json({
+        success: true,
+        count: orders.length,
+        orders
+      });
+    }
+    
+    // For regular user orders - must provide userId
     if (!userId) {
       return res.status(400).json({
         success: false,
-        message: 'User ID is required'
+        message: 'User ID is required for filtering orders by user'
       });
     }
     
