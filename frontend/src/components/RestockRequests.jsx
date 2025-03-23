@@ -458,44 +458,46 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
         </div>
       </div>
   
-      {/* Restock Requests List */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-gray-800">
-            Restock Requests
-          </h3>
-          <div className="flex items-center space-x-2">
-            <div className="relative">
-              <input
-                type="text"
-                className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                placeholder="Search requests..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
+      {/* Restock Requests Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-800">
+              Restock Requests
+            </h3>
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <input
+                  type="text"
+                  className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  placeholder="Search requests..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
+              </div>
+              <button
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                onClick={() => {
+                  // Refresh restock data
+                  setRestockLoading(true);
+                  restockService.getAllRequests()
+                    .then(data => {
+                      setRestockRequests(data);
+                      toast.success("Restock data refreshed");
+                    })
+                    .catch(error => {
+                      console.error("Error refreshing restock data:", error);
+                      toast.error("Failed to refresh restock data");
+                    })
+                    .finally(() => {
+                      setRestockLoading(false);
+                    });
+                }}
+              >
+                <RefreshCw className="h-5 w-5 text-gray-600" />
+              </button>
             </div>
-            <button
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-              onClick={() => {
-                // Refresh restock data
-                setRestockLoading(true);
-                restockService.getAllRequests()
-                  .then(data => {
-                    setRestockRequests(data);
-                    toast.success("Restock data refreshed");
-                  })
-                  .catch(error => {
-                    console.error("Error refreshing restock data:", error);
-                    toast.error("Failed to refresh restock data");
-                  })
-                  .finally(() => {
-                    setRestockLoading(false);
-                  });
-              }}
-            >
-              <RefreshCw className="h-5 w-5 text-gray-600" />
-            </button>
           </div>
         </div>
         
@@ -505,7 +507,7 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
             <p className="ml-2 text-gray-600">Loading restock requests...</p>
           </div>
         ) : restockError ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          <div className="m-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
             <p>{restockError}</p>
             <button
               onClick={() => window.location.reload()}
@@ -515,141 +517,156 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
-            {restockRequests
-              .filter(req => 
-                req.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                req.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                req.status?.toLowerCase().includes(searchTerm.toLowerCase())
-              )
-              .map(request => (
-                <div
-                  key={request._id}
-                  className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center">
-                        <h4 className="text-lg font-medium text-gray-800">
-                          {request.productName}
-                        </h4>
-                        <span
-                          className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                            request.priority === 'urgent' ? 'bg-red-100 text-red-600' :
-                            request.priority === 'high' ? 'bg-amber-100 text-amber-600' :
-                            'bg-blue-100 text-blue-600'
-                          }`}
-                        >
-                          {request.priority.toUpperCase()}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        Quantity: {request.quantity} units
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Supplier: {request.supplierName}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Requested: {new Date(request.createdAt).toLocaleDateString()}
-                      </p>
-                      {request.notes && (
-                        <p className="text-sm text-gray-600 mt-1">
-                          Notes: {request.notes}
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="flex flex-col items-end space-y-2">
-                      <div className="flex flex-col items-end space-y-1">
-                        {/* Status badge */}
-                        <span
-                          className={`text-sm font-medium px-3 py-1 rounded-full ${
-                            request.status === 'delivered' ? 'bg-green-100 text-green-600' :
-                            request.status === 'shipped' ? 'bg-blue-100 text-blue-600' :
-                            request.status === 'ordered' || request.status === 'approved' ? 'bg-amber-100 text-amber-600' :
-                            'bg-gray-100 text-gray-600'
-                          }`}
-                        >
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Product
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Supplier
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Quantity
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date Requested
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {restockRequests
+                  .filter(req => 
+                    req.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    req.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    req.status?.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map(request => (
+                    <tr key={request._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{request.productName}</div>
+                            {request.notes && (
+                              <div className="text-xs text-gray-500 truncate max-w-xs" title={request.notes}>
+                                {request.notes}
+                              </div>
+                            )}
+                          </div>
+                          {request.priority && (
+                            <span className={`ml-2 px-2 py-0.5 text-xs font-medium rounded-full ${
+                              request.priority === 'urgent' ? 'bg-red-100 text-red-600' :
+                              request.priority === 'high' ? 'bg-amber-100 text-amber-600' :
+                              'bg-blue-100 text-blue-600'
+                            }`}>
+                              {request.priority.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{request.supplierName}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{request.quantity} units</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {new Date(request.createdAt).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          request.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                          request.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
+                          request.status === 'ordered' ? 'bg-amber-100 text-amber-800' :
+                          request.status === 'approved' ? 'bg-cyan-100 text-cyan-800' :
+                          request.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
                           {request.status.toUpperCase()}
                         </span>
-                        
-                        {/* Payment status badge */}
-                        <span
-                          className={`text-sm font-medium ${
-                            request.paymentStatus === 'paid' ? 'text-green-600' : 
-                            request.paymentStatus === 'rejected' ? 'text-red-600' : 
-                            'text-amber-600'
-                          }`}
-                        >
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          request.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 
+                          request.paymentStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
+                          'bg-amber-100 text-amber-800'
+                        }`}>
                           {request.paymentStatus ? request.paymentStatus.toUpperCase() : 'PENDING'}
                         </span>
-                      </div>
-                      
-                      {/* Payment button - show only if payment is pending */}
-                      {request.status === 'delivered' && request.paymentStatus === 'pending' && (
-                        <button
-                          onClick={() => {
-                            setSelectedRestockRequest(request);
-                            setShowRestockPaymentModal(true);
-                          }}
-                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                        >
-                          Pay Supplier
-                        </button>
-                      )}
-                      
-                      {/* Status update dropdown */}
-                      {request.status !== 'delivered' && request.status !== 'cancelled' && (
-                        <div className="relative inline-block text-left">
-                          {/* Debug info */}
-                          {process.env.NODE_ENV === 'development' && (
-                            <div className="hidden">
-                              <pre>Current Status: {request.status}</pre>
-                              <pre>Available Transitions: {JSON.stringify(statusTransitions[request.status.toLowerCase()])}</pre>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center space-x-2">
+                          {/* Payment button - show only if payment is pending */}
+                          {request.status === 'delivered' && request.paymentStatus === 'pending' && (
+                            <button
+                              onClick={() => {
+                                setSelectedRestockRequest(request);
+                                setShowRestockPaymentModal(true);
+                              }}
+                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                            >
+                              Pay
+                            </button>
+                          )}
+                          
+                          {/* Status update dropdown */}
+                          {request.status !== 'delivered' && request.status !== 'cancelled' && (
+                            <div className="relative inline-block text-left">
+                              <select
+                                className="px-2 py-1 text-xs bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    updateRestockStatus(request._id, e.target.value);
+                                  }
+                                }}
+                                defaultValue=""
+                              >
+                                <option value="" disabled>
+                                  {statusTypesLoading ? "Loading..." : "Update status"}
+                                </option>
+                                {getStatusUpdateOptions(request.status)}
+                              </select>
                             </div>
                           )}
                           
-                          <select
-                            className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                updateRestockStatus(request._id, e.target.value);
-                              }
-                            }}
-                            defaultValue=""
-                          >
-                            <option value="" disabled>
-                              {statusTypesLoading ? "Loading options..." : "Update status..."}
-                            </option>
-                            {getStatusUpdateOptions(request.status)}
-                          </select>
+                          {/* Payment status dropdown */}
+                          {request.status === 'delivered' && (
+                            <div className="relative inline-block text-left">
+                              <select
+                                className="px-2 py-1 text-xs bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    updatePaymentStatus(request._id, e.target.value);
+                                  }
+                                }}
+                                defaultValue=""
+                              >
+                                <option value="" disabled>
+                                  {statusTypesLoading ? "Loading..." : "Payment status"}
+                                </option>
+                                {getPaymentStatusOptions(request.paymentStatus)}
+                              </select>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      
-                      {/* Payment status dropdown - show for authorized users or admins */}
-                      {request.status === 'delivered' && (
-                        <div className="relative inline-block text-left mt-2">
-                          <select
-                            className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                updatePaymentStatus(request._id, e.target.value);
-                              }
-                            }}
-                            defaultValue=""
-                          >
-                            <option value="" disabled>
-                              {statusTypesLoading ? "Loading options..." : "Update payment status..."}
-                            </option>
-                            {getPaymentStatusOptions(request.paymentStatus)}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            
             {restockRequests.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 No restock requests found.
