@@ -742,25 +742,29 @@ const handleDelete = async (id) => {
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center border-b pb-4 mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Shipment Management</h2>
-        <div className="space-x-2">
+        <div className="flex items-center space-x-3">
           <button 
             onClick={() => setShowShipmentForm(!showShipmentForm)}
-            className="flex items-center text-blue-700 hover:text-blue-900"
+            className={`flex items-center px-4 py-2 rounded-lg transition-all ${
+              showShipmentForm 
+                ? "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300" 
+                : "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-sm"
+            }`}
           >
             {showShipmentForm ? (
               <>Cancel</>
             ) : (
               <>
-                <Plus size={18} className="mr-1" /> New Shipment
+                <Plus size={18} className="mr-1.5" /> New Shipment
               </>
             )}
           </button>
           <button 
             onClick={fetchActiveShipments}
-            className="flex items-center text-green-700 hover:text-green-900"
+            className="flex items-center px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 transition-all"
             disabled={loading}
           >
-            <RefreshCw size={18} className={`mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            <RefreshCw size={18} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
       </div>
