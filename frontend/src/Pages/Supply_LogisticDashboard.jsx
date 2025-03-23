@@ -31,7 +31,12 @@ import {
   Package,
   MoreVertical,
   AlertCircle,
-  Wrench
+  Wrench,
+  Edit,
+  Trash2,
+  Phone,
+  Mail,
+  MapPin
 } from "lucide-react";
 import axios from "axios"; // Add axios import
 import { toast, ToastContainer } from "react-toastify"; // Add toast for notifications
@@ -572,7 +577,7 @@ const mapOrderStatus = (status) => {
           'Delayed': ["In Transit", "Out for Delivery", "Cancelled"],
           'Failed Delivery': ["Preparing", "In Transit", "Cancelled"],
           'Delivered': [], // No more transitions possible
-          'Cancelled': ["Processing"], // Can restart the process
+          'Cancelled': ["Preparing"], // Can restart the process
         };
         
         try {
@@ -2586,8 +2591,9 @@ const handleUpdateSupplier = async () => {
 
               {/* Supplier Form Modal */}
               {showSupplierForm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto">
-                  <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 my-6">
+                <div className="fixed inset-0 backdrop-blur-lg bg-gray-800/30 z-50 flex items-center justify-center overflow-y-auto">
+                  <div className="bg-white rounded-lg shadow-2xl border border-gray-200 max-w-3xl w-full mx-4 my-6">
+                    {/* Rest of the modal content remains the same */}
                     <div className="p-6 border-b border-gray-200">
                       <div className="flex justify-between items-center">
                         <h3 className="text-xl font-semibold text-gray-800">
@@ -3020,130 +3026,189 @@ const handleUpdateSupplier = async () => {
                 </div>
               )}
 
-              {/* Supplier List */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">
-                    Supplier Directory{" "}
-                    {isLoading && (
-                      <Loader className="inline-block animate-spin h-4 w-4 ml-2" />
-                    )}
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                        placeholder="Search suppliers..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                      <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
-                    </div>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Filter className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Download className="h-5 w-5 text-gray-600" />
+              {/* Supplier List - Enhanced Styling */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                {isLoading ? (
+                  <div className="flex justify-center items-center py-10">
+                    <Loader className="h-10 w-10 text-blue-600 animate-spin" />
+                    <p className="ml-2 text-gray-600">Loading supplier data...</p>
+                  </div>
+                ) : error ? (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md m-4">
+                    <p>{error}</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Retry
                     </button>
                   </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead>
-                      <tr>
-                        <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Supplier Name
-                        </th>
-                        <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Category
-                        </th>
-                        <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Contact
-                        </th>
-                        <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Value %
-                        </th>
-                        <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {suppliers
-                        .filter(
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Supplier
+                          </th>
+                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Category
+                          </th>
+                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Contact Details
+                          </th>
+                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Business Value
+                          </th>
+                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {suppliers.filter(
                           (supplier) =>
-                            supplier.name
-                              .toLowerCase()
-                              .includes(searchTerm.toLowerCase()) ||
-                            (supplier.category &&
-                              supplier.category
-                                .toLowerCase()
-                                .includes(searchTerm.toLowerCase())) ||
-                            (supplier.contact &&
-                              supplier.contact
-                                .toLowerCase()
-                                .includes(searchTerm.toLowerCase()))
-                        )
-                        .map((supplier) => (
-                          <tr
-                            key={supplier._id || supplier.id || supplier.name}
-                            className="hover:bg-gray-50"
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="font-medium text-gray-900">
-                                {supplier.name}
-                              </div>
-                              {supplier.email && (
-                                <div className="text-sm text-gray-500">
-                                  {supplier.email}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                {supplier.category || "General"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {supplier.contact || "Not specified"}
-                              {supplier.address && (
-                                <div className="text-xs text-gray-400 truncate max-w-xs">
-                                  {supplier.address}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {supplier.value}%
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button
-                                onClick={() => editSupplier(supplier)}
-                                className="text-blue-600 hover:text-blue-900 mr-4"
+                            supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                            (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                        ).length > 0 ? (
+                          suppliers
+                            .filter(
+                              (supplier) =>
+                                supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                                (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                            )
+                            .map((supplier) => (
+                              <tr
+                                key={supplier._id || supplier.id || supplier.name}
+                                className="hover:bg-gray-50 transition-colors"
                               >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleDeleteSupplier(supplier._id)
-                                }
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Delete
-                              </button>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center">
+                                    <div className="h-10 w-10 flex-shrink-0 bg-blue-100 rounded-md flex items-center justify-center mr-4">
+                                      <span className="text-blue-700 font-semibold">
+                                        {supplier.name ? supplier.name.charAt(0).toUpperCase() : "S"}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <div className="font-medium text-gray-900">{supplier.name}</div>
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        {supplier.email && (
+                                          <span className="flex items-center">
+                                            <Mail className="h-3 w-3 mr-1" />
+                                            {supplier.email}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                                    supplier.category?.toLowerCase().includes("safety") 
+                                      ? "bg-green-100 text-green-800" 
+                                      : supplier.category?.toLowerCase().includes("tools") 
+                                      ? "bg-blue-100 text-blue-800"
+                                      : supplier.category?.toLowerCase().includes("construction") 
+                                      ? "bg-amber-100 text-amber-800"
+                                      : supplier.category?.toLowerCase().includes("plumbing") 
+                                      ? "bg-indigo-100 text-indigo-800"
+                                      : "bg-gray-100 text-gray-800"
+                                  }`}>
+                                    {supplier.category || "General"}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="space-y-1">
+                                    {supplier.contact && (
+                                      <div className="text-sm font-medium text-gray-700 flex items-center">
+                                        <Users className="h-4 w-4 mr-1.5 text-gray-500" />
+                                        {supplier.contact}
+                                      </div>
+                                    )}
+                                    {supplier.phone && (
+                                      <div className="text-sm text-gray-600 flex items-center">
+                                        <Phone className="h-4 w-4 mr-1.5 text-gray-500" />
+                                        {supplier.phone}
+                                      </div>
+                                    )}
+                                    {supplier.address && (
+                                      <div className="text-sm text-gray-600 flex items-start">
+                                        <MapPin className="h-4 w-4 mr-1.5 mt-0.5 text-gray-500" />
+                                        <span className="truncate max-w-xs">{supplier.address}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center">
+                                    <span className="text-gray-900 font-medium">{supplier.value || 0}%</span>
+                                    
+                                    {/* Value indicator */}
+                                    <div className="ml-4 w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                      <div 
+                                        className="h-full rounded-full bg-blue-500"
+                                        style={{ width: `${supplier.value || 0}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {supplier.leadTime ? `${supplier.leadTime} days lead time` : 'Standard delivery'}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => editSupplier(supplier)}
+                                      className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                      title="Edit Supplier"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSupplier(supplier._id)}
+                                      className="p-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                      title="Delete Supplier"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                    <div className="relative">
+                                      <button
+                                        className="p-1.5 rounded-md bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
+                                        title="More Options"
+                                      >
+                                        <MoreVertical className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                        ) : (
+                          <tr>
+                            <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
+                              <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                              <p className="text-lg font-medium">No suppliers found</p>
+                              <p className="text-sm">Try adjusting your search criteria or add a new supplier</p>
                             </td>
                           </tr>
-                        ))}
-                    </tbody>
-                  </table>
-
-                  {suppliers.length === 0 && (
-                    <div className="text-center py-6 text-gray-500">
-                      No suppliers found. Add a new supplier to get started.
-                    </div>
-                  )}
-                </div>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                
+                {!isLoading && !error && suppliers.length > 0 && (
+                  <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
+                    Showing {suppliers.filter(
+                      (supplier) =>
+                        supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                    ).length} of {suppliers.length} suppliers
+                  </div>
+                )}
               </div>
             </div>
           )}
