@@ -61,9 +61,6 @@ function PaymentDashboard() {
   // Add these state variables at the top of the component
   const [adminExpenses, setAdminExpenses] = useState([]);
 
-  // Add new state for agreement fees
-  const [agreementPayments, setAgreementPayments] = useState([]);
-
   // Keep existing paymentStats state
   const [paymentStats, setPaymentStats] = useState({
     totalAmount: 0,
@@ -76,8 +73,7 @@ function PaymentDashboard() {
     completedCount: 0,
     activeProviders: new Set(),
     itemsPurchased: 0,
-    pendingAmount: 0,
-    agreementIncome: 0 // Add this line
+    pendingAmount: 0
   });
   
   const [paymentMethodsData, setPaymentMethodsData] = useState([
@@ -248,11 +244,7 @@ const processPaymentData = (data) => {
   const serviceProviderPaymentsArray = [];
   const inventoryPaymentsArray = [];
   const commissionPaymentsArray = [];
-<<<<<<< HEAD
   const agreementFeePaymentsArray = []; // Add this new array
-=======
-  const agreementPaymentsArray = [];
->>>>>>> eec46ff5f43a9af3c3ddb31d1bc8999ce8fc842c
 
   // Initialize stats counters with default values
   const stats = {
@@ -266,8 +258,7 @@ const processPaymentData = (data) => {
     pendingCount: 0,
     failedCount: 0,
     activeProviders: new Set(),
-    itemsPurchased: 0,
-    agreementIncome: 0
+    itemsPurchased: 0
   };
 
   // Count card types
@@ -364,13 +355,8 @@ const processPaymentData = (data) => {
           itemName: 'Milestone Payment'
         });
       }
-<<<<<<< HEAD
       // 3. Inventory Sales - exclude service provider payments and agreement fees
       else if (isInventorySale) {
-=======
-      // 2. Inventory Sales - exclude service provider payments
-      else if (isInventorySale && payment.paymentType !== 'agreement_fee') {
->>>>>>> eec46ff5f43a9af3c3ddb31d1bc8999ce8fc842c
         const itemCount = hasOrderItems ? 
           payment.order.items.reduce((total, item) => total + (item.quantity || 0), 0) : 1;
         
@@ -414,17 +400,6 @@ const processPaymentData = (data) => {
           commissionRate: payment.commissionRate || 0.1
         });
       }
-
-      // 5. Agreement Fees
-      if (payment.paymentType === 'agreement_fee') {
-        stats.agreementIncome += payment.amount;
-        
-        agreementPaymentsArray.push({
-          ...formattedPayment,
-          description: 'Agreement Fee',
-          customerName: payment.user?.name || payment.cardholderName || 'Customer',
-        });
-      }
       
       // Add to total regardless of category
       stats.totalAmount += payment.amount;
@@ -433,13 +408,8 @@ const processPaymentData = (data) => {
     console.log("Categorized payments:", {
       serviceProviders: serviceProviderPaymentsArray.length,
       inventorySales: inventoryPaymentsArray.length,
-<<<<<<< HEAD
       agreementFees: agreementFeePaymentsArray.length,
       commissions: commissionPaymentsArray.length
-=======
-      commissions: commissionPaymentsArray.length,
-      agreements: agreementPaymentsArray.length
->>>>>>> eec46ff5f43a9af3c3ddb31d1bc8999ce8fc842c
     });
 
     // Calculate payment method percentages
@@ -459,12 +429,8 @@ const processPaymentData = (data) => {
     setServiceProviderPayments(serviceProviderPaymentsArray);
     setItemsPayments(inventoryPaymentsArray);
     setCommissionPayments(commissionPaymentsArray);
-<<<<<<< HEAD
     // Add this line to set agreement fee payments
     setAgreementFeePayments(agreementFeePaymentsArray);
-=======
-    setAgreementPayments(agreementPaymentsArray);
->>>>>>> eec46ff5f43a9af3c3ddb31d1bc8999ce8fc842c
   } else {
     console.log("No payment data or empty array");
     
@@ -473,11 +439,7 @@ const processPaymentData = (data) => {
     setServiceProviderPayments([]);
     setItemsPayments([]);
     setCommissionPayments([]);
-<<<<<<< HEAD
     setAgreementFeePayments([]);
-=======
-    setAgreementPayments([]);
->>>>>>> eec46ff5f43a9af3c3ddb31d1bc8999ce8fc842c
   }
 };
 
@@ -960,17 +922,10 @@ const processPaymentData = (data) => {
       isIncome: true
     },
     {
-<<<<<<< HEAD
       title: "Agreement Fees",
       value: `Rs. ${(paymentStats?.agreementFeeIncome || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
       change: "+3.5%",
       icon: <FileText className="h-6 w-6 text-orange-600" />,
-=======
-      title: "Agreement Income",
-      value: `Rs. ${(paymentStats?.agreementIncome || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-      change: "+15.3%",
-      icon: <FileText className="h-6 w-6 text-amber-600" />,
->>>>>>> eec46ff5f43a9af3c3ddb31d1bc8999ce8fc842c
       trend: "up",
       isIncome: true
     },
@@ -986,11 +941,7 @@ const processPaymentData = (data) => {
       title: "Total Income",
       value: `Rs. ${((paymentStats?.inventorySalesTotal || 0) + 
               (paymentStats?.commissionIncome || 0) + 
-<<<<<<< HEAD
               (paymentStats?.agreementFeeIncome || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-=======
-              (paymentStats?.agreementIncome || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
->>>>>>> eec46ff5f43a9af3c3ddb31d1bc8999ce8fc842c
       change: "+10.4%",
       icon: <DollarSign className="h-6 w-6 text-indigo-600" />,
       trend: "up",
@@ -1536,62 +1487,6 @@ const processPaymentData = (data) => {
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Agreement Income Section */}
-          <div className="mt-8 mb-8">
-            <h3 className="text-lg font-semibold mb-4">Agreement Income</h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {agreementPayments.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="px-6 py-10 text-center text-gray-500">
-                        No agreement income records found
-                      </td>
-                    </tr>
-                  ) : (
-                    agreementPayments.slice(0, 5).map((payment, index) => (
-                      <tr key={payment.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{payment.date}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{payment.customerName}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{payment.description}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-amber-700">
-                            Rs. {payment.amount.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2
-                            })}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
                 </tbody>
               </table>
             </div>
