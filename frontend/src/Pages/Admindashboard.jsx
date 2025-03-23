@@ -408,15 +408,13 @@ function Admindashboard() {
                 <p className="text-sm text-gray-500">Total Clients</p>
                 <div className="flex items-end">
                   <h2 className="text-3xl font-bold text-gray-800">{isLoading ? '...' : userStats.clients}</h2>
-                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">+12%</span>
+                  
                 </div>
               </div>
             </div>
             <div className="mt-4 flex justify-between items-center text-sm">
-              <span className="text-gray-500">Since last month</span>
-              <span className="text-blue-600 font-medium cursor-pointer flex items-center">
-                View Details <FaChevronRight className="ml-1 text-xs" />
-              </span>
+        
+              
             </div>
           </div>
 
@@ -430,15 +428,12 @@ function Admindashboard() {
                 <p className="text-sm text-gray-500">Service Providers</p>
                 <div className="flex items-end">
                   <h2 className="text-3xl font-bold text-gray-800">{isLoading ? '...' : userStats.serviceProviders}</h2>
-                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">+8%</span>
+                  
                 </div>
               </div>
             </div>
             <div className="mt-4 flex justify-between items-center text-sm">
-              <span className="text-gray-500">Since last month</span>
-              <span className="text-blue-600 font-medium cursor-pointer flex items-center">
-                View Details <FaChevronRight className="ml-1 text-xs" />
-              </span>
+              
             </div>
           </div>
 
@@ -452,16 +447,11 @@ function Admindashboard() {
                 <p className="text-sm text-gray-500">Completed Projects</p>
                 <div className="flex items-end">
                   <h2 className="text-3xl font-bold text-gray-800">{isLoading ? '...' : jobStats.completed}</h2>
-                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">+22%</span>
+                  
                 </div>
               </div>
             </div>
-            <div className="mt-4 flex justify-between items-center text-sm">
-              <span className="text-gray-500">Since last month</span>
-              <span className="text-blue-600 font-medium cursor-pointer flex items-center">
-                View Details <FaChevronRight className="ml-1 text-xs" />
-              </span>
-            </div>
+            
           </div>
 
           {/* Active Projects card */}
@@ -474,17 +464,12 @@ function Admindashboard() {
                 <p className="text-sm text-gray-500">Active Projects</p>
                 <div className="flex items-end">
                   <h2 className="text-3xl font-bold text-gray-800">{isLoading ? '...' : jobStats.active}</h2>
-                  <span className="ml-2 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
-                    {jobStats.active > 0 ? '+' : '-'}3%
-                  </span>
+                  
                 </div>
               </div>
             </div>
             <div className="mt-4 flex justify-between items-center text-sm">
-              <span className="text-gray-500">Since last month</span>
-              <span className="text-blue-600 font-medium cursor-pointer flex items-center">
-                View Details <FaChevronRight className="ml-1 text-xs" />
-              </span>
+              
             </div>
           </div>
         </div>
@@ -501,11 +486,11 @@ function Admindashboard() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-800">Active Clients</h3>
-                  <p className="text-sm text-gray-500">Last 24 hours</p>
+                  
                 </div>
               </div>
               <button className="text-gray-400 hover:text-gray-500">
-                <FaEllipsisH />
+                
               </button>
             </div>
             <div className="divide-y divide-gray-100">
@@ -525,7 +510,15 @@ function Admindashboard() {
                     <div className="flex items-center">
                       <div className="h-10 w-10 bg-gray-200 rounded-full mr-3 flex items-center justify-center">
                         {client.profilePic ? 
-                          <img src={`data:image/jpeg;base64,${client.profilePic}`} alt="Profile" className="h-10 w-10 rounded-full" /> : 
+                          <img 
+                            src={`http://localhost:5000${client.profilePic}`} 
+                            alt={`${client.username}'s profile`} 
+                            className="h-10 w-10 rounded-full object-cover" 
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = "https://via.placeholder.com/40?text=User";
+                            }}
+                          /> : 
                           <FaUser className="text-gray-500" />
                         }
                       </div>
@@ -535,13 +528,8 @@ function Admindashboard() {
                       </div>
                     </div>
                     <div className="flex items-center">
-                      <span className="flex items-center text-xs text-gray-500 mr-4">
-                        <FaCircle className="mr-1 h-2 w-2 text-green-500" />
-                        Online
-                      </span>
-                      <button className="text-sm bg-blue-50 hover:bg-blue-100 text-blue-600 py-1 px-3 rounded-lg">
-                        View
-                      </button>
+                      
+                      
                     </div>
                   </div>
                 ))
@@ -550,7 +538,16 @@ function Admindashboard() {
               )}
               
               <div className="p-4 bg-gray-50 text-center">
-                <button className="text-sm text-blue-600 font-medium hover:text-blue-800">
+                <button 
+                  className="text-sm text-blue-600 font-medium hover:text-blue-800"
+                  onClick={() => {
+                    setActiveMenu('Users');
+                    // Pre-select the clients tab in UserManagement
+                    if (window.tabSelector) {
+                      window.tabSelector('clients');
+                    }
+                  }}
+                >
                   View All Clients
                 </button>
               </div>
@@ -566,11 +563,11 @@ function Admindashboard() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-800">Active Service Providers</h3>
-                  <p className="text-sm text-gray-500">Last 24 hours</p>
+                  
                 </div>
               </div>
               <button className="text-gray-400 hover:text-gray-500">
-                <FaEllipsisH />
+                
               </button>
             </div>
             <div className="divide-y divide-gray-100">
@@ -590,7 +587,15 @@ function Admindashboard() {
                     <div className="flex items-center">
                       <div className="h-10 w-10 bg-gray-200 rounded-full mr-3 flex items-center justify-center">
                         {provider.profilePic ? 
-                          <img src={`data:image/jpeg;base64,${provider.profilePic}`} alt="Profile" className="h-10 w-10 rounded-full" /> : 
+                          <img 
+                            src={`http://localhost:5000${provider.profilePic}`} 
+                            alt={`${provider.username}'s profile`} 
+                            className="h-10 w-10 rounded-full object-cover" 
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = "https://via.placeholder.com/40?text=User";
+                            }}
+                          /> : 
                           <FaUser className="text-gray-500" />
                         }
                       </div>
@@ -600,13 +605,8 @@ function Admindashboard() {
                       </div>
                     </div>
                     <div className="flex items-center">
-                      <span className="flex items-center text-xs text-gray-500 mr-4">
-                        <FaCircle className="mr-1 h-2 w-2 text-green-500" />
-                        Online
-                      </span>
-                      <button className="text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-600 py-1 px-3 rounded-lg">
-                        View
-                      </button>
+                      
+                      
                     </div>
                   </div>
                 ))
@@ -615,7 +615,16 @@ function Admindashboard() {
               )}
               
               <div className="p-4 bg-gray-50 text-center">
-                <button className="text-sm text-indigo-600 font-medium hover:text-indigo-800">
+                <button 
+                  className="text-sm text-indigo-600 font-medium hover:text-indigo-800"
+                  onClick={() => {
+                    setActiveMenu('Users');
+                    // Pre-select the service providers tab in UserManagement
+                    if (window.tabSelector) {
+                      window.tabSelector('serviceProviders');
+                    }
+                  }}
+                >
                   View All Service Providers
                 </button>
               </div>
@@ -623,101 +632,8 @@ function Admindashboard() {
           </div>
         </div>
 
-        {/* Charts */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Existing charts */}
-          {/* Bidding Status Chart */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-semibold text-gray-800">Bidding Status</h3>
-              <div className="flex items-center">
-                <span className="text-xs text-gray-500 mr-2">This Month</span>
-                <button className="text-gray-500">
-                  <FaCalendar />
-                </button>
-              </div>
-            </div>
-            <div className="relative h-56">
-              <Doughnut data={biddingData} options={{ plugins: { legend: { position: 'bottom', align: 'center' } } }} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <h4 className="text-3xl font-bold text-gray-800">{completionPercentage}%</h4>
-                  <p className="text-xs text-gray-500">Completed</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Client Growth Chart */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-semibold text-gray-800">Client Growth</h3>
-              <div className="flex items-center">
-                <span className="text-xs text-gray-500 mr-2">This Month</span>
-                <button className="text-gray-500">
-                  <FaCalendar />
-                </button>
-              </div>
-            </div>
-            <div className="relative h-56">
-              <Doughnut data={clientData} options={{ plugins: { legend: { position: 'bottom', align: 'center' } } }} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <h4 className="text-3xl font-bold text-gray-800">{clientGrowthRate}%</h4>
-                  <p className="text-xs text-gray-500">New</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Revenue Chart */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-semibold text-gray-800">Revenue</h3>
-              <div className="flex items-center">
-                <span className="text-xs text-gray-500 mr-2">This Month</span>
-                <button className="text-gray-500">
-                  <FaCalendar />
-                </button>
-              </div>
-            </div>
-            <div className="relative h-56">
-              <Doughnut data={revenueData} options={{ plugins: { legend: { position: 'bottom', align: 'center' } } }} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <h4 className="text-3xl font-bold text-gray-800">62%</h4>
-                  <p className="text-xs text-gray-500">Direct</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-          
-        {/* Visitor Stats */}
-        <div className="mt-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="font-semibold text-gray-800">Visitors Overview</h3>
-                <p className="text-sm text-gray-500">Platform activity by day</p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <select className="text-sm border border-gray-300 rounded-md px-3 py-1.5">
-                  <option>Weekly</option>
-                  <option>Monthly</option>
-                  <option>Yearly</option>
-                </select>
-                <button className="text-gray-400 hover:text-gray-500">
-                  <FaEllipsisH />
-                </button>
-              </div>
-            </div>
-            
-            <div className="h-80">
-              <Bar data={visitsData} options={barOptions} />
-            </div>
-          </div>
-        </div>
+        
+        
       </div>
     );
   };
@@ -734,28 +650,9 @@ function Admindashboard() {
         {/* Search and Filter */}
         <div className="flex justify-between items-center mb-6">
           <div className="relative w-72">
-            <input
-              type="text"
-              placeholder="Search requests..."
-              className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-            />
-            <FaSearch className="absolute left-3 top-2.5 text-gray-400" />
+            
           </div>
-          <div className="flex space-x-3">
-            <select className="text-sm border border-gray-300 rounded-md px-3 py-2">
-              <option>All Status</option>
-              <option>Active</option>
-              <option>Pending</option>
-              <option>Closed</option>
-            </select>
-            <select className="text-sm border border-gray-300 rounded-md px-3 py-2">
-              <option>All Categories</option>
-              <option>Plumbing</option>
-              <option>Electrical</option>
-              <option>Carpentry</option>
-              <option>Other</option>
-            </select>
-          </div>
+          
         </div>
         
         {/* Jobs List */}
@@ -910,21 +807,7 @@ function Admindashboard() {
             </div>
           </div>
           
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center">
-              <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center text-white shadow-lg">
-                <FaBoxOpen size={22} />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Pending Approval</p>
-                <div className="flex items-end">
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    {allJobs.filter(job => job.status === 'Pending').length}
-                  </h2>
-                </div>
-              </div>
-            </div>
-          </div>
+          
         </div>
       </div>
     );
@@ -1063,26 +946,9 @@ function Admindashboard() {
         {/* Search and Filter */}
         <div className="flex justify-between items-center mb-6">
           <div className="relative w-72">
-            <input
-              type="text"
-              placeholder="Search bids..."
-              className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-            />
-            <FaSearch className="absolute left-3 top-2.5 text-gray-400" />
+            
           </div>
-          <div className="flex space-x-3">
-            <select className="text-sm border border-gray-300 rounded-md px-3 py-2">
-              <option value="all">All Status</option>
-              <option value="accepted">Accepted</option>
-              <option value="pending">Pending</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <select className="text-sm border border-gray-300 rounded-md px-3 py-2">
-              <option>Sort By: Newest</option>
-              <option>Sort By: Price (High-Low)</option>
-              <option>Sort By: Price (Low-High)</option>
-            </select>
-          </div>
+          
         </div>
         
         {/* Bids Table */}
@@ -1328,13 +1194,7 @@ function Admindashboard() {
             </div>
           ))}
           
-          <p className="px-2 text-xs font-semibold text-blue-400 uppercase mt-8 mb-4">Settings</p>
-          <div className="px-3 py-3 text-blue-200 hover:bg-blue-800/50 hover:text-white rounded-lg flex items-center cursor-pointer transition-all">
-            <div className="text-blue-400 mr-3">
-              <FaWrench />
-            </div>
-            <span>System Settings</span>
-          </div>
+          
         </nav>
         <div className="absolute bottom-0 w-64 border-t border-blue-800/30">
           <div 
@@ -1360,12 +1220,7 @@ function Admindashboard() {
             </div>
             <div className="flex items-center space-x-5">
               <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="pl-10 pr-4 py-2 rounded-xl bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-64 text-sm"
-                />
-                <FaSearch className="absolute left-3 top-3 text-gray-400" />
+                
               </div>
               
               <div className="relative">
@@ -1385,7 +1240,7 @@ function Admindashboard() {
                   <p className="text-sm font-medium text-gray-800">Admin</p>
                   <p className="text-xs text-gray-500">System Administrator</p>
                 </div>
-                <FaAngleDown className="text-gray-500 cursor-pointer" />
+               
               </div>
             </div>
           </div>

@@ -40,7 +40,6 @@ import { supplierService } from "../services/supplierService";
 import { restockService } from "../services/restockService";
 import RestockRequests from '../components/RestockRequests';
 import ShippingManager from '../components/ShippingManager';
-import { useNavigate } from 'react-router-dom';
 
 // Mock data for the dashboard
 const inventoryData = [
@@ -299,23 +298,30 @@ function Supply_LogisticDashboard() {
   const [restockRequests, setRestockRequests] = useState([]);
   const [selectedOrderForShipment, setSelectedOrderForShipment] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
-  const navigate = useNavigate(); // Add this line to define the navigate function
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
-  switch (status) {
-    case 'pending':
+  // Normalize the status string
+  const normalizedStatus = (status || '').toLowerCase();
+  
+  switch (normalizedStatus) {
+    case 'placed':
       return 'Pending';
+      
     case 'processing':
       return 'Processing';
+      
     case 'shipped':
       return 'In Transit';
+      
     case 'delivered':
       return 'Delivered';
+      
     case 'cancelled':
       return 'Cancelled';
+      
     default:
-      return status || 'Pending';
+      return status || 'Pending'; // In case of unknown status, return original or default
   }
 };
 
@@ -444,55 +450,54 @@ const mapOrderStatus = (status) => {
   // Fetch real orders from the backend API
   useEffect(() => {
     const fetchOrders = async () => {
-      setOrdersLoading(true);
       try {
-        console.log(
-          "Fetching orders from:",
-          "http://localhost:5000/api/orders"
-        );
-
-        const response = await axios.get("http://localhost:5000/api/orders");
-        console.log("API Response:", response.data);
-
+        setOrdersLoading(true);
+        setOrdersError(null);
+        
+        // Make API request to get ALL orders by using the all=true parameter
+        const response = await axios.get('http://localhost:5000/api/orders?all=true');
+        
         if (response.data && response.data.success) {
-          // Transform the backend data to match our frontend structure
-          const transformedOrders = response.data.orders.map((order) => ({
+          const apiOrders = response.data.orders;
+          console.log('Successfully loaded orders from API:', apiOrders.length);
+          
+          // Map API orders to the format expected by the UI
+          const formattedOrders = apiOrders.map(order => ({
             id: order._id,
-            customer: order.customer?.name || "Unknown Customer",
-            items: order.items?.length || 0,
+            orderNumber: order._id.toString().substring(0, 6), // Generate a short ID if needed
+            customer: order.customer?.name || 'Unknown Customer',
+            items: Array.isArray(order.items) ? order.items.length : 0,
             value: order.totalAmount || 0,
-            status: mapOrderStatus(order.orderStatus || "placed"),
-            paymentStatus: order.paymentDetails?.transactionId
-              ? "Completed"
-              : "Pending",
-            date: new Date(order.orderDate || Date.now())
-              .toISOString()
-              .split("T")[0],
-            shippingAddress: order.shippingAddress || {},
-            rawOrder: order, // Keep the raw data for reference
+            status: mapOrderStatus(order.orderStatus), // Use your existing mapping function
+            date: new Date(order.orderDate || order.createdAt).toISOString().split('T')[0],
+            shippingAddress: order.shippingAddress || null,
+            paymentStatus: order.paymentDetails?.method ? 'Paid' : 'Pending'
           }));
-
-          console.log("Transformed Orders:", transformedOrders);
-          setOrders(transformedOrders);
-          setOrdersError(null);
+          
+          // IMPORTANT: This is what actually updates your UI
+          setOrders(formattedOrders);
+          
+          // Also save the raw data if needed elsewhere
+          setRealOrders(apiOrders);
         } else {
-          console.error("API returned unsuccessful response:", response.data);
-          setOrdersError("Failed to fetch orders data");
-          toast.error("Could not load orders. Using sample data instead.");
+          console.warn('API returned no orders or unexpected format');
+          // Only fallback to mock data if needed
+          setOrders(recentOrders);
         }
       } catch (error) {
         console.error("Error fetching orders:", error);
-        setOrdersError(
-          `Failed to connect to the orders server: ${error.message}`
-        );
+        setOrdersError(`Failed to connect to the orders server: ${error.message}`);
+        
+        // Fallback to mock data
+        setOrders(recentOrders);
         toast.error("Could not load orders. Using sample data instead.");
       } finally {
         setOrdersLoading(false);
       }
     };
-
+  
     fetchOrders();
-  }, []);
+  }, []); // Empty dependency array to fetch only once on component mount
 
   // Fetch shipments from the backend (add this useEffect)
   useEffect(() => {
@@ -1159,91 +1164,61 @@ const handleUpdateSupplier = async () => {
   // Rendering the orders table component
   const renderOrdersTable = () => {
     if (ordersLoading) {
-      return (
-        <div className="flex justify-center items-center py-10">
-          <Loader className="h-10 w-10 text-blue-600 animate-spin" />
-          <p className="ml-2 text-gray-600">Loading orders data...</p>
-        </div>
-      );
+      return <div className="loading-spinner">Loading orders...</div>;
     }
-
+    
+    if (ordersError) {
+      return <div className="error-message">{ordersError}</div>;
+    }
+    
     return (
-      <div className="space-y-4">
-        {orders.map((order) => (
-          <div
-            key={order.id}
-            className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-lg font-medium text-gray-800">
-                  {order.id}
-                </h4>
-                <p className="text-sm text-gray-600">
-                  Customer: {order.customer}
-                </p>
-                <p className="text-sm text-gray-600">Items: {order.items}</p>
-                <p className="text-sm text-gray-600">
-                  Value: Rs. {order.value.toLocaleString()}
-                </p>
-                <p className="text-sm text-gray-600">Date: {order.date}</p>
-                {order.shippingAddress && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Ship to: {order.shippingAddress.address},{" "}
-                    {order.shippingAddress.city}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-col items-end space-y-2">
-                <div className="flex flex-col items-end space-y-1">
-                  <span
-                    className={`text-sm font-medium px-3 py-1 rounded-full ${
-                      order.status === "Delivered"
-                        ? "bg-green-100 text-green-600"
-                        : order.status === "In Transit"
-                        ? "bg-blue-100 text-blue-600"
-                        : order.status === "Processing"
-                        ? "bg-amber-100 text-amber-600"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
+      <div className="w-full overflow-x-auto">
+        <table className="min-w-full bg-white rounded-lg overflow-hidden">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {orders.map((order) => (
+              <tr key={order.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 whitespace-nowrap">{order.id.substring(0, 8)}...</td>
+                <td className="px-4 py-3 whitespace-nowrap">{order.customer}</td>
+                <td className="px-4 py-3 whitespace-nowrap">{order.items}</td>
+                <td className="px-4 py-3 whitespace-nowrap">Rs. {order.value.toLocaleString()}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                    ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : 
+                    order.status === 'In Transit' ? 'bg-blue-100 text-blue-800' : 
+                    order.status === 'Processing' ? 'bg-yellow-100 text-yellow-800' : 
+                    order.status === 'Pending' ? 'bg-gray-100 text-gray-800' : 
+                    'bg-red-100 text-red-800'}`}>
                     {order.status}
                   </span>
-                  {order.status === "Delivered" &&
-                    (order.paymentStatus === "Completed" ? (
-                      <span className="flex items-center text-sm font-medium text-green-600">
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Payment Completed
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setSelectedOrder(order);
-                          setShowPaymentModal(true);
-                        }}
-                        className="flex items-center space-x-1 text-sm font-medium text-blue-600 hover:text-blue-800"
-                      >
-                        <span>Process Payment</span>
-                      </button>
-                    ))}
-                </div>
-                {order.paymentStatus === "Completed" && (
-                  <p className="text-xs text-gray-500">
-                    Paid on {new Date().toLocaleDateString()}
-                  </p>
-                )}
-                {order.status === "Pending" && (
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">{order.date}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                   <button
-                    onClick={() => createShipmentFromOrder(order)}
-                    className="mt-2 px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    onClick={() => {
+                      setSelectedOrderForShipment(order);
+                      setActiveTab("shipments");
+                    }}
+                    className="text-blue-600 hover:text-blue-900 flex items-center"
                   >
-                    Create Shipment
+                    <Truck className="mr-1 h-4 w-4" /> 
+                    Arrange Shipment
                   </button>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   };
@@ -1403,6 +1378,180 @@ const handleUpdateSupplier = async () => {
     );
   };
 
+  // Move renderOrdersCards INSIDE the component function - place this before the return statement
+  const renderOrdersCards = () => {
+    if (ordersLoading) {
+      return <div className="loading-spinner flex justify-center p-8"><Loader className="animate-spin h-8 w-8 text-blue-600" /></div>;
+    }
+    
+    if (ordersError) {
+      return <div className="error-message bg-red-50 p-4 rounded-lg text-red-600 border border-red-200">{ordersError}</div>;
+    }
+    
+    // Divide orders into pending and others
+    const pendingOrders = orders.filter(order => order.status === 'Pending');
+    const otherOrders = orders.filter(order => order.status !== 'Pending');
+    
+    return (
+      <div className="space-y-6">
+        {/* Pending Orders Section */}
+        <div>
+          <h4 className="text-lg font-medium text-gray-700 mb-3 flex items-center">
+            <ClockIcon className="mr-2 h-5 w-5 text-amber-500" />
+            Pending Orders ({pendingOrders.length})
+          </h4>
+          
+          {pendingOrders.length === 0 ? (
+            <p className="text-gray-500 bg-gray-50 p-4 rounded-lg text-center">No pending orders available</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pendingOrders.map((order) => (
+                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-amber-200 hover:shadow-md transition-shadow overflow-hidden">
+                  <div className="border-b border-amber-100 bg-amber-50 px-4 py-2 flex justify-between items-center">
+                    <span className="font-medium text-gray-700 truncate">#{order.id.substring(0, 8)}...</span>
+                    <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                      {order.status}
+                    </span>
+                  </div>
+                  
+                  <div className="p-4">
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-500">Customer</p>
+                      <p className="font-medium">{order.customer}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Items</p>
+                        <p className="font-medium">{order.items}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Value</p>
+                        <p className="font-medium">Rs. {order.value.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-500">Order Date</p>
+                      <p className="font-medium">{order.date}</p>
+                    </div>
+                    
+                    <button
+                      onClick={() => {
+                        setSelectedOrderForShipment(order);
+                        setActiveTab("shipments");
+                      }}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md flex items-center justify-center"
+                    >
+                      <Truck className="mr-2 h-4 w-4" />
+                      Arrange Shipment
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Orders In Progress Section */}
+        <div>
+          <h4 className="text-lg font-medium text-gray-700 mb-3 flex items-center">
+            <Activity className="mr-2 h-5 w-5 text-blue-500" />
+            In Progress ({otherOrders.length})
+          </h4>
+          
+          {otherOrders.length === 0 ? (
+            <p className="text-gray-500 bg-gray-50 p-4 rounded-lg text-center">No orders in progress</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {otherOrders.map((order) => (
+                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow overflow-hidden">
+                  <div className="border-b border-gray-100 bg-gray-50 px-4 py-2 flex justify-between items-center">
+                    <span className="font-medium text-gray-700 truncate">#{order.id.substring(0, 8)}...</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      order.status === 'Processing' ? 'bg-yellow-100 text-yellow-700' : 
+                      order.status === 'In Transit' ? 'bg-blue-100 text-blue-700' : 
+                      order.status === 'Delivered' ? 'bg-green-100 text-green-700' : 
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {order.status}
+                    </span>
+                  </div>
+                  
+                  <div className="p-4">
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-500">Customer</p>
+                      <p className="font-medium">{order.customer}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Items</p>
+                        <p className="font-medium">{order.items}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Value</p>
+                        <p className="font-medium">Rs. {order.value.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-500">Order Date</p>
+                      <p className="font-medium">{order.date}</p>
+                    </div>
+                    
+                    <button
+                      className={`w-full py-2 px-4 rounded-md flex items-center justify-center ${
+                        order.status === 'Delivered' ? 'bg-green-100 text-green-700' : 
+                        'bg-gray-100 text-gray-700'
+                      }`}
+                      disabled
+                    >
+                      {order.status === 'Processing' && "Processing"}
+                      {order.status === 'In Transit' && "In Transit"}
+                      {order.status === 'Delivered' && "Delivered"}
+                      {!['Processing', 'In Transit', 'Delivered'].includes(order.status) && order.status}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Also fix the handlePaymentSuccess function by moving it inside the component
+  const handlePaymentSuccess = (paymentDetails) => {
+    if (!selectedOrder) {
+      toast.error("No order selected for payment");
+      return;
+    }
+
+    // Update order payment status in UI
+    const updatedOrders = orders.map(order => 
+      order.id === selectedOrder.id 
+        ? { ...order, paymentStatus: "Completed" } 
+        : order
+    );
+    
+    setOrders(updatedOrders);
+    
+    // Record the payment in the supplier payment system
+    addSupplierPayment({
+      supplierId: selectedOrder.supplierId || "general",
+      supplierName: selectedOrder.supplier || selectedOrder.customer,
+      amount: selectedOrder.value,
+      date: new Date().toISOString(),
+      orderId: selectedOrder.id,
+      paymentDetails
+    });
+    
+    toast.success("Payment processed successfully");
+    setShowPaymentModal(false);
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -1516,9 +1665,12 @@ const handleUpdateSupplier = async () => {
           <button
             className="flex items-center px-4 py-2 w-full text-blue-200 hover:bg-blue-800 rounded-lg transition-colors"
             onClick={() => {
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              window.location.href = '/login';
+              /* Add logout functionality */
+              sessionStorage.removeItem('token');
+                    toast.success('You have logged out successfully');
+                    
+                    // Redirect to home page
+                    navigate('/');
             }}
           >
             <LogOut className="mr-3 h-5 w-5" />
@@ -2185,62 +2337,46 @@ const handleUpdateSupplier = async () => {
                       <h3 className="text-2xl font-bold text-gray-900 mt-1">
                         {
                           orders.filter(
-                            (order) =>
-                              order.status === "Pending" ||
-                              order.status === "Processing"
+                            (order) => order.status === "Pending"
                           ).length
                         }
                       </h3>
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
-                      <ShoppingCart className="h-6 w-6 text-purple-600" />
+                    <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
+                      <ClockIcon className="h-6 w-6 text-amber-600" />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Recent Orders Section */}
+              {/* Orders Content Section */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-gray-800">
-                    Recent Orders
+                    Order Management
                   </h3>
                   <div className="flex items-center space-x-2">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                        placeholder="Search orders..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                      <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
-                    </div>
                     <button
                       className="p-2 rounded-full hover:bg-gray-100 transition-colors"
                       onClick={() => {
                         // Refresh orders data
                         setOrdersLoading(true);
                         axios
-                          .get("http://localhost:5000/api/orders")
+                          .get("http://localhost:5000/api/orders?all=true")
                           .then((response) => {
                             if (response.data.success) {
                               const transformedOrders =
                                 response.data.orders.map((order) => ({
                                   id: order._id,
                                   customer:
-                                    order.customer.name || "Unknown Customer",
-                                  items: order.items.length,
-                                  value: order.totalAmount,
+                                    order.customer?.name || "Unknown Customer",
+                                  items: Array.isArray(order.items) ? order.items.length : 0,
+                                  value: order.totalAmount || 0,
                                   status: mapOrderStatus(order.orderStatus),
-                                  paymentStatus: order.paymentDetails
-                                    ? "Completed"
-                                    : "Pending",
-                                  date: new Date(order.orderDate)
+                                  date: new Date(order.orderDate || order.createdAt)
                                     .toISOString()
                                     .split("T")[0],
                                   shippingAddress: order.shippingAddress,
-                                  rawOrder: order,
                                 }));
                               setOrders(transformedOrders);
                               toast.success("Orders data refreshed");
@@ -2263,15 +2399,13 @@ const handleUpdateSupplier = async () => {
                         // Export orders data as CSV
                         const csvContent =
                           "data:text/csv;charset=utf-8," +
-                          "Order ID,Customer,Items,Value,Status,Payment Status,Date\n" +
+                          "Order ID,Customer,Items,Value,Status,Date\n" +
                           orders
                             .map(
                               (order) =>
                                 `"${order.id}","${order.customer}",${
                                   order.items
-                                },${order.value},"${order.status}","${
-                                  order.paymentStatus || "Pending"
-                                }","${order.date}"`
+                                },${order.value},"${order.status}","${order.date}"`
                             )
                             .join("\n");
                         const encodedUri = encodeURI(csvContent);
@@ -2287,7 +2421,8 @@ const handleUpdateSupplier = async () => {
                     </button>
                   </div>
                 </div>
-                {renderOrdersTable()}
+                {/* Replace the table render with our new card rendering function */}
+                {renderOrdersCards()}
               </div>
             </div>
           )}
@@ -2927,35 +3062,5 @@ const handleUpdateSupplier = async () => {
     </div>
   );
 }
-
-// Add the missing handler function
-const handlePaymentSuccess = (paymentDetails) => {
-  if (!selectedOrder) {
-    toast.error("No order selected for payment");
-    return;
-  }
-
-  // Update order payment status in UI
-  const updatedOrders = orders.map(order => 
-    order.id === selectedOrder.id 
-      ? { ...order, paymentStatus: "Completed" } 
-      : order
-  );
-  
-  setOrders(updatedOrders);
-  
-  // Record the payment in the supplier payment system
-  addSupplierPayment({
-    supplierId: selectedOrder.supplierId || "general",
-    supplierName: selectedOrder.supplier || selectedOrder.customer,
-    amount: selectedOrder.value,
-    date: new Date().toISOString(),
-    orderId: selectedOrder.id,
-    paymentDetails
-  });
-  
-  toast.success("Payment processed successfully");
-  setShowPaymentModal(false);
-};
 
 export default Supply_LogisticDashboard;
