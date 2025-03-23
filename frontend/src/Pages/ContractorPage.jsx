@@ -297,7 +297,7 @@ const ContractorProfile = () => {
     }
     
     try {
-      await axios.delete(`http://localhost:5000/auth/user/${userId}`, {
+      await axios.delete(`http://localhost:5000/auth/users/${userId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -719,7 +719,6 @@ const ContractorProfile = () => {
       </AnimatePresence>
       
       {/* Delete Account Confirmation Modal */}
-      <AnimatePresence>
         {showDeleteConfirm && (
           <motion.div 
             initial={{ opacity: 0 }}
@@ -742,7 +741,7 @@ const ContractorProfile = () => {
               ></motion.div>
 
               {/* Modal Panel */}
-              <motion.div 
+              <div 
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -765,7 +764,7 @@ const ContractorProfile = () => {
                   </div>
                 </div>
                 <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse">
-                  <motion.button
+                  <button
                     whileHover={{ scale: 1.02, backgroundColor: "#DC2626" }}
                     whileTap={{ scale: 0.98 }}
                     type="button"
@@ -773,8 +772,8 @@ const ContractorProfile = () => {
                     className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
                   >
                     Delete Account
-                  </motion.button>
-                  <motion.button
+                  </button>
+                  <button
                     whileHover={{ scale: 1.02, backgroundColor: "#F9FAFB" }}
                     whileTap={{ scale: 0.98 }}
                     type="button"
@@ -782,13 +781,12 @@ const ContractorProfile = () => {
                     className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                   >
                     Cancel
-                  </motion.button>
+                  </button>
                 </div>
-              </motion.div>
+              </div>
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
     </motion.div>
   );
 };

@@ -1493,6 +1493,11 @@ const handleUpdateSupplier = async () => {
             className="flex items-center px-4 py-2 w-full text-blue-200 hover:bg-blue-800 rounded-lg transition-colors"
             onClick={() => {
               /* Add logout functionality */
+              sessionStorage.removeItem('token');
+                    toast.success('You have logged out successfully');
+                    
+                    // Redirect to home page
+                    navigate('/');
             }}
           >
             <LogOut className="mr-3 h-5 w-5" />
