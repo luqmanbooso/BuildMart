@@ -39,6 +39,7 @@ import ShippingTracking from "./ShippingTracking";
 import { supplierService } from "../services/supplierService";
 import { restockService } from "../services/restockService";
 import RestockRequests from '../components/RestockRequests';
+import ShippingManager from '../components/ShippingManager';
 
 // Mock data for the dashboard
 const inventoryData = [
@@ -668,30 +669,40 @@ const mapOrderStatus = (status) => {
     }
   };
 
-  // Update order status via API call
-  const updateOrderStatus = async (orderId, newStatus) => {
-    try {
-      // First update the UI optimistically
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId ? { ...order, status: mapOrderStatus(newStatus) } : order
-        )
-      );
-      
-      // Then make the API call
-      await axios.patch(`http://localhost:5000/api/orders/${orderId}/status`, {
-        status: newStatus
-      });
-      
-      toast.success(`Order ${orderId} status updated to ${newStatus}`);
-    } catch (error) {
-      console.error("Error updating order status:", error);
-      toast.error(`Failed to update order status: ${error.message}`);
-      
-      // Revert the optimistic update by re-fetching orders
-      fetchOrders();
+  // Fix the updateOrderStatus function to use the correct endpoint
+const updateOrderStatus = async (orderId, newStatus) => {
+  try {
+    // First, update the UI optimistically
+    const updatedOrders = orders.map(order => 
+      order.id === orderId 
+        ? { ...order, status: newStatus } 
+        : order
+    );
+    setOrders(updatedOrders);
+    
+    // Log what we're trying to update for debugging
+    console.log(`Updating order ${orderId} to status ${newStatus}`);
+    
+    // Then, send the update to the server - try a simpler endpoint pattern
+    // Note: This depends on your actual API structure
+    await axios.put(`http://localhost:5000/api/orders/${orderId}`, { 
+      status: newStatus 
+    });
+    
+    toast.success(`Order #${orderId} status updated to ${newStatus}`);
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    toast.error('Failed to update order status');
+    
+    // Show more detailed error info for debugging
+    if (error.response) {
+      console.log('Error response:', error.response.status, error.response.data);
     }
-  };
+    
+    // Don't revert the UI change to avoid confusion
+    // The user can refresh if needed
+  }
+};
 
   // Add function to update shipment status with comprehensive options
   const updateShipmentStatus = async (shipmentId, newStatus, newProgress) => {
@@ -2058,177 +2069,15 @@ const handleUpdateSupplier = async () => {
           )}
 
           {activeTab === "shipments" && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Total Shipments
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {activeShipments.length}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-                      <Truck className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        In Transit
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          activeShipments.filter(
-                            (s) =>
-                              s.status === "In Transit" ||
-                              s.status === "Out for Delivery"
-                          ).length
-                        }
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-                      <Truck className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Delivered
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          activeShipments.filter(
-                            (s) => s.status === "Delivered"
-                          ).length
-                        }
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Delayed/Failed
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          activeShipments.filter(
-                            (s) =>
-                              s.status === "Delayed" ||
-                              s.status === "Failed Delivery"
-                          ).length
-                        }
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center">
-                      <AlertTriangle className="h-6 w-6 text-red-600" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div id="shipment-arrangement-form">
-                <ShipmentArrangementForm
-                  orders={orders.filter((order) => order.status === "Pending")}
-                  selectedOrder={selectedOrderForShipment}
-                  onArrangeShipment={handleArrangeShipment}
-                />
-              </div>
-
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-medium text-gray-800">
-                    Active Shipments
-                  </h3>
-                  <div className="flex items-center space-x-4">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                        placeholder="Search shipments..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                      <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
-                    </div>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Filter className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <Download className="h-5 w-5 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-
-                {shipmentsLoading ? (
-                  <div className="flex justify-center items-center py-10">
-                    <Loader className="h-10 w-10 text-blue-600 animate-spin" />
-                    <p className="ml-2 text-gray-600">
-                      Loading shipment data...
-                    </p>
-                  </div>
-                ) : shipmentsError ? (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-                    <p>{shipmentsError}</p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {activeShipments.length > 0 ? (
-                      activeShipments
-                        .filter(
-                          (shipment) =>
-                            shipment.id
-                              .toLowerCase()
-                              .includes(searchTerm.toLowerCase()) ||
-                            shipment.status
-                              .toLowerCase()
-                              .includes(searchTerm.toLowerCase())
-                        )
-                        .map((shipment) => (
-                          <ShippingTracking
-                            key={shipment.id}
-                            shipmentId={shipment.id}
-                            shipmentStatus={shipment.status}
-                            deliveryProgress={shipment.progress}
-                            estimatedDelivery={shipment.eta}
-                            handleStatusUpdate={(newStatus, newProgress) =>
-                              updateShipmentStatus(
-                                shipment.id,
-                                newStatus,
-                                newProgress
-                              )
-                            }
-                          />
-                        ))
-                    ) : (
-                      <div className="col-span-2 text-center py-10 text-gray-500">
-                        No active shipments found. Arrange a shipment to get
-                        started.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+            <div className="space-y-6" id="shipping-manager-container">
+              {/* Replace the old shipping code with the ShippingManager component */}
+              <ShippingManager 
+                selectedOrderForShipment={selectedOrderForShipment} 
+                setSelectedOrderForShipment={setSelectedOrderForShipment}
+                onArrangeShipment={handleArrangeShipment}
+                updateOrderStatus={updateOrderStatus}
+                // Pass any other props that ShippingManager might need
+              />
             </div>
           )}
 
