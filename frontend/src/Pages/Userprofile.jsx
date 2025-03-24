@@ -73,7 +73,7 @@ function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
 }
 
 const UserProfilePage = () => {
-  const navigate = useNavigate(); // Add this hook
+  const navigate = useNavigate(); 
   
   const [user, setUser] = useState({
     name: '',
@@ -97,10 +97,10 @@ const UserProfilePage = () => {
     description: '',
     biddingStartTime: new Date().toISOString().substr(0, 16),
     biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16),
-    milestones: [] // Add this empty array for milestones
+    milestones: [] 
   });
 
-  // Add these state variables at the top of the component
+  //  state variables at the top of the component
   const [showEditProfileForm, setShowEditProfileForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editedProfile, setEditedProfile] = useState({
@@ -108,15 +108,15 @@ const UserProfilePage = () => {
     email: ''
   });
 
-  // Add these state variables
+  // state variables
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Add this state to track form steps
+  // state to track form steps
   const [formStep, setFormStep] = useState(1);
 
-  // Add these state variables in the UserProfilePage component
+  // state variables in the UserProfilePage component
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
@@ -152,7 +152,6 @@ const UserProfilePage = () => {
         // Fetch jobs from API
         fetchJobs();
         
-        // Add these lines:
         fetchPaymentHistory();
       } catch (error) {
         console.error('Error decoding token:', error);
@@ -160,7 +159,7 @@ const UserProfilePage = () => {
     }
   }, []);
 
-  // Add this new function to fetch complete user profile
+  //new function to fetch complete user profile
   const fetchUserProfile = async (userId, token) => {
     try {
       const response = await axios.get(`http://localhost:5000/auth/user/${userId}`, {
@@ -295,7 +294,7 @@ const UserProfilePage = () => {
         description: newJob.description,
         biddingStartTime: newJob.biddingStartTime,
         biddingEndTime: newJob.biddingEndTime,
-        milestones: newJob.milestones // Add this line to include milestones
+        milestones: newJob.milestones 
       };
       
       // Make the API request using axios
@@ -340,7 +339,7 @@ const UserProfilePage = () => {
         description: '',
         biddingStartTime: new Date().toISOString().substr(0, 16),
         biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16),
-        milestones: [] // Add this empty array for milestones
+        milestones: [] // empty array for milestones
       });
       
       // Show success message
@@ -352,7 +351,7 @@ const UserProfilePage = () => {
     }
   };
 
-  // Add these functions to handle user actions
+  //functions to handle user actions
   const handleLogout = () => {
     // Clear tokens from storage
     localStorage.removeItem('token');
