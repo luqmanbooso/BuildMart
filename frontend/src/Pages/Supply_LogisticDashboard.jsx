@@ -1002,7 +1002,15 @@ const handleRestockRequest = async (itemName) => {
     if (!supplierPhone.trim()) {
       errors.supplierPhone = "Phone number is required";
     } else if (!/^(?:\+94|0)[0-9]{9,10}$/.test(supplierPhone.replace(/\s+/g, ''))) {
-      errors.supplierPhone = "Please enter a valid Sri Lankan phone number";
+      errors.supplierPhone = "Please enter a valid Sri Lankan phone number (e.g., +94XXXXXXXXX or 07XXXXXXXX)";
+    }
+
+    // Business Value validation (should be between 0-100%)
+    if (supplierValue) {
+      const numValue = Number(supplierValue);
+      if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+        errors.supplierValue = "Business Value must be a number between 0 and 100";
+      }
     }
 
     // Rest of your existing validation code...
@@ -3006,25 +3014,58 @@ const handleUpdateSupplier = async () => {
 
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Business Value (%)
+                                Business Value (0-100%)
                               </label>
-                              <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={supplierValue}
-                                onChange={(e) =>
-                                  setSupplierValue(e.target.value)
-                                }
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                                placeholder="Percentage of business"
-                              />
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={supplierValue}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSupplierValue(val);
+                                    
+                                    // Real-time validation
+                                    if (val) {
+                                      const numValue = Number(val);
+                                      if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+                                        setValidationErrors({
+                                          ...validationErrors,
+                                          supplierValue: "Business Value must be a number between 0 and 100"
+                                        });
+                                      } else {
+                                        setValidationErrors({
+                                          ...validationErrors,
+                                          supplierValue: null
+                                        });
+                                      }
+                                    } else {
+                                      // Empty field - clear error
+                                      setValidationErrors({
+                                        ...validationErrors,
+                                        supplierValue: null
+                                      });
+                                    }
+                                  }}
+                                  className={`w-full px-3 py-2 bg-gray-50 border ${
+                                    validationErrors.supplierValue 
+                                      ? "border-red-500 focus:ring-red-500" 
+                                      : "border-gray-300 focus:ring-blue-500"
+                                  } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                                  placeholder="Percentage of business (0-100)"
+                                />
+                                {supplierValue && !validationErrors.supplierValue && Number(supplierValue) >= 0 && Number(supplierValue) <= 100 && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                  </div>
+                                )}
+                              </div>
                               {validationErrors.supplierValue && (
-                                <p className="text-red-500 text-xs mt-1">
-                                  {validationErrors.supplierValue}
-                                </p>
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierValue}</p>
                               )}
                             </div>
+
                           </div>
                         </div>
 
@@ -3079,8 +3120,28 @@ const handleUpdateSupplier = async () => {
                                   type="tel"
                                   value={supplierPhone}
                                   onChange={(e) => {
-                                    setSupplierPhone(e.target.value);
-                                    if (validationErrors.supplierPhone) {
+                                    const val = e.target.value;
+                                    setSupplierPhone(val);
+                                    
+                                    // Real-time validation for Sri Lankan phone numbers
+                                    if (val) {
+                                      // Remove spaces for validation
+                                      const cleanedPhone = val.replace(/\s+/g, '');
+                                      
+                                      // Check if it matches Sri Lankan format: +94XXXXXXXXX or 0XXXXXXXXX
+                                      if (!/^(?:\+94|0)[0-9]{9,10}$/.test(cleanedPhone)) {
+                                        setValidationErrors({
+                                          ...validationErrors,
+                                          supplierPhone: "Please enter a valid Sri Lankan phone number (e.g., +94XXXXXXXXX or 07XXXXXXXX)"
+                                        });
+                                      } else {
+                                        setValidationErrors({
+                                          ...validationErrors,
+                                          supplierPhone: null
+                                        });
+                                      }
+                                    } else {
+                                      // Empty field - clear error
                                       setValidationErrors({
                                         ...validationErrors,
                                         supplierPhone: null
