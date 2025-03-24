@@ -413,7 +413,7 @@ const ContractorProfile = () => {
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="bg-gradient-to-r from-blue-800 via-indigo-800 to-purple-800 text-white p-8 shadow-xl"
+        className="bg-gradient-to-r from-[#002855] to-[#0057B7] text-white p-8 shadow-xl"
       >
         <div className="container mx-auto max-w-6xl">
           <h1 className="text-4xl font-bold mb-2">My Profile</h1>
