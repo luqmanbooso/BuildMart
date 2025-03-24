@@ -46,6 +46,7 @@ const ShippingManager = ({
   const [returnedShipments, setReturnedShipments] = useState([]);
   const [expandedShipmentId, setExpandedShipmentId] = useState(null); // Add this state for tracking expanded rows
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false); // Add this state for toggling additional details
+  const [availableOrders, setAvailableOrders] = useState([]);
   
   // Add this function at the top of your component
   const mockUpdateOrderStatus = (orderId, status) => {
@@ -228,11 +229,48 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
     }
   };
   
+  // Add this function to fetch orders - place it near your other fetch functions
+const fetchAvailableOrders = async () => {
+  try {
+    setLoading(true);
+    const response = await axios.get('http://localhost:5000/api/orders?status=pending');
+    
+    // If the API returns orders directly
+    if (response.data && Array.isArray(response.data)) {
+      setAvailableOrders(response.data);
+    } 
+    // If orders are nested in a property like 'data' or 'orders'
+    else if (response.data && (response.data.data || response.data.orders)) {
+      setAvailableOrders(response.data.data || response.data.orders);
+    }
+    // Fallback - use mock data if API doesn't return expected structure
+    else {
+      console.log("Using fallback order data due to unexpected API response structure");
+      setAvailableOrders([
+        { id: 'ORD-001', customer: 'Colombo Construction Co.', value: 150000, items: 'Construction materials' },
+        { id: 'ORD-002', customer: 'Highland Builders', value: 87500, items: 'Cement and sand' },
+        { id: 'ORD-003', customer: 'Royal Developers', value: 220000, items: 'Safety equipment and tools' },
+      ]);
+    }
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    // Fallback with mock data for testing
+    setAvailableOrders([
+      { id: 'ORD-001', customer: 'Colombo Construction Co.', value: 150000, items: 'Construction materials' },
+      { id: 'ORD-002', customer: 'Highland Builders', value: 87500, items: 'Cement and sand' },
+      { id: 'ORD-003', customer: 'Royal Developers', value: 220000, items: 'Safety equipment and tools' },
+    ]);
+  } finally {
+    setLoading(false);
+  }
+};
+
   // Initial load
   useEffect(() => {
     fetchActiveShipments();
     fetchCompletedShipments();
     fetchReturnedShipments();
+    fetchAvailableOrders(); // Add this line
   }, []);
   
   // Handle when a new order is selected for shipment from the dashboard
@@ -792,6 +830,47 @@ const handleDelete = async (id) => {
     }
   };
 
+  // Add this function to handle order selection
+const handleOrderSelect = (e) => {
+  const selectedOrderId = e.target.value;
+  
+  if (!selectedOrderId) {
+    // Clear form if "Select an order" is chosen
+    setFormData({
+      ...formData,
+      orderId: '',
+      destination: '',
+      customerName: '',
+      orderItems: '',
+      orderValue: '',
+      notes: ''
+    });
+    return;
+  }
+  
+  // Find the selected order
+  const selectedOrder = availableOrders.find(order => order.id === selectedOrderId);
+  
+  if (selectedOrder) {
+    // Populate form with order data
+    setFormData({
+      ...formData,
+      orderId: selectedOrder.id,
+      destination: selectedOrder.shippingAddress?.address || selectedOrder.customer || '',
+      customerName: selectedOrder.customer || 'N/A',
+      orderItems: selectedOrder.items || 'Various items',
+      orderValue: selectedOrder.value ? `${selectedOrder.value}` : 'N/A',
+      notes: `Order ${selectedOrder.id} - ${selectedOrder.items || 'Items'} - ${selectedOrder.customer || 'Customer'}`
+    });
+    
+    // Clear any order ID validation errors
+    setFormErrors({
+      ...formErrors,
+      orderId: null
+    });
+  }
+};
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center border-b pb-4 mb-6">
@@ -881,28 +960,61 @@ const handleDelete = async (id) => {
           <div className="border-b border-gray-100 pb-5">
             <h4 className="text-sm font-medium text-gray-700 mb-3">Order Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Replace the existing Order ID input field with this dropdown */}
               <div>
                 <label className="block text-gray-700 mb-1.5 text-sm font-medium">
                   Order ID<span className="text-red-500">*</span>
-                  {selectedOrderForShipment && <span className="text-xs text-blue-600 ml-2">(From order)</span>}
                 </label>
-                <input 
-                  type="text"
-                  name="orderId"
-                  value={formData.orderId}
-                  onChange={handleInputChange}
-                  onBlur={() => {
-                    if (!formData.orderId.trim()) {
-                      setFormErrors({...formErrors, orderId: 'Order ID is required'});
-                    }
-                  }}
-                  maxLength={50}
-                  className={`w-full h-10 border ${formErrors.orderId ? 'border-red-500' : (selectedOrderForShipment ? 'bg-gray-100 border-gray-300 text-gray-700' : 'border-gray-300')} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                  required
-                  readOnly={selectedOrderForShipment !== null}
-                />
+                <div className="relative">
+                  <select
+                    name="orderId"
+                    value={formData.orderId}
+                    onChange={(e) => {
+                      handleOrderSelect(e);
+                    }}
+                    className={`w-full h-10 border ${
+                      formErrors.orderId ? 'border-red-500' : 'border-gray-300'
+                    } rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
+                    required
+                  >
+                    <option value="">Select an order</option>
+                    {availableOrders.map((order) => (
+                      <option key={order.id} value={order.id}>
+                        #{order.id} - {order.customer} ({order.value ? `Rs. ${order.value.toLocaleString()}` : 'N/A'})
+                      </option>
+                    ))}
+                    {availableOrders.length === 0 && <option value="" disabled>Loading orders...</option>}
+                  </select>
+                  {formData.orderId && (
+                    <div className="absolute inset-y-0 right-10 flex items-center pointer-events-none">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    </div>
+                  )}
+                  <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 20 20" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7l3-3 3 3m0 6l-3 3-3-3" />
+                    </svg>
+                  </div>
+                </div>
                 {formErrors.orderId && (
                   <p className="text-red-500 text-xs mt-1">{formErrors.orderId}</p>
+                )}
+                
+                {formData.orderId && (
+                  <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-100 text-sm">
+                    <p className="text-blue-800 font-medium">Order Details:</p>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <div>
+                        <span className="text-gray-600">Customer:</span> {formData.customerName}
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Value:</span> {formData.orderValue ? `Rs. ${parseInt(formData.orderValue).toLocaleString()}` : 'N/A'}
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-gray-600">Items:</span> {formData.orderItems}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
