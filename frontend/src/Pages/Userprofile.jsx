@@ -789,14 +789,7 @@ const debugPaymentData = async () => {
   <div>
     <div className="mb-4 flex justify-between items-center">
       <h3 className="text-xl font-semibold text-gray-800">Payment History</h3>
-      <button
-        className="px-4 py-2 bg-blue-50 text-blue-600 font-medium rounded-lg hover:bg-blue-100"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-        </svg>
-        Export
-      </button>
+      
     </div>
     
     {isLoadingPayments ? (

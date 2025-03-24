@@ -41,8 +41,9 @@ const ShippingManager = ({
     notes: ''
   });
   const [formErrors, setFormErrors] = useState({});
-  const [viewMode, setViewMode] = useState('active'); // 'active' or 'completed'
+  const [viewMode, setViewMode] = useState('active'); // 'active', 'completed', or 'returned'
   const [completedShipments, setCompletedShipments] = useState([]);
+  const [returnedShipments, setReturnedShipments] = useState([]);
   const [expandedShipmentId, setExpandedShipmentId] = useState(null); // Add this state for tracking expanded rows
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false); // Add this state for toggling additional details
   
@@ -172,9 +173,9 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
         const allShipmentsResponse = await axios.get('http://localhost:5000/api/shipping');
         
         if (allShipmentsResponse.data) {
-          // Filter shipments with status Delivered, Failed, or Returned
+          // Filter shipments with status Delivered only
           const completed = allShipmentsResponse.data.filter(
-            shipment => ['Delivered', 'Failed', 'Returned'].includes(shipment.status)
+            shipment => shipment.status === 'Delivered'
           );
           
           setCompletedShipments(completed);
@@ -192,10 +193,46 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
     }
   };
   
+  // Add a new function to fetch returned shipments
+  const fetchReturnedShipments = async () => {
+    try {
+      setLoading(true);
+      
+      try {
+        // Try to get data from the backend
+        const response = await axios.get('http://localhost:5000/api/shipping/returned');
+        setReturnedShipments(response.data);
+      } catch (error) {
+        console.log("Server endpoint for returned shipments not available, using client-side filtering");
+        
+        // Fallback: Filter returned shipments from all shipments
+        const allShipmentsResponse = await axios.get('http://localhost:5000/api/shipping');
+        
+        if (allShipmentsResponse.data) {
+          // Filter shipments with status Failed or Returned
+          const returned = allShipmentsResponse.data.filter(
+            shipment => ['Failed', 'Returned'].includes(shipment.status)
+          );
+          
+          setReturnedShipments(returned);
+          console.log(`Found ${returned.length} returned shipments via client-side filtering`);
+        }
+      }
+      
+      setError(null);
+    } catch (error) {
+      console.error("Error fetching or filtering returned shipments:", error);
+      setReturnedShipments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   // Initial load
   useEffect(() => {
     fetchActiveShipments();
     fetchCompletedShipments();
+    fetchReturnedShipments();
   }, []);
   
   // Handle when a new order is selected for shipment from the dashboard
@@ -566,11 +603,13 @@ const handleSubmit = async (e) => {
       }
       
       // Update the terminal status handling in handleStatusUpdate
-      if (newStatus === 'Delivered' || newStatus === 'Failed' || newStatus === 'Returned') {
-        // Move the shipment from active to completed in the UI immediately
-        const shipment = activeShipments.find(s => s._id === id);
-        if (shipment) {
-          setActiveShipments(prev => prev.filter(s => s._id !== id));
+      const shipment = activeShipments.find(s => s._id === id);
+      if (shipment) {
+        setActiveShipments(prev => prev.filter(s => s._id !== id));
+        
+        // Move to the correct section based on status
+        if (newStatus === 'Delivered') {
+          // Move to completed shipments
           setCompletedShipments(prev => [
             {
               ...shipment, 
@@ -580,11 +619,21 @@ const handleSubmit = async (e) => {
             },
             ...prev
           ]);
+        } else if (newStatus === 'Failed' || newStatus === 'Returned') {
+          // Move to returned shipments
+          setReturnedShipments(prev => [
+            {
+              ...shipment, 
+              status: newStatus, 
+              progress: newProgress, 
+              completedAt: new Date().toISOString()
+            },
+            ...prev
+          ]);
         }
-        
-        // No need to refresh if we've already updated the UI
-        toast.success(`Shipment marked as ${newStatus}`);
       }
+      
+      toast.success(`Shipment marked as ${newStatus}`);
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error('Failed to update status');
@@ -620,14 +669,16 @@ const handleDelete = async (id) => {
     setLoading(true);
     
     // Find the shipment to get order ID before deletion
-    const shipment = [...activeShipments, ...completedShipments].find(s => s._id === id);
+    const shipment = [...activeShipments, ...completedShipments, ...returnedShipments].find(s => s._id === id);
     const orderIdForUpdate = shipment?.orderId;
     
     // Update UI optimistically
     if (viewMode === 'active') {
       setActiveShipments(prev => prev.filter(s => s._id !== id));
-    } else {
+    } else if (viewMode === 'completed') {
       setCompletedShipments(prev => prev.filter(s => s._id !== id));
+    } else if (viewMode === 'returned') {
+      setReturnedShipments(prev => prev.filter(s => s._id !== id));
     }
     
     try {
@@ -655,6 +706,7 @@ const handleDelete = async (id) => {
     // If the entire process fails, refresh to get current state
     fetchActiveShipments();
     fetchCompletedShipments();
+    fetchReturnedShipments();
   } finally {
     setLoading(false);
   }
@@ -735,13 +787,15 @@ const handleDelete = async (id) => {
       fetchCompletedShipments();
     } else if (mode === 'active') {
       fetchActiveShipments();
+    } else if (mode === 'returned') {
+      fetchReturnedShipments();
     }
   };
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center border-b pb-4 mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Shipment Management</h2>
+        <h2 className="text-xl font-semibold text-gray-800">Shipment Management</h2>
         <div className="flex items-center space-x-3">
           <button 
             onClick={() => setShowShipmentForm(!showShipmentForm)}
@@ -1188,6 +1242,14 @@ const handleDelete = async (id) => {
           >
             Completed Shipments
           </button>
+          <button
+            className={`px-4 py-2 font-medium ${viewMode === 'returned' 
+              ? 'border-b-2 border-red-500 text-red-600' 
+              : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => handleViewModeChange('returned')}
+          >
+            Returned Shipments
+          </button>
         </div>
       </div>
 
@@ -1459,6 +1521,166 @@ const handleDelete = async (id) => {
                                   <div className="mt-2">
                                     <p className="font-medium text-gray-700">Notes:</p>
                                     <p className="text-gray-600">{shipment.notes}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Returned Shipments View */}
+      {viewMode === 'returned' && !loading && (
+        <>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium">Failed & Returned Deliveries</h3>
+            <button 
+              onClick={fetchReturnedShipments}
+              className="flex items-center text-red-700 hover:text-red-900"
+              disabled={loading}
+            >
+              <RefreshCw size={16} className={`mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </div>
+          
+          {returnedShipments.length === 0 ? (
+            <div className="bg-gray-50 rounded-md p-6 text-center">
+              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500">No returned or failed shipments found.</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
+              <table className="min-w-full divide-y divide-gray-300">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Order ID</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Destination</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Driver</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Failure Date</th>
+                    <th scope="col" className="relative py-3.5 pl-3 pr-4 text-right text-sm font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {returnedShipments.map((shipment) => (
+                    <>
+                      <tr key={shipment._id} className="hover:bg-gray-50">
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900 cursor-pointer" onClick={() => setExpandedShipmentId(expandedShipmentId === shipment._id ? null : shipment._id)}>
+                          <div className="flex items-center">
+                            <button className="mr-2 focus:outline-none">
+                              {expandedShipmentId === shipment._id ? 
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg> : 
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              }
+                            </button>
+                            #{shipment.orderId}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">{shipment.destination}</td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">{shipment.driver}</td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          {getStatusBadge(shipment.status)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">
+                          {shipment.completedAt ? new Date(shipment.completedAt).toLocaleDateString() : 
+                          new Date(shipment.updatedAt).toLocaleDateString()}
+                        </td>
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleEdit(shipment)}
+                            className="text-blue-600 hover:text-blue-800 mr-3"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(shipment._id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                      
+                      {/* Expanded details row */}
+                      {expandedShipmentId === shipment._id && (
+                        <tr>
+                          <td colSpan="6" className="p-4 bg-gray-50">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="font-medium text-gray-700 mb-1">Shipment Details</p>
+                                <div className="space-y-1">
+                                  <div className="flex items-center">
+                                    <MapPin size={14} className="text-gray-500 mr-2" />
+                                    <span className="text-gray-600">From: {shipment.origin}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <MapPin size={14} className="text-gray-500 mr-2" />
+                                    <span className="text-gray-600">To: {shipment.destination}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <Truck size={14} className="text-gray-500 mr-2" />
+                                    <span className="text-gray-600">Vehicle: {shipment.vehicle}</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <Phone size={14} className="text-gray-500 mr-2" />
+                                    <span className="text-gray-600">Contact: {shipment.contactNumber}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <p className="font-medium text-gray-700 mb-1">Issue Information</p>
+                                <div className="space-y-1">
+                                  <div className="flex items-center">
+                                    <Calendar size={14} className="text-gray-500 mr-2" />
+                                    <span className="text-gray-600">Created: {new Date(shipment.createdAt).toLocaleDateString()}</span>
+                                  </div>
+                                  {shipment.completedAt && (
+                                    <div className="flex items-center">
+                                      <AlertCircle size={14} className="text-red-500 mr-2" />
+                                      <span className="text-gray-600">
+                                        {shipment.status === 'Failed' ? 'Failed on: ' : 'Returned on: '}
+                                        {new Date(shipment.completedAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                {shipment.notes && (
+                                  <div className="mt-2">
+                                    <p className="font-medium text-gray-700">Notes:</p>
+                                    <p className="text-gray-600">{shipment.notes}</p>
+                                  </div>
+                                )}
+                                
+                                {/* Add retry button for failed shipments */}
+                                {shipment.status === 'Failed' && (
+                                  <div className="mt-3">
+                                    <button
+                                      onClick={() => {
+                                        // Move back to active shipments with Pending status
+                                        handleEdit({
+                                          ...shipment,
+                                          status: 'Pending',
+                                          progress: 0
+                                        });
+                                        setShowShipmentForm(true);
+                                      }}
+                                      className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-md hover:bg-blue-200 transition-colors"
+                                    >
+                                      Prepare for Redelivery
+                                    </button>
                                   </div>
                                 )}
                               </div>
