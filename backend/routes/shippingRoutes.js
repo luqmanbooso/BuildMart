@@ -31,13 +31,27 @@ router.get('/active', async (req, res) => {
 router.get('/completed', async (req, res) => {
   try {
     const completedShipments = await Shipping.find({
-      status: { $in: ['Delivered', 'Failed', 'Returned'] }
+      status: 'Delivered'
     }).sort({ updatedAt: -1 });
     
     res.json(completedShipments);
   } catch (error) {
     console.error('Error fetching completed shipments:', error);
     res.status(500).json({ error: 'Failed to fetch completed shipments' });
+  }
+});
+
+// Add this route for returned shipments
+router.get('/returned', async (req, res) => {
+  try {
+    const returnedShipments = await Shipping.find({
+      status: { $in: ['Failed', 'Returned'] }
+    }).sort({ updatedAt: -1 });
+    
+    res.json(returnedShipments);
+  } catch (error) {
+    console.error('Error fetching returned shipments:', error);
+    res.status(500).json({ error: 'Failed to fetch returned shipments' });
   }
 });
 

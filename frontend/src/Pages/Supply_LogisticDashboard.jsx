@@ -383,22 +383,38 @@ const mapOrderStatus = (status) => {
       return "In Stock";
     };
 
-    // Helper function to assign supplier based on category (in a real app, this would be from database relation)
+    // Update getSupplierForProduct function inside the fetchInventory useEffect
     const getSupplierForProduct = (category) => {
       const supplierMap = {
-        Cement: "Lanka Cement Ltd",
-        Steel: "Melwa Steel",
-        Bricks: "Clay Masters",
-        Sand: "Ceylon Aggregates",
-        Concrete: "Ready Mix Ltd",
-        Wood: "Timber Lanka",
-        PVC: "PVC Solutions",
-        Roofing: "Roof Masters",
+        // More specific mappings based on category
+        "Cement": "Lanka Cement Ltd",
+        "Steel": "Melwa Steel",
+        "Bricks": "Clay Masters",
+        "Sand": "Ceylon Aggregates",
+        "Concrete": "Ready Mix Ltd",
+        "Wood": "Timber Lanka",
+        "PVC": "PVC Solutions",
+        "Roofing": "Roof Masters",
         "Building Materials": "Jayasekara Suppliers",
-        Hardware: "Tool Masters",
-        Plumbing: "Water Systems Ltd",
-        Electrical: "Power Solutions",
+        "Hardware": "Tool Masters",
+        "Plumbing": "Water Systems Ltd",
+        "Electrical": "Power Solutions",
+        "Safety Gear": "Safety Plus",
+        "Tools": "Premium Tools Ltd",
+        "Paint": "Color World",
+        "Glass": "Crystal Glass"
       };
+
+      // Find supplier from available suppliers list if possible
+      const matchingSupplier = suppliers.find(supplier => 
+        supplier.category && category && 
+        (supplier.category.toLowerCase().includes(category.toLowerCase()) || 
+         category.toLowerCase().includes(supplier.category.toLowerCase()))
+      );
+
+      if (matchingSupplier) {
+        return matchingSupplier.name;
+      }
 
       return supplierMap[category] || "General Supplier";
     };
@@ -2495,12 +2511,8 @@ const handleUpdateSupplier = async () => {
                           <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Supplier
                           </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Supply Chain
-                          </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
+                          {/* Removed Supply Chain column */}
+                          {/* Removed Actions column */}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -2569,6 +2581,23 @@ const handleUpdateSupplier = async () => {
                                   }`}></span>
                                   <span>{item.status}</span>
                                 </div>
+                                
+                                {/* Add Restock button for items that need it */}
+                                {(item.status === "Critical" || item.status === "Low Stock") && !item.restockRequested && (
+                                  <button
+                                    onClick={() => handleRestockRequest(item.name)}
+                                    className="mt-2 text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded inline-flex items-center"
+                                  >
+                                    <RefreshCw className="h-3 w-3 mr-1" />
+                                    Request Restock
+                                  </button>
+                                )}
+                                {item.restockRequested && (
+                                  <div className="mt-2 text-xs text-green-600 inline-flex items-center">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Restock Requested
+                                  </div>
+                                )}
                               </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center">
@@ -2583,118 +2612,13 @@ const handleUpdateSupplier = async () => {
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-6 py-4">
-                                <div className="space-y-2">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs font-medium text-gray-500 w-16">Restock:</span>
-                                    {item.restockRequested ? (
-                                      <span className="inline-flex items-center text-xs font-medium text-green-600">
-                                        <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                        Requested
-                                      </span>
-                                    ) : (
-                                      <button
-                                        onClick={() => handleRestockRequest(item.name)}
-                                        disabled={item.status === "In Stock"}
-                                        className={`inline-flex items-center text-xs font-medium rounded-full px-2 py-0.5 ${
-                                          item.status === "In Stock" 
-                                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                            : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                                        }`}
-                                      >
-                                        <RefreshCw className="h-3 w-3 mr-1" />
-                                        Request
-                                      </button>
-                                    )}
-                                  </div>
-                                  
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs font-medium text-gray-500 w-16">Payment:</span>
-                                    <span className={`inline-flex items-center text-xs font-medium ${
-                                      item.paymentStatus === "Paid" ? "text-green-600" : "text-amber-600"
-                                    }`}>
-                                      {item.paymentStatus === "Paid" ? (
-                                        <>
-                                          <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                          {item.paymentStatus}
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Clock className="h-3.5 w-3.5 mr-1" />
-                                          {item.paymentStatus}
-                                        </>
-                                      )}
-                                    </span>
-                                  </div>
-                                  
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs font-medium text-gray-500 w-16">Delivery:</span>
-                                    <span className={`inline-flex items-center text-xs font-medium ${
-                                      item.deliveryStatus === "Delivered" ? "text-green-600" : 
-                                      item.deliveryStatus === "In Transit" ? "text-blue-600" : 
-                                      "text-amber-600"
-                                    }`}>
-                                      {item.deliveryStatus === "Delivered" ? (
-                                        <>
-                                          <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                          {item.deliveryStatus}
-                                        </>
-                                      ) : item.deliveryStatus === "In Transit" ? (
-                                        <>
-                                          <Truck className="h-3.5 w-3.5 mr-1" />
-                                          {item.deliveryStatus}
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Clock className="h-3.5 w-3.5 mr-1" />
-                                          {item.deliveryStatus}
-                                        </>
-                                      )}
-                                    </span>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => handlePaymentStatusUpdate(item.name, "Paid")}
-                                    disabled={item.paymentStatus === "Paid"}
-                                    className={`p-1.5 rounded-md transition-colors ${
-                                      item.paymentStatus === "Paid"
-                                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                        : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                                    }`}
-                                    title="Mark as Paid"
-                                  >
-                                    <DollarSign className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeliveryStatusUpdate(item.name, "Delivered")}
-                                    disabled={item.deliveryStatus === "Delivered"}
-                                    className={`p-1.5 rounded-md transition-colors ${
-                                      item.deliveryStatus === "Delivered"
-                                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                        : "bg-green-50 text-green-600 hover:bg-green-100"
-                                    }`}
-                                    title="Mark as Delivered"
-                                  >
-                                    <CheckCircle className="h-4 w-4" />
-                                  </button>
-                                  <div className="relative">
-                                    <button
-                                      className="p-1.5 rounded-md bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
-                                      title="More Options"
-                                    >
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                </div>
-                              </td>
+                              {/* Removed Supply Chain column */}
+                              {/* Removed Actions column */}
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
+                            <td colSpan="4" className="px-6 py-10 text-center text-gray-500">
                               <Box className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                               <p className="text-lg font-medium">No inventory items found</p>
                               <p className="text-sm">Try adjusting your search or filter criteria</p>
