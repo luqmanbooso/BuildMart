@@ -207,7 +207,6 @@ const BidForm = ({ sampleData }) => {
     }
   };
 
-  // Timer function
   const updateTimer = (endDate) => {
     const calculateTime = () => {
       const now = new Date().getTime();
@@ -239,28 +238,22 @@ const BidForm = ({ sampleData }) => {
       });
     };
     
-    // Calculate immediately
     calculateTime();
     
-    // Set up interval
     const interval = setInterval(calculateTime, 1000);
     
-    // Return cleanup function
     return () => clearInterval(interval);
   };
 
-  // Extract min/max budget instead of a single budget value
 const minBudget = jobDetails?.minBudget || "0";
 const maxBudget = jobDetails?.maxBudget || "0";
 const projectTitle = jobDetails?.title || "";
 const projectDescription = jobDetails?.description || "";
   
-  // Handle back to project details
   const handleBackToProject = () => {
     navigate(jobId ? `/project/${jobId}` : `/project-details`);
   };
 
-  // Updated onSubmit function with better error handling for duplicate prices
 
 const onSubmit = async (data) => {
   if (timeLeft.timeUp) {
@@ -276,7 +269,6 @@ const onSubmit = async (data) => {
       throw new Error("Authentication required. Please log in again.");
     }
     
-    // Create bid data exactly matching what the backend expects
     const bidData = {
       projectId: jobId,
       contractorId: userInfo.userId,
@@ -290,7 +282,6 @@ const onSubmit = async (data) => {
 
     console.log("Sending bid data:", bidData);
 
-    // Submit bid to API
     const response = await axios.post("http://localhost:5000/bids/submit", bidData);
 
     if (response.status === 201) {
@@ -300,18 +291,15 @@ const onSubmit = async (data) => {
   } catch (error) {
     console.error("Error submitting bid:", error);
     
-    // Handle specific error types
     if (error.response && error.response.data) {
       const errorData = error.response.data;
       
       if (errorData.error === 'Duplicate bid') {
         setSubmissionError("You have already submitted a bid for this project.");
       } 
-      // Handle duplicate price error specifically
-      else if (errorData.error === 'Duplicate price') {
+=      else if (errorData.error === 'Duplicate price') {
         setSubmissionError(errorData.message);
         
-        // Update the form field with suggested value
         if (errorData.suggestedPrice) {
           setValue("yourBid", errorData.suggestedPrice.toString());
         }
@@ -327,7 +315,6 @@ const onSubmit = async (data) => {
   }
 };
 
-  // Confirmation Modal Handlers
   const handleConfirmation = (data) => {
     setShowConfirmation(true);
   };
@@ -337,14 +324,12 @@ const onSubmit = async (data) => {
     handleSubmit(onSubmit)();
   };
 
-  // Get qualification count
   const qualificationCount = useMemo(() => {
     return qualifications && Array.isArray(qualifications) ? qualifications.length : 0;
   }, [qualifications]);
 
   return (
     <div className="max-w-4xl mx-auto mt-10 p-8 bg-white border border-gray-100 rounded-xl shadow-xl transition-all duration-300 relative overflow-hidden">
-      {/* Inspiring background elements */}
       <div className="absolute inset-0 overflow-hidden z-0 opacity-10">
         <img 
           src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?ixlib=rb-4.0.3&auto=format&fit=crop&q=80" 
@@ -355,20 +340,16 @@ const onSubmit = async (data) => {
       
       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-600/10 to-purple-600/5 z-0"></div>
       
-      {/* Decorative elements */}
       <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-b from-blue-50 to-transparent rounded-bl-full opacity-80 z-0"></div>
       <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-t from-blue-50 to-transparent rounded-tr-full opacity-80 z-0"></div>
       
-      {/* Inspirational quote */}
       <div className="relative z-10 mb-8 bg-blue-50/70 p-4 rounded-lg border border-blue-100 text-center">
         <p className="text-blue-800 italic font-medium">
           "Winning bids aren't just about the price - they're about demonstrating your unique value and expertise."
         </p>
       </div>
       
-      {/* Main content - add relative positioning to appear above background */}
       <div className="relative z-10">
-        {/* Back Button with enhanced styling */}
         <div className="mb-8">
           <button
             onClick={handleBackToProject}
@@ -401,7 +382,6 @@ const onSubmit = async (data) => {
           Bid Submission Form
         </h2>
 
-        {/* Enhanced Project Details */}
         {(jobDetails || sampleData) && (
           <div className="mb-8 bg-gradient-to-r from-gray-50 to-white p-6 rounded-xl shadow-sm border border-gray-100 transform transition-all hover:shadow-md">
             <div className="flex justify-between items-start mb-4">
@@ -445,7 +425,6 @@ const onSubmit = async (data) => {
           </div>
         )}
 
-        {/* Enhanced Timer */}
         {timeLeft.timeUp ? (
           <div className="mb-8 p-4 bg-red-100 text-red-700 rounded-xl font-medium text-center shadow-sm border border-red-200 flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -482,7 +461,6 @@ const onSubmit = async (data) => {
           </div>
         )}
 
-        {/* Submission Error with improved styling */}
         {submissionError && (
           <div className="mb-8 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-lg shadow-sm">
             <div className="flex items-center">
@@ -494,9 +472,7 @@ const onSubmit = async (data) => {
           </div>
         )}
 
-        {/* Enhanced Form */}
         <form onSubmit={handleSubmit(handleConfirmation)} className="space-y-7">
-          {/* Hidden inputs - properly hidden with CSS */}
           <div className="hidden">
             <input type="hidden" {...register("projectName")} value={projectTitle} />
             <input type="hidden" {...register("projectId")} value={jobId} />
@@ -505,9 +481,7 @@ const onSubmit = async (data) => {
             <input type="hidden" {...register("experience")} value={contractorInfo?.experienceYears || "0"} />
           </div>
 
-          {/* Form Sections with Cards */}
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Contractor Information */}
             <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 backdrop-blur-sm bg-opacity-90">
               <h3 className="text-lg font-semibold mb-4 text-gray-800 pb-2 border-b flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
@@ -517,7 +491,6 @@ const onSubmit = async (data) => {
               </h3>
               
               <div className="space-y-4">
-                {/* Contractor Name */}
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Contractor Name
@@ -530,7 +503,6 @@ const onSubmit = async (data) => {
                   </div>
                 </div>
 
-                {/* Experience */}
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Experience
@@ -543,7 +515,6 @@ const onSubmit = async (data) => {
                   </div>
                 </div>
 
-                {/* Qualifications */}
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Qualifications
@@ -560,7 +531,6 @@ const onSubmit = async (data) => {
               </div>
             </div>
 
-            {/* Bid Information */}
             <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 backdrop-blur-sm bg-opacity-90">
               <h3 className="text-lg font-semibold mb-4 text-gray-800 pb-2 border-b flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
@@ -570,7 +540,6 @@ const onSubmit = async (data) => {
               </h3>
               
               <div className="space-y-4">
-                {/* Your Bid with enhanced validation */}
                 <div className="relative">
                   <label htmlFor="yourBid" className="block text-sm font-medium text-gray-700 mb-1">
                     Your Bid Amount <span className="text-red-500">*</span>
@@ -579,7 +548,7 @@ const onSubmit = async (data) => {
                     <span className="absolute left-3 top-3 text-gray-500 font-medium">RS</span>
                     <input
                       id="yourBid"
-                      type="text" // Changed to text for better pattern control
+                      type="text" 
                       placeholder="Enter your bid amount"
                       {...register("yourBid", {
                         required: "Your bid is required",
@@ -605,7 +574,6 @@ const onSubmit = async (data) => {
                           }
                         },
                         onChange: (e) => {
-                          // Only allow numbers and single decimal point
                           const value = e.target.value;
                           if (!/^[0-9]*\.?[0-9]*$/.test(value)) {
                             e.target.value = value.replace(/[^0-9.]/g, '');
@@ -632,7 +600,6 @@ const onSubmit = async (data) => {
                   </p>
                 </div>
 
-                {/* Timeline with enhanced validation */}
                 <div className="relative">
                   <label htmlFor="timeline" className="block text-sm font-medium text-gray-700 mb-1">
                     Timeline (Days) <span className="text-red-500">*</span>
@@ -642,7 +609,7 @@ const onSubmit = async (data) => {
                       id="timeline"
                       type="text"
                       placeholder="Enter project timeline in days"
-                      maxLength={3} // Explicitly limit input to 3 characters
+                      maxLength={3} 
                       {...register("timeline", {
                         required: "Timeline is required",
                         maxLength: {
@@ -658,13 +625,10 @@ const onSubmit = async (data) => {
                           notTooLarge: v => parseInt(v) <= 365 || "Timeline must not exceed 1 year"
                         },
                         onChange: (e) => {
-                          // Only allow integers and limit to 3 digits
                           let value = e.target.value;
                           
-                          // Remove non-numeric characters
                           value = value.replace(/[^0-9]/g, '');
                           
-                          // Limit to 3 digits
                           if (value.length > 3) {
                             value = value.slice(0, 3);
                           }
@@ -700,7 +664,6 @@ const onSubmit = async (data) => {
             </div>
           </div>
 
-          {/* Additional Details */}
           <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 backdrop-blur-sm bg-opacity-90">
             <label htmlFor="additionalDetails" className="block text-sm font-medium text-gray-700 mb-3 flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
@@ -724,7 +687,6 @@ const onSubmit = async (data) => {
             ></textarea>
           </div>
 
-          {/* Winning Bid Tips */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl shadow-sm border border-blue-100">
             <h4 className="font-semibold text-blue-800 mb-2 flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -740,7 +702,6 @@ const onSubmit = async (data) => {
             </ul>
           </div>
 
-          {/* Submit Button */}
           <div className="flex justify-end pt-5">
             <button
               type="submit"
@@ -767,7 +728,6 @@ const onSubmit = async (data) => {
           </div>
         </form>
 
-        {/* Enhanced Confirmation Modal */}
         {showConfirmation && (
           <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-all duration-300">
             <div className="bg-white p-8 rounded-xl shadow-2xl max-w-md w-full transform transition-all animate-fadeIn">
