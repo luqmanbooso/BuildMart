@@ -29,7 +29,7 @@ const BidForm = ({ sampleData }) => {
     setValue,
     trigger,
   } = useForm({
-    mode: "onChange", // Add real-time validation
+    mode: "onChange", 
     defaultValues: {
       yourBid: "",
       timeline: "",
@@ -37,7 +37,6 @@ const BidForm = ({ sampleData }) => {
     }
   });
 
-  // 1. Get user information from token
   useEffect(() => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -60,7 +59,6 @@ const BidForm = ({ sampleData }) => {
     }
   }, []);
 
-  // 2. Fetch contractor profile based on user info
   useEffect(() => {
     if (!userInfo) return;
     
@@ -70,19 +68,18 @@ const BidForm = ({ sampleData }) => {
         setContractorInfo(contractorResponse.data);
         console.log("Contractor data:", contractorResponse.data);
         
-        // Pre-fill contractor fields
+
         setValue("contractorName", contractorResponse.data.companyName || userInfo.username);
         setValue("contractorId", userInfo.userId);
         setValue("experience", contractorResponse.data.experienceYears || "");
         
-        // Fetch qualifications
+
         setTimeout(() => {
           fetchQualifications(userInfo.userId, contractorResponse.data);
         }, 100);
         
       } catch (contractorError) {
         console.warn("Could not fetch contractor profile:", contractorError);
-        // Still set basic user info even without contractor profile
         setValue("contractorName", userInfo.username);
         setValue("contractorId", userInfo.userId);
       }
@@ -91,7 +88,6 @@ const BidForm = ({ sampleData }) => {
     fetchContractorProfile();
   }, [userInfo, setValue]);
 
-  // 3. Fetch job details
   useEffect(() => {
     if (!jobId && !sampleData) return;
     
@@ -102,7 +98,6 @@ const BidForm = ({ sampleData }) => {
         if (jobId) {
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           try {
-            // Try first endpoint
             const jobResponse = await axios.get(`http://localhost:5000/jobs/${jobId}`, {
               headers: {
                 'Authorization': `Bearer ${token}`
@@ -113,7 +108,6 @@ const BidForm = ({ sampleData }) => {
             console.log("Job data:", jobResponse.data);
             setValue("projectName", jobResponse.data.title || "Untitled Project");
             
-            // Handle timer
             if (jobResponse.data.biddingEndTime) {
               updateTimer(new Date(jobResponse.data.biddingEndTime));
             } else if (jobResponse.data.biddingStartTime) {
@@ -125,7 +119,6 @@ const BidForm = ({ sampleData }) => {
           } catch (jobError) {
             console.error("Error fetching job from first endpoint:", jobError);
             
-            // Try fallback endpoint
             try {
               const fallbackResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
                 headers: {
@@ -137,7 +130,6 @@ const BidForm = ({ sampleData }) => {
               console.log("Job data (fallback):", fallbackResponse.data);
               setValue("projectName", fallbackResponse.data.title || "Untitled Project");
               
-              // Handle timer for fallback
               if (fallbackResponse.data.biddingEndTime) {
                 updateTimer(new Date(fallbackResponse.data.biddingEndTime));
               } else if (fallbackResponse.data.biddingStartTime) {
@@ -151,13 +143,11 @@ const BidForm = ({ sampleData }) => {
             }
           }
         } else if (sampleData) {
-          // Fallback to sample data if no jobId
           setJobDetails(sampleData);
           setValue("projectName", sampleData.title || "Sample Project");
           
-          // Create fallback timer for sample data
           const endDate = new Date();
-          endDate.setDate(endDate.getDate() + 3); // 3 days from now
+          endDate.setDate(endDate.getDate() + 3); 
           updateTimer(endDate);
         }
       } catch (error) {
@@ -171,12 +161,10 @@ const BidForm = ({ sampleData }) => {
     fetchJobDetails();
   }, [jobId, sampleData, setValue]);
 
-  // Updated fetchQualifications function
   const fetchQualifications = async (userId, contractorData) => {
     try {
       console.log("About to fetch qualifications for user:", userId);
       
-      // Single endpoint instead of array
       const endpoint = `http://localhost:5000/qualify/user/${userId}`;
       
       try {
@@ -187,14 +175,12 @@ const BidForm = ({ sampleData }) => {
         const qualificationData = qualificationResponse.data;
         
         if (qualificationData && Array.isArray(qualificationData) && qualificationData.length > 0) {
-          console.log(`✅ Qualifications found:`, qualificationData);
+          console.log(`Qualifications found:`, qualificationData);
           setQualifications(qualificationData);
         } else if (qualificationData && typeof qualificationData === 'object' && !Array.isArray(qualificationData)) {
-          // Handle single object response
           console.log("Converting single qualification to array");
           setQualifications([qualificationData]);
         } else {
-          // Create default qualification if no data received
           createDefaultQualification(contractorData);
         }
       } catch (err) {
