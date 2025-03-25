@@ -297,7 +297,7 @@ const onSubmit = async (data) => {
       if (errorData.error === 'Duplicate bid') {
         setSubmissionError("You have already submitted a bid for this project.");
       } 
-=      else if (errorData.error === 'Duplicate price') {
+      else if (errorData.error === 'Duplicate price') {
         setSubmissionError(errorData.message);
         
         if (errorData.suggestedPrice) {
