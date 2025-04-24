@@ -3,11 +3,82 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import ContractorUserNav from '../components/ContractorUserNav';
+import { jwtDecode } from 'jwt-decode';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Update the AuctionCard component to better match the Job model
 const AuctionCard = ({ auction }) => {
   const navigate = useNavigate();
+  const [contractorInfo, setContractorInfo] = useState(null);
+  const [canAccess, setCanAccess] = useState(true);
   
+  useEffect(() => {
+    const fetchContractorInfo = async () => {
+      try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+        if (!token) {
+          return;
+        }
+        
+        const decoded = jwtDecode(token);
+        
+        if (decoded.role !== 'Service Provider') {
+          return;
+        }
+        
+        const response = await axios.get(`http://localhost:5000/api/contractors/${decoded.userId}`);
+        
+        if (response.data && response.data.specialization) {
+          setContractorInfo(response.data);
+          
+          if (auction.categories) {
+            const contractorSpecializations = response.data.specialization.map(s => s.toLowerCase().trim());
+            const jobCategories = auction.categories.map(c => c.toLowerCase().trim());
+            
+            const hasRequiredSpecialization = jobCategories.some(category => 
+              contractorSpecializations.some(specialization => 
+                specialization === category || 
+                specialization.includes(category) || 
+                category.includes(specialization)
+              )
+            );
+            
+            setCanAccess(hasRequiredSpecialization);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching contractor info:', error);
+      }
+    };
+    
+    fetchContractorInfo();
+  }, [auction.categories]);
+  
+  const handleViewDetails = () => {
+    if (!canAccess) {
+      toast.warning("You don't have the required specialization for this project. Please update your profile to include this category.", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        className: 'wider-toast',
+        style: {
+          minWidth: '500px',
+          maxWidth: '800px',
+          fontSize: '1rem',
+          padding: '1rem'
+        }
+      });
+      return;
+    }
+    navigate(`/project/${auction._id}`);
+  };
+
   // Calculate time left with error handling
   const calculateTimeLeft = (endDateString) => {
     try {
@@ -171,15 +242,17 @@ const AuctionCard = ({ auction }) => {
         <div className="bg-gray-50 p-4 flex justify-end">
           <motion.button 
             className={`${
-              displayStatus === 'ended' 
-                ? "bg-gray-500 hover:bg-gray-600" 
-                : "bg-blue-600 hover:bg-blue-700"
-            } text-white py-2 px-5 rounded-lg font-medium text-sm flex items-center transition-colors`}
+              !canAccess 
+                ? "bg-amber-500 hover:bg-amber-600 text-white" 
+                : displayStatus === 'ended' 
+                  ? "bg-gray-500 hover:bg-gray-600 text-white" 
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+            } py-2 px-5 rounded-lg font-medium text-sm flex items-center transition-colors`}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            onClick={() => navigate(`/project/${auction._id}`)}
+            onClick={handleViewDetails}
           >
-            {displayStatus === 'ended' ? "View Results" : "View Details"}
+            {!canAccess ? "Not Qualified" : displayStatus === 'ended' ? "View Results" : "View Details"}
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
@@ -439,7 +512,18 @@ const AuctionsPage = () => {
   
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Add ContractorUserNav at the top */}
+      <ToastContainer 
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
       <ContractorUserNav />
       
       {/* Hero Banner */}
