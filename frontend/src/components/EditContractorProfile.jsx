@@ -440,15 +440,32 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
               <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
                 Company Name
               </label>
-              <input
-                type="text"
-                id="companyName"
-                name="companyName"
-                value={formData.companyName}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                placeholder="Your Company Ltd."
-              />
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  id="companyName"
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleInputChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                  placeholder="Your Company Ltd."
+                />
+                {formData.companyName && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        companyName: null
+                      }));
+                    }}
+                    className="text-red-500 hover:text-red-700 transition-colors"
+                    title="Remove company name"
+                  >
+                    <FaTimes className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div>

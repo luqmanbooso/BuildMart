@@ -123,7 +123,7 @@ router.put('/:id', async (req, res) => {
     const updateData = {};
     if (req.body.phone) updateData.phone = req.body.phone;
     if (req.body.address) updateData.address = req.body.address;
-    if (req.body.companyName) updateData.companyName = req.body.companyName;
+    if (req.body.companyName !== undefined) updateData.companyName = req.body.companyName; // Allow null
     if (req.body.specialization) updateData.specialization = req.body.specialization;
     if (req.body.experienceYears) updateData.experienceYears = req.body.experienceYears;
     if (req.body.completedProjects) updateData.completedProjects = req.body.completedProjects;
