@@ -181,18 +181,16 @@ const ClientNavBar = () => {
         </div>
         
         <div className="hidden lg:flex items-center space-x-6">
-          {['Home', 'Shop', 'Ongoing Projects', 'Contractors'].map((item, index) => (
+          {['Home', 'Shop', 'Ongoing Projects'].map((item, index) => (
             <Link 
               key={index}
               to={item === 'Home' ? '/' : 
                   item === 'Ongoing Projects' ? '/ongoing-works' : 
-                  item === 'Contractors' ? '/contractors' :
                   `/${item.toLowerCase().replace(' ', '-')}`} 
               className={`relative py-2 px-1 ${
                 window.location.pathname === (
                   item === 'Home' ? '/' : 
                   item === 'Ongoing Projects' ? '/ongoing-works' : 
-                  item === 'Contractors' ? '/contractors' :
                   `/${item.toLowerCase().replace(' ', '-')}`
                 ) ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
             >
@@ -201,11 +199,25 @@ const ClientNavBar = () => {
                 window.location.pathname === (
                   item === 'Home' ? '/' : 
                   item === 'Ongoing Projects' ? '/ongoing-works' : 
-                  item === 'Contractors' ? '/contractors' :
                   `/${item.toLowerCase().replace(' ', '-')}`
                 ) ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
             </Link>
           ))}
+          
+          {/* Add Contractors Link */}
+          <Link 
+            to="/contractors"
+            className={`relative py-2 px-1 ${
+              window.location.pathname === '/contractors' 
+                ? 'text-blue-600' 
+                : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
+          >
+            Contractors
+            <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${
+              window.location.pathname === '/contractors' 
+                ? 'scale-x-100' 
+                : 'group-hover:scale-x-100'}`}></span>
+          </Link>
           
           {/* Add Job Link After Ongoing Projects */}
           {user && (
@@ -337,18 +349,16 @@ const ClientNavBar = () => {
             className="fixed top-[74px] left-0 w-full bg-white z-40 shadow-lg lg:hidden overflow-hidden"
           >
             <div className="p-5 flex flex-col space-y-4">
-              {['Home', 'Shop', 'Ongoing Projects', 'Contractors'].map((item, index) => (
+              {['Home', 'Shop', 'Ongoing Projects'].map((item, index) => (
                 <Link 
                   key={index}
                   to={item === 'Home' ? '/' : 
                       item === 'Ongoing Projects' ? '/ongoing-works' : 
-                      item === 'Contractors' ? '/contractors' :
                       `/${item.toLowerCase().replace(' ', '-')}`} 
                   className={`py-2 px-4 ${
                     window.location.pathname === (
                       item === 'Home' ? '/' : 
                       item === 'Ongoing Projects' ? '/ongoing-works' : 
-                      item === 'Contractors' ? '/contractors' :
                       `/${item.toLowerCase().replace(' ', '-')}`
                     ) ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'} rounded-lg transition-colors duration-300`}
                   onClick={() => setShowMobileMenu(false)}

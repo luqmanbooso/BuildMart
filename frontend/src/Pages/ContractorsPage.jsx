@@ -5,6 +5,7 @@ import axios from 'axios';
 import { FaStar, FaPhone, FaMapMarkerAlt, FaBriefcase, FaTools, FaTimes, FaEnvelope, FaCheckCircle, FaSearch, FaFilter } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import ClientNavBar from '../components/ClientNavBar';
 
 // Contractor Details Modal Component - Enhanced with better animations
 const ContractorDetailsModal = ({ contractor, onClose }) => {
@@ -658,6 +659,7 @@ const ContractorsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ClientNavBar />
       {/* Hero section with animated particles background */}
       <div className="relative bg-gradient-to-br from-blue-800 via-blue-700 to-indigo-900 text-white overflow-hidden">
         {/* Decorative elements */}
