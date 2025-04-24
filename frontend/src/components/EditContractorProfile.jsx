@@ -39,14 +39,16 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
     specialization: contractorData?.specialization || [],
     experienceYears: contractorData?.experienceYears || '',
     completedProjects: contractorData?.completedProjects || 0,
-    bio: contractorData?.bio || ''
+    bio: contractorData?.bio || '',
+    username: contractorData?.username || ''
   });
 
   // Validation state
   const [validation, setValidation] = useState({
     phone: { valid: true, message: '' },
     address: { valid: true, message: '' },
-    bio: { valid: true, message: '' }
+    bio: { valid: true, message: '' },
+    username: { valid: true, message: '' }
   });
 
   // Validation functions
@@ -70,25 +72,159 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
     return { valid: true, message: '' };
   };
 
+  // Add username validation and sanitization
+  const validateUsername = (username) => {
+    if (!username) return { valid: false, message: 'Username is required' };
+    
+    // Check for minimum and maximum length
+    if (username.length < 3) {
+      return { valid: false, message: 'Username should be at least 3 characters' };
+    }
+    if (username.length > 30) {
+      return { valid: false, message: 'Username should not exceed 30 characters' };
+    }
+    
+    // Check for allowed characters (only alphanumeric, hyphens, and underscores)
+    const validChars = /^[a-zA-Z0-9_-]+$/;
+    if (!validChars.test(username)) {
+      return { valid: false, message: 'Username can only contain letters, numbers, hyphens, and underscores' };
+    }
+    
+    // Check for consecutive special characters
+    if (/([-_]){2,}/.test(username)) {
+      return { valid: false, message: 'Username cannot contain consecutive special characters' };
+    }
+    
+    // Check for start/end with special characters
+    if (/^[-_]|[-_]$/.test(username)) {
+      return { valid: false, message: 'Username cannot start or end with special characters' };
+    }
+    
+    return { valid: true, message: '' };
+  };
+
+  const sanitizeUsername = (username) => {
+    if (!username) return '';
+    
+    // Remove all special characters except hyphens and underscores
+    let sanitized = username.replace(/[^a-zA-Z0-9_-]/g, '');
+    
+    // Remove consecutive special characters
+    sanitized = sanitized.replace(/([-_]){2,}/g, '$1');
+    
+    // Remove special characters from start and end
+    sanitized = sanitized.replace(/^[-_]+|[-_]+$/g, '');
+    
+    // Limit length
+    sanitized = sanitized.slice(0, 30);
+    
+    return sanitized;
+  };
+
+  // Add these new helper functions after the existing validation functions
+  const sanitizeCompanyName = (name) => {
+    if (!name) return '';
+    // Remove all special characters except spaces and basic punctuation
+    let sanitized = name.replace(/[^a-zA-Z0-9\s.,&'-]/g, '');
+    // Remove multiple spaces
+    sanitized = sanitized.replace(/\s+/g, ' ');
+    // Trim whitespace
+    sanitized = sanitized.trim();
+    return sanitized;
+  };
+
+  const sanitizeBio = (bio) => {
+    if (!bio) return '';
+    // Allow basic punctuation and newlines, but remove other special characters
+    let sanitized = bio.replace(/[^a-zA-Z0-9\s.,!?&'-()\n]/g, '');
+    // Remove multiple spaces
+    sanitized = sanitized.replace(/\s+/g, ' ');
+    // Remove multiple newlines
+    sanitized = sanitized.replace(/\n+/g, '\n');
+    return sanitized;
+  };
+
+  const validateCompanyName = (name) => {
+    // If no name is provided, it's valid (optional field)
+    if (!name || name.trim() === '') {
+      return { valid: true, message: '' };
+    }
+    
+    // If name is provided, validate it
+    if (name.length < 2) {
+      return { valid: false, message: 'Company name should be at least 2 characters' };
+    }
+    if (name.length > 50) {
+      return { valid: false, message: 'Company name should not exceed 50 characters' };
+    }
+    return { valid: true, message: '' };
+  };
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
-
-    // Perform validation
-    if (name === 'phone') {
+    
+    if (name === 'username') {
+      const sanitizedValue = sanitizeUsername(value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: sanitizedValue
+      }));
       setValidation(prev => ({
         ...prev,
-        phone: validatePhone(value)
+        username: validateUsername(sanitizedValue)
       }));
+    } else if (name === 'companyName') {
+      // If the input is empty, set it to empty string
+      if (!value || value.trim() === '') {
+        setFormData(prev => ({
+          ...prev,
+          [name]: ''
+        }));
+        setValidation(prev => ({
+          ...prev,
+          companyName: { valid: true, message: '' }
+        }));
+      } else {
+        // If there's a value, sanitize and validate it
+        const sanitizedValue = sanitizeCompanyName(value);
+        setFormData(prev => ({
+          ...prev,
+          [name]: sanitizedValue
+        }));
+        setValidation(prev => ({
+          ...prev,
+          companyName: validateCompanyName(sanitizedValue)
+        }));
+      }
     } else if (name === 'bio') {
+      const sanitizedValue = sanitizeBio(value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: sanitizedValue
+      }));
       setValidation(prev => ({
         ...prev,
-        bio: validateBio(value)
+        bio: validateBio(sanitizedValue)
       }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+
+      // Perform validation
+      if (name === 'phone') {
+        setValidation(prev => ({
+          ...prev,
+          phone: validatePhone(value)
+        }));
+      } else if (name === 'bio') {
+        setValidation(prev => ({
+          ...prev,
+          bio: validateBio(value)
+        }));
+      }
     }
   };
 
@@ -120,6 +256,7 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
   // Check if form is valid
   const isFormValid = () => {
     return (
+      validation.username.valid &&
       validation.phone.valid &&
       formData.phone &&
       formData.address &&
@@ -153,13 +290,21 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
       const decoded = jwtDecode(token);
       const userId = decoded.userId || decoded.id;
       
+      // Prepare the data to be sent
+      const submitData = {
+        ...formData,
+        // Ensure companyName is empty string if not provided
+        companyName: formData.companyName || '',
+        userId: userId
+      };
+      
       let response;
       
       // Update existing profile
       if (contractorData?._id) {
         response = await axios.put(
           `http://localhost:5000/api/contractors/${contractorData._id}`,
-          formData,
+          submitData,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -172,10 +317,7 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
       else {
         response = await axios.post(
           'http://localhost:5000/api/contractors',
-          {
-            ...formData,
-            userId: userId
-          },
+          submitData,
           {
             headers: {
               'Authorization': `Bearer ${token}`,

@@ -34,6 +34,7 @@ import EnhancedPaymentGateway from './components/Payment';
 import InitialPayment from './components/InitialPayment'
 import MyEarningsPage from './pages/MyEarningsPage'
 import MyOrders from './Pages/MyOrders'
+import ContractorsPage from './Pages/ContractorsPage'
 
 function App() {
   const location = useLocation();
@@ -137,6 +138,8 @@ function App() {
             />
           } 
         />
+        
+        <Route path="/contractors" element={<ContractorsPage />} />
         <Route path='/my-orders' element={<MyOrders />} />
         <Route path="/payment/:jobId/:bidId" element={<InitialPayment />} />
         <Route path="/my-earnings" element={<MyEarningsPage />} />
