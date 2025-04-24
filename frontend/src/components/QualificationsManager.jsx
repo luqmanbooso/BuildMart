@@ -462,24 +462,7 @@ const QualificationsManager = ({ userId }) => {
 
   // Render verification status badge
   const renderVerificationStatus = (status) => {
-    switch(status) {
-      case 'verified':
-        return <span className="inline-flex items-center px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full ml-2">
-          <FaCheckCircle className="mr-1" /> Verified
-        </span>;
-      case 'pending':
-        return <span className="inline-flex items-center px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full ml-2">
-          <FaHourglassHalf className="mr-1" /> Pending
-        </span>;
-      case 'rejected':
-        return <span className="inline-flex items-center px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full ml-2">
-          <FaTimesCircle className="mr-1" /> Rejected
-        </span>;
-      default:
-        return <span className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full ml-2">
-          Unverified
-        </span>;
-    }
+    return null; // Remove verification status display
   };
 
   return (
@@ -674,7 +657,6 @@ const QualificationsManager = ({ userId }) => {
                     <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
                       {qualification.type}
                     </span>
-                    {qualification.verificationStatus && renderVerificationStatus(qualification.verificationStatus)}
                   </div>
                   <h3 className="font-medium mt-1">{qualification.name}</h3>
                   <p className="text-sm text-gray-600">

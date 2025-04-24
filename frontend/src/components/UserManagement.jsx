@@ -148,7 +148,48 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
       setShowDeleteModal(false);
     }
   };
-  
+
+  const handleVerifyContractor = async (provider) => {
+    try {
+      // First, get the contractor profile using the user ID
+      const contractorResponse = await axios.get(`http://localhost:5000/api/contractors/user/${provider.id}`);
+      
+      if (!contractorResponse.data) {
+        toast.error('Contractor profile not found');
+        return;
+      }
+
+      const contractor = contractorResponse.data;
+      
+      // Toggle verification status
+      const response = await axios.put(`http://localhost:5000/api/contractors/verify/${contractor._id}`);
+      
+      if (response.data && response.data.contractor) {
+        // Update the local state with the new contractor data
+        setAllServiceProviders(prevProviders => 
+          prevProviders.map(p => 
+            p.id === provider.id 
+              ? { 
+                  ...p, 
+                  verified: response.data.contractor.verified,
+                  contractorId: response.data.contractor._id
+                } 
+              : p
+          )
+        );
+        
+        toast.success(`Contractor ${response.data.contractor.verified ? 'verified' : 'unverified'} successfully`);
+      }
+    } catch (error) {
+      console.error('Error toggling verification:', error);
+      if (error.response?.status === 404) {
+        toast.error('Contractor profile not found. Please ensure the contractor has created their profile.');
+      } else {
+        toast.error(error.response?.data?.error || 'Failed to toggle verification status');
+      }
+    }
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -336,8 +377,12 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{provider.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      Active
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      provider.verified 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {provider.verified ? 'Verified' : 'Unverified'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -387,6 +432,12 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                         className="text-red-600 hover:text-red-900"
                       >
                         Delete
+                      </button>
+                      <button
+                        onClick={() => handleVerifyContractor(provider)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        {provider.verified ? 'Unverify' : 'Verify'}
                       </button>
                     </div>
                   </td>
