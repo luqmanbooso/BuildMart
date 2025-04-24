@@ -35,6 +35,10 @@ const AuctionCard = ({ auction }) => {
       
       // First, respect the explicit status from the database if it exists
       if (auction.status === 'Active') {
+        // Check if the auction timeline has ended
+        if (now > endDate) {
+          return "ended";
+        }
         return "active";
       }
       
