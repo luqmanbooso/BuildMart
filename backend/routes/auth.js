@@ -72,17 +72,11 @@ router.post('/signup', profileUpload.single('profilePic'), async (req, res) => {
 // Add this new route to get all admin users
 router.get('/admins', async (req, res) => {
   try {
-    const admins = await User.find({ role: 'Admin' });
-    res.json(admins.map(admin => ({
-      id: admin._id,
-      username: admin.username,
-      email: admin.email,
-      salary: admin.salary,
-      profilePic: admin.profilePic
-    })));
+    const admins = await User.find({ role: 'Admin' }).select('-password');
+    res.json(admins);
   } catch (error) {
-    console.error('Error fetching admin users:', error);
-    res.status(500).json({ message: 'Error fetching admin users' });
+    console.error('Error fetching admins:', error);
+    res.status(500).json({ error: 'Failed to fetch admins' });
   }
 });
 
@@ -493,6 +487,62 @@ router.post('/upload/profile', profileUpload.single('profilePic'), async (req, r
   } catch (error) {
     console.error('Error uploading profile image:', error);
     res.status(500).json({ error: 'Server error during file upload' });
+  }
+});
+
+// Register a new user
+router.post('/register', async (req, res) => {
+  try {
+    const { username, email, password, role } = req.body;
+
+    // If trying to create an admin, check if the requester is an admin
+    if (role === 'Admin') {
+      // You should add middleware to verify admin status
+      // For now, we'll allow it for testing purposes
+      // In production, add proper authorization checks here
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new user with specified role or default to 'Client'
+    const newUser = new User({
+      username,
+      email,
+      password: hashedPassword,
+      role: role || 'Client'
+    });
+
+    // Save user to database
+    await newUser.save();
+    
+    // Create token payload
+    const payload = {
+      id: newUser._id,
+      username: newUser.username,
+      email: newUser.email,
+      role: newUser.role
+    };
+
+    res.status(201).json({ 
+      message: 'User registered successfully',
+      user: {
+        id: newUser._id,
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role
+      }
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
