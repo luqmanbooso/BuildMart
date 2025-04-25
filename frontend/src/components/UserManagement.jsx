@@ -10,27 +10,113 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
   const [showUserModal, setShowUserModal] = useState(false);
   const [userDeleteId, setUserDeleteId] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  
+  // Add pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage] = useState(10);
+  const [contractorProfiles, setContractorProfiles] = useState({});
 
-  // Add this function to your component
+  // Updated refreshUserData function with correct API endpoints
   const refreshUserData = async () => {
     try {
-      // Update this to match how you're fetching users in your app
-      const clientsResponse = await axios.get('http://localhost:5000/auth/clients');
-      const providersResponse = await axios.get('http://localhost:5000/auth/providers');
+      // Use the correct API endpoints - changed from /auth/clients and /auth/providers
+      const clientsResponse = await axios.get('http://localhost:5000/api/users?role=Client');
+      const providersResponse = await axios.get('http://localhost:5000/api/users?role=Service Provider');
       
-      setAllClients(clientsResponse.data);
-      setAllServiceProviders(providersResponse.data);
+      if (clientsResponse.data && Array.isArray(clientsResponse.data)) {
+        setAllClients(clientsResponse.data);
+      }
+      
+      if (providersResponse.data && Array.isArray(providersResponse.data)) {
+        setAllServiceProviders(providersResponse.data);
+        
+        // Fetch contractor profiles for service providers
+        fetchContractorProfiles(providersResponse.data);
+      }
     } catch (error) {
       console.error("Failed to refresh user data:", error);
-      toast.error('Failed to refresh user list');
+      toast.error('Failed to refresh user list. Please check API connectivity.');
     }
   };
 
-  // Add this function to your component
+  // Fix the fetchContractorProfile function with correct endpoints
+  const fetchContractorProfile = async (userId) => {
+    if (!userId) {
+      console.error("Cannot fetch contractor profile: userId is undefined");
+      return null;
+    }
+    
+    console.log("Fetching contractor profile for userId:", userId);
+    
+    try {
+      // Try the first endpoint format
+      const response = await axios.get(`http://localhost:5000/api/contractors/user/${userId}`);
+      console.log("Contractor profile fetched successfully:", response.data);
+      return response.data;
+    } catch (firstError) {
+      console.log("First endpoint failed:", firstError.message);
+      
+      try {
+        // Try the alternative endpoint without /api prefix
+        const altResponse = await axios.get(`http://localhost:5000/contractors/user/${userId}`);
+        console.log("Contractor profile fetched from alternative endpoint:", altResponse.data);
+        return altResponse.data;
+      } catch (secondError) {
+        console.error("Both contractor profile endpoints failed for userId:", userId);
+        return null;
+      }
+    }
+  };
+
+  // More robust contractor profile fetch function with debugging
+  const fetchContractorProfiles = async (providers) => {
+    try {
+      const newProfiles = { ...contractorProfiles };
+      console.log("Starting to fetch contractor profiles for", providers.length, "providers");
+      
+      for (let i = 0; i < providers.length; i++) {
+        const provider = providers[i];
+        const providerId = provider._id || provider.id;
+        
+        if (!providerId) {
+          console.log(`Provider at index ${i} has no ID:`, provider);
+          continue;
+        }
+        
+        try {
+          console.log(`[${i+1}/${providers.length}] Fetching profile for provider:`, providerId);
+          const response = await axios.get(`http://localhost:5000/api/contractors/user/${providerId}`);
+          
+          if (response.data) {
+            console.log(`Profile found for ${providerId}:`, response.data);
+            newProfiles[providerId] = response.data;
+            
+            // Update the provider object with verification status
+            provider.verified = response.data.verified || false;
+            provider.contractorId = response.data._id;
+            console.log(`Updated provider ${providerId} verification status to:`, provider.verified);
+          }
+        } catch (error) {
+          if (error.response?.status === 404) {
+            console.log(`No contractor profile found for user ${providerId}`);
+          } else {
+            console.error(`Error fetching profile for ${providerId}:`, error);
+          }
+        }
+      }
+      
+      console.log("Finished fetching contractor profiles, updating state");
+      setContractorProfiles(newProfiles);
+    } catch (error) {
+      console.error("Failed to fetch contractor profiles:", error);
+    }
+  };
+
+  // Update testBackendConnection with the correct endpoint
   const testBackendConnection = async () => {
     try {
-      // Test if the users endpoint is working
-      const testResponse = await axios.get('http://localhost:5000/auth/users');
+      // Test if the users endpoint is working - changed from /auth/users
+      const testResponse = await axios.get('http://localhost:5000/api/users');
       console.log("API test response:", testResponse.data);
       toast.success('API connection successful');
       return true;
@@ -41,164 +127,229 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     }
   };
 
-  // Call this in useEffect or from a test button
-  useEffect(() => {
-    testBackendConnection();
-  }, []);
+  // Enhance the existing function to show user modal with contractor details
+  const showUserDetails = async (user) => {
+    let enhancedUser = { ...user };
+    
+    // If user is a service provider, fetch contractor details
+    if (user.role === 'serviceProvider') {
+      try {
+        const contractorProfile = await fetchContractorProfile(user._id);
+        if (contractorProfile) {
+          enhancedUser = { 
+            ...enhancedUser, 
+            contractorProfile,
+            verified: contractorProfile.verified
+          };
+        }
+      } catch (error) {
+        console.error("Error enhancing user with contractor details:", error);
+      }
+    }
+    
+    setSelectedUser(enhancedUser);
+    setShowUserModal(true);
+  };
 
-  // Add this useEffect after your existing useEffect
+  // Fix the handleVerifyContractor function with better error handling and debugging
+  const handleVerifyContractor = async (provider) => {
+    try {
+      // Get token for authentication
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        toast.error('Authentication required to verify contractors');
+        return;
+      }
+      
+      console.log("VERIFICATION START - Provider data:", provider);
+      
+      // Get the user ID and contractor ID
+      const userId = provider._id || provider.id;
+      let contractorId = provider.contractorId;
+      
+      console.log("Using userId:", userId, "contractorId:", contractorId);
+      
+      if (!userId) {
+        toast.error('Cannot verify: User ID not found');
+        return;
+      }
+      
+      // If we don't have a contractor ID, try to fetch the contractor profile
+      if (!contractorId) {
+        try {
+          console.log("No contractor ID available, fetching profile for userId:", userId);
+          const response = await axios.get(`http://localhost:5000/api/contractors/user/${userId}`);
+          
+          if (response.data) {
+            contractorId = response.data._id;
+            console.log("Found contractorId from API:", contractorId);
+          } else {
+            throw new Error("No contractor profile returned");
+          }
+        } catch (error) {
+          console.error("Failed to fetch contractor profile:", error);
+          toast.error('Contractor profile not found. The user may not have created a contractor profile.');
+          return;
+        }
+      }
+      
+      if (!contractorId) {
+        toast.error('Cannot verify: Missing contractor ID');
+        return;
+      }
+      
+      console.log("Sending verification request for contractorId:", contractorId);
+      const response = await axios.put(
+        `http://localhost:5000/api/contractors/verify/${contractorId}`,
+        {}, // Empty body
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      
+      console.log("Verification API response:", response.data);
+      
+      if (response.data && response.data.contractor) {
+        const newVerificationStatus = response.data.contractor.verified;
+        console.log(`Contractor ${contractorId} new verification status:`, newVerificationStatus);
+        
+        // Update local state with multiple approaches to ensure it works
+        setAllServiceProviders(prevProviders => 
+          prevProviders.map(p => {
+            if (p._id === userId || p.id === userId) {
+              console.log("Updating provider in list:", p._id || p.id);
+              return { 
+                ...p, 
+                verified: newVerificationStatus,
+                contractorId: contractorId
+              };
+            }
+            return p;
+          })
+        );
+        
+        // Update profiles cache
+        setContractorProfiles(prev => {
+          const updatedProfiles = { ...prev };
+          if (updatedProfiles[userId]) {
+            console.log("Updating contractor profile in cache for:", userId);
+            updatedProfiles[userId] = {
+              ...updatedProfiles[userId],
+              verified: newVerificationStatus
+            };
+          }
+          return updatedProfiles;
+        });
+        
+        // Update selected user if in modal view
+        if (selectedUser && (selectedUser._id === userId || selectedUser.id === userId)) {
+          console.log("Updating selected user in modal view");
+          setSelectedUser(prev => ({
+            ...prev,
+            verified: newVerificationStatus,
+            contractorProfile: prev.contractorProfile ? {
+              ...prev.contractorProfile,
+              verified: newVerificationStatus
+            } : undefined
+          }));
+        }
+        
+        toast.success(`Contractor ${newVerificationStatus ? 'verified' : 'unverified'} successfully`);
+        
+        // Force a refresh of the data to ensure UI is updated
+        setTimeout(() => {
+          console.log("Refreshing service provider data after verification");
+          fetchContractorProfiles(allServiceProviders);
+        }, 500);
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error) {
+      console.error("Verification error:", error);
+      toast.error('Failed to toggle verification status: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  // Pagination logic
+  const indexOfLastRecord = currentPage * recordsPerPage;
+  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+  
+  // Filter users based on search term
+  const filteredClients = allClients.filter(user => 
+    user.username?.toLowerCase().includes(userFilter.toLowerCase()) || 
+    user.email?.toLowerCase().includes(userFilter.toLowerCase())
+  );
+  
+  const filteredProviders = allServiceProviders.filter(user => 
+    user.username?.toLowerCase().includes(userFilter.toLowerCase()) || 
+    user.email?.toLowerCase().includes(userFilter.toLowerCase())
+  );
+  
+  // Get current records based on pagination
+  const currentClients = filteredClients.slice(indexOfFirstRecord, indexOfLastRecord);
+  const currentProviders = filteredProviders.slice(indexOfFirstRecord, indexOfLastRecord);
+  
+  // Calculate total pages
+  const totalPages = Math.ceil(
+    (activeTab === 'clients' ? filteredClients.length : filteredProviders.length) / recordsPerPage
+  );
+  
+  // Pagination handlers
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+  
+  const goToPage = (pageNumber) => {
+    if (pageNumber > 0 && pageNumber <= totalPages) {
+      setCurrentPage(pageNumber);
+    }
+  };
+  
+  // Generate page numbers for pagination
+  const pageNumbers = [];
+  for (let i = 1; i <= totalPages; i++) {
+    pageNumbers.push(i);
+  }
+
+  // Improved function to handle initial data load
   useEffect(() => {
-    // Expose the tab selector function globally
+    // Load data when component mounts
+    const loadInitialData = async () => {
+      await testBackendConnection();
+      
+      if (allServiceProviders.length > 0) {
+        console.log("Loading contractor profiles for service providers...");
+        await fetchContractorProfiles(allServiceProviders);
+      }
+    };
+    
+    loadInitialData();
+
+    // Set up global tab selector
     window.tabSelector = (tab) => {
       if (tab === 'clients' || tab === 'serviceProviders') {
         setActiveTab(tab);
       }
     };
 
+    // Reset userDeleteId to avoid stale references
+    setUserDeleteId(null);
+    
     // Cleanup
     return () => {
       window.tabSelector = undefined;
     };
-  }, []);
-
-  // Add this useEffect to reset userDeleteId when component mounts
-  useEffect(() => {
-    // Reset userDeleteId to avoid stale references
-    setUserDeleteId(null);
-  }, []);
-
-  // Handle user deletion
-  const handleDeleteUser = async (userId) => {
-    try {
-      // Add more robust logging to track the issue
-      console.log("Attempting to delete user with ID:", userId, typeof userId);
-      
-      // Ensure userId is a string
-      const cleanUserId = String(userId).trim();
-      
-      // More thorough check for userId exists
-      if (!cleanUserId || cleanUserId === 'undefined' || cleanUserId === 'null') {
-        const errorMsg = 'User ID is undefined or null';
-        console.error(errorMsg);
-        toast.error(errorMsg);
-        setShowDeleteModal(false); // Close modal on error
-        throw new Error(errorMsg);
-      }
-      
-      // Get token from localStorage or sessionStorage
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-      
-      // Make the delete request
-      const apiUrl = `http://localhost:5000/auth/users/${cleanUserId}`;
-      console.log("Sending DELETE request to:", apiUrl);
-      
-      const response = await axios.delete(apiUrl, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      console.log("Delete response:", response);
-      
-      if (response.status === 200) {
-        // Update local state immediately to reflect changes
-        setAllClients(prevClients => prevClients.filter(client => 
-          (client._id !== cleanUserId && client.id !== cleanUserId)
-        ));
-        setAllServiceProviders(prevProviders => prevProviders.filter(provider => 
-          (provider._id !== cleanUserId && provider.id !== cleanUserId)
-        ));
-        
-        toast.success('User deleted successfully');
-        
-        // Optional: refresh data to ensure accuracy
-        await refreshUserData();
-      }
-    } catch (error) {
-      console.error("Failed to delete user:", error);
-      
-      // Detailed error reporting
-      if (error.response) {
-        console.error("Error response data:", error.response.data);
-        console.error("Error response status:", error.response.status);
-        
-        // Check for specific error codes
-        if (error.response.status === 401) {
-          toast.error('Authentication error. Please log in again.');
-        } else if (error.response.status === 403) {
-          toast.error('You do not have permission to delete this user.');
-        } else if (error.response.status === 404) {
-          toast.error('User not found. It may have been already deleted.');
-          // Update local state to remove the user anyway
-          setAllClients(allClients.filter(client => client._id !== cleanUserId));
-          setAllServiceProviders(allServiceProviders.filter(provider => provider._id !== cleanUserId));
-        } else {
-          toast.error(`Error: ${error.response.data.error || 'Failed to delete user'}`);
-        }
-      } else if (error.request) {
-        console.error("No response received:", error.request);
-        toast.error('Server did not respond. Check your internet connection.');
-      } else {
-        toast.error(error.message || 'Failed to delete user');
-      }
-    } finally {
-      setShowDeleteModal(false);
-    }
-  };
-
-  const handleVerifyContractor = async (provider) => {
-    try {
-      // Check if we already have the contractorId from the enhanced provider data
-      let contractorId = provider.contractorId;
-      
-      // If not available, fetch the contractor profile using the user ID
-      if (!contractorId) {
-        try {
-          const contractorResponse = await axios.get(`http://localhost:5000/api/contractors/user/${provider._id}`);
-          
-          if (!contractorResponse.data) {
-            toast.error('Contractor profile not found');
-            return;
-          }
-          
-          contractorId = contractorResponse.data._id;
-        } catch (error) {
-          if (error.response?.status === 404) {
-            toast.error('Contractor profile not found. Please ensure the contractor has created their profile.');
-          } else {
-            toast.error(error.response?.data?.error || 'Failed to find contractor profile');
-          }
-          return;
-        }
-      }
-
-      // Toggle verification status
-      const response = await axios.put(`http://localhost:5000/api/contractors/verify/${contractorId}`);
-      
-      if (response.data && response.data.contractor) {
-        // Update the local state with the new contractor data
-        setAllServiceProviders(prevProviders => 
-          prevProviders.map(p => 
-            p._id === provider._id 
-              ? { 
-                  ...p, 
-                  verified: response.data.contractor.verified,
-                  contractorId: response.data.contractor._id
-                } 
-              : p
-          )
-        );
-        
-        toast.success(`Contractor ${response.data.contractor.verified ? 'verified' : 'unverified'} successfully`);
-      }
-    } catch (error) {
-      console.error('Error toggling verification:', error);
-      toast.error(error.response?.data?.error || 'Failed to toggle verification status');
-    }
-  };
+  }, [allServiceProviders.length]);
 
   return (
     <div>
@@ -213,17 +364,23 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
           className={`py-3 px-6 text-sm font-medium ${activeTab === 'clients' 
             ? 'border-b-2 border-blue-600 text-blue-600' 
             : 'text-gray-500 hover:text-gray-700'}`}
-          onClick={() => setActiveTab('clients')}
+          onClick={() => {
+            setActiveTab('clients');
+            setCurrentPage(1); // Reset to first page when switching tabs
+          }}
         >
-          Clients ({allClients.length})
+          Clients ({filteredClients.length})
         </button>
         <button 
           className={`py-3 px-6 text-sm font-medium ${activeTab === 'serviceProviders' 
             ? 'border-b-2 border-blue-600 text-blue-600' 
             : 'text-gray-500 hover:text-gray-700'}`}
-          onClick={() => setActiveTab('serviceProviders')}
+          onClick={() => {
+            setActiveTab('serviceProviders');
+            setCurrentPage(1); // Reset to first page when switching tabs
+          }}
         >
-          Service Providers ({allServiceProviders.length})
+          Service Providers ({filteredProviders.length})
         </button>
       </div>
       
@@ -235,7 +392,10 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
             placeholder="Search users..."
             className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             value={userFilter}
-            onChange={(e) => setUserFilter(e.target.value)}
+            onChange={(e) => {
+              setUserFilter(e.target.value);
+              setCurrentPage(1); // Reset to first page when searching
+            }}
           />
           <FaSearch className="absolute left-3 top-2.5 text-gray-400" />
         </div>
@@ -260,11 +420,8 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                 <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">Loading users...</td>
               </tr>
             ) : activeTab === 'clients' ? (
-              allClients.length > 0 ? (
-                allClients.filter(user => 
-                  user.username?.toLowerCase().includes(userFilter.toLowerCase()) || 
-                  user.email?.toLowerCase().includes(userFilter.toLowerCase())
-                ).map(client => (
+              currentClients.length > 0 ? (
+                currentClients.map(client => (
                   <tr key={client._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -304,10 +461,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                       <div className="flex justify-end space-x-3">
                         {/* View Button */}
                         <button 
-                          onClick={() => {
-                            setSelectedUser(client);
-                            setShowUserModal(true);
-                          }}
+                          onClick={() => showUserDetails(client)}
                           className="text-blue-600 hover:text-blue-900"
                         >
                           View
@@ -354,11 +508,8 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                   <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">No clients found</td>
                 </tr>
               )
-            ) : allServiceProviders.length > 0 ? (
-              allServiceProviders.filter(user => 
-                user.username?.toLowerCase().includes(userFilter.toLowerCase()) || 
-                user.email?.toLowerCase().includes(userFilter.toLowerCase())
-              ).map(provider => (
+            ) : currentProviders.length > 0 ? (
+              currentProviders.map(provider => (
                 <tr key={provider._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -388,11 +539,12 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{provider.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      provider.verified 
+                      (provider.verified || contractorProfiles[provider._id]?.verified || contractorProfiles[provider.id]?.verified)
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {provider.verified ? 'Verified' : 'Unverified'}
+                      {(provider.verified || contractorProfiles[provider._id]?.verified || contractorProfiles[provider.id]?.verified) 
+                        ? 'Verified' : 'Unverified'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -402,10 +554,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                     <div className="flex justify-end space-x-3">
                       {/* View Button */}
                       <button 
-                        onClick={() => {
-                          setSelectedUser(provider);
-                          setShowUserModal(true);
-                        }}
+                        onClick={() => showUserDetails(provider)}
                         className="text-blue-600 hover:text-blue-900"
                       >
                         View
@@ -444,10 +593,22 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                         Delete
                       </button>
                       <button
-                        onClick={() => handleVerifyContractor(provider)}
-                        className="text-blue-600 hover:text-blue-900"
+                        onClick={() => handleVerifyContractor({
+                          ...provider,
+                          _id: provider._id || provider.id,
+                          id: provider.id || provider._id,
+                          contractorId: provider.contractorId || 
+                                      (contractorProfiles[provider._id] && contractorProfiles[provider._id]._id) ||
+                                      (contractorProfiles[provider.id] && contractorProfiles[provider.id]._id)
+                        })}
+                        className={`text-${
+                          (provider.verified || contractorProfiles[provider._id]?.verified || contractorProfiles[provider.id]?.verified) ? 'red' : 'blue'
+                        }-600 hover:text-${
+                          (provider.verified || contractorProfiles[provider._id]?.verified || contractorProfiles[provider.id]?.verified) ? 'red' : 'blue'
+                        }-900`}
                       >
-                        {provider.verified ? 'Unverify' : 'Verify'}
+                        {(provider.verified || contractorProfiles[provider._id]?.verified || contractorProfiles[provider.id]?.verified) 
+                          ? 'Unverify' : 'Verify'}
                       </button>
                     </div>
                   </td>
@@ -462,38 +623,72 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         </table>
       </div>
       
-      {/* Pagination */}
+      {/* Improved Pagination */}
       <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div className="flex-1 flex justify-between sm:hidden">
-          <button key="mob-prev" className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+          <button 
+            onClick={goToPreviousPage}
+            disabled={currentPage === 1}
+            className={`relative inline-flex items-center px-4 py-2 border ${
+              currentPage === 1 ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            } text-sm font-medium rounded-md bg-white`}
+          >
             Previous
           </button>
-          <button key="mob-next" className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+          <button 
+            onClick={goToNextPage}
+            disabled={currentPage === totalPages || totalPages === 0}
+            className={`ml-3 relative inline-flex items-center px-4 py-2 border ${
+              currentPage === totalPages || totalPages === 0 ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            } text-sm font-medium rounded-md bg-white`}
+          >
             Next
           </button>
         </div>
         <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
           <div>
             <p className="text-sm text-gray-700">
-              Showing <span className="font-medium">1</span> to <span className="font-medium">10</span> of{" "}
-              <span className="font-medium">{activeTab === 'clients' ? allClients.length : allServiceProviders.length}</span> results
+              Showing <span className="font-medium">{indexOfFirstRecord + 1}</span> to{" "}
+              <span className="font-medium">
+                {Math.min(indexOfLastRecord, (activeTab === 'clients' ? filteredClients.length : filteredProviders.length))}
+              </span> of{" "}
+              <span className="font-medium">{activeTab === 'clients' ? filteredClients.length : filteredProviders.length}</span> results
             </p>
           </div>
           <div>
             <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-              <button key="prev" className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+              <button 
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                className={`relative inline-flex items-center px-2 py-2 rounded-l-md border ${
+                  currentPage === 1 ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-500 hover:bg-gray-50'
+                } bg-white text-sm font-medium`}
+              >
                 Previous
               </button>
-              <button key="page1" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                1
-              </button>
-              <button key="page2" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                2
-              </button>
-              <button key="page3" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                3
-              </button>
-              <button key="next" className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+              
+              {/* Fix key prop warning by using proper key values */}
+              {pageNumbers.map(number => (
+                <button 
+                  key={`page-${number}-${activeTab}`}
+                  onClick={() => goToPage(number)}
+                  className={`relative inline-flex items-center px-4 py-2 border ${
+                    currentPage === number 
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-600 z-10' 
+                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  } text-sm font-medium`}
+                >
+                  {number}
+                </button>
+              ))}
+              
+              <button 
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className={`relative inline-flex items-center px-2 py-2 rounded-r-md border ${
+                  currentPage === totalPages || totalPages === 0 ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-500 hover:bg-gray-50'
+                } bg-white text-sm font-medium`}
+              >
                 Next
               </button>
             </nav>
@@ -501,17 +696,19 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         </div>
       </div>
 
-      {/* User Modal */}
+      {/* User Modal - Enhanced with contractor details and verification */}
       {showUserModal && selectedUser && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border w-[500px] shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">User Details</h3>
               <button onClick={() => setShowUserModal(false)} className="text-gray-500">
                 <FaTimes />
               </button>
             </div>
-            <div className="flex flex-col items-center mb-4">
+            
+            {/* User Profile Header */}
+            <div className="flex flex-col items-center mb-6">
               {selectedUser.profilePic ? (
                 <img 
                   className="h-24 w-24 rounded-full mb-3 object-cover" 
@@ -529,62 +726,113 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
               )}
               <h4 className="text-lg font-semibold">{selectedUser.username}</h4>
               <p className="text-gray-500">{selectedUser.email}</p>
-            </div>
-            <div className="border-t pt-4 space-y-2">
-              <p><span className="font-semibold">Role:</span> {selectedUser.role}</p>
-              <p><span className="font-semibold">Member Since:</span> {new Date(selectedUser.createdAt).toLocaleDateString()}</p>
-              <p><span className="font-semibold">Email:</span> {selectedUser.email}</p>
               
-              {/* Show phone number if available */}
-              {selectedUser.phone && (
-                <p><span className="font-semibold">Phone:</span> {selectedUser.phone}</p>
-              )}
-              
-              {/* Show address if available */}
-              {selectedUser.address && (
-                <p><span className="font-semibold">Address:</span> {selectedUser.address}</p>
-              )}
-              
-              {/* Show different fields based on role */}
+              {/* Verification Badge for Service Providers */}
               {selectedUser.role === 'serviceProvider' && (
-                <>
-                  {selectedUser.services && (
+                <div className="mt-2">
+                  <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    selectedUser.verified 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {selectedUser.verified ? 'Verified Provider' : 'Not Verified'}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* User Basic Info */}
+            <div className="border-t pt-4 mb-4">
+              <h5 className="font-semibold text-gray-700 mb-2">Basic Information</h5>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                <div>
+                  <p className="text-sm text-gray-500">Role</p>
+                  <p className="font-medium">{selectedUser.role}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Member Since</p>
+                  <p className="font-medium">{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Email</p>
+                  <p className="font-medium">{selectedUser.email}</p>
+                </div>
+                {selectedUser.phone && (
+                  <div>
+                    <p className="text-sm text-gray-500">Phone</p>
+                    <p className="font-medium">{selectedUser.phone}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Contractor Profile Info - Only shown for service providers */}
+            {selectedUser.role === 'serviceProvider' && selectedUser.contractorProfile && (
+              <div className="border-t pt-4 mb-4">
+                <h5 className="font-semibold text-gray-700 mb-2">Contractor Information</h5>
+                <div className="space-y-3">
+                  {selectedUser.contractorProfile.companyName && (
                     <div>
-                      <span className="font-semibold">Services:</span>
-                      <ul className="ml-5 list-disc">
-                        {selectedUser.services.map((service, index) => (
-                          <li key={index}>{service}</li>
-                        ))}
-                      </ul>
+                      <p className="text-sm text-gray-500">Company Name</p>
+                      <p className="font-medium">{selectedUser.contractorProfile.companyName}</p>
                     </div>
                   )}
                   
-                  {selectedUser.skills && (
-                    <p><span className="font-semibold">Skills:</span> {selectedUser.skills.join(', ')}</p>
+                  {selectedUser.contractorProfile.address && (
+                    <div>
+                      <p className="text-sm text-gray-500">Address</p>
+                      <p className="font-medium">{selectedUser.contractorProfile.address}</p>
+                    </div>
                   )}
                   
-                  {selectedUser.experience && (
-                    <p><span className="font-semibold">Experience:</span> {selectedUser.experience} years</p>
+                  {selectedUser.contractorProfile.phone && (
+                    <div>
+                      <p className="text-sm text-gray-500">Contact Number</p>
+                      <p className="font-medium">{selectedUser.contractorProfile.phone}</p>
+                    </div>
                   )}
-                </>
-              )}
-              
-              {/* Completed projects count if available */}
-              {selectedUser.completedProjects && (
-                <p><span className="font-semibold">Completed Projects:</span> {selectedUser.completedProjects}</p>
-              )}
-              
-              {/* Status field */}
-              <p>
-                <span className="font-semibold">Status:</span> 
-                <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                  Active
-                </span>
-              </p>
-            </div>
+                  
+                  {selectedUser.contractorProfile.specialization && selectedUser.contractorProfile.specialization.length > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-500">Specializations</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {selectedUser.contractorProfile.specialization.map((spec, index) => (
+                          <span key={`spec-${spec}-${index}`} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                            {spec}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedUser.contractorProfile.experienceYears !== undefined && (
+                      <div>
+                        <p className="text-sm text-gray-500">Experience</p>
+                        <p className="font-medium">{selectedUser.contractorProfile.experienceYears} years</p>
+                      </div>
+                    )}
+                    
+                    {selectedUser.contractorProfile.completedProjects !== undefined && (
+                      <div>
+                        <p className="text-sm text-gray-500">Projects</p>
+                        <p className="font-medium">{selectedUser.contractorProfile.completedProjects} completed</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {selectedUser.contractorProfile.bio && (
+                    <div>
+                      <p className="text-sm text-gray-500">Bio</p>
+                      <p className="text-sm mt-1 text-gray-700">{selectedUser.contractorProfile.bio}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             
-            {/* Add action buttons at the bottom of the modal */}
-            <div className="mt-6 pt-4 border-t flex justify-end space-x-3">
+            {/* Action Buttons */}
+            <div className="mt-6 pt-4 border-t flex justify-between">
               <button 
                 onClick={() => setShowUserModal(false)}
                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
@@ -592,6 +840,25 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                 Close
               </button>
               
+              {/* Show verification toggle button only for service providers */}
+              {selectedUser.role === 'serviceProvider' && (
+                <button
+                  onClick={() => {
+                    handleVerifyContractor({
+                      ...selectedUser,
+                      id: selectedUser.id || selectedUser._id,
+                      _id: selectedUser._id || selectedUser.id
+                    });
+                  }}
+                  className={`px-4 py-2 rounded text-white ${
+                    selectedUser.verified
+                      ? 'bg-red-500 hover:bg-red-600' 
+                      : 'bg-green-500 hover:bg-green-600'
+                  }`}
+                >
+                  {selectedUser.verified ? 'Unverify Provider' : 'Verify Provider'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -620,13 +887,10 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                       return;
                     }
                     
-                    // Store the ID in a local variable to ensure it doesn't change
-                    const idToDelete = String(userDeleteId); // Convert to string to ensure consistency
+                    const idToDelete = String(userDeleteId);
                     
-                    // Log the ID being passed to ensure it's correct
                     console.log("Executing delete with ID:", idToDelete);
                     
-                    // Pass the local variable to handleDeleteUser
                     handleDeleteUser(idToDelete);
                   } catch (err) {
                     console.error("Error in delete confirmation:", err);

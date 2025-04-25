@@ -1353,14 +1353,7 @@ function Admindashboard() {
                 
               </div>
               
-              <div className="relative">
-                <button className="relative p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
-                  <FaBell className="text-gray-600" />
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                    3
-                  </span>
-                </button>
-              </div>
+              
               
               <div className="flex items-center space-x-3 border-l pl-5 border-gray-200">
                 <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-lg">
