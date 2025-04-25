@@ -151,24 +151,38 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
 
   const handleVerifyContractor = async (provider) => {
     try {
-      // First, get the contractor profile using the user ID
-      const contractorResponse = await axios.get(`http://localhost:5000/api/contractors/user/${provider.id}`);
+      // Check if we already have the contractorId from the enhanced provider data
+      let contractorId = provider.contractorId;
       
-      if (!contractorResponse.data) {
-        toast.error('Contractor profile not found');
-        return;
+      // If not available, fetch the contractor profile using the user ID
+      if (!contractorId) {
+        try {
+          const contractorResponse = await axios.get(`http://localhost:5000/api/contractors/user/${provider._id}`);
+          
+          if (!contractorResponse.data) {
+            toast.error('Contractor profile not found');
+            return;
+          }
+          
+          contractorId = contractorResponse.data._id;
+        } catch (error) {
+          if (error.response?.status === 404) {
+            toast.error('Contractor profile not found. Please ensure the contractor has created their profile.');
+          } else {
+            toast.error(error.response?.data?.error || 'Failed to find contractor profile');
+          }
+          return;
+        }
       }
 
-      const contractor = contractorResponse.data;
-      
       // Toggle verification status
-      const response = await axios.put(`http://localhost:5000/api/contractors/verify/${contractor._id}`);
+      const response = await axios.put(`http://localhost:5000/api/contractors/verify/${contractorId}`);
       
       if (response.data && response.data.contractor) {
         // Update the local state with the new contractor data
         setAllServiceProviders(prevProviders => 
           prevProviders.map(p => 
-            p.id === provider.id 
+            p._id === provider._id 
               ? { 
                   ...p, 
                   verified: response.data.contractor.verified,
@@ -182,11 +196,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
       }
     } catch (error) {
       console.error('Error toggling verification:', error);
-      if (error.response?.status === 404) {
-        toast.error('Contractor profile not found. Please ensure the contractor has created their profile.');
-      } else {
-        toast.error(error.response?.data?.error || 'Failed to toggle verification status');
-      }
+      toast.error(error.response?.data?.error || 'Failed to toggle verification status');
     }
   };
 
