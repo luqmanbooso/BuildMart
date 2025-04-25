@@ -7,124 +7,35 @@ import { FaPhoneAlt, FaMapMarkerAlt, FaBriefcase, FaTools, FaAward,
          FaEdit, FaCheck, FaArrowRight } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Constants
-const SPECIALIZATIONS = [
-  'Electrical', 'Plumbing',
-  'Roofing', 'Carpentry', 'Masonry', 'Painting',
-  'Flooring', 'Landscaping', 'Interior Design',
-];
-
-const SRI_LANKA_DISTRICTS = [
-  'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 
-  'Galle', 'Gampaha', 'Hambantota', 'Jaffna', 'Kalutara',
-  'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala', 'Mannar', 
-  'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya',
-  'Polonnaruwa', 'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
-];
-
-// Helper functions
-const validatePhone = (phone) => {
-  if (!phone) return { valid: false, message: 'Phone number is required' };
-  const digits = phone.replace(/[^0-9]/g, '');
-  if (digits.length !== 10) {
-    return { valid: false, message: 'Phone number should be 10 digits' };
-  }
-  if (!digits.startsWith('07')) {
-    return { valid: false, message: 'Phone number must start with 07' };
-  }
-  return { valid: true, message: '' };
-};
-
-const validateBio = (bio) => {
-  if (!bio) return { valid: false, message: 'Bio is required' };
-  if (bio.trim().length < 50) {
-    return { valid: false, message: 'Bio should be at least 50 characters' };
-  }
-  if (bio.length > 500) {
-    return { valid: false, message: 'Bio should not exceed 500 characters' };
-  }
-  return { valid: true, message: '' };
-};
-
-const validateUsername = (username) => {
-  if (!username) return { valid: false, message: 'Username is required' };
-  if (username.length < 3) {
-    return { valid: false, message: 'Username should be at least 3 characters' };
-  }
-  if (username.length > 30) {
-    return { valid: false, message: 'Username should not exceed 30 characters' };
-  }
-  const validChars = /^[a-zA-Z0-9_-]+$/;
-  if (!validChars.test(username)) {
-    return { valid: false, message: 'Username can only contain letters, numbers, hyphens, and underscores' };
-  }
-  if (/([-_]){2,}/.test(username)) {
-    return { valid: false, message: 'Username cannot contain consecutive special characters' };
-  }
-  if (/^[-_]|[-_]$/.test(username)) {
-    return { valid: false, message: 'Username cannot start or end with special characters' };
-  }
-  return { valid: true, message: '' };
-};
-
-const sanitizeUsername = (username) => {
-  if (!username) return '';
-  let sanitized = username.replace(/[^a-zA-Z0-9_-]/g, '');
-  sanitized = sanitized.replace(/([-_]){2,}/g, '$1');
-  sanitized = sanitized.replace(/^[-_]+|[-_]+$/g, '');
-  sanitized = sanitized.slice(0, 30);
-  return sanitized;
-};
-
-const sanitizeCompanyName = (name) => {
-  if (!name) return '';
-  // Remove all special characters except spaces and basic punctuation
-  let sanitized = name.replace(/[^a-zA-Z0-9\s.,&'-]/g, '');
-  // Remove multiple spaces
-  sanitized = sanitized.replace(/\s+/g, ' ');
-  // Trim whitespace
-  sanitized = sanitized.trim();
-  return sanitized;
-};
-
-const sanitizeBio = (bio) => {
-  if (!bio) return '';
-  // Allow basic punctuation and newlines, but remove other special characters
-  let sanitized = bio.replace(/[^a-zA-Z0-9\s.,!?&'-()\n]/g, '');
-  // Remove multiple spaces
-  sanitized = sanitized.replace(/\s+/g, ' ');
-  // Remove multiple newlines
-  sanitized = sanitized.replace(/\n+/g, '\n');
-  return sanitized;
-};
-
-const validateCompanyName = (name) => {
-  if (!name) return { valid: false, message: 'Company name is required' };
-  if (name.length < 2) {
-    return { valid: false, message: 'Company name should be at least 2 characters' };
-  }
-  if (name.length > 50) {
-    return { valid: false, message: 'Company name should not exceed 50 characters' };
-  }
-  return { valid: true, message: '' };
-};
-
-// Main component
-const ContractorOnboarding = () => {
+const ContractorProfileSetup = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [activeSection, setActiveSection] = useState(0);
   
   const [formData, setFormData] = useState({
     phone: '',
-    address: '',
+    address: '', // This will now hold the selected district
     companyName: '',
     specialization: [],
     experienceYears: 0,
     completedProjects: 0,
-    bio: '',
-    username: ''
+    bio: ''
   });
+
+  const SPECIALIZATIONS = [
+    'Electrical', 'Plumbing',
+    'Roofing', 'Carpentry', 'Masonry', 'Painting',
+    'Flooring', 'Landscaping', 'Interior Design',
+
+  ];
+
+  const SRI_LANKA_DISTRICTS = [
+    'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo', 
+    'Galle', 'Gampaha', 'Hambantota', 'Jaffna', 'Kalutara',
+    'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala', 'Mannar', 
+    'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya',
+    'Polonnaruwa', 'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya'
+  ];
 
   const sections = [
     { name: 'Contact', icon: <FaPhoneAlt /> },
@@ -133,359 +44,820 @@ const ContractorOnboarding = () => {
     { name: 'Bio', icon: <FaEdit /> }
   ];
 
-  const handleInputChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    
-    if (name === 'username') {
-      const sanitized = sanitizeUsername(value);
-      setFormData(prev => ({ ...prev, username: sanitized }));
-    } else if (name === 'companyName') {
-      const sanitized = sanitizeCompanyName(value);
-      setFormData(prev => ({ ...prev, companyName: sanitized }));
-    } else if (name === 'bio') {
-      const sanitized = sanitizeBio(value);
-      setFormData(prev => ({ ...prev, bio: sanitized }));
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+  };
+
+  const handleSpecializationChange = (specialization) => {
+    if (formData.specialization.includes(specialization)) {
+      setFormData({
+        ...formData,
+        specialization: formData.specialization.filter(spec => spec !== specialization)
+      });
+    } else if (formData.specialization.length < 5) {
+      setFormData({
+        ...formData,
+        specialization: [...formData.specialization, specialization]
+      });
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      toast.warning('You can select up to 5 specializations');
     }
   };
 
-  const handleNumberInputChange = (e) => {
+  const handleNumericChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
+    setFormData({
+      ...formData,
       [name]: parseInt(value) || 0
-    }));
+    });
   };
+
+  // Add the handlePhoneInput function to handle phone number formatting
+  const handlePhoneInput = (e) => {
+    // Only allow numeric input
+    const value = e.target.value.replace(/\D/g, '');
+    
+    // Ensure it doesn't exceed 10 digits
+    const truncatedValue = value.slice(0, 10);
+    
+    // Update the form data with the formatted phone number
+    setFormData({
+      ...formData,
+      phone: truncatedValue
+    });
+  };
+
+  // Real-time field validation functions
+const validatePhone = (phone) => {
+  if (!phone) return { valid: false, message: 'Phone number is required' };
+  const digits = phone.replace(/[^0-9]/g, '');
+  if (digits.length !== 10) {
+    return { 
+      valid: false, 
+      message: 'Phone number should be 10 digits' 
+    };
+  }
+  if (!digits.startsWith('07')) {
+    return {
+      valid: false,
+      message: 'Phone number must start with 07'
+    };
+  }
+  return { valid: true, message: '' };
+};
+
+// Add company name validation to check for special characters
+const validateCompanyName = (name) => {
+  if (!name) return { valid: true, message: '' }; // Optional field
+  if (name.trim().length < 2) {
+    return { valid: false, message: 'Company name should be at least 2 characters' };
+  }
+  // Check for invalid special characters (allowing only common ones like &, -, etc.)
+  const invalidCharsRegex = /[^\w\s&\-.,'"()]/;
+  if (invalidCharsRegex.test(name)) {
+    return { valid: false, message: 'Company name contains invalid characters' };
+  }
+  return { valid: true, message: '' };
+};
+
+const validateAddress = (address) => {
+  if (!address) return { valid: false, message: 'Please select a district' };
+  return { valid: true, message: '' };
+};
+
+const validateBio = (bio) => {
+  if (!bio) return { valid: false, message: 'Bio is required' };
+  if (bio.trim().length < 50) {
+    return { 
+      valid: false, 
+      message: 'Bio should be at least 50 characters' 
+    };
+  }
+  if (bio.length > 500) {
+    return { 
+      valid: false, 
+      message: 'Bio should not exceed 500 characters' 
+    };
+  }
+  
+  // Check for excessive special characters or patterns that might indicate spam/injection
+  const specialCharPattern = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/g;
+  const specialCharCount = (bio.match(specialCharPattern) || []).length;
+  
+  if (specialCharCount > bio.length * 0.3) { // If more than 30% special chars
+    return {
+      valid: false,
+      message: 'Bio contains too many special characters'
+    };
+  }
+  
+  return { valid: true, message: '' };
+};
 
   const validateForm = () => {
-    const phoneValidation = validatePhone(formData.phone);
-    if (!phoneValidation.valid) {
-      toast.error(phoneValidation.message);
+    // Phone validation - should be a valid format
+    if (!formData.phone) {
+      toast.error('Phone number is required');
+      setActiveSection(0);
       return false;
     }
-
+    
+    // Phone format validation - check for at least 10 digits
+    const phoneRegex = /^[0-9]{10,12}$/;
+    if (!phoneRegex.test(formData.phone.replace(/[^0-9]/g, ''))) {
+      toast.error('Phone number should contain 10-12 digits');
+      setActiveSection(0);
+      return false;
+    }
+  
+    // Address validation - minimum length
     if (!formData.address) {
-      toast.error('Address is required');
+      toast.error('Please select a district');
+      setActiveSection(0);
       return false;
     }
-
-    const companyNameValidation = validateCompanyName(formData.companyName);
-    if (!companyNameValidation.valid) {
-      toast.error(companyNameValidation.message);
+  
+    // Company name validation (if provided)
+    if (formData.companyName && formData.companyName.trim().length < 2) {
+      toast.error('Company name should be at least 2 characters');
+      setActiveSection(1);
       return false;
     }
-
+  
+    // Experience years validation
+    if (formData.experienceYears < 0) {
+      toast.error('Experience years cannot be negative');
+      setActiveSection(1);
+      return false;
+    }
+  
+    // Completed projects validation
+    if (formData.completedProjects < 0) {
+      toast.error('Completed projects cannot be negative');
+      setActiveSection(1);
+      return false;
+    }
+  
+    // Specialization validation
     if (formData.specialization.length === 0) {
       toast.error('Please select at least one specialization');
+      setActiveSection(2);
       return false;
     }
-
-    const bioValidation = validateBio(formData.bio);
-    if (!bioValidation.valid) {
-      toast.error(bioValidation.message);
+  
+    // Bio validation - minimum and maximum length
+    if (!formData.bio || formData.bio.trim().length < 50) {
+      toast.error('Please provide a detailed bio (at least 50 characters)');
+      setActiveSection(3);
       return false;
     }
-
-    const usernameValidation = validateUsername(formData.username);
-    if (!usernameValidation.valid) {
-      toast.error(usernameValidation.message);
+  
+    if (formData.bio.length > 500) {
+      toast.error('Bio is too long (maximum 500 characters)');
+      setActiveSection(3);
       return false;
     }
-
+  
     return true;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
+// Add these validation functions near your other validation functions
 
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const decoded = jwtDecode(token);
+// Section validation functions
+const isSection0Valid = () => {
+  return validatePhone(formData.phone).valid && formData.address !== '';
+};
+
+const isSection1Valid = () => {
+  // Company name validation
+  const companyNameValidation = validateCompanyName(formData.companyName);
+  // Experience and projects should not be negative
+  return companyNameValidation.valid && 
+         formData.experienceYears >= 0 && 
+         formData.completedProjects >= 0;
+};
+
+const isSection2Valid = () => {
+  return formData.specialization.length > 0;
+};
+
+const isSection3Valid = () => {
+  return validateBio(formData.bio).valid;
+};
+
+// Add this useEffect near the top of your component:
+
+useEffect(() => {
+  // Check if user is a contractor with incomplete profile
+  const token = localStorage.getItem('token');
+  const profileComplete = localStorage.getItem('contractorProfileComplete');
+  
+  if (!token) {
+    navigate('/login');
+    return;
+  }
+  
+  try {
+    const decoded = jwtDecode(token);
+    if (decoded.role !== 'Service Provider') {
+      navigate('/');
+      return;
+    }
+    
+    if (profileComplete === 'true') {
+      // If they already completed the profile but somehow got back here
+      navigate('/auction');
+      return;
+    }
+    
+    // If they try to leave, warn them
+    const handleBeforeUnload = (e) => {
+      const message = 'You need to complete your profile setup before continuing. Are you sure you want to leave?';
+      e.returnValue = message;
+      return message;
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  } catch (error) {
+    console.error("Token validation error:", error);
+    navigate('/login');
+  }
+}, [navigate]);
+
+// Update the handleSubmit function to properly handle the token
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) return;
+
+  setLoading(true);
+  try {
+    // Get auth token from localStorage or sessionStorage
+      // Debug localStorage contents
+      console.log('All localStorage keys:');
+      for (let i = 0; i < localStorage.length; i++) {
+        console.log(`- ${localStorage.key(i)}`);
+      }
       
-      const response = await axios.post(
-        'http://localhost:5000/api/contractors',
-        {
-          ...formData,
-          userId: decoded.userId
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
+      // Get auth token from localStorage with better error handling
+      const token = localStorage.getItem('token');
+      console.log('Token retrieved:', token ? 'Yes (length: ' + token.length + ')' : 'No token found');
+      
+    if (!token) {
+      toast.error('Authentication required. Please login again.');
+      navigate('/login');
+      return;
+    }
 
-      toast.success('Profile created successfully!');
-      navigate('/contractor/dashboard');
-    } catch (error) {
-      console.error('Error creating profile:', error);
-      toast.error(error.response?.data?.message || 'Failed to create profile');
-    } finally {
-      setLoading(false);
+    // If you're using jwtDecode, make sure to handle potential errors
+    let userId;
+    try {
+      const decoded = jwtDecode(token);
+      userId = decoded.userId || decoded._id || decoded.id;
+      
+      if (!userId) {
+        throw new Error('User ID not found in token');
+      }
+    } catch (tokenError) {
+      console.error('Token decoding error:', tokenError);
+      toast.error('Authentication error. Please login again.');
+      navigate('/login');
+      return;
+    }
+
+    // Now make the API request with the user ID
+    const response = await axios.post('http://localhost:5000/api/contractors/', {
+      ...formData,
+      userId
+    });
+
+    localStorage.setItem('contractorProfileComplete', 'true');
+    toast.success('Profile created successfully!');
+    navigate('/auction'); // Or wherever contractors should go after onboarding
+  } catch (error) {
+    console.error('Error creating profile:', error);
+    
+    if (error.response?.data?.error) {
+      toast.error(error.response.data.error);
+    } else {
+      toast.error('An error occurred while creating your profile');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // Animation variants
+  const pageVariants = {
+    initial: { opacity: 0, x: 100 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -100 }
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { 
+        when: "beforeChildren",
+        staggerChildren: 0.1 
+      }
     }
   };
 
-  const isSection0Valid = () => {
-    const phoneValidation = validatePhone(formData.phone);
-    return phoneValidation.valid && formData.address.trim() !== '';
-  };
-
-  const isSection1Valid = () => {
-    return formData.companyName.trim() !== '' && 
-           formData.experienceYears > 0 && 
-           formData.completedProjects >= 0;
-  };
-
-  const isSection2Valid = () => {
-    return formData.specialization.length > 0;
-  };
-
-  const isSection3Valid = () => {
-    const bioValidation = validateBio(formData.bio);
-    const usernameValidation = validateUsername(formData.username);
-    return bioValidation.valid && usernameValidation.valid;
-  };
-
-  const handleNext = () => {
-    if (activeSection < sections.length - 1) {
-      setActiveSection(prev => prev + 1);
-    }
-  };
-
-  const handleBack = () => {
-    if (activeSection > 0) {
-      setActiveSection(prev => prev - 1);
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { type: 'spring', stiffness: 100 }
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 py-12">
-      <div className="max-w-4xl mx-auto px-4">
-        <motion.div
+      <div className="container mx-auto px-4 max-w-4xl">
+        <motion.div 
+          className="bg-white rounded-lg shadow-xl overflow-hidden border border-gray-100"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-lg shadow-lg p-8"
+          transition={{ duration: 0.5 }}
         >
-          <h1 className="text-3xl font-bold text-center mb-8">Complete Your Contractor Profile</h1>
-          
-          {/* Progress Steps */}
-          <div className="flex justify-between mb-8">
-            {sections.map((section, index) => (
-              <div
-                key={index}
-                className={`flex items-center ${
-                  index <= activeSection ? 'text-blue-600' : 'text-gray-400'
-                }`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    index <= activeSection ? 'bg-blue-600 text-white' : 'bg-gray-200'
-                  }`}
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 text-white text-center relative">
+            <motion.h1 
+              className="text-3xl font-bold"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              Set Up Your Contractor Profile
+            </motion.h1>
+            <motion.p 
+              className="mt-2 opacity-90"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              Complete your profile to start receiving project opportunities
+            </motion.p>
+            
+            {/* Progress indicator */}
+            <div className="flex justify-center mt-8">
+              {sections.map((section, index) => (
+                <motion.div 
+                  key={index}
+                  className="flex flex-col items-center mx-4 cursor-pointer"
+                  onClick={() => setActiveSection(index)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  {index < activeSection ? <FaCheck /> : section.icon}
-                </div>
-                <span className="ml-2">{section.name}</span>
-                {index < sections.length - 1 && (
-                  <div className="w-16 h-1 mx-2 bg-gray-200">
-                    <div
-                      className={`h-full ${
-                        index < activeSection ? 'bg-blue-600' : 'bg-gray-200'
-                      }`}
-                      style={{ width: `${(activeSection - index) * 100}%` }}
-                    />
+                  <div className={`
+                    w-10 h-10 rounded-full flex items-center justify-center mb-1
+                    ${index <= activeSection ? 'bg-white text-blue-600' : 'bg-blue-400 text-white'}
+                    transition-all duration-300
+                  `}>
+                    {index < activeSection ? <FaCheck /> : section.icon}
                   </div>
-                )}
-              </div>
-            ))}
+                  <span className="text-xs">{section.name}</span>
+                  {index < sections.length - 1 && (
+                    <div className={`h-0.5 w-8 absolute ${index < activeSection ? 'bg-white' : 'bg-blue-400'}`} 
+                      style={{ left: `calc(50% + ${(index - sections.length/2 + 0.5) * 72}px)`, top: '51%' }}></div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
           </div>
 
-          {/* Form Sections */}
-          <form onSubmit={handleSubmit}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeSection}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
-              >
+          <form onSubmit={handleSubmit} className="p-8">
+            {/* Section container with fixed height */}
+            <div className="relative min-h-[450px]">
+              <AnimatePresence mode="wait">
+                {/* Contact Information */}
                 {activeSection === 0 && (
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        placeholder="07XXXXXXXX"
-                      />
+                  <motion.div 
+                    key="contact"
+                    className="bg-white p-6 rounded-lg border border-blue-300 shadow-md absolute w-full"
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={{ type: 'tween', duration: 0.3 }}
+                  >
+                    <motion.h2 
+                      className="text-xl font-semibold text-gray-800 mb-4 flex items-center"
+                      variants={itemVariants}
+                    >
+                      <FaPhoneAlt className="text-blue-600 mr-2" />
+                      Contact Information
+                    </motion.h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <motion.div variants={itemVariants}>
+                        <label htmlFor="phone" className="block text-gray-700 font-medium mb-1">
+                          Phone Number <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="tel"
+                          id="phone"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleChange}
+                          onInput={handlePhoneInput}
+                          maxLength={10}
+                          className={`w-full border ${
+                            formData.phone && !validatePhone(formData.phone).valid
+                              ? 'border-red-300 focus:ring-red-500'
+                              : 'border-gray-300 focus:ring-blue-500'
+                          } rounded-md px-4 py-2 
+                            focus:outline-none focus:ring-2 focus:border-transparent
+                            transition-all duration-200`}
+                          placeholder="e.g. 0771234567"
+                          required
+                        />
+                        {formData.phone && !validatePhone(formData.phone).valid && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {validatePhone(formData.phone).message}
+                          </p>
+                        )}
+                      </motion.div>
+
+                      <motion.div variants={itemVariants}>
+                        <label htmlFor="address" className="block text-gray-700 font-medium mb-1">
+                          District <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id="address"
+                          name="address"
+                          value={formData.address}
+                          onChange={handleChange}
+                          className="w-full border border-gray-300 rounded-md px-4 py-2 
+                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                            transition-all duration-200"
+                          required
+                        >
+                          <option value="">Select your district</option>
+                          {SRI_LANKA_DISTRICTS.map(district => (
+                            <option key={district} value={district}>
+                              {district}
+                            </option>
+                          ))}
+                        </select>
+                        <motion.p 
+                          className="text-xs text-gray-500 mt-1"
+                          variants={itemVariants}
+                        >
+                          <FaMapMarkerAlt className="inline mr-1" />
+                          This helps clients find contractors in their area
+                        </motion.p>
+                      </motion.div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Address</label>
-                      <textarea
-                        name="address"
-                        value={formData.address}
-                        onChange={handleInputChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        rows={3}
-                      />
-                    </div>
-                  </div>
+                    
+                    <motion.div 
+                      className="mt-4 flex justify-end"
+                      variants={itemVariants}
+                    >
+                      <button 
+                        type="button" 
+                        onClick={() => setActiveSection(1)} 
+                        disabled={!isSection0Valid()}
+                        className={`flex items-center px-4 py-2 rounded-md transition-colors ${
+                          isSection0Valid()
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        Next <FaArrowRight className="ml-2" />
+                      </button>
+                    </motion.div>
+                  </motion.div>
                 )}
 
+                {/* Business Details */}
                 {activeSection === 1 && (
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Company Name</label>
-                      <input
-                        type="text"
-                        name="companyName"
-                        value={formData.companyName}
-                        onChange={handleInputChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
+                  <motion.div 
+                    key="business"
+                    className="bg-white p-6 rounded-lg border border-blue-300 shadow-md absolute w-full"
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={{ type: 'tween', duration: 0.3 }}
+                  >
+                    <motion.h2 
+                      className="text-xl font-semibold text-gray-800 mb-4 flex items-center"
+                      variants={itemVariants}
+                    >
+                      <FaBriefcase className="text-blue-600 mr-2" />
+                      Business Details
+                    </motion.h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <motion.div variants={itemVariants}>
+                        <label htmlFor="companyName" className="block text-gray-700 font-medium mb-1">
+                          Company Name
+                        </label>
+                        <input
+                          type="text"
+                          id="companyName"
+                          name="companyName"
+                          value={formData.companyName}
+                          onChange={handleChange}
+                          maxLength={50} // Add reasonable maximum length
+                          className={`w-full border ${
+                            formData.companyName && !validateCompanyName(formData.companyName).valid
+                              ? 'border-red-300 focus:ring-red-500'
+                              : 'border-gray-300 focus:ring-blue-500'
+                          } rounded-md px-4 py-2 
+                            focus:outline-none focus:ring-2 focus:border-transparent
+                            transition-all duration-200`}
+                          placeholder="Optional"
+                        />
+                        {formData.companyName && !validateCompanyName(formData.companyName).valid && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {validateCompanyName(formData.companyName).message}
+                          </p>
+                        )}
+                      </motion.div>
+
+                      <motion.div variants={itemVariants}>
+                        <label htmlFor="experienceYears" className="block text-gray-700 font-medium mb-1">
+                          Years of Experience
+                        </label>
+                        <input
+                          type="number"
+                          id="experienceYears"
+                          name="experienceYears"
+                          value={formData.experienceYears}
+                          onChange={handleNumericChange}
+                          min="0"
+                          max="100" // Add reasonable maximum
+                          maxLength="3" // HTML length restriction
+                          onInput={(e) => {
+                            if (e.target.value < 0) e.target.value = 0; // Prevent negative values
+                            if (e.target.value > 100) e.target.value = 100; // Cap at maximum
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-4 py-2 
+                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                            transition-all duration-200"
+                        />
+                      </motion.div>
+
+                      <motion.div variants={itemVariants}>
+                        <label htmlFor="completedProjects" className="block text-gray-700 font-medium mb-1">
+                          Completed Projects
+                        </label>
+                        <input
+                          type="number"
+                          id="completedProjects"
+                          name="completedProjects"
+                          value={formData.completedProjects}
+                          onChange={handleNumericChange}
+                          min="0"
+                          max="10000" // Add reasonable maximum
+                          maxLength="5" // HTML length restriction
+                          onInput={(e) => {
+                            if (e.target.value < 0) e.target.value = 0; // Prevent negative values
+                            if (e.target.value > 10000) e.target.value = 10000; // Cap at maximum
+                          }}
+                          className="w-full border border-gray-300 rounded-md px-4 py-2 
+                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                            transition-all duration-200"
+                        />
+                      </motion.div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Years of Experience</label>
-                      <input
-                        type="number"
-                        name="experienceYears"
-                        value={formData.experienceYears}
-                        onChange={handleNumberInputChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        min="0"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Completed Projects</label>
-                      <input
-                        type="number"
-                        name="completedProjects"
-                        value={formData.completedProjects}
-                        onChange={handleNumberInputChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        min="0"
-                      />
-                    </div>
-                  </div>
+                    
+                    <motion.div 
+                      className="mt-4 flex justify-between"
+                      variants={itemVariants}
+                    >
+                      <button 
+                        type="button" 
+                        onClick={() => setActiveSection(0)} 
+                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        Back
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => setActiveSection(2)} 
+                        disabled={!isSection1Valid()}
+                        className={`flex items-center px-4 py-2 rounded-md transition-colors ${
+                          isSection1Valid()
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        Next <FaArrowRight className="ml-2" />
+                      </button>
+                    </motion.div>
+                  </motion.div>
                 )}
 
+                {/* Specializations */}
                 {activeSection === 2 && (
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Specializations</label>
-                      <div className="mt-2 grid grid-cols-2 gap-4">
-                        {SPECIALIZATIONS.map((spec) => (
-                          <label key={spec} className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={formData.specialization.includes(spec)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    specialization: [...prev.specialization, spec]
-                                  }));
-                                } else {
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    specialization: prev.specialization.filter(s => s !== spec)
-                                  }));
-                                }
-                              }}
-                              className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            />
-                            <span className="ml-2">{spec}</span>
-                          </label>
-                        ))}
+                  <motion.div 
+                    key="specializations"
+                    className="bg-white p-6 rounded-lg border border-blue-300 shadow-md absolute w-full"
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={{ type: 'tween', duration: 0.3 }}
+                  >
+                    <motion.h2 
+                      className="text-xl font-semibold text-gray-800 mb-4 flex items-center"
+                      variants={itemVariants}
+                    >
+                      <FaTools className="text-blue-600 mr-2" />
+                      Specializations <span className="text-red-500">*</span>
+                    </motion.h2>
+                    
+                    <motion.div 
+                      className="relative mb-6"
+                      variants={itemVariants}
+                    >
+                      <div className="flex items-center">
+                        <p className="text-sm text-gray-600">
+                          Select up to 5 areas you specialize in
+                        </p>
+                        <div className="ml-auto bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
+                          {formData.specialization.length}/5 selected
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                      
+                      {/* Progress bar */}
+                      <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                        <motion.div 
+                          className="bg-blue-600 h-2 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(formData.specialization.length / 5) * 100}%` }}
+                          transition={{ duration: 0.3 }}
+                        />
+                      </div>
+                    </motion.div>
+                    
+                    <motion.div 
+                      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
+                      variants={containerVariants}
+                    >
+                      {SPECIALIZATIONS.map((spec) => (
+                        <motion.div 
+                          key={spec} 
+                          onClick={() => handleSpecializationChange(spec)}
+                          className={`px-3 py-2 rounded-md text-sm cursor-pointer transition-all duration-200
+                            flex items-center justify-center text-center
+                            ${formData.specialization.includes(spec) 
+                              ? 'bg-blue-600 text-white scale-105 shadow-md' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                          whileHover={{ scale: formData.specialization.includes(spec) ? 1.05 : 1.03 }}
+                          whileTap={{ scale: 0.98 }}
+                          variants={itemVariants}
+                        >
+                          {spec}
+                          {formData.specialization.includes(spec) && (
+                            <FaCheck className="ml-1 text-xs" />
+                          )}
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                    
+                    <motion.div 
+                      className="mt-6 flex justify-between"
+                      variants={itemVariants}
+                    >
+                      <button 
+                        type="button" 
+                        onClick={() => setActiveSection(1)} 
+                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        Back
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => setActiveSection(3)} 
+                        disabled={!isSection2Valid()}
+                        className={`flex items-center px-4 py-2 rounded-md transition-colors ${
+                          isSection2Valid()
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        Next <FaArrowRight className="ml-2" />
+                      </button>
+                    </motion.div>
+                  </motion.div>
                 )}
 
+                {/* Bio */}
                 {activeSection === 3 && (
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Username</label>
-                      <input
-                        type="text"
-                        name="username"
-                        value={formData.username}
-                        onChange={handleInputChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Bio</label>
+                  <motion.div 
+                    key="bio"
+                    className="bg-white p-6 rounded-lg border border-blue-300 shadow-md absolute w-full"
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={{ type: 'tween', duration: 0.3 }}
+                  >
+                    <motion.h2 
+                      className="text-xl font-semibold text-gray-800 mb-4 flex items-center"
+                      variants={itemVariants}
+                    >
+                      <FaEdit className="text-blue-600 mr-2" />
+                      Professional Bio <span className="text-red-500">*</span>
+                    </motion.h2>
+                    
+                    <motion.div variants={itemVariants}>
                       <textarea
+                        id="bio"
                         name="bio"
                         value={formData.bio}
-                        onChange={handleInputChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        rows={6}
-                        placeholder="Tell us about your experience, skills, and what makes you unique..."
-                      />
-                    </div>
-                  </div>
+                        onChange={handleChange}
+                        rows="5"
+                        maxLength={700} // Add this to prevent typing beyond 500 chars
+                        className={`w-full border ${
+                          formData.bio && !validateBio(formData.bio).valid
+                            ? 'border-red-300 focus:ring-red-500'
+                            : 'border-gray-300 focus:ring-blue-500'
+                        } rounded-md px-4 py-2 
+                          focus:outline-none focus:ring-2 focus:border-transparent
+                          transition-all duration-200`}
+                        placeholder="Describe your professional background, services offered, and what makes you stand out from other contractors..."
+                        required
+                      ></textarea>
+                      <motion.div
+                        className="flex items-center justify-between text-xs mt-2"
+                        variants={itemVariants}
+                      >
+                        <p className={formData.bio && !validateBio(formData.bio).valid ? "text-red-500" : "text-gray-500"}>
+                          <FaEdit className="inline mr-1" />
+                          {formData.bio && !validateBio(formData.bio).valid 
+                            ? validateBio(formData.bio).message 
+                            : "This will be displayed on your public profile"}
+                        </p>
+                        <p className={
+                          formData.bio.length > 500 
+                            ? "text-red-500" 
+                            : formData.bio.length < 50 && formData.bio.length > 0 
+                              ? "text-yellow-500" 
+                              : "text-gray-500"
+                        }>
+                          {formData.bio.length}/500 characters
+                          {formData.bio.length < 50 && formData.bio.length > 0 && " (minimum 50)"}
+                        </p>
+                      </motion.div>
+                    </motion.div>
+                    
+                    <motion.div 
+                      className="mt-6 flex justify-between"
+                      variants={itemVariants}
+                    >
+                      <button 
+                        type="button" 
+                        onClick={() => setActiveSection(2)} 
+                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        Back
+                      </button>
+                      <button 
+                        type="submit"
+                        disabled={loading || !isSection3Valid()}
+                        className={`px-6 py-3 ${
+                          isSection3Valid() && !loading
+                            ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 transform hover:scale-105'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        } rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 
+                          transition-all duration-200 shadow-md`}
+                      >
+                        {loading ? (
+                          <div className="flex items-center">
+                            <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Creating Profile...
+                          </div>
+                        ) : (
+                          <div className="flex items-center">
+                            <FaAward className="mr-2" />
+                            Complete Profile
+                          </div>
+                        )}
+                      </button>
+                    </motion.div>
+                  </motion.div>
                 )}
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Navigation Buttons */}
-            <div className="mt-8 flex justify-between">
-              <button
-                type="button"
-                onClick={handleBack}
-                disabled={activeSection === 0}
-                className={`px-4 py-2 rounded-md ${
-                  activeSection === 0
-                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Back
-              </button>
-              {activeSection < sections.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={
-                    (activeSection === 0 && !isSection0Valid()) ||
-                    (activeSection === 1 && !isSection1Valid()) ||
-                    (activeSection === 2 && !isSection2Valid())
-                  }
-                  className={`px-4 py-2 rounded-md flex items-center ${
-                    (activeSection === 0 && !isSection0Valid()) ||
-                    (activeSection === 1 && !isSection1Valid()) ||
-                    (activeSection === 2 && !isSection2Valid())
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                >
-                  Next
-                  <FaArrowRight className="ml-2" />
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={!isSection3Valid() || loading}
-                  className={`px-4 py-2 rounded-md flex items-center ${
-                    !isSection3Valid() || loading
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700'
-                  }`}
-                >
-                  {loading ? 'Creating Profile...' : 'Complete Profile'}
-                </button>
-              )}
+              </AnimatePresence>
             </div>
           </form>
         </motion.div>
@@ -494,4 +866,4 @@ const ContractorOnboarding = () => {
   );
 };
 
-export default ContractorOnboarding;
+export default ContractorProfileSetup;

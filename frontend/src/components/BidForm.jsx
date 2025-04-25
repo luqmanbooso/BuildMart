@@ -3,6 +3,9 @@ import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
+// Add DatePicker for Timeline Breakdown
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const BidForm = ({ sampleData }) => {
   const navigate = useNavigate();
@@ -21,6 +24,25 @@ const BidForm = ({ sampleData }) => {
     seconds: 0,
     timeUp: false
   });
+  
+  // New state for Cost Breakdown section
+  const [costBreakdown, setCostBreakdown] = useState([]);
+  const [newCostItem, setNewCostItem] = useState({ description: '', amount: '' });
+  const [costTotal, setCostTotal] = useState(0);
+  
+  // New state for Timeline Breakdown section
+  const [timelineBreakdown, setTimelineBreakdown] = useState({
+    startDate: null,
+    endDate: null,
+    totalDays: 0
+  });
+  
+  // New state for Special Requests section
+  const [specialRequests, setSpecialRequests] = useState('');
+  
+  // State for validation errors specific to new sections
+  const [costBreakdownError, setCostBreakdownError] = useState(null);
+  const [timelineBreakdownError, setTimelineBreakdownError] = useState(null);
 
   const {
     register,
@@ -28,6 +50,7 @@ const BidForm = ({ sampleData }) => {
     formState: { errors },
     setValue,
     trigger,
+    watch,
   } = useForm({
     mode: "onChange", 
     defaultValues: {
@@ -36,7 +59,76 @@ const BidForm = ({ sampleData }) => {
       additionalDetails: ""
     }
   });
+  
+  // Watch for changes in the bid amount and timeline days
+  const watchBidAmount = watch("yourBid");
+  const watchTimeline = watch("timeline");
 
+  // Calculate cost total whenever costBreakdown changes
+  useEffect(() => {
+    const total = costBreakdown.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+    setCostTotal(total);
+    
+    // Validate against bid amount if both values exist
+    if (total > 0 && watchBidAmount && parseFloat(watchBidAmount) > 0) {
+      if (total > parseFloat(watchBidAmount)) {
+        setCostBreakdownError("Cost breakdown total cannot exceed bid amount");
+      } else {
+        setCostBreakdownError(null);
+      }
+    }
+  }, [costBreakdown, watchBidAmount]);
+
+  // Calculate total days whenever dates change
+  useEffect(() => {
+    if (timelineBreakdown.startDate && timelineBreakdown.endDate) {
+      // Calculate the difference in days
+      const diffTime = Math.abs(timelineBreakdown.endDate - timelineBreakdown.startDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include start day
+      setTimelineBreakdown(prev => ({ ...prev, totalDays: diffDays }));
+      
+      // Validate against timeline days if both values exist
+      if (watchTimeline && parseInt(watchTimeline) > 0) {
+        if (diffDays !== parseInt(watchTimeline)) {
+          setTimelineBreakdownError(`Timeline breakdown (${diffDays} days) does not match timeline days (${watchTimeline})`);
+        } else {
+          setTimelineBreakdownError(null);
+        }
+      }
+    }
+  }, [timelineBreakdown.startDate, timelineBreakdown.endDate, watchTimeline]);
+  
+  // Handler for adding cost items
+  const handleAddCostItem = () => {
+    // Validate input
+    if (!newCostItem.description.trim()) {
+      setCostBreakdownError("Description is required");
+      return;
+    }
+    
+    if (!newCostItem.amount || parseFloat(newCostItem.amount) <= 0) {
+      setCostBreakdownError("Amount must be greater than zero");
+      return;
+    }
+    
+    // Add item to cost breakdown
+    setCostBreakdown([...costBreakdown, {
+      description: newCostItem.description.trim(),
+      amount: parseFloat(newCostItem.amount)
+    }]);
+    
+    // Clear input fields and error
+    setNewCostItem({ description: '', amount: '' });
+    setCostBreakdownError(null);
+  };
+  
+  // Handler for removing cost items
+  const handleRemoveCostItem = (index) => {
+    const updatedBreakdown = [...costBreakdown];
+    updatedBreakdown.splice(index, 1);
+    setCostBreakdown(updatedBreakdown);
+  };
+  
   useEffect(() => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -68,6 +160,7 @@ const BidForm = ({ sampleData }) => {
         setContractorInfo(contractorResponse.data);
         console.log("Contractor data:", contractorResponse.data);
         
+
 
         setValue("contractorName", contractorResponse.data.companyName || userInfo.username);
         setValue("contractorId", userInfo.userId);
@@ -255,65 +348,87 @@ const projectDescription = jobDetails?.description || "";
   };
 
 
-const onSubmit = async (data) => {
-  if (timeLeft.timeUp) {
-    setSubmissionError("Auction has ended. You can no longer submit bids.");
-    return;
-  }
-
-  setLoading(true);
-  setSubmissionError(null);
-
-  try {
-    if (!userInfo) {
-      throw new Error("Authentication required. Please log in again.");
+  // Update the onSubmit function to include the new sections
+  const onSubmit = async (data) => {
+    if (timeLeft.timeUp) {
+      setSubmissionError("Auction has ended. You can no longer submit bids.");
+      return;
     }
     
-    const bidData = {
-      projectId: jobId,
-      contractorId: userInfo.userId,
-      contractorname: contractorInfo?.companyName || userInfo?.username || "Anonymous Contractor",
-      price: parseFloat(data.yourBid),
-      timeline: parseInt(data.timeline),
-      qualifications: `Experience: ${contractorInfo?.experienceYears || data.experience} years. ${data.additionalDetails || ""}`,
-      rating: contractorInfo?.rating || null,
-      completedProjects: contractorInfo?.completedProjects || userInfo?.completedProjects || 0
-    };
-
-    console.log("Sending bid data:", bidData);
-
-    const response = await axios.post("http://localhost:5000/bids/submit", bidData);
-
-    if (response.status === 201) {
-      alert("Bid Submitted Successfully!");
-      navigate(`/project/${jobId}`);
+    // Validate cost breakdown if present
+    if (costBreakdown.length > 0) {
+      const total = costBreakdown.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+      if (total > parseFloat(data.yourBid)) {
+        setCostBreakdownError("Cost breakdown total cannot exceed bid amount");
+        return;
+      }
     }
-  } catch (error) {
-    console.error("Error submitting bid:", error);
     
-    if (error.response && error.response.data) {
-      const errorData = error.response.data;
+    // Validate timeline breakdown if present
+    if (timelineBreakdown.startDate && timelineBreakdown.endDate) {
+      if (timelineBreakdown.totalDays !== parseInt(data.timeline)) {
+        setTimelineBreakdownError(`Timeline breakdown (${timelineBreakdown.totalDays} days) does not match timeline days (${data.timeline})`);
+        return;
+      }
+    }
+
+    setLoading(true);
+    setSubmissionError(null);
+
+    try {
+      if (!userInfo) {
+        throw new Error("Authentication required. Please log in again.");
+      }
       
-      if (errorData.error === 'Duplicate bid') {
-        setSubmissionError("You have already submitted a bid for this project.");
-      } 
-      else if (errorData.error === 'Duplicate price') {
-        setSubmissionError(errorData.message);
+      const bidData = {
+        projectId: jobId,
+        contractorId: userInfo.userId,
+        contractorname: contractorInfo?.companyName || userInfo?.username || "Anonymous Contractor",
+        price: parseFloat(data.yourBid),
+        timeline: parseInt(data.timeline),
+        qualifications: `Experience: ${contractorInfo?.experienceYears || data.experience} years. ${data.additionalDetails || ""}`,
+        rating: contractorInfo?.rating || null,
+        completedProjects: contractorInfo?.completedProjects || userInfo?.completedProjects || 0,
+        // Add new fields to the bid data
+        costBreakdown: costBreakdown.length > 0 ? costBreakdown : undefined,
+        timelineBreakdown: timelineBreakdown.startDate ? timelineBreakdown : undefined,
+        specialRequests: specialRequests.trim() || undefined
+      };
+
+      console.log("Sending bid data:", bidData);
+
+      const response = await axios.post("http://localhost:5000/bids/submit", bidData);
+
+      if (response.status === 201) {
+        alert("Bid Submitted Successfully!");
+        navigate(`/project/${jobId}`);
+      }
+    } catch (error) {
+      console.error("Error submitting bid:", error);
+      
+      if (error.response && error.response.data) {
+        const errorData = error.response.data;
         
-        if (errorData.suggestedPrice) {
-          setValue("yourBid", errorData.suggestedPrice.toString());
+        if (errorData.error === 'Duplicate bid') {
+          setSubmissionError("You have already submitted a bid for this project.");
+        } 
+        else if (errorData.error === 'Duplicate price') {
+          setSubmissionError(errorData.message);
+          
+          if (errorData.suggestedPrice) {
+            setValue("yourBid", errorData.suggestedPrice.toString());
+          }
         }
+        else {
+          setSubmissionError(errorData.message || "Failed to submit bid. Please try again.");
+        }
+      } else {
+        setSubmissionError(error.message || "Failed to submit bid. Please try again.");
       }
-      else {
-        setSubmissionError(errorData.message || "Failed to submit bid. Please try again.");
-      }
-    } else {
-      setSubmissionError(error.message || "Failed to submit bid. Please try again.");
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleConfirmation = (data) => {
     setShowConfirmation(true);
@@ -509,7 +624,7 @@ const onSubmit = async (data) => {
                   </label>
                   <div className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                      <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 005.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
                     </svg>
                     {contractorInfo?.experienceYears || "Not specified"} years
                   </div>
@@ -687,6 +802,216 @@ const onSubmit = async (data) => {
             ></textarea>
           </div>
 
+          {/* New Cost Breakdown Section */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 backdrop-blur-sm bg-opacity-90">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800 pb-2 border-b flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              </svg>
+              Cost Breakdown <span className="text-sm font-normal text-gray-500 ml-1">(Optional)</span>
+            </h3>
+            
+            {costBreakdown.length > 0 && (
+              <div className="mb-4">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full bg-white rounded-lg overflow-hidden border border-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        <th className="py-2 px-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (RS)</th>
+                        <th className="py-2 px-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {costBreakdown.map((item, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="py-2 px-4 text-sm font-medium text-gray-900">{item.description}</td>
+                          <td className="py-2 px-4 text-sm text-gray-500 text-right">{parseFloat(item.amount).toFixed(2)}</td>
+                          <td className="py-2 px-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCostItem(index)}
+                              className="text-red-600 hover:text-red-900 text-sm"
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-gray-50">
+                        <td className="py-2 px-4 text-sm font-medium text-gray-900">Total</td>
+                        <td colSpan={2} className="py-2 px-4 text-sm font-bold text-blue-700 text-right">
+                          {costTotal.toFixed(2)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                
+                {parseFloat(watchBidAmount) > 0 && (
+                  <div className={`mt-2 text-sm ${costTotal > parseFloat(watchBidAmount) ? 'text-red-600' : 'text-green-600'}`}>
+                    {costTotal > parseFloat(watchBidAmount) 
+                      ? `⚠️ Total exceeds bid amount by ${(costTotal - parseFloat(watchBidAmount)).toFixed(2)}`
+                      : `✓ Total is ${(parseFloat(watchBidAmount) - costTotal).toFixed(2)} below bid amount`}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <div className="grid md:grid-cols-12 gap-4 items-end">
+              <div className="md:col-span-5">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={newCostItem.description}
+                  onChange={(e) => setNewCostItem({...newCostItem, description: e.target.value})}
+                  placeholder="e.g., Materials, Labor, Transportation"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              <div className="md:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount (RS)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newCostItem.amount}
+                  onChange={(e) => setNewCostItem({...newCostItem, amount: e.target.value})}
+                  placeholder="0.00"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              <div className="md:col-span-4">
+                <button
+                  type="button"
+                  onClick={handleAddCostItem}
+                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                  Add Item
+                </button>
+              </div>
+            </div>
+            
+            {costBreakdownError && (
+              <div className="mt-2 text-sm text-red-600 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {costBreakdownError}
+              </div>
+            )}
+            
+            <div className="mt-3 text-xs text-gray-500">
+              Break down your bid amount into specific categories to provide transparency about project costs.
+            </div>
+          </div>
+
+          {/* New Timeline Breakdown Section */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 backdrop-blur-sm bg-opacity-90">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800 pb-2 border-b flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+              </svg>
+              Timeline Breakdown <span className="text-sm font-normal text-gray-500 ml-1">(Optional)</span>
+            </h3>
+            
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Start Date
+                </label>
+                <DatePicker
+                  selected={timelineBreakdown.startDate}
+                  onChange={date => setTimelineBreakdown({...timelineBreakdown, startDate: date})}
+                  dateFormat="MM/dd/yyyy"
+                  placeholderText="Select start date"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={!watchTimeline}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  End Date
+                </label>
+                <DatePicker
+                  selected={timelineBreakdown.endDate}
+                  onChange={date => setTimelineBreakdown({...timelineBreakdown, endDate: date})}
+                  dateFormat="MM/dd/yyyy"
+                  placeholderText="Select end date"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  minDate={timelineBreakdown.startDate}
+                  disabled={!timelineBreakdown.startDate || !watchTimeline}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Total Days (Calculated)
+                </label>
+                <input
+                  type="text"
+                  value={timelineBreakdown.totalDays || ''}
+                  disabled
+                  className="w-full p-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-700"
+                />
+              </div>
+            </div>
+            
+            {!watchTimeline && (
+              <div className="mt-2 text-sm text-amber-600 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
+                </svg>
+                Please enter timeline days before adding timeline breakdown
+              </div>
+            )}
+            
+            {timelineBreakdownError && (
+              <div className="mt-2 text-sm text-red-600 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {timelineBreakdownError}
+              </div>
+            )}
+            
+            <div className="mt-3 text-xs text-gray-500">
+              Specify the exact start and end dates for your project. The calculated days should match your timeline input.
+            </div>
+          </div>
+
+          {/* New Special Requests Section */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 backdrop-blur-sm bg-opacity-90">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800 pb-2 border-b flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd" />
+              </svg>
+              Special Requests <span className="text-sm font-normal text-gray-500 ml-1">(Optional)</span>
+            </h3>
+            
+            <textarea
+              value={specialRequests}
+              onChange={(e) => setSpecialRequests(e.target.value)}
+              rows="4"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="List any special requirements, specific materials, or other custom requests for this project..."
+            ></textarea>
+            
+            <div className="mt-3 text-xs text-gray-500">
+              Include any special considerations or requirements that aren't covered in the main bid details.
+            </div>
+          </div>
+
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl shadow-sm border border-blue-100">
             <h4 className="font-semibold text-blue-800 mb-2 flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -706,7 +1031,7 @@ const onSubmit = async (data) => {
             <button
               type="submit"
               className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-8 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:from-blue-300 disabled:to-blue-400 flex items-center shadow-md hover:shadow-lg transform hover:-translate-y-1"
-              disabled={loading || timeLeft.timeUp}
+              disabled={loading || timeLeft.timeUp || costBreakdownError || timelineBreakdownError}
             >
               {loading ? (
                 <span className="flex items-center">
