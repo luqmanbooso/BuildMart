@@ -222,12 +222,128 @@ const ContractorViewDetails = () => {
                     </div>
                   </div>
 
+                  {/* Cost Breakdown Section - New Addition */}
+                  {bid?.costBreakdown && bid.costBreakdown.length > 0 && (
+                    <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <h4 className="font-medium text-gray-700 mb-3 flex items-center">
+                        <svg className="h-4 w-4 mr-2 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        Cost Breakdown
+                      </h4>
+                      <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                              <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (RS)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {bid.costBreakdown.map((item, index) => (
+                              <tr key={index}>
+                                <td className="px-4 py-2 text-sm text-gray-900">{item.description}</td>
+                                <td className="px-4 py-2 text-sm text-gray-600 text-right">{parseFloat(item.amount).toFixed(2)}</td>
+                              </tr>
+                            ))}
+                            <tr className="bg-gray-50 font-medium">
+                              <td className="px-4 py-2 text-sm text-gray-900">Total</td>
+                              <td className="px-4 py-2 text-sm text-gray-900 text-right">
+                                {bid.costBreakdown.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0).toFixed(2)}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Timeline Details Section - New Addition */}
+                  {bid?.timelineBreakdown && (
+                    <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <h4 className="font-medium text-gray-700 mb-3 flex items-center">
+                        <svg className="h-4 w-4 mr-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Timeline Details
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-3 rounded-md border border-gray-200">
+                          <p className="text-xs text-gray-500 uppercase font-semibold">Project Start</p>
+                          <p className="font-medium text-gray-800">
+                            {bid.timelineBreakdown.startDate 
+                              ? new Date(bid.timelineBreakdown.startDate).toLocaleDateString() 
+                              : "Not specified"}
+                          </p>
+                        </div>
+                        <div className="bg-white p-3 rounded-md border border-gray-200">
+                          <p className="text-xs text-gray-500 uppercase font-semibold">Project End</p>
+                          <p className="font-medium text-gray-800">
+                            {bid.timelineBreakdown.endDate 
+                              ? new Date(bid.timelineBreakdown.endDate).toLocaleDateString() 
+                              : "Not specified"}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Work Items Timeline */}
+                      {bid.timelineBreakdown.workItems && bid.timelineBreakdown.workItems.length > 0 && (
+                        <div className="mt-4">
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">Work Schedule</h5>
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start</th>
+                                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End</th>
+                                  <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {bid.timelineBreakdown.workItems.map((item, index) => (
+                                  <tr key={index}>
+                                    <td className="px-4 py-2 text-sm text-gray-900">{item.name}</td>
+                                    <td className="px-4 py-2 text-sm text-gray-600">
+                                      {new Date(item.startDate).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-4 py-2 text-sm text-gray-600">
+                                      {new Date(item.endDate).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-4 py-2 text-sm text-gray-600">{item.duration} days</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <h4 className="font-medium text-gray-700 mb-2">Qualifications & Approach</h4>
                     <p className="text-gray-600 whitespace-pre-wrap">
                       {bid?.qualifications || contractor?.qualifications || 'No additional details provided.'}
                     </p>
                   </div>
+
+                  {/* Special Requests Section - New Addition */}
+                  {bid?.specialRequests && (
+                    <div className="mt-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <h4 className="font-medium text-gray-700 mb-2 flex items-center">
+                        <svg className="h-4 w-4 mr-2 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                        </svg>
+                        Special Requests & Additional Information
+                      </h4>
+                      <div className="bg-white p-3 rounded-md border border-gray-100">
+                        <p className="text-gray-700 whitespace-pre-wrap">
+                          {bid.specialRequests}
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="mt-6">
                     <h4 className="font-medium text-gray-700 mb-2">Bid Status</h4>
@@ -237,7 +353,7 @@ const ContractorViewDetails = () => {
                         : bid?.status === 'pending' 
                           ? 'bg-yellow-100 text-yellow-800' 
                           : 'bg-gray-100 text-gray-800'
-                      }`}>
+                    }`}>
                       {bid?.status === 'accepted' ? 'Accepted' : 
                        bid?.status === 'pending' ? 'Pending' : 
                        bid?.status === 'rejected' ? 'Rejected' : 'Unknown'}
@@ -285,38 +401,6 @@ const ContractorViewDetails = () => {
                   </div>
                 </div>
               </div>
-
-
-{/* Bid Update History */}
-{bid?.previousPrices && bid.previousPrices.length > 0 && (
-  <div className="mt-6 bg-white p-6 rounded-lg width-full">
-    <h3 className="text-lg font-medium text-gray-900 mb-4">Bid Updates History</h3>
-    <div className="space-y-4">
-      {bid.previousPrices.map((prevBid, index) => (
-        <div key={index} className="bg-gray-50 p-3 rounded-md border border-gray-100">
-          <div className="flex justify-between">
-            <span className="font-medium text-gray-700">Previous Price:</span>
-            <span className="font-medium text-gray-900">LKR {parseFloat(prevBid.price).toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between mt-1">
-            <span className="text-sm text-gray-500">Updated on:</span>
-            <span className="text-sm text-gray-700">{new Date(prevBid.updatedAt).toLocaleString()}</span>
-          </div>
-        </div>
-      ))}
-      <div className="bg-blue-50 p-3 rounded-md border border-blue-100 mt-2">
-        <div className="flex justify-between">
-          <span className="font-medium text-blue-700">Current Price:</span>
-          <span className="font-medium text-blue-800">LKR {parseFloat(bid.price).toLocaleString()}</span>
-        </div>
-        <div className="flex justify-between mt-1">
-          <span className="text-sm text-blue-600">Updates Used:</span>
-          <span className="text-sm text-blue-800">{bid.updateCount || 0}/3</span>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
             </div>
           </div>
         </div>
