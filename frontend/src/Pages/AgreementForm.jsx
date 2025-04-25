@@ -658,6 +658,94 @@ try {
                   <p className="text-md text-gray-700 bg-gray-50 p-4 rounded">{jobDetails?.description}</p>
                 </div>
                 
+                {/* Cost Breakdown Section - NEW ADDITION */}
+                {bidDetails?.costBreakdown && bidDetails.costBreakdown.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Cost Breakdown:</h4>
+                    <div className="overflow-x-auto bg-gray-50 rounded">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (RS)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {bidDetails.costBreakdown.map((item, index) => (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.description}</td>
+                              <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                                LKR {parseFloat(item.amount).toLocaleString(undefined, {maximumFractionDigits: 2})}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="bg-gray-100">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">Total</td>
+                            <td className="px-4 py-3 text-sm text-right font-bold text-gray-900">
+                              LKR {bidDetails.costBreakdown.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0).toLocaleString(undefined, {maximumFractionDigits: 2})}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Timeline Breakdown Section - NEW ADDITION */}
+                {bidDetails?.timelineBreakdown && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Timeline Details:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                      <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
+                        <p className="text-xs text-gray-500 uppercase font-semibold">Project Start</p>
+                        <p className="font-medium text-gray-800">
+                          {bidDetails.timelineBreakdown.startDate 
+                            ? new Date(bidDetails.timelineBreakdown.startDate).toLocaleDateString() 
+                            : new Date().toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
+                        <p className="text-xs text-gray-500 uppercase font-semibold">Project End</p>
+                        <p className="font-medium text-gray-800">
+                          {bidDetails.timelineBreakdown.endDate 
+                            ? new Date(bidDetails.timelineBreakdown.endDate).toLocaleDateString() 
+                            : "Not specified"}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Work Schedule */}
+                    {bidDetails.timelineBreakdown.workItems && bidDetails.timelineBreakdown.workItems.length > 0 && (
+                      <div className="overflow-x-auto bg-gray-50 rounded mt-2">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {bidDetails.timelineBreakdown.workItems.map((item, index) => (
+                              <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.name}</td>
+                                <td className="px-4 py-3 text-sm text-gray-600">
+                                  {new Date(item.startDate).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600">
+                                  {new Date(item.endDate).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600">{item.duration} days</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Payment Milestones */}
                 <div className="mb-6">
                   <h4 className="text-sm font-medium text-gray-500 mb-2">Payment Schedule:</h4>
