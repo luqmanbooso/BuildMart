@@ -46,6 +46,7 @@ const BidForm = ({ sampleData }) => {
   
   // Special Requests state
   const [specialRequests, setSpecialRequests] = useState('');
+  const [specialRequestsError, setSpecialRequestsError] = useState(null);
   
   // Validation error states
   const [costBreakdownError, setCostBreakdownError] = useState(null);
@@ -53,6 +54,9 @@ const BidForm = ({ sampleData }) => {
   
   // Maximum project duration (1 year)
   const MAX_PROJECT_DURATION = 365;
+  
+  // Maximum word count for special requests
+  const MAX_SPECIAL_REQUESTS_WORDS = 300;
 
   const {
     register,
@@ -177,17 +181,60 @@ const BidForm = ({ sampleData }) => {
       return;
     }
     
+    // Enhanced validation for description field
+    if (!newCostItem.description.trim()) {
+      setCostBreakdownError("Description cannot be empty");
+      return;
+    }
+    
+    // Validate no special characters in description and enforce word limit
+    const descriptionRegex = /^[a-zA-Z0-9\s,.-]+$/;
+    if (!descriptionRegex.test(newCostItem.description)) {
+      setCostBreakdownError("Description can only contain letters, numbers, commas, periods, and hyphens");
+      return;
+    }
+    
+    // Check word limit (max 10 words)
+    const wordCount = newCostItem.description.trim().split(/\s+/).length;
+    if (wordCount > 10) {
+      setCostBreakdownError("Description cannot exceed 10 words");
+      return;
+    }
+    
+    // Enhanced validation for amount
     const amountValue = parseFloat(newCostItem.amount);
     if (isNaN(amountValue) || amountValue <= 0) {
       setCostBreakdownError("Amount must be greater than zero");
       return;
     }
     
+    // Maximum amount validation
+    if (amountValue > 10000000) {  // 10 million limit
+      setCostBreakdownError("Amount cannot exceed 10,000,000");
+      return;
+    }
+    
+    // Calculate new total to validate against bid amount
+    const currentTotal = costBreakdown.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+    const newTotal = currentTotal + amountValue;
+    const bidAmount = parseFloat(watchBidAmount);
+    
+    // Check if adding this item would exceed the bid amount
+    if (newTotal > bidAmount) {
+      const remaining = bidAmount - currentTotal;
+      setCostBreakdownError(`Adding this item would exceed your bid amount. You can add up to ${remaining.toFixed(2)} more.`);
+      return;
+    }
+    
+    // Format description to include cost part
+    const formattedDescription = newCostItem.description.trim();
+    
     setCostBreakdown([...costBreakdown, {
-      description: newCostItem.description,
+      description: formattedDescription,
       amount: amountValue
     }]);
     
+    // Reset form fields after successful addition
     setNewCostItem({ description: '', amount: '' });
     setCostBreakdownError(null);
   };
@@ -439,14 +486,27 @@ const projectDescription = jobDetails?.description || "";
     const start = new Date(timelineBreakdown.startDate);
     const end = new Date(timelineBreakdown.endDate);
     
-    if (end < start) {
-      return "End date cannot be before start date";
+    // Calculate days difference
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    
+    if (diffDays > MAX_PROJECT_DURATION) {
+      return `Project duration cannot exceed ${MAX_PROJECT_DURATION} days (1 year)`;
     }
     
     return null;
   };
 
-  // Single end date handler with 365 days max validation
+  // Calculate max end date (1 year from start date)
+  const getMaxEndDate = () => {
+    if (!timelineBreakdown.startDate) return '';
+    const startDate = new Date(timelineBreakdown.startDate);
+    const maxDate = new Date(startDate);
+    maxDate.setDate(maxDate.getDate() + MAX_PROJECT_DURATION);
+    return maxDate.toISOString().split('T')[0];
+  };
+
+  // Simplified end date handler
   const handleEndDateChange = (value) => {
     if (!value) {
       setTimelineBreakdownError("End date is required");
@@ -461,19 +521,9 @@ const projectDescription = jobDetails?.description || "";
     const start = new Date(timelineBreakdown.startDate);
     const end = new Date(value);
     
-    if (end < start) {
-      setTimelineBreakdownError("End date cannot be before start date");
-      return;
-    }
-    
-    // Calculate days difference for max 365 days validation
+    // Calculate days difference
     const diffTime = Math.abs(end - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    
-    if (diffDays > MAX_PROJECT_DURATION) {
-      setTimelineBreakdownError(`Project duration cannot exceed ${MAX_PROJECT_DURATION} days (1 year)`);
-      return;
-    }
     
     setTimelineBreakdown({
       startDate: timelineBreakdown.startDate,
@@ -602,7 +652,26 @@ const projectDescription = jobDetails?.description || "";
     setWorkItems(updatedItems);
   };
 
-  // Update the onSubmit function with enhanced validation
+  // Add function to filter out invalid characters from description
+  const sanitizeDescription = (input) => {
+    // Only allow letters, numbers, spaces, commas, periods, and hyphens
+    return input.replace(/[^a-zA-Z0-9\s,.-]/g, '');
+  };
+
+  // Function to validate special requests word count
+  const validateSpecialRequests = (text) => {
+    if (!text) return null; // Empty is valid
+    
+    const wordCount = text.trim().split(/\s+/).length;
+    
+    if (wordCount > MAX_SPECIAL_REQUESTS_WORDS) {
+      return `Special requests cannot exceed ${MAX_SPECIAL_REQUESTS_WORDS} words (currently: ${wordCount})`;
+    }
+    
+    return null;
+  };
+
+  // Update the onSubmit function to include special requests validation
   const onSubmit = async (data) => {
     if (timeLeft.timeUp) {
       setSubmissionError("Auction has ended. You can no longer submit bids.");
@@ -637,6 +706,13 @@ const projectDescription = jobDetails?.description || "";
         setWorkItemError(workItemError);
         return;
       }
+    }
+    
+    // Validate special requests
+    const specialRequestsError = validateSpecialRequests(data.specialRequests);
+    if (specialRequestsError) {
+      setSpecialRequestsError(specialRequestsError);
+      return;
     }
     
     setLoading(true);
@@ -809,7 +885,7 @@ const projectDescription = jobDetails?.description || "";
                   {errors.yourBid && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
                       </svg>
                       {errors.yourBid.message}
                     </p>
@@ -923,7 +999,9 @@ const projectDescription = jobDetails?.description || "";
                     <tbody className="bg-white divide-y divide-gray-200">
                       {costBreakdown.map((item, index) => (
                         <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.description}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {item.description}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-500 text-right">{parseFloat(item.amount).toFixed(2)}</td>
                           <td className="px-4 py-3 text-right">
                             <button
@@ -950,16 +1028,20 @@ const projectDescription = jobDetails?.description || "";
               </div>
             )}
             
-            {/* Add cost item form */}
+            {/* Add cost item form with improved input filtering */}
             <div className="grid md:grid-cols-12 gap-4 items-end mt-4">
               <div className="md:col-span-5">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
+                  Description <span className="text-xs text-gray-500">(max 10 words, no special characters)</span>
                 </label>
                 <input
                   type="text"
                   value={newCostItem.description}
-                  onChange={(e) => setNewCostItem({...newCostItem, description: e.target.value})}
+                  onChange={(e) => {
+                    // Apply sanitization to filter out invalid characters in real-time
+                    const sanitizedValue = sanitizeDescription(e.target.value);
+                    setNewCostItem({...newCostItem, description: sanitizedValue});
+                  }}
                   placeholder="e.g., Materials, Labor, Transportation"
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -970,19 +1052,18 @@ const projectDescription = jobDetails?.description || "";
                   Amount (RS)
                 </label>
                 <input
-                  type="number"
+                  type="text" // Changed from "number" to "text" for better control
                   min="0"
-                  step="0.01"
                   value={newCostItem.amount}
                   onChange={(e) => {
+                    // Apply decimal formatting constraints in real time
                     const rawValue = e.target.value;
                     const formattedValue = formatDecimalInput(rawValue);
                     
-                    if (rawValue !== formattedValue) {
-                      e.target.value = formattedValue;
+                    // Only update if it's a valid decimal or empty
+                    if (formattedValue === '' || isValidDecimal(formattedValue) || formattedValue === '.') {
+                      setNewCostItem({...newCostItem, amount: formattedValue});
                     }
-                    
-                    setNewCostItem({...newCostItem, amount: formattedValue});
                   }}
                   placeholder="0.00"
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -1008,7 +1089,7 @@ const projectDescription = jobDetails?.description || "";
             {costBreakdownError && (
               <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
                 </svg>
                 {costBreakdownError}
               </div>
@@ -1071,6 +1152,7 @@ const projectDescription = jobDetails?.description || "";
                     timelineBreakdownError ? "border-red-500 bg-red-50" : "border-gray-300"
                   }`}
                   min={timelineBreakdown.startDate}
+                  max={getMaxEndDate()}
                   required
                 />
               </div>
@@ -1089,7 +1171,7 @@ const projectDescription = jobDetails?.description || "";
             {timelineBreakdownError && (
               <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
                 </svg>
                 {timelineBreakdownError}
               </div>
@@ -1100,7 +1182,7 @@ const projectDescription = jobDetails?.description || "";
               <div className="mt-8 border-t pt-6 border-gray-200">
                 <h4 className="font-semibold text-md mb-3 text-gray-700 flex items-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                    <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
                     <path fillRule="evenodd" d="M4 5a2 2 0 002-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
                     <path d="M10 14a1 1 0 100-2 1 1 0 000 2z" />
                   </svg>
@@ -1254,7 +1336,7 @@ const projectDescription = jobDetails?.description || "";
                 {workItemError && (
                   <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
                     </svg>
                     {workItemError}
                   </div>
@@ -1277,7 +1359,7 @@ const projectDescription = jobDetails?.description || "";
             </div>
           </div>
 
-          {/* Special Requests Section - Moved to last position */}
+          {/* Special Requests Section - Modified with word limit and error handling */}
           <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-purple-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
             
@@ -1287,21 +1369,53 @@ const projectDescription = jobDetails?.description || "";
                   <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd" />
                 </svg>
               </div>
-              Special Requests & Additional Details
+              Special Requests & Additional Details <span className="text-xs text-gray-500 ml-2">(max {MAX_SPECIAL_REQUESTS_WORDS} words)</span>
             </h3>
             
             <div className="space-y-3 relative z-10">
               <p className="text-sm text-gray-600 mb-4 bg-purple-50/70 p-4 rounded-lg border-l-4 border-purple-400 shadow-sm">
-                Use this section to include any specialconsiderations, approach details, or requirements that will help your bid stand out from competitors. This is your opportunity to demonstrate your understanding of the project's unique challenges.
+                Use this section to include any special considerations, approach details, or requirements that will help your bid stand out from competitors. This is your opportunity to demonstrate your understanding of the project's unique challenges.
               </p>
               
               <textarea
                 id="specialRequests"
                 {...register("specialRequests")}
-                className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white shadow-sm"
+                className={`w-full p-4 border ${specialRequestsError ? 'border-red-500 bg-red-50/30' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white shadow-sm`}
                 rows="5"
                 placeholder="Describe your approach, special requirements, specific materials, or other custom requests for this project..."
+                onChange={(e) => {
+                  const value = e.target.value;
+                  register("specialRequests").onChange(e);
+                  setSpecialRequests(value);
+                  const charCount = value.trim().length;
+                  if (charCount > MAX_SPECIAL_REQUESTS_WORDS) {
+                    setSpecialRequestsError(`Character limit exceeded (${charCount}/${MAX_SPECIAL_REQUESTS_WORDS} characters)`);
+                  } else {
+                    setSpecialRequestsError(null);
+                  }
+                }}
               ></textarea>
+              
+              <div className="flex justify-end mt-2">
+                <span className={`text-xs font-medium ${
+                  specialRequests && specialRequests.trim().length > MAX_SPECIAL_REQUESTS_WORDS
+                    ? 'text-red-600' 
+                    : 'text-gray-600'
+                }`}>
+                  {specialRequests && specialRequests.trim() 
+                    ? specialRequests.trim().length 
+                    : 0} / {MAX_SPECIAL_REQUESTS_WORDS} characters
+                </span>
+              </div>
+              
+              {specialRequestsError && (
+                <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                  </svg>
+                  {specialRequestsError}
+                </div>
+              )}
               
               <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-lg mt-3 border border-gray-200 shadow-sm">
                 <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -1326,7 +1440,7 @@ const projectDescription = jobDetails?.description || "";
             <div className="p-4 mb-6 border border-blue-100 rounded-lg bg-blue-50/50">
               <div className="flex items-start">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <svg className="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
@@ -1340,7 +1454,7 @@ const projectDescription = jobDetails?.description || "";
               <button
                 type="submit"
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-12 rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-                disabled={loading || timeLeft.timeUp || costBreakdownError || timelineBreakdownError || !timelineBreakdown.endDate}
+                disabled={loading || timeLeft.timeUp || costBreakdownError || timelineBreakdownError || !timelineBreakdown.endDate || specialRequestsError}
               >
                 {loading ? (
                   <span className="flex items-center">
@@ -1363,8 +1477,7 @@ const projectDescription = jobDetails?.description || "";
           </div>
         </form>
 
-        {/* Confirmation Modal */}
-        {showConfirmation && (
+             {showConfirmation && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <div className="bg-white p-6 rounded-lg max-w-md w-full">
               <h3 className="text-xl font-bold mb-4">Confirm Bid Submission</h3>
