@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaSearch, FaUser, FaTimes } from 'react-icons/fa';
+import { FaSearch, FaUser, FaTimes, FaDownload } from 'react-icons/fa';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -11,15 +11,12 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
   const [userDeleteId, setUserDeleteId] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   
-  // Add pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(10);
   const [contractorProfiles, setContractorProfiles] = useState({});
 
-  // Updated refreshUserData function with correct API endpoints
   const refreshUserData = async () => {
     try {
-      // Use the correct API endpoints - changed from /auth/clients and /auth/providers
       const clientsResponse = await axios.get('http://localhost:5000/api/users?role=Client');
       const providersResponse = await axios.get('http://localhost:5000/api/users?role=Service Provider');
       
@@ -29,8 +26,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
       
       if (providersResponse.data && Array.isArray(providersResponse.data)) {
         setAllServiceProviders(providersResponse.data);
-        
-        // Fetch contractor profiles for service providers
         fetchContractorProfiles(providersResponse.data);
       }
     } catch (error) {
@@ -39,7 +34,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     }
   };
 
-  // Fix the fetchContractorProfile function with correct endpoints
   const fetchContractorProfile = async (userId) => {
     if (!userId) {
       console.error("Cannot fetch contractor profile: userId is undefined");
@@ -49,7 +43,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     console.log("Fetching contractor profile for userId:", userId);
     
     try {
-      // Try the first endpoint format
       const response = await axios.get(`http://localhost:5000/api/contractors/user/${userId}`);
       console.log("Contractor profile fetched successfully:", response.data);
       return response.data;
@@ -57,7 +50,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
       console.log("First endpoint failed:", firstError.message);
       
       try {
-        // Try the alternative endpoint without /api prefix
         const altResponse = await axios.get(`http://localhost:5000/contractors/user/${userId}`);
         console.log("Contractor profile fetched from alternative endpoint:", altResponse.data);
         return altResponse.data;
@@ -68,7 +60,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     }
   };
 
-  // More robust contractor profile fetch function with debugging
   const fetchContractorProfiles = async (providers) => {
     try {
       const newProfiles = { ...contractorProfiles };
@@ -91,7 +82,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
             console.log(`Profile found for ${providerId}:`, response.data);
             newProfiles[providerId] = response.data;
             
-            // Update the provider object with verification status
             provider.verified = response.data.verified || false;
             provider.contractorId = response.data._id;
             console.log(`Updated provider ${providerId} verification status to:`, provider.verified);
@@ -112,10 +102,8 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     }
   };
 
-  // Update testBackendConnection with the correct endpoint
   const testBackendConnection = async () => {
     try {
-      // Test if the users endpoint is working - changed from /auth/users
       const testResponse = await axios.get('http://localhost:5000/api/users');
       console.log("API test response:", testResponse.data);
       toast.success('API connection successful');
@@ -127,11 +115,9 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     }
   };
 
-  // Enhance the existing function to show user modal with contractor details
   const showUserDetails = async (user) => {
     let enhancedUser = { ...user };
     
-    // If user is a service provider, fetch contractor details
     if (user.role === 'serviceProvider') {
       try {
         const contractorProfile = await fetchContractorProfile(user._id);
@@ -151,10 +137,8 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     setShowUserModal(true);
   };
 
-  // Fix the handleVerifyContractor function with better error handling and debugging
   const handleVerifyContractor = async (provider) => {
     try {
-      // Get token for authentication
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) {
         toast.error('Authentication required to verify contractors');
@@ -163,7 +147,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
       
       console.log("VERIFICATION START - Provider data:", provider);
       
-      // Get the user ID and contractor ID
       const userId = provider._id || provider.id;
       let contractorId = provider.contractorId;
       
@@ -174,7 +157,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         return;
       }
       
-      // If we don't have a contractor ID, try to fetch the contractor profile
       if (!contractorId) {
         try {
           console.log("No contractor ID available, fetching profile for userId:", userId);
@@ -201,7 +183,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
       console.log("Sending verification request for contractorId:", contractorId);
       const response = await axios.put(
         `http://localhost:5000/api/contractors/verify/${contractorId}`,
-        {}, // Empty body
+        {}, 
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -215,7 +197,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         const newVerificationStatus = response.data.contractor.verified;
         console.log(`Contractor ${contractorId} new verification status:`, newVerificationStatus);
         
-        // Update local state with multiple approaches to ensure it works
         setAllServiceProviders(prevProviders => 
           prevProviders.map(p => {
             if (p._id === userId || p.id === userId) {
@@ -230,7 +211,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
           })
         );
         
-        // Update profiles cache
         setContractorProfiles(prev => {
           const updatedProfiles = { ...prev };
           if (updatedProfiles[userId]) {
@@ -243,7 +223,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
           return updatedProfiles;
         });
         
-        // Update selected user if in modal view
         if (selectedUser && (selectedUser._id === userId || selectedUser.id === userId)) {
           console.log("Updating selected user in modal view");
           setSelectedUser(prev => ({
@@ -258,7 +237,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         
         toast.success(`Contractor ${newVerificationStatus ? 'verified' : 'unverified'} successfully`);
         
-        // Force a refresh of the data to ensure UI is updated
         setTimeout(() => {
           console.log("Refreshing service provider data after verification");
           fetchContractorProfiles(allServiceProviders);
@@ -272,11 +250,9 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     }
   };
 
-  // Pagination logic
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
   
-  // Filter users based on search term
   const filteredClients = allClients.filter(user => 
     user.username?.toLowerCase().includes(userFilter.toLowerCase()) || 
     user.email?.toLowerCase().includes(userFilter.toLowerCase())
@@ -287,16 +263,13 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     user.email?.toLowerCase().includes(userFilter.toLowerCase())
   );
   
-  // Get current records based on pagination
   const currentClients = filteredClients.slice(indexOfFirstRecord, indexOfLastRecord);
   const currentProviders = filteredProviders.slice(indexOfFirstRecord, indexOfLastRecord);
   
-  // Calculate total pages
   const totalPages = Math.ceil(
     (activeTab === 'clients' ? filteredClients.length : filteredProviders.length) / recordsPerPage
   );
   
-  // Pagination handlers
   const goToNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
@@ -315,15 +288,12 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     }
   };
   
-  // Generate page numbers for pagination
   const pageNumbers = [];
   for (let i = 1; i <= totalPages; i++) {
     pageNumbers.push(i);
   }
 
-  // Improved function to handle initial data load
   useEffect(() => {
-    // Load data when component mounts
     const loadInitialData = async () => {
       await testBackendConnection();
       
@@ -335,21 +305,100 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     
     loadInitialData();
 
-    // Set up global tab selector
     window.tabSelector = (tab) => {
       if (tab === 'clients' || tab === 'serviceProviders') {
         setActiveTab(tab);
       }
     };
 
-    // Reset userDeleteId to avoid stale references
     setUserDeleteId(null);
     
-    // Cleanup
     return () => {
       window.tabSelector = undefined;
     };
   }, [allServiceProviders.length]);
+
+  const convertToCSV = (data) => {
+    if (!data || data.length === 0) return '';
+    
+    const allKeys = new Set();
+    data.forEach(item => {
+      Object.keys(item).forEach(key => {
+        if (typeof item[key] !== 'object' && item[key] !== null) {
+          allKeys.add(key);
+        }
+      });
+    });
+    
+    const headers = Array.from(allKeys).filter(key => 
+      !['__v', 'password', 'profilePic'].includes(key)
+    );
+    
+    let csv = headers.join(',') + '\n';
+    
+    data.forEach(item => {
+      const row = headers.map(header => {
+        const value = item[header] !== undefined ? item[header] : '';
+        
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        
+        if (header === 'createdAt' || header === 'updatedAt') {
+          return value ? new Date(value).toLocaleString() : '';
+        }
+        
+        return value;
+      }).join(',');
+      
+      csv += row + '\n';
+    });
+    
+    return csv;
+  };
+
+  const downloadCSV = (csvData, filename = 'users_data.csv') => {
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success(`${filename} downloaded successfully`);
+  };
+  
+  const handleDownloadUsers = () => {
+    try {
+      let usersToExport = [];
+      let filename = '';
+      
+      if (activeTab === 'clients') {
+        usersToExport = allClients;
+        filename = `clients_data_${new Date().toISOString().slice(0,10)}.csv`;
+      } else {
+        usersToExport = allServiceProviders;
+        filename = `service_providers_data_${new Date().toISOString().slice(0,10)}.csv`;
+      }
+      
+      if (usersToExport.length === 0) {
+        toast.info('No users available to export');
+        return;
+      }
+      
+      const csvData = convertToCSV(usersToExport);
+      downloadCSV(csvData, filename);
+      
+    } catch (error) {
+      console.error('Error exporting users data:', error);
+      toast.error('Failed to export users data');
+    }
+  };
 
   return (
     <div>
@@ -358,7 +407,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         <p className="text-gray-600">Manage all users in the BuildMart platform</p>
       </div>
       
-      {/* Tab Navigation */}
       <div className="flex border-b border-gray-200 mb-6">
         <button 
           className={`py-3 px-6 text-sm font-medium ${activeTab === 'clients' 
@@ -366,7 +414,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
             : 'text-gray-500 hover:text-gray-700'}`}
           onClick={() => {
             setActiveTab('clients');
-            setCurrentPage(1); // Reset to first page when switching tabs
+            setCurrentPage(1);
           }}
         >
           Clients ({filteredClients.length})
@@ -377,14 +425,13 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
             : 'text-gray-500 hover:text-gray-700'}`}
           onClick={() => {
             setActiveTab('serviceProviders');
-            setCurrentPage(1); // Reset to first page when switching tabs
+            setCurrentPage(1);
           }}
         >
           Service Providers ({filteredProviders.length})
         </button>
       </div>
       
-      {/* Search and Filter */}
       <div className="flex justify-between items-center mb-6">
         <div className="relative w-72">
           <input
@@ -394,15 +441,21 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
             value={userFilter}
             onChange={(e) => {
               setUserFilter(e.target.value);
-              setCurrentPage(1); // Reset to first page when searching
+              setCurrentPage(1);
             }}
           />
           <FaSearch className="absolute left-3 top-2.5 text-gray-400" />
         </div>
         
+        <button
+          onClick={handleDownloadUsers}
+          className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm"
+        >
+          <FaDownload className="mr-2" />
+          <span>Export {activeTab === 'clients' ? 'Clients' : 'Service Providers'}</span>
+        </button>
       </div>
       
-      {/* User List */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -459,7 +512,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-3">
-                        {/* View Button */}
                         <button 
                           onClick={() => showUserDetails(client)}
                           className="text-blue-600 hover:text-blue-900"
@@ -467,18 +519,15 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                           View
                         </button>
                         
-                        {/* Delete Button */}
                         <button 
                           onClick={() => {
                             try {
-                              // Validate client exists
                               if (!client) {
                                 console.error("Client object is undefined");
                                 toast.error("Cannot delete: User data is missing");
                                 return;
                               }
                               
-                              // Try different possible ID formats
                               const clientId = client._id || client.id || null;
                               
                               if (!clientId) {
@@ -552,7 +601,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-3">
-                      {/* View Button */}
                       <button 
                         onClick={() => showUserDetails(provider)}
                         className="text-blue-600 hover:text-blue-900"
@@ -560,18 +608,15 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                         View
                       </button>
                       
-                      {/* Delete Button */}
                       <button 
                         onClick={() => {
                           try {
-                            // Validate provider exists
                             if (!provider) {
                               console.error("Provider object is undefined");
                               toast.error("Cannot delete: User data is missing");
                               return;
                             }
                             
-                            // Try different possible ID formats
                             const providerId = provider._id || provider.id || null;
                             
                             if (!providerId) {
@@ -623,7 +668,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         </table>
       </div>
       
-      {/* Improved Pagination */}
       <div className="flex items-center justify-between mt-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div className="flex-1 flex justify-between sm:hidden">
           <button 
@@ -667,7 +711,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                 Previous
               </button>
               
-              {/* Fix key prop warning by using proper key values */}
               {pageNumbers.map(number => (
                 <button 
                   key={`page-${number}-${activeTab}`}
@@ -696,7 +739,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         </div>
       </div>
 
-      {/* User Modal - Enhanced with contractor details and verification */}
       {showUserModal && selectedUser && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-[500px] shadow-lg rounded-md bg-white">
@@ -707,7 +749,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
               </button>
             </div>
             
-            {/* User Profile Header */}
             <div className="flex flex-col items-center mb-6">
               {selectedUser.profilePic ? (
                 <img 
@@ -727,7 +768,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
               <h4 className="text-lg font-semibold">{selectedUser.username}</h4>
               <p className="text-gray-500">{selectedUser.email}</p>
               
-              {/* Verification Badge for Service Providers */}
               {selectedUser.role === 'serviceProvider' && (
                 <div className="mt-2">
                   <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -741,7 +781,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
               )}
             </div>
             
-            {/* User Basic Info */}
             <div className="border-t pt-4 mb-4">
               <h5 className="font-semibold text-gray-700 mb-2">Basic Information</h5>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -766,7 +805,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
               </div>
             </div>
             
-            {/* Contractor Profile Info - Only shown for service providers */}
             {selectedUser.role === 'serviceProvider' && selectedUser.contractorProfile && (
               <div className="border-t pt-4 mb-4">
                 <h5 className="font-semibold text-gray-700 mb-2">Contractor Information</h5>
@@ -831,7 +869,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
               </div>
             )}
             
-            {/* Action Buttons */}
             <div className="mt-6 pt-4 border-t flex justify-between">
               <button 
                 onClick={() => setShowUserModal(false)}
@@ -840,7 +877,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                 Close
               </button>
               
-              {/* Show verification toggle button only for service providers */}
               {selectedUser.role === 'serviceProvider' && (
                 <button
                   onClick={() => {
@@ -864,7 +900,6 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         </div>
       )}
       
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -883,7 +918,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                     if (!userDeleteId) {
                       console.error("userDeleteId is undefined or null");
                       toast.error("Cannot delete: User ID is missing");
-                      setShowDeleteModal(false); // Close modal on error
+                      setShowDeleteModal(false);
                       return;
                     }
                     
