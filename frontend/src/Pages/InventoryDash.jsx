@@ -18,10 +18,17 @@ import {
   FiArrowUp,
   FiArrowDown,
   FiPackage,
-  FiDollarSign
+  FiDollarSign,
+  FiDownload,
+  FiPieChart,
+  FiTrendingUp
 } from "react-icons/fi";
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
+import {
+  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 
 // Updated category colors with more modern shades
 const categoryColors = {
@@ -69,6 +76,7 @@ const InventoryDash = () => {
     priority: "medium",
     notes: ""
   });
+  const [showCharts, setShowCharts] = useState(false);
   
   // Extract unique categories for filter dropdown
   const categories = ["All", ...new Set(inventory.map(item => item.category))];
@@ -437,6 +445,111 @@ const InventoryDash = () => {
     }
   };
 
+  // Add function to convert inventory data to CSV
+  const convertToCSV = (data) => {
+    if (data.length === 0) return '';
+    
+    // Define CSV headers
+    const headers = ['Product Name', 'SKU', 'Category', 'Price', 'Current Stock', 
+                     'Stock Threshold', 'Description', 'Last Updated'];
+    
+    // Create CSV rows from data
+    const rows = data.map(item => [
+      item.name?.replace(/,/g, ';'),  // Replace commas with semicolons to avoid CSV format issues
+      item.sku?.replace(/,/g, ';'),
+      item.category?.replace(/,/g, ';'),
+      item.price,
+      item.stock,
+      item.threshold,
+      item.description?.replace(/,/g, ';').replace(/\n/g, ' '), // Replace newlines with spaces
+      item.lastUpdated || new Date().toLocaleDateString()
+    ]);
+    
+    // Combine headers and rows
+    return [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+  };
+
+  // Add function to download CSV
+  const downloadInventoryCSV = () => {
+    try {
+      // Convert inventory data to CSV
+      const csvData = convertToCSV(inventory);
+      
+      // Create Blob and download link
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      // Setup download link properties
+      link.setAttribute('href', url);
+      link.setAttribute('download', `inventory-export-${new Date().toISOString().slice(0,10)}.csv`);
+      
+      // Append, trigger download and remove link
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success("Inventory data exported successfully");
+    } catch (error) {
+      console.error("Error exporting inventory data:", error);
+      toast.error("Failed to export inventory data");
+    }
+  };
+
+  // Function to prepare data for category distribution chart
+  const prepareCategoryData = () => {
+    const categoryMap = {};
+    inventory.forEach(item => {
+      if (categoryMap[item.category]) {
+        categoryMap[item.category] += 1;
+      } else {
+        categoryMap[item.category] = 1;
+      }
+    });
+
+    return Object.keys(categoryMap).map(category => ({
+      name: category,
+      value: categoryMap[category]
+    }));
+  };
+
+  // Function to prepare data for stock levels chart
+  const prepareStockData = () => {
+    // Get top 10 items by stock quantity
+    return [...inventory]
+      .sort((a, b) => b.stock - a.stock)
+      .slice(0, 10)
+      .map(item => ({
+        name: item.name.length > 15 ? item.name.substring(0, 15) + '...' : item.name,
+        stock: item.stock,
+        threshold: item.threshold
+      }));
+  };
+
+  // Function to prepare data for inventory value by category
+  const prepareCategoryValueData = () => {
+    const categoryValueMap = {};
+    inventory.forEach(item => {
+      const value = item.price * item.stock;
+      if (categoryValueMap[item.category]) {
+        categoryValueMap[item.category] += value;
+      } else {
+        categoryValueMap[item.category] = value;
+      }
+    });
+
+    return Object.keys(categoryValueMap).map(category => ({
+      name: category,
+      value: Math.round(categoryValueMap[category])
+    }));
+  };
+
+  // Custom colors for charts
+  const CHART_COLORS = ['#6366f1', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
+
   // Animation variants for smoother interactions
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -473,6 +586,16 @@ const InventoryDash = () => {
               <p className="text-gray-500 mt-1">Manage your construction materials and equipment</p>
             </div>
             <div className="flex items-center space-x-4">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={downloadInventoryCSV}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-md flex items-center space-x-2 shadow-sm transition-colors"
+              >
+                <FiDownload />
+                <span>Export CSV</span>
+              </motion.button>
+              
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -555,6 +678,114 @@ const InventoryDash = () => {
           </motion.div>
         </motion.div>
       </div>
+
+      {/* Toggle Charts Button */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setShowCharts(!showCharts)}
+          className="mb-4 flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50 transition-colors"
+        >
+          {showCharts ? <FiBarChart2 /> : <FiPieChart />}
+          <span>{showCharts ? "Hide Analytics Charts" : "Show Analytics Charts"}</span>
+        </motion.button>
+      </div>
+
+      {/* Charts Section */}
+      {showCharts && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Inventory Analytics</h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Category Distribution Chart */}
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="text-base font-medium text-gray-700 mb-4 flex items-center">
+                  <FiPieChart className="mr-2 text-indigo-500" /> 
+                  Product Category Distribution
+                </h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={prepareCategoryData()}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {prepareCategoryData().map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [`${value} products`, 'Count']} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Inventory Value by Category */}
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="text-base font-medium text-gray-700 mb-4 flex items-center">
+                  <FiDollarSign className="mr-2 text-emerald-500" /> 
+                  Inventory Value by Category (LKR)
+                </h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={prepareCategoryValueData()}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip formatter={(value) => [`LKR ${value.toLocaleString()}`, 'Value']} />
+                      <Bar dataKey="value" fill="#10b981">
+                        {prepareCategoryValueData().map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Stock Levels Chart */}
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
+                <h3 className="text-base font-medium text-gray-700 mb-4 flex items-center">
+                  <FiTrendingUp className="mr-2 text-blue-500" /> 
+                  Top 10 Products by Stock Level
+                </h3>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={prepareStockData()}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 30 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar name="Current Stock" dataKey="stock" fill="#6366f1" />
+                      <Bar name="Threshold" dataKey="threshold" fill="#f59e0b" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Modern Search and Filters */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">

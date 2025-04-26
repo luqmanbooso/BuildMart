@@ -39,6 +39,8 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
   const [isLoadingBids, setIsLoadingBids] = useState(false);
 
   const [bidScores, setBidScores] = useState({});
+  // New state for contractor ratings
+  const [contractorRatings, setContractorRatings] = useState({});
 
   const handleBidSelection = (bidId) => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -132,85 +134,171 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
     setFilteredBids(bids);
   };
 
-const calculateBidScore = async (bid) => {
-  const allPrices = bids.map(b => parseFloat(b.price));
-  const minPrice = Math.min(...allPrices);
-  const maxPrice = Math.max(...allPrices);
-  
-  const allTimelines = bids.map(b => parseInt(b.timeline));
-  const minTimeline = Math.min(...allTimelines);
-  const maxTimeline = Math.max(...allTimelines);
-  
-  const priceRange = maxPrice - minPrice;
-  const priceScore = priceRange === 0 
-    ? 100 
-    : 20 + 80 * (1 - ((parseFloat(bid.price) - minPrice) / priceRange));
-  
-  const timelineRange = maxTimeline - minTimeline;
-  const timelineScore = timelineRange === 0 
-    ? 100 
-    : 20 + 80 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
-  
-  const rating = bid.contractor?.rating || 0;
-  const ratingScore = 20 + (rating / 5) * 80;
-  
-  const experience = bid.contractor?.experience || bid.experience || 0;
-  const experienceScore = 20 + Math.min(experience * 8, 80);
-  
-  let qualificationScore = 0;
-  
-  try {
-    if (bid.contractorId) {
-      const response = await axios.get(`http://localhost:5000/qualify/user/${bid.contractorId}`);
-      const qualifications = response.data;
+  // Fetch ratings for contractors
+  useEffect(() => {
+    const fetchContractorRatings = async () => {
+      if (!bids || bids.length === 0) return;
       
-      if (qualifications && qualifications.length > 0) {
-       
-        const qualCount = Math.min(qualifications.length, 5); 
-        const countScore = qualCount * 10; 
+      const ratings = {};
+      
+      for (const bid of bids) {
+        const contractorId = bid.contractorId;
+        if (!contractorId || ratings[contractorId]) continue;
         
-        let verificationScore = 0;
-        const verifiedQuals = qualifications.filter(q => q.verificationStatus === 'verified').length;
-        verificationScore = Math.min((verifiedQuals / qualCount) * 30, 30);
-        
-        let recencyScore = 0;
-        const currentYear = new Date().getFullYear();
-        const qualYears = qualifications
-          .map(q => parseInt(q.year))
-          .filter(year => !isNaN(year));
-          
-        if (qualYears.length > 0) {
-          const avgYear = qualYears.reduce((sum, year) => sum + year, 0) / qualYears.length;
-          recencyScore = Math.min(20, ((avgYear - (currentYear - 10)) / 10) * 20);
-          recencyScore = Math.max(0, recencyScore); 
+        try {
+          // Try with /api/reviews path first
+          try {
+            const response = await axios.get(`http://localhost:5000/api/reviews/contractor/${contractorId}`);
+            const reviews = response.data;
+            
+            if (reviews && reviews.length > 0) {
+              const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+              const averageRating = (totalRating / reviews.length).toFixed(1);
+              
+              ratings[contractorId] = {
+                rating: averageRating,
+                count: reviews.length
+              };
+            } else {
+              ratings[contractorId] = {
+                rating: 0,
+                count: 0
+              };
+            }
+          } catch (firstAttemptError) {
+            console.log(`First attempt failed for ${contractorId}, trying alternate path`);
+            // If that fails, try with just /reviews path
+            const response = await axios.get(`http://localhost:5000/reviews/contractor/${contractorId}`);
+            const reviews = response.data;
+            
+            if (reviews && reviews.length > 0) {
+              const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+              const averageRating = (totalRating / reviews.length).toFixed(1);
+              
+              ratings[contractorId] = {
+                rating: averageRating,
+                count: reviews.length
+              };
+            } else {
+              ratings[contractorId] = {
+                rating: 0,
+                count: 0
+              };
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching ratings for contractor ${contractorId}:`, error);
+          ratings[contractorId] = {
+            rating: 0,
+            count: 0
+          };
         }
-        
-        qualificationScore = countScore + verificationScore + recencyScore;
       }
-    }
-  } catch (error) {
-    console.error('Error fetching qualification data:', error);
-    qualificationScore = 0;
-  }
-  
-  const adjustedWeightings = {
-    price: weightings.price * 0.8,
-    timeline: weightings.timeline * 0.8,
-    rating: weightings.rating * 0.8,
-    experience: weightings.experience * 0.8,
-    qualification: 20 
+      
+      setContractorRatings(ratings);
     };
-  
-  const totalScore = (
-    (priceScore * (adjustedWeightings.price / 100)) +
-    (timelineScore * (adjustedWeightings.timeline / 100)) +
-    (ratingScore * (adjustedWeightings.rating / 100)) +
-    (experienceScore * (adjustedWeightings.experience / 100)) +
-    (qualificationScore)
-  );
-  
-  return totalScore.toFixed(1);
-};
+    
+    fetchContractorRatings();
+  }, [bids]);
+
+  // Get rating for a bid
+  const getBidRating = (bid) => {
+    const contractorId = bid.contractorId;
+    if (contractorRatings[contractorId]) {
+      return contractorRatings[contractorId].rating;
+    }
+    return bid.contractor?.rating || 0;
+  };
+
+  // Get review count for a bid
+  const getBidReviewCount = (bid) => {
+    const contractorId = bid.contractorId;
+    if (contractorRatings[contractorId]) {
+      return contractorRatings[contractorId].count;
+    }
+    return 0;
+  };
+
+  const calculateBidScore = async (bid) => {
+    const allPrices = bids.map(b => parseFloat(b.price));
+    const minPrice = Math.min(...allPrices);
+    const maxPrice = Math.max(...allPrices);
+    
+    const allTimelines = bids.map(b => parseInt(b.timeline));
+    const minTimeline = Math.min(...allTimelines);
+    const maxTimeline = Math.max(...allTimelines);
+    
+    const priceRange = maxPrice - minPrice;
+    const priceScore = priceRange === 0 
+      ? 100 
+      : 20 + 80 * (1 - ((parseFloat(bid.price) - minPrice) / priceRange));
+    
+    const timelineRange = maxTimeline - minTimeline;
+    const timelineScore = timelineRange === 0 
+      ? 100 
+      : 20 + 80 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
+    
+    // Use actual rating from reviews if available
+    const rating = getBidRating(bid);
+    const ratingScore = 20 + (rating / 5) * 80;
+    
+    const experience = bid.contractor?.experience || bid.experience || 0;
+    const experienceScore = 20 + Math.min(experience * 8, 80);
+    
+    let qualificationScore = 0;
+    
+    try {
+      if (bid.contractorId) {
+        const response = await axios.get(`http://localhost:5000/qualify/user/${bid.contractorId}`);
+        const qualifications = response.data;
+        
+        if (qualifications && qualifications.length > 0) {
+         
+          const qualCount = Math.min(qualifications.length, 5); 
+          const countScore = qualCount * 10; 
+          
+          let verificationScore = 0;
+          const verifiedQuals = qualifications.filter(q => q.verificationStatus === 'verified').length;
+          verificationScore = Math.min((verifiedQuals / qualCount) * 30, 30);
+          
+          let recencyScore = 0;
+          const currentYear = new Date().getFullYear();
+          const qualYears = qualifications
+            .map(q => parseInt(q.year))
+            .filter(year => !isNaN(year));
+            
+          if (qualYears.length > 0) {
+            const avgYear = qualYears.reduce((sum, year) => sum + year, 0) / qualYears.length;
+            recencyScore = Math.min(20, ((avgYear - (currentYear - 10)) / 10) * 20);
+            recencyScore = Math.max(0, recencyScore); 
+          }
+          
+          qualificationScore = countScore + verificationScore + recencyScore;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching qualification data:', error);
+      qualificationScore = 0;
+    }
+    
+    const adjustedWeightings = {
+      price: weightings.price * 0.8,
+      timeline: weightings.timeline * 0.8,
+      rating: weightings.rating * 0.8,
+      experience: weightings.experience * 0.8,
+      qualification: 20 
+    };
+    
+    const totalScore = (
+      (priceScore * (adjustedWeightings.price / 100)) +
+      (timelineScore * (adjustedWeightings.timeline / 100)) +
+      (ratingScore * (adjustedWeightings.rating / 100)) +
+      (experienceScore * (adjustedWeightings.experience / 100)) +
+      (qualificationScore)
+    );
+    
+    return totalScore.toFixed(1);
+  };
 
   const handleSort = (field) => {
     if (field === sortField) {
@@ -312,7 +400,8 @@ const calculateBidScore = async (bid) => {
             ? 100 
             : 20 + 80 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
           
-          const rating = bid.contractor?.rating || 0;
+          // Use actual rating from fetched data
+          const rating = getBidRating(bid);
           const ratingScore = 20 + (rating / 5) * 80;
           
           const experience = bid.contractor?.experience || bid.experience || 0;
@@ -336,7 +425,7 @@ const calculateBidScore = async (bid) => {
     };
     
     calculateScores();
-  }, [filteredBids, weightings]);
+  }, [filteredBids, weightings, contractorRatings]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -719,6 +808,9 @@ const calculateBidScore = async (bid) => {
                 const isSelected = selectedBids.includes(bidId);
                 const isShortlisted = shortlistedBids.includes(bidId);
                 const bidScore = getBidScore(bid);
+                // Use actual rating and review count
+                const rating = getBidRating(bid);
+                const reviewCount = getBidReviewCount(bid);
                 
                 return (
                   <tr key={bidId} className={`group transition-all duration-200 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'} ${isShortlisted ? 'border-l-4 border-green-400' : ''}`}>
@@ -774,8 +866,17 @@ const calculateBidScore = async (bid) => {
                       <div className="text-sm text-gray-700">
                         {new Date(bid.createdAt).toLocaleDateString()}
                       </div>
-                      <div className="text-xs text-gray-500">Bid date</div>
+                      <div className="flex items-center text-xs text-gray-500">
+                        <div className="flex items-center">
+                          <svg className="h-3 w-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                          <span className="ml-1">{rating}</span>
+                          {reviewCount > 0 && <span className="ml-1">({reviewCount})</span>}
+                        </div>
+                      </div>
                     </td>
+                    {/* Add back the bid score cell */}
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
