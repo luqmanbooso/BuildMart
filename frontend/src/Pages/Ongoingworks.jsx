@@ -265,6 +265,19 @@ function Ongoingworks() {
     }
   };
 
+  // Helper function to format image URLs correctly
+  const formatImageUrl = (path) => {
+    if (!path) return 'https://randomuser.me/api/portraits/lego/1.jpg';
+    
+    // If path already includes http/https, return as is
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    
+    // Otherwise prepend the backend URL
+    return `http://localhost:5000${path}`;
+  };
+
   // Fetch contractor details for each ongoing work
   const fetchContractorDetails = async (formattedWorks, token) => {
     const updatedWorks = [...formattedWorks];
@@ -295,13 +308,24 @@ function Ongoingworks() {
         const contractorData = response.data;
         const userData = contractorData.userId || {};
         
+        // Get profile pic from userId object
+        let profilePic = null;
+        if (userData && userData.profilePic) {
+          profilePic = userData.profilePic;
+          console.log(`[DEBUG] Found profile pic in userData: ${profilePic}`);
+        }
+        
+        // Format the image URL correctly
+        const formattedProfilePic = formatImageUrl(profilePic);
+        console.log(`[DEBUG] Formatted profile pic URL: ${formattedProfilePic}`);
+        
         // Update work with contractor details
         updatedWorks[i] = {
           ...work,
           contractor: userData.username || contractorData.companyName || 'Contractor',
           contractorPhone: contractorData.phone || 'N/A',
           contractorEmail: userData.email || 'N/A',
-          contractorImage: userData.profilePic || 'https://randomuser.me/api/portraits/lego/1.jpg'
+          contractorImage: formattedProfilePic
         };
       } catch (err) {
         console.error(`[DEBUG] Error fetching contractor details for work ${updatedWorks[i].id}:`, err);
@@ -1123,7 +1147,7 @@ ${clientDetails?.name || 'Client'}`;
                         className="text-sm text-red-600 hover:text-red-800 hover:underline flex items-center"
                       >
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         Report an issue with this project
                       </button>
