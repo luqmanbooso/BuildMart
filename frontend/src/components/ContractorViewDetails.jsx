@@ -10,6 +10,8 @@ const ContractorViewDetails = () => {
   const [bid, setBid] = useState(null);
   const [error, setError] = useState(null);
   const [contractorUser, setContractorUser] = useState(null);
+  // New state for qualifications
+  const [qualifications, setQualifications] = useState([]);
 
   useEffect(() => {
     const fetchContractorDetails = async () => {
@@ -35,6 +37,17 @@ const ContractorViewDetails = () => {
               }
             } catch (userError) {
               console.log('Could not fetch user details:', userError);
+            }
+            
+            // Fetch contractor qualifications
+            try {
+              const qualificationsResponse = await axios.get(`http://localhost:5000/qualify/user/${contractorId}`);
+              if (qualificationsResponse.data) {
+                setQualifications(qualificationsResponse.data);
+                console.log("Fetched qualifications:", qualificationsResponse.data);
+              }
+            } catch (qualError) {
+              console.log('Could not fetch qualifications:', qualError);
             }
             
             // Extract contractor details from bid
@@ -86,6 +99,48 @@ const ContractorViewDetails = () => {
   const handleAcceptBid = () => {
     // Navigate to agreement form instead of directly updating the bid status
     navigate(`/agreement/${projectId}/${bidId}`);
+  };
+
+  // Function to get the icon for a qualification type
+  const getQualificationIcon = (type) => {
+    switch (type) {
+      case 'Certification':
+        return (
+          <svg className="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12.75L11.25 15 15 9.75M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        );
+      case 'Education':
+        return (
+          <svg className="h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+          </svg>
+        );
+      case 'License':
+        return (
+          <svg className="h-5 w-5 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
+          </svg>
+        );
+      case 'Award':
+        return (
+          <svg className="h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" />
+          </svg>
+        );
+      case 'Skill':
+        return (
+          <svg className="h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className="h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+    }
   };
 
   if (loading) {
@@ -189,6 +244,69 @@ const ContractorViewDetails = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+                
+                {/* Qualifications Display Section - NEW */}
+                <div className="mt-4 bg-white p-4 rounded-lg border border-gray-200">
+                  <h3 className="font-medium text-gray-700 mb-3 flex items-center">
+                    <svg className="h-5 w-5 mr-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
+                    </svg>
+                    Qualifications ({qualifications.length})
+                  </h3>
+                  
+                  {qualifications.length > 0 ? (
+                    <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                      {qualifications.map((qual) => (
+                        <div 
+                          key={qual._id} 
+                          className="p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-blue-50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              {getQualificationIcon(qual.type)}
+                              <span className="ml-2 text-xs font-semibold text-gray-500">{qual.type}</span>
+                            </div>
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                              {qual.year}
+                            </span>
+                          </div>
+                          <h4 className="font-medium text-gray-800 mt-1">{qual.name}</h4>
+                          <p className="text-sm text-gray-600">{qual.issuer}</p>
+                          
+                          {qual.expiry && qual.expiry !== 'N/A' && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Expires: {qual.expiry}
+                            </p>
+                          )}
+                          
+                          {qual.documentImage && (
+                            <div className="mt-2">
+                              <a 
+                                href={qual.documentImage} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800"
+                              >
+                                <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View Certificate
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 bg-gray-50 rounded-md border border-dashed border-gray-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                      </svg>
+                      <p className="text-sm text-gray-500">No formal qualifications found</p>
+                    </div>
+                  )}
                 </div>
                 
                 {contractorUser?.email && (

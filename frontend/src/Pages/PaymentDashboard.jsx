@@ -10,6 +10,11 @@ import {
   Clock // Add this import
 } from 'lucide-react';
 import { useSupplierPayments } from '../context/SupplierPaymentContext';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title } from 'chart.js';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
+
+// Register ChartJS components
+ChartJS.register(ArcElement, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
 function PaymentDashboard() {
   // Keep existing state variables
@@ -239,209 +244,209 @@ function PaymentDashboard() {
   };
 
   // Process and categorize payment data
-const processPaymentData = (data) => {
-  // Initialize categorized data arrays
-  const serviceProviderPaymentsArray = [];
-  const inventoryPaymentsArray = [];
-  const commissionPaymentsArray = [];
-  const agreementFeePaymentsArray = []; // Add this new array
+  const processPaymentData = (data) => {
+    // Initialize categorized data arrays
+    const serviceProviderPaymentsArray = [];
+    const inventoryPaymentsArray = [];
+    const commissionPaymentsArray = [];
+    const agreementFeePaymentsArray = []; // Add this new array
 
-  // Initialize stats counters with default values
-  const stats = {
-    totalAmount: 0,
-    serviceProviderTotal: 0,
-    inventorySalesTotal: 0,
-    commissionIncome: 0,
-    agreementFeeIncome: 0, // Add this new counter
-    pendingAmount: 0,
-    completedCount: 0,
-    pendingCount: 0,
-    failedCount: 0,
-    activeProviders: new Set(),
-    itemsPurchased: 0
-  };
+    // Initialize stats counters with default values
+    const stats = {
+      totalAmount: 0,
+      serviceProviderTotal: 0,
+      inventorySalesTotal: 0,
+      commissionIncome: 0,
+      agreementFeeIncome: 0, // Add this new counter
+      pendingAmount: 0,
+      completedCount: 0,
+      pendingCount: 0,
+      failedCount: 0,
+      activeProviders: new Set(),
+      itemsPurchased: 0
+    };
 
-  // Count card types
-  const cardTypes = {
-    visa: 0,
-    mastercard: 0,
-    amex: 0,
-    discover: 0
-  };
+    // Count card types
+    const cardTypes = {
+      visa: 0,
+      mastercard: 0,
+      amex: 0,
+      discover: 0
+    };
 
-  // Process data only if it exists and is an array
-  if (Array.isArray(data) && data.length > 0) {
-    console.log("Processing payment data:", data.length, "records");
-    
-    data.forEach(payment => {
-      // Format the payment for display
-      const formattedPayment = {
-        id: payment._id,
-        status: convertStatus(payment.status),
-        amount: payment.amount,
-        formattedAmount: `Rs. ${payment.amount.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
-        })}`,
-        method: payment.cardType,
-        cardNumber: payment.lastFourDigits,
-        date: new Date(payment.createdAt).toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        rawDate: new Date(payment.createdAt),
-        cardholderName: payment.cardholderName,
-        user: payment.user,
-        paymentType: payment.paymentType
-      };
-
-      // Count by status
-      if (payment.status === 'completed') {
-        stats.completedCount++;
-      } else if (payment.status === 'pending') {
-        stats.pendingCount++;
-        stats.pendingAmount += payment.amount;
-      } else if (payment.status === 'failed') {
-        stats.failedCount++;
-      }
-
-      // Count card types
-      if (payment.cardType in cardTypes) {
-        cardTypes[payment.cardType]++;
-      }
-
-      // CATEGORIZATION LOGIC:
+    // Process data only if it exists and is an array
+    if (Array.isArray(data) && data.length > 0) {
+      console.log("Processing payment data:", data.length, "records");
       
-      // Check if this is an agreement fee
-      const isAgreementFee = payment.paymentType === 'agreement_fee';
-      
-      // Check whether the payment has order items (which indicates inventory sale)
-      const hasOrderItems = payment.order && 
-                           payment.order.items && 
-                           Array.isArray(payment.order.items) && 
-                           payment.order.items.length > 0;
+      data.forEach(payment => {
+        // Format the payment for display
+        const formattedPayment = {
+          id: payment._id,
+          status: convertStatus(payment.status),
+          amount: payment.amount,
+          formattedAmount: `Rs. ${payment.amount.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          })}`,
+          method: payment.cardType,
+          cardNumber: payment.lastFourDigits,
+          date: new Date(payment.createdAt).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          rawDate: new Date(payment.createdAt),
+          cardholderName: payment.cardholderName,
+          user: payment.user,
+          paymentType: payment.paymentType
+        };
 
-      // Check if this is explicitly marked as an inventory payment or has order items
-      const isInventorySale = payment.paymentType === 'inventory' || hasOrderItems;
-      
-      // Check if it's a service provider payment
-      const isServiceProvider = payment.paymentType === 'milestone' || 
-                               payment.workId || 
-                               (payment.user?.role === 'contractor' || payment.user?.role === 'supplier');
-      
-      // 1. Agreement Fee (NEW CATEGORY)
-      if (isAgreementFee) {
-        stats.agreementFeeIncome += payment.amount;
-        
-        agreementFeePaymentsArray.push({
-          ...formattedPayment,
-          clientName: payment.user?.name || payment.cardholderName || 'Client',
-          agreementType: 'Service Agreement'
-        });
-      }
-      // 2. Service Provider Payments (milestone payments)
-      else if (isServiceProvider) {        
-        stats.serviceProviderTotal += payment.amount;
-        stats.activeProviders.add(payment.user?.name || payment.cardholderName || 'Unknown Provider');
-        
-        serviceProviderPaymentsArray.push({
-          ...formattedPayment,
-          providerName: payment.user?.name || payment.cardholderName || 'Unknown Provider',
-          milestoneId: payment.milestoneId,
-          workId: payment.workId,
-          itemName: 'Milestone Payment'
-        });
-      }
-      // 3. Inventory Sales - exclude service provider payments and agreement fees
-      else if (isInventorySale) {
-        const itemCount = hasOrderItems ? 
-          payment.order.items.reduce((total, item) => total + (item.quantity || 0), 0) : 1;
-        
-        stats.itemsPurchased += itemCount;
-        stats.inventorySalesTotal += payment.amount;
-        
-        inventoryPaymentsArray.push({
-          ...formattedPayment,
-          itemName: hasOrderItems ? 
-            payment.order.items.map(item => item.name).join(', ') : 'Product Purchase',
-          itemCount: itemCount,
-          customerName: payment.user?.name || payment.cardholderName || 'Customer',
-          // Explicitly set commission values to 0 for regular inventory sales
-          commissionAmount: 0,
-          commissionRate: 0
-        });
-      }
-      // 4. Fallback for any unclassified payments
-      else {
-        // Add to inventory by default for now
-        stats.inventorySalesTotal += payment.amount;
-        
-        inventoryPaymentsArray.push({
-          ...formattedPayment,
-          itemName: 'Other Purchase',
-          itemCount: 1,
-          customerName: payment.user?.name || payment.cardholderName || 'Customer',
-          commissionAmount: 0,
-          commissionRate: 0
-        });
-      }
-      
-      // 5. Commission Income - SEPARATE logic (can apply to any payment)
-      if (payment.commissionAmount > 0) {
-        stats.commissionIncome += payment.commissionAmount;
-        
-        commissionPaymentsArray.push({
-          ...formattedPayment,
-          originalAmount: payment.originalAmount || payment.amount,
-          commissionAmount: payment.commissionAmount,
-          commissionRate: payment.commissionRate || 0.1
-        });
-      }
-      
-      // Add to total regardless of category
-      stats.totalAmount += payment.amount;
-    });
+        // Count by status
+        if (payment.status === 'completed') {
+          stats.completedCount++;
+        } else if (payment.status === 'pending') {
+          stats.pendingCount++;
+          stats.pendingAmount += payment.amount;
+        } else if (payment.status === 'failed') {
+          stats.failedCount++;
+        }
 
-    console.log("Categorized payments:", {
-      serviceProviders: serviceProviderPaymentsArray.length,
-      inventorySales: inventoryPaymentsArray.length,
-      agreementFees: agreementFeePaymentsArray.length,
-      commissions: commissionPaymentsArray.length
-    });
+        // Count card types
+        if (payment.cardType in cardTypes) {
+          cardTypes[payment.cardType]++;
+        }
 
-    // Calculate payment method percentages
-    const totalPayments = data.length;
-    if (totalPayments > 0) {
-      setPaymentMethodsData([
-        { method: 'Visa', percentage: Math.round((cardTypes.visa / totalPayments) * 100) },
-        { method: 'Mastercard', percentage: Math.round((cardTypes.mastercard / totalPayments) * 100) },
-        { method: 'Other', percentage: Math.round(((cardTypes.amex + cardTypes.discover) / totalPayments) * 100) }
-      ]);
+        // CATEGORIZATION LOGIC:
+        
+        // Check if this is an agreement fee
+        const isAgreementFee = payment.paymentType === 'agreement_fee';
+        
+        // Check whether the payment has order items (which indicates inventory sale)
+        const hasOrderItems = payment.order && 
+                            payment.order.items && 
+                            Array.isArray(payment.order.items) && 
+                            payment.order.items.length > 0;
+
+        // Check if this is explicitly marked as an inventory payment or has order items
+        const isInventorySale = payment.paymentType === 'inventory' || hasOrderItems;
+        
+        // Check if it's a service provider payment
+        const isServiceProvider = payment.paymentType === 'milestone' || 
+                                payment.workId || 
+                                (payment.user?.role === 'contractor' || payment.user?.role === 'supplier');
+        
+        // 1. Agreement Fee (NEW CATEGORY)
+        if (isAgreementFee) {
+          stats.agreementFeeIncome += payment.amount;
+          
+          agreementFeePaymentsArray.push({
+            ...formattedPayment,
+            clientName: payment.user?.name || payment.cardholderName || 'Client',
+            agreementType: 'Service Agreement'
+          });
+        }
+        // 2. Service Provider Payments (milestone payments)
+        else if (isServiceProvider) {        
+          stats.serviceProviderTotal += payment.amount;
+          stats.activeProviders.add(payment.user?.name || payment.cardholderName || 'Unknown Provider');
+          
+          serviceProviderPaymentsArray.push({
+            ...formattedPayment,
+            providerName: payment.user?.name || payment.cardholderName || 'Unknown Provider',
+            milestoneId: payment.milestoneId,
+            workId: payment.workId,
+            itemName: 'Milestone Payment'
+          });
+        }
+        // 3. Inventory Sales - exclude service provider payments and agreement fees
+        else if (isInventorySale) {
+          const itemCount = hasOrderItems ? 
+            payment.order.items.reduce((total, item) => total + (item.quantity || 0), 0) : 1;
+          
+          stats.itemsPurchased += itemCount;
+          stats.inventorySalesTotal += payment.amount;
+          
+          inventoryPaymentsArray.push({
+            ...formattedPayment,
+            itemName: hasOrderItems ? 
+              payment.order.items.map(item => item.name).join(', ') : 'Product Purchase',
+            itemCount: itemCount,
+            customerName: payment.user?.name || payment.cardholderName || 'Customer',
+            // Explicitly set commission values to 0 for regular inventory sales
+            commissionAmount: 0,
+            commissionRate: 0
+          });
+        }
+        // 4. Fallback for any unclassified payments
+        else {
+          // Add to inventory by default for now
+          stats.inventorySalesTotal += payment.amount;
+          
+          inventoryPaymentsArray.push({
+            ...formattedPayment,
+            itemName: 'Other Purchase',
+            itemCount: 1,
+            customerName: payment.user?.name || payment.cardholderName || 'Customer',
+            commissionAmount: 0,
+            commissionRate: 0
+          });
+        }
+        
+        // 5. Commission Income - SEPARATE logic (can apply to any payment)
+        if (payment.commissionAmount > 0) {
+          stats.commissionIncome += payment.commissionAmount;
+          
+          commissionPaymentsArray.push({
+            ...formattedPayment,
+            originalAmount: payment.originalAmount || payment.amount,
+            commissionAmount: payment.commissionAmount,
+            commissionRate: payment.commissionRate || 0.1
+          });
+        }
+        
+        // Add to total regardless of category
+        stats.totalAmount += payment.amount;
+      });
+
+      console.log("Categorized payments:", {
+        serviceProviders: serviceProviderPaymentsArray.length,
+        inventorySales: inventoryPaymentsArray.length,
+        agreementFees: agreementFeePaymentsArray.length,
+        commissions: commissionPaymentsArray.length
+      });
+
+      // Calculate payment method percentages
+      const totalPayments = data.length;
+      if (totalPayments > 0) {
+        setPaymentMethodsData([
+          { method: 'Visa', percentage: Math.round((cardTypes.visa / totalPayments) * 100) },
+          { method: 'Mastercard', percentage: Math.round((cardTypes.mastercard / totalPayments) * 100) },
+          { method: 'Other', percentage: Math.round(((cardTypes.amex + cardTypes.discover) / totalPayments) * 100) }
+        ]);
+      }
+
+      // Ensure stats has all required fields before setting state
+      setPaymentStats(stats);
+      
+      // Set other state variables with the arrays
+      setServiceProviderPayments(serviceProviderPaymentsArray);
+      setItemsPayments(inventoryPaymentsArray);
+      setCommissionPayments(commissionPaymentsArray);
+      // Add this line to set agreement fee payments
+      setAgreementFeePayments(agreementFeePaymentsArray);
+    } else {
+      console.log("No payment data or empty array");
+      
+      // If data is empty or invalid, ensure we set default values
+      setPaymentStats(stats);
+      setServiceProviderPayments([]);
+      setItemsPayments([]);
+      setCommissionPayments([]);
+      setAgreementFeePayments([]);
     }
-
-    // Ensure stats has all required fields before setting state
-    setPaymentStats(stats);
-    
-    // Set other state variables with the arrays
-    setServiceProviderPayments(serviceProviderPaymentsArray);
-    setItemsPayments(inventoryPaymentsArray);
-    setCommissionPayments(commissionPaymentsArray);
-    // Add this line to set agreement fee payments
-    setAgreementFeePayments(agreementFeePaymentsArray);
-  } else {
-    console.log("No payment data or empty array");
-    
-    // If data is empty or invalid, ensure we set default values
-    setPaymentStats(stats);
-    setServiceProviderPayments([]);
-    setItemsPayments([]);
-    setCommissionPayments([]);
-    setAgreementFeePayments([]);
-  }
-};
+  };
 
   // Helper function to convert backend status to UI status
   const convertStatus = (backendStatus) => {
@@ -456,9 +461,11 @@ const processPaymentData = (data) => {
   // Fetch payments on component mount
   useEffect(() => {
     fetchPayments();
+    fetchAdminSalaries();
+    fetchAdminExpenses(); // Add this to load expenses on mount
   }, []);
 
-  // Add this useEffect after your existing useEffects
+  // Fetch supplier payments when expenses tab is selected
   useEffect(() => {
     if (expensesSubPage === 'Supplier Payments') {
       // Fetch supplier payments from your API
@@ -478,15 +485,64 @@ const processPaymentData = (data) => {
           setLoading(false);
         }
       };
-
       fetchSupplierPayments();
     }
   }, [expensesSubPage]);
 
-  // Add this to useEffect
+  // Fetch expenses when Expenses tab is selected
   useEffect(() => {
-    fetchAdminSalaries();
-  }, []);
+    if (activePage === 'Expenses' && expensesSubPage === 'Other Expenses') {
+      fetchAdminExpenses();
+    }
+  }, [activePage, expensesSubPage]);
+
+  // Function to fetch admin expenses
+  const fetchAdminExpenses = async () => {
+    try {
+      setLoading(true);
+      
+      try {
+        // Try to get expenses from the API
+        const response = await axios.get('http://localhost:5000/auth/admin-expenses');
+        
+        if (response.data && Array.isArray(response.data)) {
+          const formattedExpenses = response.data.map(expense => ({
+            ...expense,
+            date: expense.date || expense.paymentDate,
+            details: {
+              ...expense.details,
+              paymentDate: expense.details?.paymentDate || expense.date
+            }
+          }));
+          
+          setAdminExpenses(formattedExpenses);
+          console.log('Fetched admin expenses:', formattedExpenses.length);
+          
+          // Also save to local storage as backup
+          saveExpensesToLocalStorage(formattedExpenses);
+          return;
+        }
+      } catch (apiError) {
+        console.error('API Error fetching admin expenses:', apiError);
+        // Continue to fallback below
+      }
+      
+      // Fallback: Check if we have expense data in local storage
+      console.log('Falling back to local storage for expenses');
+      const localExpenses = loadExpensesFromLocalStorage();
+      if (localExpenses && localExpenses.length > 0) {
+        setAdminExpenses(localExpenses);
+        return;
+      }
+      
+      // Last resort: check if there are any expenses in the state from salary payments
+      console.log('No expenses found in storage');
+    } catch (error) {
+      console.error('Error in expense handling:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Add this function to fetch admin salaries
   const fetchAdminSalaries = async () => {
@@ -548,6 +604,16 @@ const processPaymentData = (data) => {
     }
   };
 
+  // Add these utility functions for local storage
+  const saveExpensesToLocalStorage = (expenses) => {
+    localStorage.setItem('adminExpenses', JSON.stringify(expenses));
+  };
+
+  const loadExpensesFromLocalStorage = () => {
+    const storedExpenses = localStorage.getItem('adminExpenses');
+    return storedExpenses ? JSON.parse(storedExpenses) : [];
+  };
+
   const handleSalaryPayment = async (admin) => {
     const lastPaidDate = admin.lastPaid ? new Date(admin.lastPaid).toLocaleDateString() : 'Not paid yet';
     const currentDate = new Date();
@@ -581,17 +647,18 @@ const processPaymentData = (data) => {
         const epfEmployer = basicSalary * 0.12;
         const etf = basicSalary * 0.03;
         const netSalary = basicSalary - epfEmployee;
-  
-        // Create expense record with month information
+
+        // Create comprehensive expense record with all salary details
         const salaryExpense = {
           id: `SAL-${Date.now()}`,
           date: new Date().toISOString(),
           type: 'Salary Payment',
           month: monthName,
+          year: currentDate.getFullYear(),
           employeeId: admin.id,
           employeeName: admin.name,
-          employeeEmail: admin.email,
-          amount: netSalary,
+          employeeEmail: admin.email || 'admin@buildmart.com',
+          amount: netSalary, // Store the net amount paid
           details: {
             basicSalary,
             epfEmployee,
@@ -600,52 +667,68 @@ const processPaymentData = (data) => {
             netSalary,
             paymentDate: new Date().toISOString(),
             month: monthName,
-            year: currentDate.getFullYear()
+            year: currentDate.getFullYear(),
+            paymentStatus: 'Completed'
           }
         };
-  
-        // Add to expenses array
-        setAdminExpenses(prev => [...prev, salaryExpense]);
-  
-        // Send payment data to backend
-        const response = await axios.post('http://localhost:5000/auth/admins/pay-salary', {
-          adminId: admin.id,
-          paymentDate: new Date().toISOString(),
-          month: monthName,
-          year: currentDate.getFullYear(),
-          salary: {
-            basicSalary,
-            epfEmployee,
-            epfEmployer,
-            etf,
-            netSalary
-          }
+
+        // Add to expenses array immediately to ensure it's visible in the UI
+        setAdminExpenses(prev => {
+          const newExpenses = [salaryExpense, ...prev];
+          // Also update local storage for persistence
+          saveExpensesToLocalStorage(newExpenses);
+          return newExpenses;
         });
-        
-        if (response.status === 200) {
-          // Update admin's last paid date and status in local state
-          const updatedAdmins = adminSalaries.map(a => 
-            a.id === admin.id 
-              ? {...a, 
-                 lastPaid: new Date().toLocaleDateString(), 
-                 status: 'Paid',
-                 lastPaidMonth: monthName,
-                 lastPaidYear: currentDate.getFullYear()
-                } 
-              : a
-          );
-          setAdminSalaries(updatedAdmins);
-  
-          // Show success message
-          alert(`${monthName} salary payment processed successfully for ${admin.name}!`);
+
+        // Try to send payment data to backend
+        try {
+          const response = await axios.post('http://localhost:5000/auth/admins/pay-salary', {
+            adminId: admin.id,
+            paymentDate: new Date().toISOString(),
+            month: monthName,
+            year: currentDate.getFullYear(),
+            salary: {
+              basicSalary,
+              epfEmployee,
+              epfEmployer,
+              etf,
+              netSalary
+            },
+            expense: salaryExpense
+          });
           
-          // Set expensesSubPage to 'Other Expenses' to show the newly added expense
-          setExpensesSubPage('Other Expenses');
-          // Navigate to Expenses page to show the newly added expense
-          setActivePage('Expenses');
-        } else {
-          throw new Error('Failed to process payment on server');
+          console.log("Salary payment API response:", response.data);
+        } catch (apiError) {
+          console.warn("API error when saving salary payment:", apiError);
+          // Continue execution since we've already updated the UI
         }
+        
+        // Update admin's last paid date and status in local state
+        const updatedAdmins = adminSalaries.map(a => 
+          a.id === admin.id 
+            ? {...a, 
+               lastPaid: new Date().toLocaleDateString(), 
+               status: 'Paid',
+               lastPaidMonth: monthName,
+               lastPaidYear: currentDate.getFullYear()
+              } 
+            : a
+        );
+        setAdminSalaries(updatedAdmins);
+
+        // Calculate updated total paid salary amount
+        const updatedTotalPaid = updatedAdmins
+          .filter(a => a.status === 'Paid')
+          .reduce((sum, a) => sum + a.salary, 0);
+        
+        setTotalSalaryPaid(updatedTotalPaid);
+
+        // Show success message
+        alert(`${monthName} salary payment processed successfully for ${admin.name}!`);
+        
+        // Ensure navigation to the Expenses tab with Other Expenses sub-page selected
+        setExpensesSubPage('Other Expenses');
+        setActivePage('Expenses');
       } catch (error) {
         console.error('Error processing salary payment:', error);
         alert('Failed to process salary payment. Please try again.');
@@ -654,78 +737,6 @@ const processPaymentData = (data) => {
       }
     }
   };
-
-  const handleSalaryUpdate = async () => {
-    try {
-      if (!selectedAdmin) return;
-      
-      const currentSalary = selectedAdmin.salary || 30000;
-      let newSalary = currentSalary;
-      let actualChange = 0;
-      
-      // Calculate change based on increment or decrement
-      if (incrementType === 'fixed') {
-        actualChange = Number(incrementAmount);
-        newSalary = salaryChangeType === 'increment' ? 
-          currentSalary + actualChange : 
-          currentSalary - actualChange;
-      } else {
-        // Percentage change
-        actualChange = (currentSalary * Number(incrementAmount) / 100);
-        newSalary = salaryChangeType === 'increment' ? 
-          currentSalary + actualChange : 
-          currentSalary - actualChange;
-      }
-      
-      // Prevent negative salary
-      if (newSalary < 0) {
-        alert('Salary cannot be negative. Operation cancelled.');
-        return;
-      }
-      
-      // Round to 2 decimal places
-      newSalary = Math.round(newSalary * 100) / 100;
-      
-      // Log the data being sent
-      console.log('Updating salary:', {
-        adminId: selectedAdmin.id,
-        currentSalary,
-        newSalary,
-        incrementType,
-        incrementAmount,
-        salaryChangeType,
-        actualChange: salaryChangeType === 'increment' ? actualChange : -actualChange
-      });
-      
-      const response = await axios.patch(`http://localhost:5000/auth/admins/${selectedAdmin.id}/salary`, {
-        salary: newSalary
-      });
-      
-      console.log('Response:', response.data);
-      
-      if (response.data) {
-        // Show success notification with increment/decrement info
-        const changeText = salaryChangeType === 'increment' ? 'increased' : 'decreased';
-        alert(`Salary ${changeText} successfully! New salary: Rs. ${newSalary.toLocaleString()}`);
-        
-        // Refresh admin salaries data
-        fetchAdminSalaries();
-        
-        // Close modal
-        setShowSalaryModal(false);
-        setSelectedAdmin(null);
-        setIncrementAmount(0);
-      }
-    } catch (error) {
-      console.error('Error updating salary:', error);
-      const errorMessage = error.response ? 
-        `Failed to update salary: ${error.response.status} - ${error.response.data?.message || error.message}` :
-        `Failed to update salary: ${error.message}`;
-      alert(errorMessage);
-    }
-  };
-
-  // Removed duplicate declaration of handleSalaryPayment
 
   const toggleSelectAll = () => {
     setIsAllSelected(!isAllSelected);
@@ -834,7 +845,7 @@ const processPaymentData = (data) => {
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Amount
               </th>
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1528,7 +1539,7 @@ const processPaymentData = (data) => {
       case 'Dashboard':
         return (
           <div className="space-y-6">
-            {/* Dashboard Controls */}
+            {/* Dashboard Controls - keep existing code */}
             <div className="flex justify-between items-center flex-wrap gap-4">
               <h2 className="text-lg font-semibold">Payment Overview</h2>
               <div className="flex space-x-2">
@@ -1572,13 +1583,13 @@ const processPaymentData = (data) => {
               </div>
             </div>
             
-            {/* Display Filters */}
+            {/* Display Filters - keep existing code */}
             {renderFilters()}
             
-            {/* Stats Cards */}
+            {/* Financial Summary Cards */}
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[1, 2, 3, 4].map((_, index) => (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[1, 2, 3].map((_, index) => (
                   <div key={index} className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
                     <div className="flex justify-between items-start">
                       <div>
@@ -1605,74 +1616,518 @@ const processPaymentData = (data) => {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {stats.map((stat, index) => (
-                  <div key={index} className="bg-white rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 mb-1">{stat.title}</p>
-                        <p className="text-xl font-bold text-gray-900">{stat.value}</p>
-                      </div>
-                      <div className="p-3 bg-blue-50 rounded-lg">
-                        {stat.icon}
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Total Income Card */}
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md border border-green-200">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-green-700 mb-1">Total Income</p>
+                      <p className="text-2xl font-bold text-green-800">
+                        Rs. {((paymentStats?.inventorySalesTotal || 0) + 
+                        (paymentStats?.commissionIncome || 0) + 
+                        (paymentStats?.agreementFeeIncome || 0)).toLocaleString()}
+                      </p>
                     </div>
-                    <div className="mt-4 flex items-center">
-                      <span className={`text-xs font-medium ${
-                        stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {stat.change}
-                      </span>
-                      <TrendingUp 
-                        size={16} 
-                        className={`ml-2 ${
-                          stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                        } ${stat.trend === 'down' ? 'transform rotate-180' : ''}`}
-                      />
+                    <div className="p-3 bg-green-200 rounded-lg">
+                      <ArrowUpRight className="h-6 w-6 text-green-700" />
                     </div>
                   </div>
-                ))}
+                  <div className="mt-4 flex items-center">
+                    <TrendingUp size={16} className="text-green-600 mr-2" />
+                    <span className="text-xs font-medium text-green-700">Income from sales, commissions & fees</span>
+                  </div>
+                </div>
+                
+                {/* Total Expenses Card */}
+                <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md border border-red-200">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-red-700 mb-1">Total Expenses</p>
+                      <p className="text-2xl font-bold text-red-800">
+                        Rs. {((paymentStats?.serviceProviderTotal || 0) + 
+                        (totalSalaryPaid || 0) + 
+                        (supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0)).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-red-200 rounded-lg">
+                      <ArrowDownRight className="h-6 w-6 text-red-700" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center">
+                    <Activity size={16} className="text-red-600 mr-2" />
+                    <span className="text-xs font-medium text-red-700">Service providers, salaries & suppliers</span>
+                  </div>
+                </div>
+                
+                {/* Profit Card */}
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md border border-blue-200">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-blue-700 mb-1">Net Profit</p>
+                      <p className="text-2xl font-bold text-blue-800">
+                        Rs. {((paymentStats?.inventorySalesTotal || 0) + 
+                        (paymentStats?.commissionIncome || 0) + 
+                        (paymentStats?.agreementFeeIncome || 0) - 
+                        (paymentStats?.serviceProviderTotal || 0) - 
+                        (totalSalaryPaid || 0) - 
+                        (supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0)).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-blue-200 rounded-lg">
+                      <DollarSign className="h-6 w-6 text-blue-700" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center">
+                    <TrendingUp size={16} className="text-blue-600 mr-2" />
+                    <span className="text-xs font-medium text-blue-700">Total income minus expenses</span>
+                  </div>
+                </div>
               </div>
             )}
             
-            {/* Payment Methods Distribution */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
-              {loading ? (
-                <div className="animate-pulse">
-                  <div className="flex items-center space-x-4">
-                    {[1, 2, 3].map((_, index) => (
-                      <div key={index} className="flex-1">
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="h-4 bg-gray-200 rounded w-20"></div>
-                          <div className="h-4 bg-gray-200 rounded w-10"></div>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-2">
-                          <div className="bg-gray-300 h-2 rounded-full" style={{ width: '60%' }}></div>
-                        </div>
+            {/* Charts Grid */}
+            {!loading && !error && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                {/* Income Breakdown Chart - Modern Style */}
+                <div className="bg-white/90 backdrop-blur-lg rounded-xl shadow-lg p-6 border border-gray-100 transition-all duration-300 hover:shadow-xl">
+                  <h3 className="text-lg font-semibold bg-gradient-to-r from-gray-800 to-green-800 bg-clip-text text-transparent mb-6">Income Distribution</h3>
+                  <div className="h-64 transition-all duration-300 transform hover:scale-[1.02]">
+                    <Bar 
+                      data={{
+                        labels: ['Inventory Sales', 'Commission Income', 'Agreement Fees'],
+                        datasets: [
+                          {
+                            label: 'Income Amount (Rs.)',
+                            data: [
+                              paymentStats?.inventorySalesTotal || 0,
+                              paymentStats?.commissionIncome || 0,
+                              paymentStats?.agreementFeeIncome || 0
+                            ],
+                            backgroundColor: [
+                              'rgba(34, 197, 94, 0.9)',
+                              'rgba(124, 58, 237, 0.9)',
+                              'rgba(249, 115, 22, 0.9)'
+                            ],
+                            borderWidth: 0,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            hoverBorderWidth: 0,
+                            hoverBackgroundColor: [
+                              'rgba(34, 197, 94, 1)',
+                              'rgba(124, 58, 237, 1)',
+                              'rgba(249, 115, 22, 1)'
+                            ]
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        layout: {
+                          padding: 10
+                        },
+                        animation: {
+                          duration: 2000,
+                          easing: 'easeOutQuart'
+                        },
+                        plugins: {
+                          legend: {
+                            display: false
+                          },
+                          tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            titleColor: '#1f2937',
+                            bodyColor: '#4b5563',
+                            titleFont: {
+                              size: 14,
+                              weight: 'bold'
+                            },
+                            bodyFont: {
+                              size: 13
+                            },
+                            padding: 16,
+                            cornerRadius: 12,
+                            boxPadding: 8,
+                            usePointStyle: true,
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            borderWidth: 1,
+                            callbacks: {
+                              label: function(context) {
+                                return `Rs. ${context.raw.toLocaleString()}`;
+                              }
+                            }
+                          }
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            grid: {
+                              display: true,
+                              color: 'rgba(0, 0, 0, 0.03)',
+                              drawBorder: false
+                            },
+                            border: {
+                              display: false
+                            },
+                            ticks: {
+                              padding: 12,
+                              font: {
+                                size: 12
+                              },
+                              color: '#64748b',
+                              callback: function(value) {
+                                return `Rs. ${value.toLocaleString()}`;
+                              }
+                            }
+                          },
+                          x: {
+                            grid: {
+                              display: false
+                            },
+                            border: {
+                              display: false
+                            },
+                            ticks: {
+                              padding: 12,
+                              font: {
+                                size: 12
+                              },
+                              color: '#64748b'
+                            }
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="mt-6 grid grid-cols-3 gap-4">
+                    {[
+                      { label: 'Inventory', color: 'bg-emerald-500', value: paymentStats?.inventorySalesTotal || 0 },
+                      { label: 'Commission', color: 'bg-purple-500', value: paymentStats?.commissionIncome || 0 },
+                      { label: 'Agreement Fees', color: 'bg-orange-500', value: paymentStats?.agreementFeeIncome || 0 }
+                    ].map((item, index) => (
+                      <div key={index} className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-all">
+                        <div className={`w-3 h-3 rounded-full ${item.color} mb-2`}></div>
+                        <p className="text-xs font-medium text-gray-500">{item.label}</p>
+                        <p className="text-sm font-bold text-gray-800">Rs. {item.value.toLocaleString()}</p>
                       </div>
                     ))}
                   </div>
                 </div>
-              ) : (
-                <div className="flex items-center space-x-4">
-                  {paymentMethodsData.map((method, index) => (
-                    <div key={index} className="flex-1">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-gray-500">{method.method}</span>
-                        <span className="text-sm font-semibold text-gray-900">{method.percentage}%</span>
+
+                {/* Expense Breakdown Chart - Modern Style */}
+                <div className="bg-white/90 backdrop-blur-lg rounded-xl shadow-lg p-6 border border-gray-100 transition-all duration-300 hover:shadow-xl">
+                  <h3 className="text-lg font-semibold bg-gradient-to-r from-gray-800 to-red-800 bg-clip-text text-transparent mb-6">Expense Distribution</h3>
+                  <div className="h-64 transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center">
+                    <Doughnut
+                      data={{
+                        labels: ['Service Providers', 'Admin Salaries', 'Supplier Payments'],
+                        datasets: [
+                          {
+                            data: [
+                              paymentStats?.serviceProviderTotal || 0,
+                              totalSalaryPaid || 0,
+                              supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0
+                            ],
+                            backgroundColor: [
+                              'rgba(37, 99, 235, 0.9)',
+                              'rgba(234, 179, 8, 0.9)',
+                              'rgba(107, 114, 128, 0.9)'
+                            ],
+                            borderWidth: 0,
+                            hoverOffset: 15,
+                            offset: 5,
+                            hoverBorderColor: '#ffffff',
+                            hoverBorderWidth: 2
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        radius: '90%',
+                        animation: {
+                          animateRotate: true,
+                          animateScale: true,
+                          duration: 2000,
+                          easing: 'easeOutQuart'
+                        },
+                        plugins: {
+                          legend: {
+                            display: true,
+                            position: 'right',
+                            labels: {
+                              boxWidth: 12,
+                              padding: 20,
+                              font: {
+                                size: 12
+                              },
+                              usePointStyle: true,
+                              pointStyle: 'circle'
+                            }
+                          },
+                          tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            titleColor: '#1f2937',
+                            bodyColor: '#4b5563',
+                            titleFont: {
+                              size: 14,
+                              weight: 'bold'
+                            },
+                            bodyFont: {
+                              size: 13
+                            },
+                            padding: 16,
+                            cornerRadius: 12,
+                            boxPadding: 8,
+                            usePointStyle: true,
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            borderWidth: 1,
+                            callbacks: {
+                              label: function(context) {
+                                const value = context.raw;
+                                const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `Rs. ${value.toLocaleString()} (${percentage}%)`;
+                              }
+                            }
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="mt-6 grid grid-cols-3 gap-4">
+                    {[
+                      { label: 'Service Providers', color: 'bg-blue-500', value: paymentStats?.serviceProviderTotal || 0 },
+                      { label: 'Admin Salaries', color: 'bg-yellow-500', value: totalSalaryPaid || 0 },
+                      { label: 'Supplier Payments', color: 'bg-gray-500', value: supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0 }
+                    ].map((item, index) => (
+                      <div key={index} className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-all">
+                        <div className={`w-3 h-3 rounded-full ${item.color} mb-2`}></div>
+                        <p className="text-xs font-medium text-gray-500">{item.label}</p>
+                        <p className="text-sm font-bold text-gray-800">Rs. {item.value.toLocaleString()}</p>
                       </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${method.percentage}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
+
+                {/* Profit/Loss Trend Chart - Modern Style */}
+                <div className="bg-white/90 backdrop-blur-lg rounded-xl shadow-lg p-6 border border-gray-100 transition-all duration-300 hover:shadow-xl">
+                  <h3 className="text-lg font-semibold bg-gradient-to-r from-gray-800 to-blue-800 bg-clip-text text-transparent mb-6">Profit/Loss Trend</h3>
+                  <div className="h-64 transition-all duration-300 transform hover:scale-[1.02]">
+                    {(() => {
+                      // Generate monthly profit data from payments
+                      const getMonthlyProfitData = () => {
+                        // Create a map to store monthly data
+                        const monthlyData = {};
+                        
+                        // Process income data (all payments)
+                        if (Array.isArray(payments)) {
+                          payments.forEach(payment => {
+                            const date = new Date(payment.createdAt);
+                            const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                            
+                            if (!monthlyData[monthYear]) {
+                              monthlyData[monthYear] = {
+                                month: date.toLocaleString('default', { month: 'short' }),
+                                year: date.getFullYear(),
+                                income: 0,
+                                expenses: 0
+                              };
+                            }
+                            
+                            // Categorize as income or expense
+                            if (payment.paymentType === 'inventory' || payment.paymentType === 'agreement_fee' || payment.commissionAmount > 0) {
+                              monthlyData[monthYear].income += payment.amount;
+                            } else if (payment.paymentType === 'milestone' || payment.workId) {
+                              monthlyData[monthYear].expenses += payment.amount;
+                            }
+                          });
+                        }
+                        
+                        // Convert to array and sort by date
+                        return Object.values(monthlyData)
+                          .sort((a, b) => {
+                            return new Date(`${a.year}-${a.month}-01`) - new Date(`${b.year}-${b.month}-01`);
+                          })
+                          .slice(-6); // Only take last 6 months
+                      };
+                      
+                      const monthlyProfitData = getMonthlyProfitData();
+                      const labels = monthlyProfitData.map(d => `${d.month} ${d.year}`);
+                      const incomeData = monthlyProfitData.map(d => d.income);
+                      const expenseData = monthlyProfitData.map(d => d.expenses);
+                      const profitData = monthlyProfitData.map(d => d.income - d.expenses);
+                      
+                      return (
+                        <Line
+                          data={{
+                            labels: labels,
+                            datasets: [
+                              {
+                                label: 'Income',
+                                data: incomeData,
+                                borderColor: 'rgba(16, 185, 129, 1)',
+                                backgroundColor: (context) => {
+                                  const ctx = context.chart.ctx;
+                                  const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+                                  gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+                                  gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                                  return gradient;
+                                },
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 0,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                                pointHoverBackgroundColor: 'rgba(16, 185, 129, 1)',
+                                pointBorderColor: '#fff',
+                                pointHoverBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointHoverBorderWidth: 2,
+                                borderWidth: 3
+                              },
+                              {
+                                label: 'Expenses',
+                                data: expenseData,
+                                borderColor: 'rgba(239, 68, 68, 1)',
+                                backgroundColor: (context) => {
+                                  const ctx = context.chart.ctx;
+                                  const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+                                  gradient.addColorStop(0, 'rgba(239, 68, 68, 0.3)');
+                                  gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+                                  return gradient;
+                                },
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 0,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: 'rgba(239, 68, 68, 1)',
+                                pointHoverBackgroundColor: 'rgba(239, 68, 68, 1)',
+                                pointBorderColor: '#fff',
+                                pointHoverBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointHoverBorderWidth: 2,
+                                borderWidth: 3
+                              },
+                              {
+                                label: 'Profit',
+                                data: profitData,
+                                borderColor: 'rgba(59, 130, 246, 1)',
+                                backgroundColor: (context) => {
+                                  const ctx = context.chart.ctx;
+                                  const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+                                  gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+                                  gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+                                  return gradient;
+                                },
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 0,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                                pointHoverBackgroundColor: 'rgba(59, 130, 246, 1)',
+                                pointBorderColor: '#fff',
+                                pointHoverBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointHoverBorderWidth: 2,
+                                borderWidth: 3
+                              }
+                            ]
+                          }}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                              mode: 'index',
+                              intersect: false,
+                            },
+                            animation: {
+                              duration: 2000,
+                              easing: 'easeOutQuart'
+                            },
+                            plugins: {
+                              legend: {
+                                position: 'top',
+                                labels: {
+                                  usePointStyle: true,
+                                  pointStyle: 'circle',
+                                  boxWidth: 8,
+                                  boxHeight: 8,
+                                  padding: 20,
+                                  font: {
+                                    size: 12
+                                  }
+                                }
+                              },
+                              tooltip: {
+                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                titleColor: '#1f2937',
+                                bodyColor: '#4b5563',
+                                titleFont: {
+                                  size: 14,
+                                  weight: 'bold'
+                                },
+                                bodyFont: {
+                                  size: 13
+                                },
+                                padding: 16,
+                                cornerRadius: 12,
+                                boxPadding: 8,
+                                usePointStyle: true,
+                                borderColor: 'rgba(0, 0, 0, 0.1)',
+                                borderWidth: 1,
+                                callbacks: {
+                                  label: function(context) {
+                                    return `${context.dataset.label}: Rs. ${context.raw.toLocaleString()}`;
+                                  }
+                                }
+                              }
+                            },
+                            scales: {
+                              y: {
+                                grid: {
+                                  color: 'rgba(0, 0, 0, 0.03)',
+                                  drawBorder: false
+                                },
+                                border: {
+                                  display: false
+                                },
+                                ticks: {
+                                  padding: 12,
+                                  font: {
+                                    size: 12
+                                  },
+                                  color: '#64748b',
+                                  callback: function(value) {
+                                    return `Rs. ${value.toLocaleString()}`;
+                                  }
+                                }
+                              },
+                              x: {
+                                grid: {
+                                  display: false
+                                },
+                                border: {
+                                  display: false
+                                },
+                                ticks: {
+                                  padding: 12,
+                                  font: {
+                                    size: 12
+                                  },
+                                  color: '#64748b'
+                                }
+                              }
+                            }
+                          }}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Payment Details Modal */}
             {renderPaymentDetailsModal()}
@@ -1877,7 +2332,6 @@ const processPaymentData = (data) => {
           </div>
         );
   
-      // ... rest of your cases remain the same
       case 'Wages':
         return (
           <div className="space-y-6">
@@ -2052,7 +2506,7 @@ const processPaymentData = (data) => {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-lg font-semibold">Supplier Payment Records</h2>
                   <div className="flex space-x-2">
-                    <button className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg">
+                    <button className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
                       <Download size={16} className="mr-2" />
                       Export
                     </button>
@@ -2149,9 +2603,9 @@ const processPaymentData = (data) => {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee Name</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -2244,7 +2698,7 @@ const processPaymentData = (data) => {
                   </p>
                 </div>
                 <div className="bg-purple-50 p-4 rounded-lg">
-                  <p className="text-sm text-purple-600 font-medium">Commission Transactions</p>
+                  <p className="text-sm text-purple-600 font-medium">Total Agreements</p>
                   <p className="text-2xl font-bold text-purple-700">
                     {commissionPayments.length}
                   </p>
@@ -2287,11 +2741,7 @@ const processPaymentData = (data) => {
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {payment.paymentType === 'milestone' 
-                                ? 'Milestone Payment' 
-                                : payment.paymentType === 'inventory' 
-                                  ? 'Inventory Sale'
-                                  : 'Transaction'}
+                              {payment.paymentType || 'Transaction'}
                             </div>
                             <div className="text-xs text-gray-500">ID: {payment.id}</div>
                           </td>
@@ -2416,13 +2866,11 @@ const processPaymentData = (data) => {
                           <td className="px-3 py-4 whitespace-nowrap">
                             {getStatusBadge(payment.status)}
                           </td>
-                          <td className="px-3 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-orange-700">
-                              Rs. {parseFloat(payment.amount).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              })}
-                            </div>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-orange-700">
+                            Rs. {parseFloat(payment.amount).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
                           </td>
                         </tr>
                       ))
@@ -2721,11 +3169,6 @@ const processPaymentData = (data) => {
 }
 
 // Define missing functions
-const showNotificationMessage = (type, message) => {
-  // Simple alert implementation (you could replace with toast notifications)
-  alert(`${type.toUpperCase()}: ${message}`);
-};
-
 const exportServiceProviderData = () => {
   // Create CSV header
   const headers = [
@@ -2849,6 +3292,12 @@ const exportAgreementFeeData = () => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+};
+
+// Add this helper function inside the component too
+const showNotificationMessage = (type, message) => {
+  // Simple alert implementation (you could replace with toast notifications)
+  alert(`${type.toUpperCase()}: ${message}`);
 };
 
 export default PaymentDashboard;

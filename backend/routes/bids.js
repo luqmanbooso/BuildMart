@@ -181,7 +181,7 @@ router.put('/:bidId/status', async (req, res) => {
 router.put('/update/:bidId', async (req, res) => {
   try {
     const { bidId } = req.params;
-    const { price, timeline, qualifications, contractorId } = req.body;
+    const { price, timeline, qualifications, contractorId, costBreakdown, timelineBreakdown } = req.body;
     
     // Find the bid
     const bid = await Bid.findById(bidId);
@@ -286,6 +286,8 @@ router.put('/update/:bidId', async (req, res) => {
     
     if (timeline) bid.timeline = timeline;
     if (qualifications) bid.qualifications = qualifications;
+    if (costBreakdown) bid.costBreakdown = costBreakdown;
+    if (timelineBreakdown) bid.timelineBreakdown = timelineBreakdown;
     
     await bid.save();
     

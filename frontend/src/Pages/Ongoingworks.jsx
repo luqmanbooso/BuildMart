@@ -7,6 +7,7 @@ import { jwtDecode } from 'jwt-decode';
 import EnhancedPaymentGateway from '../components/Payment';
 import { X } from 'react-feather'; // or from '@heroicons/react/outline'
 import IssueReportModal from '../components/IssueReportModal'; // Add this import
+import ReviewModal from '../components/ReviewModal'; // Import the review modal component
 
 const COMMISSION_RATE = 0.10; // 10% commission
 
@@ -47,6 +48,41 @@ function Ongoingworks() {
     }, 3000);
   };
 
+  // Add these state variables for reviews
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [selectedWorkForReview, setSelectedWorkForReview] = useState(null);
+  const [reviewedProjects, setReviewedProjects] = useState([]);
+  
+  // Add function to check if project is complete (100%)
+  const isProjectComplete = (work) => {
+    return work && work.progress === 100 && 
+           work.milestones && 
+           work.milestones.every(m => m.status === 'Completed' || m.status.includes('completed'));
+  };
+  
+  // Add function to check if project has been reviewed already
+  const hasBeenReviewed = (workId) => {
+    return reviewedProjects.includes(workId);
+  };
+  
+  // Fetch user's review history
+  const fetchReviewHistory = async () => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) return;
+      
+      const response = await axios.get('http://localhost:5000/api/reviews/user', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Extract project IDs that have been reviewed
+      const reviewedIds = response.data.map(review => review.projectId);
+      setReviewedProjects(reviewedIds);
+    } catch (err) {
+      console.error('Error fetching review history:', err);
+    }
+  };
+
   // Calculate progress for each work based on completed milestones
   const calculateProgress = (milestones) => {
     if (!milestones || milestones.length === 0) return 0;
@@ -61,11 +97,11 @@ function Ongoingworks() {
   // Fetch ongoing works from the backend
   const fetchOngoingWorks = async () => {
     try {
-      console.log("[TIMELINE DEBUG] Client view: Starting to fetch ongoing works...");
+      console.log("[DEBUG] Starting to fetch ongoing works...");
       setIsLoading(true);
       
       // Get token from localStorage
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token'); // Assuming 'token' is your JWT token key
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       // If no token is found, redirect to login
       if (!token) {
@@ -74,19 +110,20 @@ function Ongoingworks() {
         return;
       }
       
-      // Declare userId at this scope, so it's accessible throughout the function
+      // Extract userId and client details from token
       let userId;
       
-      // Extract userId and client details from token
       try {
         const tokenPayload = jwtDecode(token);
-        console.log("Token payload:", tokenPayload); // For debugging
+        console.log("[DEBUG] Token payload:", tokenPayload); 
         
         userId = tokenPayload._id || tokenPayload.userId || tokenPayload.id;
         
         if (!userId) {
           throw new Error('User ID not found in token');
         }
+        
+        console.log("[DEBUG] Extracted user ID:", userId);
         
         // Set client details from token
         setClientDetails({
@@ -96,97 +133,117 @@ function Ongoingworks() {
           role: tokenPayload.role || 'Client'
         });
         
-        console.log("Client details extracted from token:", {
-          id: userId,
-          name: tokenPayload.name || tokenPayload.username,
-          email: tokenPayload.email || tokenPayload.username,
-          role: tokenPayload.role
-        });
-        
       } catch (tokenError) {
-        console.error('Invalid token:', tokenError);
+        console.error('[DEBUG] Invalid token:', tokenError);
         navigate('/login', { state: { from: location.pathname } });
         return;
       }
       
-      // Now userId is available here for the API call
+      // Make API call with proper error handling
+      console.log(`[DEBUG] Making API call to: http://localhost:5000/api/ongoingworks/client/${userId}`);
+      
       const response = await axios.get(`http://localhost:5000/api/ongoingworks/client/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${token}` // Include token in the authorization header
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
       
-      console.log("[TIMELINE DEBUG] Client view: Raw ongoing works data:", response.data);
+      console.log("[DEBUG] API response status:", response.status);
+      console.log("[DEBUG] API response data:", response.data);
       
+      // Check if response data is valid
+      if (!response.data || !Array.isArray(response.data)) {
+        console.error("[DEBUG] Invalid response data format:", response.data);
+        throw new Error('Invalid response format from server');
+      }
+      
+      // Check if the response is empty
+      if (response.data.length === 0) {
+        console.log("[DEBUG] No ongoing works found for user:", userId);
+        setOngoingWorks([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Process the data - with additional error checking
       const formattedWorks = response.data.map(work => {
-        console.log("[TIMELINE DEBUG] Client view: Processing work item:", work._id, 
-          "Timeline value:", work.timeline);
+        if (!work) {
+          console.error("[DEBUG] Null work item in response");
+          return null;
+        }
         
-        // Calculate the end date using timeline
-        const startDate = new Date(work.createdAt);
-        const timelineDays = work.timeline || 30;
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + parseInt(timelineDays));
+        console.log("[DEBUG] Processing work item:", work._id, "Timeline value:", work.timeline);
         
-        console.log("[TIMELINE DEBUG] Timeline calculation for work:", work._id, {
-          startDate: startDate.toISOString(),
-          timelineDays: timelineDays,
-          calculatedEndDate: endDate.toISOString()
-        });
-        
-        return {
-          // Your existing mapping...
-          id: work._id,
-          title: work.jobId?.title || 'Untitled Project',
-          jobId: work.jobId?._id || work.jobId,
-          bidId: work.bidId || work._id,
-          category: work.jobId?.category || 'General',
-          contractor: work.contractorId,
-          contractorId: work.contractorId,
-          contractorPhone: work.jobId?.contractorPhone || '',
-          contractorEmail: work.jobId?.contractorEmail || '',
-          contractorImage: work.jobId?.contractorImage || 'https://randomuser.me/api/portraits/lego/1.jpg',
-          location: work.jobId?.location || '',
-          timeline: timelineDays, // Store the timeline value
-          startDate: startDate.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-          }),
-          // REPLACED: Calculate dueDate from timeline instead of looking for jobId.dueDate
-          dueDate: endDate.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-          }),
-          description: work.jobId?.description || '',
-          progress: Math.round(work.workProgress) || calculateProgress(work.milestones),
-          milestones: work.milestones.map(milestone => {
-            console.log("Original milestone status:", milestone.status); // For debugging
-            return {
-              id: milestone._id,
-              title: milestone.name,
-              description: milestone.description,
-              amount: milestone.amount,
-              // Normalize status to lowercase and clean format
-              status: (milestone.status || "").toLowerCase().replace(/_/g, ''),
-              completedDate: milestone.completedAt 
-                ? new Date(milestone.completedAt).toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric'
-                  }) 
-                : null
-            };
-          })
-        };
-      });
+        try {
+          // Calculate the end date using timeline with safety checks
+          const startDate = work.createdAt ? new Date(work.createdAt) : new Date();
+          const timelineDays = work.timeline || 30;
+          const endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + parseInt(timelineDays));
+          
+          console.log("[DEBUG] Timeline calculation:", {
+            workId: work._id,
+            startDate: startDate.toISOString(),
+            timelineDays,
+            calculatedEndDate: endDate.toISOString()
+          });
+          
+          return {
+            id: work._id || `temp-id-${Math.random()}`,
+            title: work.jobId?.title || 'Untitled Project',
+            jobId: work.jobId?._id || work.jobId,
+            bidId: work.bidId || work._id,
+            category: work.jobId?.category || 'General',
+            contractor: work.contractorId || 'Unknown Contractor',
+            contractorId: work.contractorId,
+            contractorPhone: work.jobId?.contractorPhone || '',
+            contractorEmail: work.jobId?.contractorEmail || '',
+            contractorImage: work.jobId?.contractorImage || 'https://randomuser.me/api/portraits/lego/1.jpg',
+            location: work.jobId?.location || '',
+            timeline: timelineDays,
+            startDate: startDate.toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric'
+            }),
+            dueDate: endDate.toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric'
+            }),
+            description: work.jobId?.description || '',
+            progress: Math.round(work.workProgress) || calculateProgress(work.milestones || []),
+            milestones: (work.milestones || []).map(milestone => {
+              if (!milestone) return null;
+              
+              console.log("[DEBUG] Processing milestone:", milestone._id, "Status:", milestone.status);
+              
+              return {
+                id: milestone._id || `temp-milestone-${Math.random()}`,
+                title: milestone.name || 'Unnamed Milestone',
+                description: milestone.description || '',
+                amount: milestone.amount || '0',
+                status: (milestone.status || "").toLowerCase().replace(/_/g, ''),
+                completedDate: milestone.completedAt 
+                  ? new Date(milestone.completedAt).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric'
+                    }) 
+                  : null
+              };
+            }).filter(Boolean) // Remove any null milestones
+          };
+        } catch (processingError) {
+          console.error("[DEBUG] Error processing work item:", work._id, processingError);
+          return null;
+        }
+      }).filter(Boolean); // Remove any null works
       
-      console.log("[TIMELINE DEBUG] Client view: Formatted works with timelines:", 
-        formattedWorks.map(w => ({ id: w.id, title: w.title, timeline: w.timeline })));
+      console.log("[DEBUG] Formatted works:", formattedWorks);
       
       // Fetch contractor details for each ongoing work
       const updatedWorks = await fetchContractorDetails(formattedWorks, token);
+      
+      console.log("[DEBUG] Final works with contractor details:", updatedWorks);
       
       setOngoingWorks(updatedWorks);
       
@@ -196,8 +253,13 @@ function Ongoingworks() {
       }
       
     } catch (err) {
-      console.error("[TIMELINE DEBUG] Client view: Error fetching works:", err);
-      setError(err.message || 'Failed to fetch ongoing works');
+      console.error("[DEBUG] Error in fetchOngoingWorks:", err);
+      const errorDetails = err.response ? 
+        `Status: ${err.response.status}, Data: ${JSON.stringify(err.response.data)}` : 
+        err.message;
+      console.error("[DEBUG] Error details:", errorDetails);
+      
+      setError(`Failed to fetch ongoing works: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -212,7 +274,12 @@ function Ongoingworks() {
       try {
         const work = updatedWorks[i];
         // Skip if no contractor ID
-        if (!work.contractorId) continue;
+        if (!work.contractorId) {
+          console.log(`[DEBUG] No contractorId for work ${work.id}, skipping contractor fetch`);
+          continue;
+        }
+        
+        console.log(`[DEBUG] Fetching contractor details for work ${work.id}, contractorId: ${work.contractorId}`);
         
         // Fetch contractor details from API
         const response = await axios.get(
@@ -221,6 +288,8 @@ function Ongoingworks() {
             headers: { Authorization: `Bearer ${token}` }
           }
         );
+        
+        console.log(`[DEBUG] Contractor API response for work ${work.id}:`, response.data);
         
         // Get contractor data
         const contractorData = response.data;
@@ -235,7 +304,8 @@ function Ongoingworks() {
           contractorImage: userData.profilePic || 'https://randomuser.me/api/portraits/lego/1.jpg'
         };
       } catch (err) {
-        console.error(`Error fetching contractor details for work ${updatedWorks[i].id}:`, err);
+        console.error(`[DEBUG] Error fetching contractor details for work ${updatedWorks[i].id}:`, err);
+        console.error('[DEBUG] Error details:', err.response ? err.response.data : err.message);
       }
     }
     
@@ -245,6 +315,7 @@ function Ongoingworks() {
   // Fetch data when component mounts
   useEffect(() => {
     fetchOngoingWorks();
+    fetchReviewHistory();
   }, []);
 
   // Handle payment for milestone
@@ -342,6 +413,33 @@ function Ongoingworks() {
   // Get active work details
   const activeWork = ongoingWorks.find(work => work.id === activeWorkId);
 
+  // Function to handle opening the review modal
+  const handleOpenReviewModal = (work) => {
+    setSelectedWorkForReview(work);
+    setIsReviewModalOpen(true);
+  };
+
+  // Function to handle successful review submission
+  const handleReviewSubmitted = () => {
+    // Add the project ID to the reviewed projects list
+    if (selectedWorkForReview && selectedWorkForReview.id) {
+      setReviewedProjects([...reviewedProjects, selectedWorkForReview.id]);
+    }
+    
+    // Show success notification
+    showNotificationMessage('success', 'Thank you for your review!');
+    
+    // Close the modal
+    setIsReviewModalOpen(false);
+    setSelectedWorkForReview(null);
+  };
+
+  // Manual refresh function (adding the missing function referenced in the return statement)
+  const manualRefresh = () => {
+    fetchOngoingWorks();
+    fetchReviewHistory();
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -385,12 +483,20 @@ function Ongoingworks() {
             </svg>
             <h2 className="text-2xl font-bold text-gray-700 mb-2">No Ongoing Projects</h2>
             <p className="text-gray-500 mb-6">You don't have any ongoing projects at the moment.</p>
-            <Link 
-              to="/userprofile" 
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              Add New Job
-            </Link>
+            <div className="flex flex-col md:flex-row gap-3 justify-center">
+              <Link 
+                to="/userprofile" 
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Add New Job
+              </Link>
+              <button 
+                onClick={manualRefresh}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+              >
+                Refresh Data
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -962,8 +1068,32 @@ const handlePaymentSuccess = async (paymentData) => {
 
                     </div>
                     
-                    {/* Project issues section */}
-                    <div className="mt-8 flex justify-end">
+                    {/* Project actions section - Reviews and Issues */}
+                    <div className="mt-8 flex flex-wrap justify-between">
+                      {/* Add review button if project is complete and not reviewed */}
+                      {isProjectComplete(activeWork) && !hasBeenReviewed(activeWork.id) && (
+                        <button 
+                          onClick={() => handleOpenReviewModal(activeWork)}
+                          className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                          </svg>
+                          Rate & Review Contractor
+                        </button>
+                      )}
+                      
+                      {/* Show reviewed badge if already reviewed */}
+                      {isProjectComplete(activeWork) && hasBeenReviewed(activeWork.id) && (
+                        <div className="text-sm text-green-600 flex items-center">
+                          <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                          </svg>
+                          Reviewed
+                        </div>
+                      )}
+                      
+                      {/* Issue reporting button */}
                       <button 
                         onClick={handleReportIssue}
                         className="text-sm text-red-600 hover:text-red-800 hover:underline flex items-center"
@@ -981,6 +1111,7 @@ const handlePaymentSuccess = async (paymentData) => {
           )}
         </div>
       </div>
+      
       {showPaymentModal && selectedMilestone && (
         <PaymentModal
           milestone={selectedMilestone}
@@ -1005,6 +1136,32 @@ const handlePaymentSuccess = async (paymentData) => {
           category={selectedWorkForReport.category || 'Construction'}
           work={selectedWorkForReport} 
         />
+      )}
+      
+      {/* Add the Review modal */}
+      {isReviewModalOpen && selectedWorkForReview && (
+        <ReviewModal
+          isOpen={isReviewModalOpen}
+          onClose={() => {
+            setIsReviewModalOpen(false);
+            setSelectedWorkForReview(null);
+          }}
+          projectId={selectedWorkForReview.id}
+          contractorId={selectedWorkForReview.contractorId}
+          contractorName={selectedWorkForReview.contractor}
+          onReviewSubmitted={handleReviewSubmitted}
+        />
+      )}
+      
+      {/* Add notification display */}
+      {notification.show && (
+        <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg max-w-md z-50 ${
+          notification.type === 'success' ? 'bg-green-100 text-green-800' :
+          notification.type === 'error' ? 'bg-red-100 text-red-800' :
+          'bg-blue-100 text-blue-800'
+        }`}>
+          {notification.message}
+        </div>
       )}
     </div>
   );

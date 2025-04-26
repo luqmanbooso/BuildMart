@@ -16,6 +16,11 @@ const ContractorDetailsModal = ({ contractor, onClose }) => {
       : `http://localhost:5000${contractor.userId.profilePic}`
     : null;
 
+  // Get actual rating values
+  const rating = contractor.averageRating || 0;
+  const reviewCount = contractor.reviewCount || 0;
+  const formattedRating = rating.toFixed(1);
+
   // Define animation variants
   const overlayVariants = {
     hidden: { opacity: 0 },
@@ -111,7 +116,7 @@ const ContractorDetailsModal = ({ contractor, onClose }) => {
                 >
                   <div className="flex items-center bg-white bg-opacity-30 px-2 py-0.5 rounded-md">
                     <FaStar className="text-yellow-300 mr-1" />
-                    <span className="text-white font-medium">4.8 (120)</span>
+                    <span className="text-white font-medium">{formattedRating} ({reviewCount})</span>
                   </div>
                 </motion.div>
               </div>
@@ -309,6 +314,13 @@ const ContractorCard = ({ contractor }) => {
       : `http://localhost:5000${contractor.userId.profilePic}`
     : null;
 
+  // Get actual rating values
+  const rating = contractor.averageRating || 0;
+  const reviewCount = contractor.reviewCount || 0;
+  
+  // Format the rating to one decimal place
+  const formattedRating = rating.toFixed(1);
+
   return (
     <>
       <motion.div 
@@ -394,11 +406,13 @@ const ContractorCard = ({ contractor }) => {
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: 0.1 + (index * 0.05) }}
                     >
-                      <FaStar className={`${index < 4 ? 'text-yellow-400' : 'text-gray-300'} ${index === 4 && '!text-yellow-300'}`} />
+                      <FaStar className={`${index < Math.floor(rating) ? 'text-yellow-400' : 'text-gray-300'} ${
+                        index === Math.floor(rating) && rating % 1 > 0 ? '!text-yellow-300' : ''
+                      }`} />
                     </motion.div>
                   ))}
                 </div>
-                <span className="text-sm text-gray-700 ml-2">4.8 (120)</span>
+                <span className="text-sm text-gray-700 ml-2">{formattedRating} ({reviewCount})</span>
               </div>
             </div>
           </div>
@@ -628,7 +642,7 @@ const ContractorsPage = () => {
     // Apply sorting
     switch(sortBy) {
       case 'rating':
-        result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        result.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
         break;
       case 'experience':
         result.sort((a, b) => (b.experienceYears || 0) - (a.experienceYears || 0));

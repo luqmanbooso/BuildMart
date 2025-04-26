@@ -22,13 +22,15 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter for images
+// File filter for images with improved validation
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/') || 
-      file.mimetype === 'application/pdf') {
+  // Check MIME type
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+  
+  if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Only image and PDF files are allowed!'), false);
+    cb(new Error('Only JPG, PNG images and PDF files are allowed'), false);
   }
 };
 
@@ -37,7 +39,7 @@ const qualificationUpload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 1024 * 1024, // 1MB limit aligned with frontend
   }
 });
 

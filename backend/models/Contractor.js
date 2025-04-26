@@ -56,10 +56,26 @@ const contractorSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // New field to track manually entered projects separately
+  manualCompletedProjects: {
+    type: Number,
+    default: 0
+  },
   // Verification status
   verified: {
     type: Boolean,
     default: false
+  },
+  // Rating information
+  averageRating: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 5
+  },
+  reviewCount: {
+    type: Number,
+    default: 0
   },
   // Brief description
   bio: {

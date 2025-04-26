@@ -3,6 +3,31 @@ import { FaChartLine, FaMoneyBillWave, FaHourglassHalf, FaClipboardList } from '
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import ContractorUserNav from '../components/ContractorUserNav';
+// Import Chart.js components
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar, Line } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const MyEarningsPage = () => {
   // Replace the AuthContext with direct token access
@@ -17,6 +42,11 @@ const MyEarningsPage = () => {
   });
   const [selectedTimeframe, setSelectedTimeframe] = useState('all');
   const [selectedTab, setSelectedTab] = useState('summary');
+  // Add state for chart data
+  const [chartData, setChartData] = useState({
+    labels: [],
+    datasets: []
+  });
 
   // Get user ID from token on component mount
   useEffect(() => {
@@ -78,6 +108,11 @@ const MyEarningsPage = () => {
     let totalEarned = 0;
     let totalPending = 0;
     let allMilestones = [];
+    
+    // Prepare data for charts
+    const projectLabels = [];
+    const earnedAmounts = [];
+    const pendingAmounts = [];
 
     // Process each ongoing work
     ongoingWorks.forEach(work => {
@@ -99,6 +134,32 @@ const MyEarningsPage = () => {
           });
         });
       }
+      
+      // Add data for charts
+      projectLabels.push(work.jobId?.title || 'Unnamed Job');
+      earnedAmounts.push(work.totalAmountPaid || 0);
+      pendingAmounts.push(work.totalAmountPending || 0);
+    });
+
+    // Set the chart data
+    setChartData({
+      labels: projectLabels,
+      datasets: [
+        {
+          label: 'Earned',
+          data: earnedAmounts,
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1
+        },
+        {
+          label: 'Pending',
+          data: pendingAmounts,
+          backgroundColor: 'rgba(255, 159, 64, 0.6)',
+          borderColor: 'rgba(255, 159, 64, 1)',
+          borderWidth: 1
+        }
+      ]
     });
 
     // Set the processed data
@@ -110,6 +171,40 @@ const MyEarningsPage = () => {
     });
   };
 
+  // Function to prepare time-series data for line chart
+  const prepareEarningsOverTimeData = () => {
+    // Create a copy and sort by completion date
+    const completedMilestones = earnings.milestones
+      .filter(m => m.completedAt)
+      .sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+    
+    // Prepare data
+    const timeLabels = [];
+    const cumulativeAmounts = [];
+    let runningTotal = 0;
+    
+    completedMilestones.forEach(milestone => {
+      const date = new Date(milestone.completedAt).toLocaleDateString();
+      timeLabels.push(date);
+      runningTotal += milestone.actualAmountPaid || parseInt(milestone.amount) || 0;
+      cumulativeAmounts.push(runningTotal);
+    });
+    
+    return {
+      labels: timeLabels,
+      datasets: [
+        {
+          label: 'Cumulative Earnings',
+          data: cumulativeAmounts,
+          fill: true,
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          tension: 0.1
+        }
+      ]
+    };
+  };
+  
   // Filter milestones based on selected timeframe
   const filteredMilestones = () => {
     if (selectedTimeframe === 'all') return earnings.milestones;
@@ -171,8 +266,8 @@ const MyEarningsPage = () => {
 
   return (
     <>
-                  <ContractorUserNav/>
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <ContractorUserNav/>
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
       <br /><br /><br /><br />
       <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">My Earnings</h1>
       
@@ -265,13 +360,83 @@ const MyEarningsPage = () => {
             <h3 className="text-lg font-medium text-gray-900">Earnings Summary</h3>
           </div>
           
-          {/* Chart placeholder - You can integrate Chart.js here */}
-          <div className="h-64 bg-gray-50 flex items-center justify-center">
-            <div className="text-center">
-              <FaChartLine className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-2 text-gray-500">Earnings visualization goes here</p>
-              <p className="text-sm text-gray-400">You can integrate Chart.js for detailed analytics</p>
-            </div>
+          {/* Replace chart placeholder with actual Chart.js implementation */}
+          <div className="p-6" style={{ height: '350px' }}>
+            <Bar
+              data={chartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'top',
+                  },
+                  title: {
+                    display: true,
+                    text: 'Project Earnings Breakdown'
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    title: {
+                      display: true,
+                      text: 'Amount (LKR)'
+                    }
+                  },
+                  x: {
+                    title: {
+                      display: true,
+                      text: 'Projects'
+                    }
+                  }
+                }
+              }}
+            />
+          </div>
+          
+          {/* Add earnings over time line chart */}
+          <div className="px-6 pb-6 pt-2" style={{ height: '350px' }}>
+            <h4 className="text-md font-medium text-gray-800 mb-4">Earnings Over Time</h4>
+            <Line
+              data={prepareEarningsOverTimeData()}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'top',
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function(context) {
+                        return `LKR ${context.parsed.y.toLocaleString()}`;
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    title: {
+                      display: true,
+                      text: 'Amount (LKR)'
+                    },
+                    ticks: {
+                      callback: function(value) {
+                        return 'LKR ' + value.toLocaleString();
+                      }
+                    }
+                  },
+                  x: {
+                    title: {
+                      display: true,
+                      text: 'Date'
+                    }
+                  }
+                }
+              }}
+            />
           </div>
           
           {/* Projects Summary */}
