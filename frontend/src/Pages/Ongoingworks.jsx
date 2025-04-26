@@ -804,7 +804,31 @@ const handlePaymentSuccess = async (paymentData) => {
                           Call
                         </button>
                         <button 
-                          onClick={() => window.open(`mailto:${activeWork.contractorEmail}`, '_blank')}
+                          onClick={() => {
+                            // Create a detailed subject line
+                            const subject = `Regarding Project: ${activeWork.title}`;
+                            
+                            // Create a structured email body with project details
+                            const body = `Dear ${activeWork.contractor},
+
+I'm writing regarding our ongoing project "${activeWork.title}" (ID: ${activeWork.id}).
+
+Project Details:
+- Current Progress: ${activeWork.progress}%
+- Timeline: ${activeWork.startDate} to ${activeWork.dueDate}
+- Location: ${activeWork.location || 'N/A'}
+
+I would like to discuss the following:
+[Please add your message here]
+
+Thank you for your attention to this matter.
+
+Best regards,
+${clientDetails?.name || 'Client'}`;
+                            
+                            // Open email client with formatted message
+                            window.open(`mailto:${activeWork.contractorEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+                          }}
                           className="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1045,8 +1069,8 @@ const handlePaymentSuccess = async (paymentData) => {
           {/* Show "Paid" indicator for Completed milestones */}
           {(milestone.status === 'Completed' || milestone.status.includes('completed')) && (
             <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
               </svg>
               Paid
             </span>
@@ -1055,7 +1079,7 @@ const handlePaymentSuccess = async (paymentData) => {
           {/* Show "In Progress" indicator for In Progress milestones */}
           {(milestone.status === 'In Progress' || milestone.status.includes('progress')) && (
             <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800">
-              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
               In Progress
