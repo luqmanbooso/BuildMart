@@ -4,7 +4,7 @@ import {
   FaChartLine, FaUsers, FaBuilding, FaTasks, FaBoxOpen,
   FaTruckMoving, FaWrench, FaChevronRight, FaEllipsisH, 
   FaCircle, FaAngleDown, FaCalendar, FaCheck, FaClock, FaTimes,
-  FaUserShield
+  FaUserShield, FaPaperPlane, FaComments
 } from 'react-icons/fa';
 import axios from 'axios';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
@@ -116,6 +116,224 @@ function Admindashboard() {
   // Function to handle viewing job details
   const handleViewJobDetails = (job) => {
     setSelectedJob(job);
+  };
+
+  // Add these new states for messages management
+  const [allMessages, setAllMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
+  const [messageStats, setMessageStats] = useState({
+    total: 0,
+    unread: 0,
+    read: 0
+  });
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [messageFilter, setMessageFilter] = useState('all');
+  
+  // Fetch messages data with improved counter calculation
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (activeMenu === 'Messages') {
+        setMessagesLoading(true);
+        try {
+          let messagesData = [];
+          
+          // First try API endpoint
+          try {
+            const response = await axios.get('http://localhost:5000/api/contact-messages');
+            console.log("Successfully fetched contact messages from API");
+            messagesData = Array.isArray(response.data) ? response.data : [response.data];
+          } catch (apiError) {
+            console.warn("API endpoint not available, using local storage fallback");
+            
+            // Fallback to localStorage if API fails
+            const localMessages = JSON.parse(localStorage.getItem('contactMessages') || '[]');
+            messagesData = localMessages;
+            console.log("Fetched messages from local storage:", messagesData.length);
+          }
+          
+          // Process and store messages data
+          setAllMessages(messagesData);
+          
+          // Calculate message statistics explicitly
+          let unreadCount = 0;
+          let readCount = 0;
+          
+          messagesData.forEach(msg => {
+            if (msg.isRead) {
+              readCount++;
+            } else {
+              unreadCount++;
+            }
+          });
+          
+          const stats = {
+            total: messagesData.length,
+            unread: unreadCount,
+            read: readCount
+          };
+          
+          console.log("Message statistics calculated:", stats);
+          setMessageStats(stats);
+        } catch (error) {
+          console.error("Failed to fetch contact messages:", error);
+          setAllMessages([]);
+          setMessageStats({ total: 0, unread: 0, read: 0 });
+        } finally {
+          setMessagesLoading(false);
+        }
+      }
+    };
+    
+    fetchMessages();
+  }, [activeMenu]);
+
+  // Function to handle viewing message details
+  const handleViewMessage = async (message) => {
+    setSelectedMessage(message);
+    
+    // If message is unread, mark it as read
+    if (!message.isRead) {
+      try {
+        if (message._id.startsWith('msg_')) {
+          // This is a local message, update in localStorage
+          const localMessages = JSON.parse(localStorage.getItem('contactMessages') || '[]');
+          const updatedMessages = localMessages.map(msg => 
+            msg._id === message._id ? { ...msg, isRead: true } : msg
+          );
+          localStorage.setItem('contactMessages', JSON.stringify(updatedMessages));
+          console.log("Marked local message as read:", message._id);
+        } else {
+          // This is an API message, update on server
+          try {
+            await axios.put(`http://localhost:5000/api/contact-messages/${message._id}/read`);
+            console.log("Marked API message as read:", message._id);
+          } catch (apiError) {
+            console.error("API error when marking as read:", apiError);
+          }
+        }
+        
+        // Update local state to reflect the change
+        setAllMessages(prev => 
+          prev.map(msg => 
+            msg._id === message._id ? { ...msg, isRead: true } : msg
+          )
+        );
+        
+        // Update statistics - explicitly calculate new values to avoid reference issues
+        setMessageStats(prev => {
+          const newUnread = Math.max(0, prev.unread - 1);
+          const newRead = prev.read + 1;
+          console.log(`Updating message stats: unread ${prev.unread} → ${newUnread}, read ${prev.read} → ${newRead}`);
+          return {
+            total: prev.total,
+            unread: newUnread,
+            read: newRead
+          };
+        });
+      } catch (error) {
+        console.error("Failed to mark message as read:", error);
+      }
+    }
+  };
+
+  // Function to delete a message
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      if (messageId.startsWith('msg_')) {
+        // This is a local message, delete from localStorage
+        const localMessages = JSON.parse(localStorage.getItem('contactMessages') || '[]');
+        const updatedMessages = localMessages.filter(msg => msg._id !== messageId);
+        localStorage.setItem('contactMessages', JSON.stringify(updatedMessages));
+        console.log("Deleted local message");
+      } else {
+        // This is an API message, delete from server
+        await axios.delete(`http://localhost:5000/api/contact-messages/${messageId}`);
+        console.log("Deleted API message");
+      }
+      
+      // Update local state to remove the deleted message
+      const deletedMessage = allMessages.find(msg => msg._id === messageId);
+      setAllMessages(prev => prev.filter(msg => msg._id !== messageId));
+      
+      // Update statistics
+      if (deletedMessage) {
+        setMessageStats(prev => ({
+          total: prev.total - 1,
+          unread: deletedMessage.isRead ? prev.unread : prev.unread - 1,
+          read: deletedMessage.isRead ? prev.read - 1 : prev.read
+        }));
+      }
+      
+      // Close the message detail view if it was open
+      if (selectedMessage && selectedMessage._id === messageId) {
+        setSelectedMessage(null);
+      }
+    } catch (error) {
+      console.error("Failed to delete message:", error);
+    }
+  };
+
+  // Function to toggle message read/unread status
+  const handleToggleReadStatus = async (messageId, currentStatus) => {
+    try {
+      // First get the message being updated
+      const message = allMessages.find(msg => msg._id === messageId);
+      if (!message) {
+        console.error(`Message with ID ${messageId} not found`);
+        return;
+      }
+      
+      if (messageId.startsWith('msg_')) {
+        // This is a local message, update in localStorage
+        const localMessages = JSON.parse(localStorage.getItem('contactMessages') || '[]');
+        const updatedMessages = localMessages.map(msg => 
+          msg._id === messageId ? { ...msg, isRead: !currentStatus } : msg
+        );
+        localStorage.setItem('contactMessages', JSON.stringify(updatedMessages));
+        console.log(`Toggled read status for local message ${messageId} to ${!currentStatus}`);
+      } else {
+        // This is an API message, update on server
+        try {
+          if (currentStatus) {
+            await axios.put(`http://localhost:5000/api/contact-messages/${messageId}/unread`);
+          } else {
+            await axios.put(`http://localhost:5000/api/contact-messages/${messageId}/read`);
+          }
+          console.log(`Toggled API message ${messageId} read status to ${!currentStatus}`);
+        } catch (apiError) {
+          console.error("API error when toggling read status:", apiError);
+        }
+      }
+      
+      // Update local state to reflect the change
+      setAllMessages(prev => 
+        prev.map(msg => 
+          msg._id === messageId ? { ...msg, isRead: !currentStatus } : msg
+        )
+      );
+      
+      // Update statistics with explicit calculation
+      setMessageStats(prev => {
+        // If switching from read to unread, increase unread count and decrease read count
+        const newUnread = currentStatus ? prev.unread + 1 : Math.max(0, prev.unread - 1);
+        const newRead = currentStatus ? Math.max(0, prev.read - 1) : prev.read + 1;
+        
+        console.log(`Toggle read stats: unread ${prev.unread} → ${newUnread}, read ${prev.read} → ${newRead}`);
+        
+        return {
+          total: prev.total,
+          unread: newUnread,
+          read: newRead
+        };
+      });
+      
+      // Update selected message if it's currently being viewed
+      if (selectedMessage && selectedMessage._id === messageId) {
+        setSelectedMessage(prev => ({ ...prev, isRead: !currentStatus }));
+      }
+    } catch (error) {
+      console.error("Failed to update message status:", error);
+    }
   };
 
   // Check for admin token when component mounts
@@ -1203,24 +1421,23 @@ function Admindashboard() {
                   <p className="text-sm text-gray-500 mb-2">Service Provider Qualifications</p>
                   <p className="text-gray-800">{selectedBid.qualifications || 'No qualifications provided.'}</p>
                 </div>
-              </div>
               
-              <div className="mt-6 border-t pt-6">
+                <div className="mt-6 border-t pt-6">
                   <p className="text-sm font-medium text-gray-800 mb-3">Change Status</p>
-                <div className="flex space-x-3">
-                  <button 
-                    onClick={() => handleBidStatusChange(selectedBid._id, 'accepted')}
+                  <div className="flex space-x-3">
+                    <button 
+                      onClick={() => handleBidStatusChange(selectedBid._id, 'accepted')}
                       className={`px-4 py-2 rounded-lg flex items-center justify-center ${
                         selectedBid.status === 'accepted' 
                           ? 'bg-green-100 text-green-800 cursor-not-allowed' 
                           : 'bg-green-600 text-white hover:bg-green-700'
                       }`}
                       disabled={selectedBid.status === 'accepted'}
-                  >
-                    <FaCheck className="mr-2" />
+                    >
+                      <FaCheck className="mr-2" />
                       Accept
-                  </button>
-                                      <button 
+                    </button>
+                    <button 
                       onClick={() => handleBidStatusChange(selectedBid._id, 'rejected')}
                       className={`px-4 py-2 rounded-lg flex items-center justify-center ${
                         selectedBid.status === 'rejected' 
@@ -1234,10 +1451,9 @@ function Admindashboard() {
                     </button>
                   </div>
                 </div>
-                </div>
-                
-<div className="border-t pt-4 flex justify-end">
-<div className="border-t pt-4 flex justify-end">
+              </div>
+              
+              <div className="border-t pt-4 flex justify-end">
                 <button 
                   onClick={() => setSelectedBid(null)}
                   className="px-6 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-800 font-medium transition-colors"
@@ -1254,21 +1470,203 @@ function Admindashboard() {
 
   // Render Messages content
   const renderMessagesContent = () => {
+    const filteredMessages = messageFilter === 'all' 
+      ? allMessages
+      : messageFilter === 'read' 
+        ? allMessages.filter(msg => msg.isRead)
+        : allMessages.filter(msg => !msg.isRead);
+        
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-5 border-b border-gray-100">
-          <h3 className="font-semibold text-lg text-gray-800">Messages</h3>
-          <p className="text-sm text-gray-500">System messages and communication</p>
-        </div>
-        <div className="p-6 text-center text-gray-500">
-          <div className="flex flex-col items-center justify-center py-12">
-            <FaWrench className="text-5xl text-gray-300 mb-4" />
-            <h4 className="text-lg font-medium mb-2">This feature is coming soon</h4>
-            <p className="text-gray-500 max-w-md text-center">
-              The messaging system is currently under development. Check back later for updates.
-            </p>
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+          <div>
+            <h3 className="font-semibold text-lg text-gray-800">Contact Messages</h3>
+            <p className="text-sm text-gray-500">Messages from users through the Contact page</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <input 
+                type="text" 
+                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
+                placeholder="Search messages..."
+              />
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            </div>
+            <select 
+              className="border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={messageFilter}
+              onChange={(e) => setMessageFilter(e.target.value)}
+            >
+              <option value="all">All Messages</option>
+              <option value="unread">Unread</option>
+              <option value="read">Read</option>
+            </select>
           </div>
         </div>
+
+        {/* Message statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5">
+          <div className="bg-gray-50 p-4 rounded-xl">
+            <p className="text-sm text-gray-500 mb-1">Total Messages</p>
+            <p className="text-2xl font-bold text-gray-800">{messageStats.total}</p>
+          </div>
+          <div className="bg-blue-50 p-4 rounded-xl">
+            <p className="text-sm text-blue-600 mb-1">Unread</p>
+            <p className="text-2xl font-bold text-blue-700">{messageStats.unread}</p>
+          </div>
+          <div className="bg-green-50 p-4 rounded-xl">
+            <p className="text-sm text-green-600 mb-1">Read</p>
+            <p className="text-2xl font-bold text-green-700">{messageStats.read}</p>
+          </div>
+        </div>
+
+        {messagesLoading ? (
+          <div className="p-12 flex justify-center items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
+          </div>
+        ) : filteredMessages.length > 0 ? (
+          <div className="flex">
+            {/* Message list */}
+            <div className="w-1/3 border-r border-gray-200">
+              <div className="max-h-[600px] overflow-y-auto">
+                {filteredMessages.map((message) => {
+                  // Adapt to the new contact message structure
+                  const username = message.name || 'Unknown User';
+                  const email = message.email || '';
+                  const content = message.message || '';
+                  const title = message.title || 'Contact Message';
+                  
+                  return (
+                    <div 
+                      key={message._id} 
+                      className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
+                        selectedMessage && selectedMessage._id === message._id 
+                          ? 'bg-blue-50' 
+                          : 'hover:bg-gray-50'
+                      } ${!message.isRead ? 'bg-blue-50/30' : ''}`}
+                      onClick={() => handleViewMessage(message)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center">
+                          <div className={`h-10 w-10 rounded-full mr-3 flex items-center justify-center font-semibold text-white ${
+                            !message.isRead ? 'bg-blue-600' : 'bg-gray-400'
+                          }`}>
+                            {username.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className={`font-medium ${!message.isRead ? 'text-gray-800' : 'text-gray-600'}`}>
+                              {username}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate max-w-[180px]">{email}</p>
+                          </div>
+                        </div>
+                        {!message.isRead && (
+                          <span className="h-3 w-3 bg-blue-500 rounded-full"></span>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-gray-800 mt-1">
+                        {title}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                        {content}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(message.createdAt).toLocaleDateString()} {new Date(message.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* Message details or placeholder */}
+            <div className="w-2/3 p-6">
+              {selectedMessage ? (
+                <div>
+                  <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center">
+                      <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-600 mr-4 flex items-center justify-center font-semibold text-lg">
+                        {(selectedMessage.name || 'U').charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800">
+                          {selectedMessage.name || 'Unknown User'}
+                        </h3>
+                        <p className="text-gray-500">{selectedMessage.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => handleToggleReadStatus(selectedMessage._id, selectedMessage.isRead)}
+                        className={`p-2 rounded-full ${
+                          selectedMessage.isRead ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                        } hover:bg-opacity-80`}
+                        title={selectedMessage.isRead ? "Mark as unread" : "Mark as read"}
+                      >
+                        {selectedMessage.isRead ? <FaCircle className="h-4 w-4" /> : <FaCheck className="h-4 w-4" />}
+                      </button>
+                      
+                      <a 
+                        href={`mailto:${selectedMessage.email}?subject=Re: BuildMart Contact`}
+                        className="p-2 rounded-full bg-green-100 text-green-600 hover:bg-green-200"
+                        title="Reply by email"
+                      >
+                        <FaPaperPlane className="h-4 w-4" />
+                      </a>
+                      
+                      <button 
+                        onClick={() => handleDeleteMessage(selectedMessage._id)}
+                        className="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200"
+                        title="Delete message"
+                      >
+                        <FaTimes className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h4 className="text-lg font-medium text-gray-800">
+                      {selectedMessage.title || 'Contact Message'}
+                    </h4>
+                  </div>
+                  
+                  <div className="border-t border-b border-gray-100 py-6 my-4">
+                    <p className="text-sm text-gray-500 mb-2">Received on {new Date(selectedMessage.createdAt).toLocaleDateString()} at {new Date(selectedMessage.createdAt).toLocaleTimeString()}</p>
+                    <div className="mt-4 bg-gray-50 p-6 rounded-xl text-gray-800 whitespace-pre-line leading-relaxed">
+                      {selectedMessage.message || ''}
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end mt-6">
+                    <a 
+                      href={`mailto:${selectedMessage.email}?subject=Re: ${selectedMessage.title || 'BuildMart Contact'}&body=Dear ${selectedMessage.name},%0D%0A%0D%0AThank you for contacting BuildMart.%0D%0A%0D%0ARegarding your message:%0D%0A"${selectedMessage.message}"%0D%0A%0D%0A`}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                    >
+                      <FaPaperPlane className="mr-2" />
+                      Reply to Message
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                  <FaComments className="text-6xl mb-4" />
+                  <h3 className="text-xl font-medium mb-2">No message selected</h3>
+                  <p className="text-center text-gray-500">
+                    Select a message from the list to view its contents
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="p-12 text-center">
+            <div className="text-gray-400 mb-4">
+              <FaComments className="mx-auto text-5xl mb-4" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-800 mb-1">No messages found</h3>
+            <p className="text-gray-500">There are currently no messages in the system.</p>
+          </div>
+        )}
       </div>
     );
   };
