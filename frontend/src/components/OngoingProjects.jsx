@@ -552,6 +552,7 @@ const stats = {
         transition={{ duration: 0.5 }}
       >
         <div className="container mx-auto">
+          <br /><br /><br /><br />
           <h1 className="text-3xl md:text-4xl font-bold">My Ongoing Projects</h1>
           <p className="mt-2 text-blue-100">Manage your active construction and renovation projects</p>
         </div>
