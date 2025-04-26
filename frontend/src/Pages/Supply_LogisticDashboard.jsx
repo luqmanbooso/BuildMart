@@ -36,7 +36,10 @@ import {
   Trash2,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  User,
+  Plus,
+  RotateCw
 } from "lucide-react";
 import axios from "axios"; // Add axios import
 import { toast, ToastContainer } from "react-toastify"; // Add toast for notifications
@@ -311,6 +314,8 @@ function Supply_LogisticDashboard() {
   // Add state variable for supplier price
   const [supplierPrice, setSupplierPrice] = useState("");
   const [supplierValue, setSupplierValue] = useState("");
+  // Add a new state for order search
+  const [orderSearchTerm, setOrderSearchTerm] = useState("");
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
@@ -1622,67 +1627,110 @@ const updateOrderStatus = async (orderId, newStatus) => {
   // Move renderOrdersCards INSIDE the component function - place this before the return statement
   const renderOrdersCards = () => {
     if (ordersLoading) {
-      return <div className="loading-spinner flex justify-center p-8"><Loader className="animate-spin h-8 w-8 text-blue-600" /></div>;
+      return (
+        <div className="flex justify-center items-center py-8">
+          <Loader className="h-8 w-8 text-blue-600 animate-spin" />
+          <span className="ml-3 text-gray-600">Loading orders...</span>
+        </div>
+      );
     }
     
     if (ordersError) {
-      return <div className="error-message bg-red-50 p-4 rounded-lg text-red-600 border border-red-200">{ordersError}</div>;
+      return (
+        <div className="bg-red-50 p-5 rounded-xl border border-red-200 text-center">
+          <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-2" />
+          <h3 className="text-lg font-medium text-red-800 mb-1">{ordersError}</h3>
+          <p className="text-red-600">Try refreshing the page or contact support if the issue persists.</p>
+        </div>
+      );
     }
     
+    // Filter orders based on search term
+    const filteredOrders = orders.filter(order => 
+      order.id.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
+      order.customer.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
+      order.status.toLowerCase().includes(orderSearchTerm.toLowerCase())
+    );
+    
     // Divide orders into pending and others
-    const pendingOrders = orders.filter(order => order.status === 'Pending');
-    const otherOrders = orders.filter(order => order.status !== 'Pending');
+    const pendingOrders = filteredOrders.filter(order => order.status === 'Pending');
+    const processingOrders = filteredOrders.filter(order => ['Processing', 'In Transit'].includes(order.status));
+    const completedOrders = filteredOrders.filter(order => order.status === 'Delivered');
     
     return (
-      <div className="space-y-6">
+      <div className="space-y-5 mt-4">
         {/* Pending Orders Section */}
-        <div>
-          <h4 className="text-lg font-medium text-gray-700 mb-3 flex items-center">
-            <ClockIcon className="mr-2 h-5 w-5 text-amber-500" />
-            Pending Orders ({pendingOrders.length})
-          </h4>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="flex justify-between items-center p-4 border-b border-gray-100">
+            <div className="flex items-center">
+              <div className="h-9 w-9 rounded-lg bg-amber-100 flex items-center justify-center mr-3">
+                <ClockIcon className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800">Pending Orders</h4>
+                <p className="text-sm text-gray-500">{pendingOrders.length} orders awaiting processing</p>
+              </div>
+            </div>
+            <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-medium">
+              {pendingOrders.length} Pending
+            </span>
+          </div>
           
           {pendingOrders.length === 0 ? (
-            <p className="text-gray-500 bg-gray-50 p-4 rounded-lg text-center">No pending orders available</p>
+            <div className="p-5 text-center">
+              <div className="h-14 w-14 bg-gray-100 rounded-full mx-auto flex items-center justify-center mb-2">
+                <Package className="h-7 w-7 text-gray-400" />
+              </div>
+              <h3 className="text-gray-500 font-medium">No pending orders</h3>
+              <p className="text-sm text-gray-400 mt-1">All orders have been processed</p>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="p-4 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
               {pendingOrders.map((order) => (
-                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-amber-200 hover:shadow-md transition-shadow overflow-hidden">
-                  <div className="border-b border-amber-100 bg-amber-50 px-4 py-2 flex justify-between items-center">
-                    <span className="font-medium text-gray-700 truncate">#{order.id.substring(0, 8)}...</span>
-                    <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
-                      {order.status}
-                    </span>
+                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-amber-200 hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col">
+                  <div className="bg-gradient-to-r from-amber-50 to-amber-100 p-3 border-b border-amber-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold text-amber-900 text-sm truncate" title={order.id}>#{order.id}</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-800 text-xs font-semibold">
+                        {order.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-amber-700 text-sm">
+                      <Calendar className="h-4 w-4" />
+                      <span>{order.date}</span>
+                    </div>
                   </div>
                   
-                  <div className="p-4">
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500">Customer</p>
-                      <p className="font-medium">{order.customer}</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Items</p>
-                        <p className="font-medium">{order.items}</p>
+                  <div className="p-3 flex-grow">
+                    <div className="flex items-center mb-3">
+                      <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+                        <User className="h-4 w-4 text-blue-700" />
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Value</p>
-                        <p className="font-medium">Rs. {order.value.toLocaleString()}</p>
+                        <p className="font-medium text-gray-900">{order.customer}</p>
+                        <p className="text-xs text-gray-500">Customer</p>
                       </div>
                     </div>
                     
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500">Order Date</p>
-                      <p className="font-medium">{order.date}</p>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <p className="text-xs text-gray-500 mb-1">Items</p>
+                        <p className="font-semibold text-gray-800">{order.items}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <p className="text-xs text-gray-500 mb-1">Value</p>
+                        <p className="font-semibold text-gray-800">Rs. {order.value.toLocaleString()}</p>
+                      </div>
                     </div>
-                    
+                  </div>
+                  
+                  <div className="p-3 bg-gray-50 border-t border-gray-200">
                     <button
                       onClick={() => {
                         setSelectedOrderForShipment(order);
                         setActiveTab("shipments");
                       }}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md flex items-center justify-center"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg flex items-center justify-center font-medium transition-colors duration-200"
                     >
                       <Truck className="mr-2 h-4 w-4" />
                       Arrange Shipment
@@ -1694,71 +1742,181 @@ const updateOrderStatus = async (orderId, newStatus) => {
           )}
         </div>
         
-        {/* Orders In Progress Section */}
-        <div>
-          <h4 className="text-lg font-medium text-gray-700 mb-3 flex items-center">
-            <Activity className="mr-2 h-5 w-5 text-blue-500" />
-            In Progress ({otherOrders.length})
-          </h4>
+        {/* Processing Orders Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="flex justify-between items-center p-4 border-b border-gray-100">
+            <div className="flex items-center">
+              <div className="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center mr-3">
+                <Activity className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800">In Progress</h4>
+                <p className="text-sm text-gray-500">{processingOrders.length} orders being processed</p>
+              </div>
+            </div>
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+              {processingOrders.length} Active
+            </span>
+          </div>
           
-          {otherOrders.length === 0 ? (
-            <p className="text-gray-500 bg-gray-50 p-4 rounded-lg text-center">No orders in progress</p>
+          {processingOrders.length === 0 ? (
+            <div className="p-5 text-center">
+              <div className="h-14 w-14 bg-gray-100 rounded-full mx-auto flex items-center justify-center mb-2">
+                <Package className="h-7 w-7 text-gray-400" />
+              </div>
+              <h3 className="text-gray-500 font-medium">No active orders</h3>
+              <p className="text-sm text-gray-400 mt-1">All orders are either pending or completed</p>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {otherOrders.map((order) => (
-                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow overflow-hidden">
-                  <div className="border-b border-gray-100 bg-gray-50 px-4 py-2 flex justify-between items-center">
-                    <span className="font-medium text-gray-700 truncate">#{order.id.substring(0, 8)}...</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      order.status === 'Processing' ? 'bg-yellow-100 text-yellow-700' : 
-                      order.status === 'In Transit' ? 'bg-blue-100 text-blue-700' : 
-                      order.status === 'Delivered' ? 'bg-green-100 text-green-700' : 
-                      'bg-gray-100 text-gray-700'
+            <div className="p-4 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              {processingOrders.map((order) => (
+                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-blue-200 hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col">
+                  <div className={`p-3 border-b ${
+                    order.status === 'Processing' ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-200' : 
+                    'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200'
+                  }`}>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className={`font-semibold text-sm truncate ${
+                        order.status === 'Processing' ? 'text-yellow-900' : 'text-blue-900'
+                      }`} title={order.id}>#{order.id}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                        order.status === 'Processing' ? 'bg-yellow-200 text-yellow-800' :
+                        'bg-blue-200 text-blue-800'
+                      }`}>
+                        {order.status}
+                      </span>
+                    </div>
+                    <div className={`flex items-center space-x-2 text-sm ${
+                      order.status === 'Processing' ? 'text-yellow-700' : 'text-blue-700'
                     }`}>
-                      {order.status}
-                    </span>
+                      <Calendar className="h-4 w-4" />
+                      <span>{order.date}</span>
+                    </div>
                   </div>
                   
-                  <div className="p-4">
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500">Customer</p>
-                      <p className="font-medium">{order.customer}</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Items</p>
-                        <p className="font-medium">{order.items}</p>
+                  <div className="p-3 flex-grow">
+                    <div className="flex items-center mb-3">
+                      <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+                        <User className="h-4 w-4 text-blue-700" />
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Value</p>
-                        <p className="font-medium">Rs. {order.value.toLocaleString()}</p>
+                        <p className="font-medium text-gray-900">{order.customer}</p>
+                        <p className="text-xs text-gray-500">Customer</p>
                       </div>
                     </div>
                     
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500">Order Date</p>
-                      <p className="font-medium">{order.date}</p>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <p className="text-xs text-gray-500 mb-1">Items</p>
+                        <p className="font-semibold text-gray-800">{order.items}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <p className="text-xs text-gray-500 mb-1">Value</p>
+                        <p className="font-semibold text-gray-800">Rs. {order.value.toLocaleString()}</p>
+                      </div>
                     </div>
                     
-                    <button
-                      className={`w-full py-2 px-4 rounded-md flex items-center justify-center ${
-                        order.status === 'Delivered' ? 'bg-green-100 text-green-700' : 
-                        'bg-gray-100 text-gray-700'
-                      }`}
-                      disabled
-                    >
-                      {order.status === 'Processing' && "Processing"}
-                      {order.status === 'In Transit' && "In Transit"}
-                      {order.status === 'Delivered' && "Delivered"}
-                      {!['Processing', 'In Transit', 'Delivered'].includes(order.status) && order.status}
-                    </button>
+                    <div className={`rounded-lg p-2 ${
+                      order.status === 'Processing' ? 'bg-yellow-50 border border-yellow-200' :
+                      'bg-blue-50 border border-blue-200'
+                    }`}>
+                      <div className="flex items-center">
+                        {order.status === 'Processing' ? (
+                          <span className="text-sm font-medium text-yellow-700">Processing order</span>
+                        ) : (
+                          <div className="flex items-center">
+                            <Truck className="h-4 w-4 text-blue-600 mr-2" />
+                            <span className="text-sm font-medium text-blue-700">In transit to customer</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+        
+        {/* Completed Orders Section */}
+        {completedOrders.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+              <div className="flex items-center">
+                <div className="h-9 w-9 rounded-lg bg-green-100 flex items-center justify-center mr-3">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800">Completed Orders</h4>
+                  <p className="text-sm text-gray-500">{completedOrders.length} orders successfully delivered</p>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                {completedOrders.length} Delivered
+              </span>
+            </div>
+            
+            <div className="p-4 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              {completedOrders.slice(0, 3).map((order) => (
+                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-green-200 hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col">
+                  <div className="bg-gradient-to-r from-green-50 to-green-100 p-3 border-b border-green-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold text-green-900 text-sm truncate" title={order.id}>#{order.id}</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-green-200 text-green-800 text-xs font-semibold">
+                        {order.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-green-700 text-sm">
+                      <Calendar className="h-4 w-4" />
+                      <span>{order.date}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 flex-grow">
+                    <div className="flex items-center mb-3">
+                      <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+                        <User className="h-4 w-4 text-blue-700" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{order.customer}</p>
+                        <p className="text-xs text-gray-500">Customer</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <p className="text-xs text-gray-500 mb-1">Items</p>
+                        <p className="font-semibold text-gray-800">{order.items}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <p className="text-xs text-gray-500 mb-1">Value</p>
+                        <p className="font-semibold text-gray-800">Rs. {order.value.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-green-50 rounded-lg p-2 border border-green-200">
+                      <div className="flex items-center">
+                        <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                        <p className="text-sm font-medium text-green-700">
+                          Successfully delivered
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {completedOrders.length > 3 && (
+                <div className="flex items-center justify-center p-3 border border-dashed border-gray-300 rounded-lg bg-gray-50">
+                  <button className="text-blue-600 hover:text-blue-800 font-medium flex items-center">
+                    <Plus className="h-4 w-4 mr-2" />
+                    View {completedOrders.length - 3} more completed orders
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -2913,93 +3071,26 @@ const updateOrderStatus = async (orderId, newStatus) => {
                 </div>
               )}
 
-              {/* Orders stats */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Total Orders
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {orders.length}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-                      <ShoppingCart className="h-6 w-6 text-blue-600" />
-                    </div>
+              {/* Order Management Gradient Header */}
+              <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg p-5">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-3xl font-bold text-white">Order Dashboard</h2>
+                    <p className="text-blue-100 mt-1">Track, process and arrange shipments for customer orders</p>
                   </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Delivered Orders
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          orders.filter((order) => order.status === "Delivered")
-                            .length
-                        }
-                      </h3>
+                  <div className="flex items-center space-x-3">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        className="w-64 py-2 pl-10 pr-4 rounded-lg bg-white/10 border border-white/20 text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/50"
+                        placeholder="Search orders..."
+                        value={orderSearchTerm}
+                        onChange={(e) => setOrderSearchTerm(e.target.value)}
+                      />
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-blue-100" />
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        In Transit Orders
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          orders.filter(
-                            (order) => order.status === "In Transit"
-                          ).length
-                        }
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-                      <Truck className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Pending Orders
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          orders.filter(
-                            (order) => order.status === "Pending"
-                          ).length
-                        }
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
-                      <ClockIcon className="h-6 w-6 text-amber-600" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Orders Content Section */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">
-                    Order Management
-                  </h3>
-                  <div className="flex items-center space-x-2">
                     <button
-                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                       onClick={() => {
                         // Refresh orders data
                         setOrdersLoading(true);
@@ -3033,10 +3124,10 @@ const updateOrderStatus = async (orderId, newStatus) => {
                           });
                       }}
                     >
-                      <RefreshCw className="h-5 w-5 text-gray-600" />
+                      <RefreshCw className="h-5 w-5 text-white" />
                     </button>
                     <button
-                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                       onClick={() => {
                         // Export orders data as CSV
                         const csvContent =
@@ -3059,13 +3150,71 @@ const updateOrderStatus = async (orderId, newStatus) => {
                         document.body.removeChild(link);
                       }}
                     >
-                      <Download className="h-5 w-5 text-gray-600" />
+                      <Download className="h-5 w-5 text-white" />
                     </button>
                   </div>
                 </div>
-                {/* Replace the table render with our new card rendering function */}
-                {renderOrdersCards()}
               </div>
+
+              {/* Order Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Total Orders</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">{orders.length}</h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+                      <Package className="h-6 w-6 text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Pending</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {orders.filter(order => order.status === "Pending").length}
+                      </h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
+                      <Clock className="h-6 w-6 text-amber-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">In Progress</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {orders.filter(order => ["Processing", "In Transit"].includes(order.status)).length}
+                      </h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+                      <Activity className="h-6 w-6 text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Delivered</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {orders.filter(order => order.status === "Delivered").length}
+                      </h3>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Orders Section */}
+              {renderOrdersCards()}
             </div>
           )}
 
