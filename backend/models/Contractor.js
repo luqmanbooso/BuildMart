@@ -66,6 +66,17 @@ const contractorSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Rating information
+  averageRating: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 5
+  },
+  reviewCount: {
+    type: Number,
+    default: 0
+  },
   // Brief description
   bio: {
     type: String
