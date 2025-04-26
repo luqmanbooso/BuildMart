@@ -55,6 +55,23 @@ const bidSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  // NEW FIELDS for enhanced proposal data - all optional
+  costBreakdown: [{
+    description: String,
+    amount: Number
+  }],
+  timelineBreakdown: {
+    startDate: Date,
+    endDate: Date,
+    totalDays: Number,
+    workItems: [{
+      name: String,
+      startDate: Date,
+      endDate: Date,
+      duration: Number
+    }]
+  },
+  specialRequests: String,
   // Timestamps
   createdAt: { 
     type: Date, 

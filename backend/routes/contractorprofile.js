@@ -103,10 +103,10 @@ router.get('/user/:userId', async (req, res) => {
     console.error('Error fetching contractor by user ID:', error);
     
     if (error.kind === 'ObjectId') {
-      return res.status(404).json({ error: 'Contractor not found' });
+      return res.status(404).json({ error: 'Invalid user ID format' });
     }
     
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
 
@@ -123,7 +123,7 @@ router.put('/:id', async (req, res) => {
     const updateData = {};
     if (req.body.phone) updateData.phone = req.body.phone;
     if (req.body.address) updateData.address = req.body.address;
-    if (req.body.companyName) updateData.companyName = req.body.companyName;
+    if (req.body.companyName !== undefined) updateData.companyName = req.body.companyName; // Allow null
     if (req.body.specialization) updateData.specialization = req.body.specialization;
     if (req.body.experienceYears) updateData.experienceYears = req.body.experienceYears;
     if (req.body.completedProjects) updateData.completedProjects = req.body.completedProjects;
@@ -180,16 +180,21 @@ router.put('/verify/:id', async (req, res) => {
       return res.status(404).json({ error: 'Contractor not found' });
     }
     
-    contractor.verified = !contractor.verified; // Toggle verification status
+    // Toggle verification status
+    contractor.verified = !contractor.verified;
     await contractor.save();
+    
+    // Populate the user data before sending response
+    const populatedContractor = await Contractor.findById(contractor._id)
+      .populate('userId', 'username email profilePic');
     
     res.json({ 
       message: `Contractor ${contractor.verified ? 'verified' : 'unverified'} successfully`,
-      contractor
+      contractor: populatedContractor
     });
   } catch (error) {
     console.error('Error verifying contractor:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
 

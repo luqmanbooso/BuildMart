@@ -6,6 +6,7 @@ import ClientNavBar from '../components/ClientNavBar';
 import { jwtDecode } from 'jwt-decode';
 import EnhancedPaymentGateway from '../components/Payment';
 import { X } from 'react-feather'; // or from '@heroicons/react/outline'
+import IssueReportModal from '../components/IssueReportModal'; // Add this import
 
 const COMMISSION_RATE = 0.10; // 10% commission
 
@@ -14,13 +15,17 @@ function Ongoingworks() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeWorkId, setActiveWorkId] = useState(null);
-  const [clientDetails, setClientDetails] = useState(null); // Add this state
+  const [clientDetails, setClientDetails] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   
+  // Add these state variables for issue reporting
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [selectedWorkForReport, setSelectedWorkForReport] = useState(null);
+  
   // Add these state variables at the top with other states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedMilestone, setSelectedMilestone] = useState(null); // Fixed typo
+  const [selectedMilestone, setSelectedMilestone] = useState(null);
   
   // Add this function after other state declarations
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
@@ -537,6 +542,19 @@ const handlePaymentSuccess = async (paymentData) => {
   }
 };
 
+  // Add function to handle opening the issue report modal
+  const handleReportIssue = () => {
+    // Create a properly formatted object with all required props
+    const enhancedWorkData = {
+      ...activeWork,
+      // Ensure we pass all required properties
+      projectName: activeWork.title || 'Untitled Project'
+    };
+    
+    setSelectedWorkForReport(enhancedWorkData);
+    setIsReportModalOpen(true);
+  };
+
   // Rest of your component remains unchanged...
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-800">
@@ -941,21 +959,21 @@ const handlePaymentSuccess = async (paymentData) => {
       </div>
     </div>
   ))}
-</div>
 
-                  </div>
-                  
-                  {/* Project issues section */}
-                  <div className="mt-8 flex justify-end">
-                    <button 
-                      onClick={() => alert('Opening issue report form...')}
-                      className="text-sm text-red-600 hover:text-red-800 hover:underline flex items-center"
-                    >
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                      </svg>
-                      Report an issue with this project
-                    </button>
+                    </div>
+                    
+                    {/* Project issues section */}
+                    <div className="mt-8 flex justify-end">
+                      <button 
+                        onClick={handleReportIssue}
+                        className="text-sm text-red-600 hover:text-red-800 hover:underline flex items-center"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        Report an issue with this project
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -971,6 +989,21 @@ const handlePaymentSuccess = async (paymentData) => {
             setSelectedMilestone(null);
           }}
           onSuccess={handlePaymentSuccess}
+        />
+      )}
+      {/* Add the IssueReportModal component here */}
+      {isReportModalOpen && selectedWorkForReport && (
+        <IssueReportModal 
+          isOpen={isReportModalOpen} 
+          onClose={() => setIsReportModalOpen(false)} 
+          projectId={selectedWorkForReport.id || selectedWorkForReport.jobId}
+          projectName={selectedWorkForReport.projectName || selectedWorkForReport.title || 'Untitled Project'}
+          title={selectedWorkForReport.title || 'Untitled Project'}
+          userId={clientDetails?.id}
+          username={clientDetails?.name || 'Client'} // Pass client name as username
+          userRole="User"
+          category={selectedWorkForReport.category || 'Construction'}
+          work={selectedWorkForReport} 
         />
       )}
     </div>

@@ -7,7 +7,20 @@ const router = express.Router();
 // 1. Submit a new bid
 router.post('/submit', async (req, res) => {
   try {
-    const { projectId, contractorId, contractorname, price, timeline, qualifications, rating, completedProjects } = req.body;
+    const { 
+      projectId, 
+      contractorId, 
+      contractorname, 
+      price, 
+      timeline, 
+      qualifications, 
+      rating, 
+      completedProjects,
+      // Add the new enhanced proposal data fields
+      costBreakdown,
+      timelineBreakdown,
+      specialRequests
+    } = req.body;
 
     // Input validation
     if (!projectId || !contractorId || !price || !timeline) {
@@ -87,7 +100,7 @@ router.post('/submit', async (req, res) => {
       });
     }
 
-    // Create new bid
+    // Create new bid with enhanced proposal data
     const newBid = new Bid({
       projectId,
       contractorId,
@@ -96,7 +109,11 @@ router.post('/submit', async (req, res) => {
       timeline,
       qualifications,
       rating: rating || 0,
-      completedProjects: completedProjects || 0
+      completedProjects: completedProjects || 0,
+      // Add the optional enhanced proposal fields if they exist
+      ...(costBreakdown && { costBreakdown }),
+      ...(timelineBreakdown && { timelineBreakdown }),
+      ...(specialRequests && { specialRequests })
     });
     
     await newBid.save();

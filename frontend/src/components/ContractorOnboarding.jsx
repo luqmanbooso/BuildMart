@@ -76,6 +76,21 @@ const ContractorProfileSetup = () => {
     });
   };
 
+  // Add the handlePhoneInput function to handle phone number formatting
+  const handlePhoneInput = (e) => {
+    // Only allow numeric input
+    const value = e.target.value.replace(/\D/g, '');
+    
+    // Ensure it doesn't exceed 10 digits
+    const truncatedValue = value.slice(0, 10);
+    
+    // Update the form data with the formatted phone number
+    setFormData({
+      ...formData,
+      phone: truncatedValue
+    });
+  };
+
   // Real-time field validation functions
 const validatePhone = (phone) => {
   if (!phone) return { valid: false, message: 'Phone number is required' };
@@ -95,24 +110,18 @@ const validatePhone = (phone) => {
   return { valid: true, message: '' };
 };
 
-const handlePhoneInput = (event) => {
-  // Get the input value
-  let input = event.target.value;
-  
-  // Remove non-numeric characters
-  let digits = input.replace(/[^0-9]/g, '').slice(0, 10);
-  
-  // If user is starting to type and hasn't entered '07' yet, help them out
-  if (digits.length <= 2) {
-    if (digits.length === 1 && digits !== '0') {
-      digits = '0' + digits;
-    } else if (digits.length === 2 && !digits.startsWith('07')) {
-      digits = '07';
-    }
+// Add company name validation to check for special characters
+const validateCompanyName = (name) => {
+  if (!name) return { valid: true, message: '' }; // Optional field
+  if (name.trim().length < 2) {
+    return { valid: false, message: 'Company name should be at least 2 characters' };
   }
-  
-  // Update the input field with the valid digits
-  event.target.value = digits;
+  // Check for invalid special characters (allowing only common ones like &, -, etc.)
+  const invalidCharsRegex = /[^\w\s&\-.,'"()]/;
+  if (invalidCharsRegex.test(name)) {
+    return { valid: false, message: 'Company name contains invalid characters' };
+  }
+  return { valid: true, message: '' };
 };
 
 const validateAddress = (address) => {
@@ -134,6 +143,18 @@ const validateBio = (bio) => {
       message: 'Bio should not exceed 500 characters' 
     };
   }
+  
+  // Check for excessive special characters or patterns that might indicate spam/injection
+  const specialCharPattern = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/g;
+  const specialCharCount = (bio.match(specialCharPattern) || []).length;
+  
+  if (specialCharCount > bio.length * 0.3) { // If more than 30% special chars
+    return {
+      valid: false,
+      message: 'Bio contains too many special characters'
+    };
+  }
+  
   return { valid: true, message: '' };
 };
 
@@ -212,10 +233,12 @@ const isSection0Valid = () => {
 };
 
 const isSection1Valid = () => {
-  // Company name is optional but if provided should be valid
-  const isCompanyNameValid = !formData.companyName || formData.companyName.trim().length >= 2;
+  // Company name validation
+  const companyNameValidation = validateCompanyName(formData.companyName);
   // Experience and projects should not be negative
-  return isCompanyNameValid && formData.experienceYears >= 0 && formData.completedProjects >= 0;
+  return companyNameValidation.valid && 
+         formData.experienceYears >= 0 && 
+         formData.completedProjects >= 0;
 };
 
 const isSection2Valid = () => {
@@ -550,11 +573,20 @@ const handleSubmit = async (e) => {
                           value={formData.companyName}
                           onChange={handleChange}
                           maxLength={50} // Add reasonable maximum length
-                          className="w-full border border-gray-300 rounded-md px-4 py-2 
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                            transition-all duration-200"
+                          className={`w-full border ${
+                            formData.companyName && !validateCompanyName(formData.companyName).valid
+                              ? 'border-red-300 focus:ring-red-500'
+                              : 'border-gray-300 focus:ring-blue-500'
+                          } rounded-md px-4 py-2 
+                            focus:outline-none focus:ring-2 focus:border-transparent
+                            transition-all duration-200`}
                           placeholder="Optional"
                         />
+                        {formData.companyName && !validateCompanyName(formData.companyName).valid && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {validateCompanyName(formData.companyName).message}
+                          </p>
+                        )}
                       </motion.div>
 
                       <motion.div variants={itemVariants}>
@@ -569,6 +601,7 @@ const handleSubmit = async (e) => {
                           onChange={handleNumericChange}
                           min="0"
                           max="100" // Add reasonable maximum
+                          maxLength="3" // HTML length restriction
                           onInput={(e) => {
                             if (e.target.value < 0) e.target.value = 0; // Prevent negative values
                             if (e.target.value > 100) e.target.value = 100; // Cap at maximum
@@ -591,6 +624,7 @@ const handleSubmit = async (e) => {
                           onChange={handleNumericChange}
                           min="0"
                           max="10000" // Add reasonable maximum
+                          maxLength="5" // HTML length restriction
                           onInput={(e) => {
                             if (e.target.value < 0) e.target.value = 0; // Prevent negative values
                             if (e.target.value > 10000) e.target.value = 10000; // Cap at maximum

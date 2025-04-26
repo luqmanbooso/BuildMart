@@ -313,13 +313,51 @@ const handleSubmit = async (e) => {
 
   const validateUsername = (username) => {
     if (!username) return { valid: false, message: 'Username is required' };
+    
+    // Check for minimum and maximum length
     if (username.length < 3) {
       return { valid: false, message: 'Username should be at least 3 characters' };
     }
     if (username.length > 30) {
       return { valid: false, message: 'Username should not exceed 30 characters' };
     }
+    
+    // Check for allowed characters (only alphanumeric, hyphens, and underscores)
+    const validChars = /^[a-zA-Z0-9_-]+$/;
+    if (!validChars.test(username)) {
+      return { valid: false, message: 'Username can only contain letters, numbers, hyphens, and underscores' };
+    }
+    
+    // Check for consecutive special characters
+    if (/([-_]){2,}/.test(username)) {
+      return { valid: false, message: 'Username cannot contain consecutive special characters' };
+    }
+    
+    // Check for start/end with special characters
+    if (/^[-_]|[-_]$/.test(username)) {
+      return { valid: false, message: 'Username cannot start or end with special characters' };
+    }
+    
     return { valid: true, message: '' };
+  };
+
+  // Add sanitization function
+  const sanitizeUsername = (username) => {
+    if (!username) return '';
+    
+    // Remove all special characters except hyphens and underscores
+    let sanitized = username.replace(/[^a-zA-Z0-9_-]/g, '');
+    
+    // Remove consecutive special characters
+    sanitized = sanitized.replace(/([-_]){2,}/g, '$1');
+    
+    // Remove special characters from start and end
+    sanitized = sanitized.replace(/^[-_]+|[-_]+$/g, '');
+    
+    // Limit length
+    sanitized = sanitized.slice(0, 30);
+    
+    return sanitized;
   };
 
   const validatePassword = (password) => {
@@ -341,33 +379,41 @@ const handleSubmit = async (e) => {
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
-    if (name === 'email') {
+    
+    if (name === 'username') {
+      const sanitizedValue = sanitizeUsername(value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: sanitizedValue
+      }));
       setValidation(prev => ({
         ...prev,
-        email: validateEmail(value)
+        username: validateUsername(sanitizedValue)
       }));
-    } else if (name === 'username') {
-      setValidation(prev => ({
+    } else {
+      setFormData(prev => ({
         ...prev,
-        username: validateUsername(value)
+        [name]: value
       }));
-    } else if (name === 'newPassword') {
-      const newPasswordValidation = validatePassword(value);
-      setValidation(prev => ({
-        ...prev,
-        newPassword: newPasswordValidation,
-        // Also validate confirm password when new password changes
-        confirmPassword: validateConfirmPassword(formData.confirmPassword, value)
-      }));
-    } else if (name === 'confirmPassword') {
-      setValidation(prev => ({
-        ...prev,
-        confirmPassword: validateConfirmPassword(value, formData.newPassword)
-      }));
+      if (name === 'email') {
+        setValidation(prev => ({
+          ...prev,
+          email: validateEmail(value)
+        }));
+      } else if (name === 'newPassword') {
+        const newPasswordValidation = validatePassword(value);
+        setValidation(prev => ({
+          ...prev,
+          newPassword: newPasswordValidation,
+          // Also validate confirm password when new password changes
+          confirmPassword: validateConfirmPassword(formData.confirmPassword, value)
+        }));
+      } else if (name === 'confirmPassword') {
+        setValidation(prev => ({
+          ...prev,
+          confirmPassword: validateConfirmPassword(value, formData.newPassword)
+        }));
+      }
     }
   };
 

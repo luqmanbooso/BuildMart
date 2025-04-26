@@ -9,6 +9,7 @@ import {
   FaMapMarkerAlt, FaCheck, FaHardHat, FaCamera, FaComment, FaChartLine, FaEnvelope
 } from 'react-icons/fa';
 import ContractorUserNav from './ContractorUserNav';
+import IssueReportModal from './IssueReportModal';
 
 const OngoingProjects = () => {
   const [projects, setProjects] = useState([]);
@@ -26,6 +27,10 @@ const OngoingProjects = () => {
     email: '' // Add email field to the state
   });
   
+  // Add state for IssueReportModal
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [selectedProjectForReport, setSelectedProjectForReport] = useState(null);
+
   const navigate = useNavigate();
 
   // Get contractor ID from token
@@ -228,6 +233,7 @@ const getClientDataFromProject = async (project, token) => {
                             clientResponse.data.userEmail ||
                             '';
               
+
               // Log what we found
               console.log(`Email found: ${email || 'NONE'}`);
               console.log(`Username found: ${clientResponse.data.username || 'NONE'}`);
@@ -508,6 +514,31 @@ const stats = {
   completed: projects.filter(p => p.status === 'Completed').length,
   totalValue: projects.reduce((sum, p) => sum + (p.totalPrice || 0), 0)
 };
+
+  // Add function to handle opening the report modal with proper category
+  const handleOpenReportModal = (project) => {
+    // Log the project data for debugging
+    console.log("Project data for issue report:", {
+      id: project.id,
+      title: project.title,
+      category: project.category,
+      fullProject: project
+    });
+    
+    // Extract the actual category name, not ID
+    const categoryName = project.category || 'Construction';
+    
+    // Set project data with explicit project name
+    setSelectedProjectForReport({
+      ...project,
+      // Ensure we have the correct category name as a separate property
+      categoryName: categoryName,
+      // Ensure project name is explicitly included
+      projectName: project.title || 'Untitled Project'
+    });
+    
+    setIsReportModalOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -876,7 +907,6 @@ const stats = {
                           </div>
                         </div>
                         
-                       
                         <div className="mt-6">
                           <button 
                             onClick={() => {
@@ -1024,7 +1054,7 @@ const stats = {
                                 <div className="flex items-center">
                                   {milestone.status === 'Completed' && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mr-2">
-                                      <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                       </svg>
                                       Payment Received
@@ -1103,9 +1133,38 @@ const stats = {
                     </div>
                   </div>
                 </div>
+
+                {/* Add Report Issue Button */}
+                <div className="mt-4 flex justify-end">
+                  <button 
+                    onClick={() => handleOpenReportModal(activeProject)}
+                    className="inline-flex items-center px-3 py-2 border border-red-300 text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none transition ease-in-out duration-150"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Report an Issue
+                  </button>
+                </div>
               </div>
             )}
           </div>
+        )}
+
+        {/* Add IssueReportModal at the end of component */}
+        {selectedProjectForReport && (
+          <IssueReportModal
+            isOpen={isReportModalOpen}
+            onClose={() => setIsReportModalOpen(false)}
+            projectId={selectedProjectForReport.id}
+            projectName={selectedProjectForReport.projectName || selectedProjectForReport.title || 'Untitled Project'} 
+            title={selectedProjectForReport.title || 'Untitled Project'}
+            userId={contractorData.id}
+            username={contractorData.name} // Pass contractor name as username
+            userRole="Service Provider"
+            category={selectedProjectForReport.categoryName || selectedProjectForReport.category || "Construction"}
+            work={selectedProjectForReport}
+          />
         )}
       </div>
     </div>

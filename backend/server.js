@@ -15,7 +15,7 @@ const orderRoutes = require('./routes/orderRoutes'); // Add this line
 const shippingRoutes = require('./routes/shippingRoutes'); // Add this line
 const app = express();
 const restockRoutes = require('./routes/restockRoutes'); // Add this line
-
+const inquiriesRoutes = require('./routes/inquiries');
 
 // Middleware
 app.use(cors());
@@ -32,12 +32,16 @@ app.use('/api/contractors', require('./routes/contractorprofile'));
 app.use('/api/email', require('./routes/email'));
 app.use('/api/orders', orderRoutes); // Add this line
 
+// Register the contractors routes
+app.use('/api/contractors', require('./routes/contractors'));
+
 // Use routes
 app.use('/api/ongoingworks', ongoingWorksRoutes);
 app.use('/api/payments', paymentRoutes); // Add this line
 app.use('/api/suppliers', supplierRoutes); // Add this line
 app.use('/api/restock', restockRoutes); // Add this line
 app.use('/api/shipping', shippingRoutes); // Add this line
+app.use('/api/inquiries', inquiriesRoutes);
 
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Add this line

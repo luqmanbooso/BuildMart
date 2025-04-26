@@ -184,7 +184,9 @@ const ClientNavBar = () => {
           {['Home', 'Shop', 'Ongoing Projects'].map((item, index) => (
             <Link 
               key={index}
-              to={item === 'Home' ? '/' : item === 'Ongoing Projects' ? '/ongoing-works' : `/${item.toLowerCase().replace(' ', '-')}`} 
+              to={item === 'Home' ? '/' : 
+                  item === 'Ongoing Projects' ? '/ongoing-works' : 
+                  `/${item.toLowerCase().replace(' ', '-')}`} 
               className={`relative py-2 px-1 ${
                 window.location.pathname === (
                   item === 'Home' ? '/' : 
@@ -201,6 +203,21 @@ const ClientNavBar = () => {
                 ) ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
             </Link>
           ))}
+          
+          {/* Add Contractors Link */}
+          <Link 
+            to="/contractors"
+            className={`relative py-2 px-1 ${
+              window.location.pathname === '/contractors' 
+                ? 'text-blue-600' 
+                : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
+          >
+            Contractors
+            <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${
+              window.location.pathname === '/contractors' 
+                ? 'scale-x-100' 
+                : 'group-hover:scale-x-100'}`}></span>
+          </Link>
           
           {/* Add Job Link After Ongoing Projects */}
           {user && (
@@ -335,13 +352,15 @@ const ClientNavBar = () => {
               {['Home', 'Shop', 'Ongoing Projects'].map((item, index) => (
                 <Link 
                   key={index}
-                  to={item === 'Home' ? '/' : item === 'Ongoing Projects' ? '/ongoing-works' : `/${item.toLowerCase().replace(' ', '-')}`} 
-                  className={`py-2 px-3 rounded-lg ${
+                  to={item === 'Home' ? '/' : 
+                      item === 'Ongoing Projects' ? '/ongoing-works' : 
+                      `/${item.toLowerCase().replace(' ', '-')}`} 
+                  className={`py-2 px-4 ${
                     window.location.pathname === (
                       item === 'Home' ? '/' : 
                       item === 'Ongoing Projects' ? '/ongoing-works' : 
                       `/${item.toLowerCase().replace(' ', '-')}`
-                    ) ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'} font-medium`}
+                    ) ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'} rounded-lg transition-colors duration-300`}
                   onClick={() => setShowMobileMenu(false)}
                 >
                   {item}

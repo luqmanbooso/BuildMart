@@ -524,9 +524,12 @@ const ContractorProfile = () => {
                           initial={{ scale: 0.8 }}
                           animate={{ scale: 1 }}
                           transition={{ type: "spring", duration: 0.5 }}
-                          className="w-32 h-32 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full overflow-hidden mb-4 flex items-center justify-center text-white shadow-lg"
+                          className="w-32 h-32 bg-gradient-to-r from-blue-500 to-blue-700 rounded-full overflow-hidden mb-4 flex items-center justify-center text-white shadow-lg"
                         >
-                          <FaUserCircle className="w-24 h-24" />
+                          <span className="text-4xl font-bold">
+                            {personalInfo.firstName ? personalInfo.firstName.charAt(0).toUpperCase() : 
+                             personalInfo.username ? personalInfo.username.charAt(0).toUpperCase() : 'C'}
+                          </span>
                         </motion.div>
                       )}
                       <motion.h2 
@@ -770,7 +773,7 @@ const ContractorProfile = () => {
                         About Me
                       </h4>
                       <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-5 rounded-xl border border-gray-100">
-                        <p className="text-gray-700 leading-relaxed">
+                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap overflow-auto max-h-[200px] break-words">
                           {contractorInfo?.bio || "No bio information added yet. Edit your profile to add a description about yourself and your services."}
                         </p>
                       </div>

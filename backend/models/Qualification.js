@@ -31,16 +31,7 @@ const qualificationSchema = new mongoose.Schema({
     type: String,
     default: 'N/A'
   },
-  verificationStatus: {
-    type: String,
-    enum: ['unverified', 'pending', 'verified', 'rejected'],
-    default: 'unverified'
-  },
-  verificationDate: {
-    type: Date
-  },
-  documentUrls: [String], // For proof documents
-  notes: String // Admin verification notes
+  documentUrls: [String] // For proof documents
 }, {
   timestamps: true
 });

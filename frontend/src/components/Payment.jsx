@@ -26,12 +26,9 @@ const printStyles = `
   }
 `;
 
-// Add this constant at the top of the file, outside the component
 const COMMISSION_RATE = 0.10; // 10% commission
 
-// Add a new prop for payment context
 const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, context = 'customer', order = null, userData = null }) => {
-  // State management
   const [activeCard, setActiveCard] = useState('visa');
   const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState('');
@@ -43,6 +40,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [errors, setErrors] = useState({});
+  const [touchedFields, setTouchedFields] = useState({});
   const [showNotification, setShowNotification] = useState(false);
   const [notificationType, setNotificationType] = useState('');
   const [notificationMessage, setNotificationMessage] = useState('');
@@ -52,8 +50,13 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
   const [originalAmount, setOriginalAmount] = useState(0);
   const [commissionAmount, setCommissionAmount] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [validFields, setValidFields] = useState({
+    name: false,
+    cardNumber: false,
+    expiry: false,
+    cvv: false
+  });
 
-  // Available card types
   const cardTypes = [
     { id: 'visa', name: 'Visa' },
     { id: 'mastercard', name: 'Mastercard' },
@@ -61,27 +64,105 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
     { id: 'discover', name: 'Discover' }
   ];
 
-  // Format card number as user types (adds spaces every 4 digits)
-  const formatCardNumber = (value) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = matches && matches[0] || '';
-    const parts = [];
+  // Valid test card numbers that pass Luhn validation
+  const testCards = {
+    visa: '4111111111111111',
+    mastercard: '5555555555554444',
+    amex: '371449635398431',
+    discover: '6011111111111117'
+  };
+
+  const validateName = (value) => {
+    if (!value.trim()) return "Cardholder name is required";
+    if (!/^[A-Za-z\s.'-]+$/.test(value)) return "Name contains invalid characters";
+    if (value.length < 2) return "Name is too short";
+    if (value.length > 50) return "Name is too long";
+    return "";
+  };
+
+  // Simplify validateCardNumber to only check digit count
+  const validateCardNumber = (value) => {
+    const cleanValue = value.replace(/\s+/g, '');
     
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
+    // Basic validation
+    if (!cleanValue) return "Card number is required";
+    if (!/^\d+$/.test(cleanValue)) return "Card number should contain only digits";
+    
+    // Check if it's one of our valid test cards (always valid)
+    if (Object.values(testCards).includes(cleanValue)) {
+      return ""; // Valid test card
     }
     
-    if (parts.length) {
-      return parts.join(' ');
+    // Simple length check based on card type
+    if (activeCard === 'amex' || cleanValue.startsWith('34') || cleanValue.startsWith('37')) {
+      // AMEX requires 15 digits
+      return cleanValue.length === 15 ? "" : "American Express card must have 15 digits";
     } else {
-      return value;
+      // All other cards require 16 digits
+      return cleanValue.length === 16 ? "" : "Card number must have 16 digits";
     }
   };
 
-  // Format expiry date as MM/YY
+  const validateExpiry = (value) => {
+    if (!value.trim()) return "Expiry date is required";
+    if (!/^\d{2}\/\d{2}$/.test(value)) return "Use MM/YY format";
+    const [month, year] = value.split('/').map(part => parseInt(part, 10));
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear() % 100;
+    const currentMonth = currentDate.getMonth() + 1;
+    if (month < 1 || month > 12) return "Invalid month";
+    if (year < currentYear || (year === currentYear && month < currentMonth)) {
+      return "Card has expired";
+    }
+    return "";
+  };
+
+  const validateCVV = (value) => {
+    if (!value.trim()) return "CVV is required";
+    if (!/^\d+$/.test(value)) return "CVV must contain only digits";
+    
+    // Check if length matches the required length for the card type
+    const requiredLength = activeCard === 'amex' ? 4 : 3;
+    if (value.length !== requiredLength) {
+      return `CVV must be ${requiredLength} digits for ${activeCard === 'amex' ? 'American Express' : 'this card type'}`;
+    }
+    
+    return "";
+  };
+
+  // Format card number as user types (adds spaces based on card type)
+  const formatCardNumber = (value) => {
+    // Remove all non-digit characters
+    const v = value.replace(/\D/g, '');
+    
+    // Format differently based on detected card type
+    if (v.startsWith('34') || v.startsWith('37') || activeCard === 'amex') {
+      // AMEX format: XXXX XXXXXX XXXXX (4-6-5 pattern)
+      return v.replace(/^(\d{0,4})(\d{0,6})(\d{0,5}).*/, (match, p1, p2, p3) => 
+        [p1, p2, p3].filter(Boolean).join(' ')
+      ).trim();
+    } else {
+      // Standard format: XXXX XXXX XXXX XXXX (4-4-4-4 pattern)
+      return v.replace(/^(\d{0,4})(\d{0,4})(\d{0,4})(\d{0,4}).*/, (match, p1, p2, p3, p4) => 
+        [p1, p2, p3, p4].filter(Boolean).join(' ')
+      ).trim();
+    }
+  };
+
   const formatExpiry = (value) => {
-    const cleanValue = value.replace(/[^\d]/g, '');
+    const cleanValue = value.replace(/\D/g, '');
+    if (cleanValue.length >= 1) {
+      const firstDigit = parseInt(cleanValue[0], 10);
+      if (firstDigit > 1) {
+        return `0${firstDigit}${cleanValue.substring(1, 3)}`;
+      }
+    }
+    if (cleanValue.length >= 2) {
+      const month = parseInt(cleanValue.substring(0, 2), 10);
+      if (month > 12 || month === 0) {
+        return `0${cleanValue[0]}${cleanValue.substring(2)}`;
+      }
+    }
     if (cleanValue.length >= 3) {
       return `${cleanValue.slice(0, 2)}/${cleanValue.slice(2, 4)}`;
     } else if (cleanValue.length === 2) {
@@ -90,16 +171,101 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
     return cleanValue;
   };
 
-  // Handle focus state for input fields
+  // Get max length for card number input based on card type
+  const getCardNumberMaxLength = () => {
+    // For AMEX: 15 digits + 2 spaces = 17 chars
+    if (activeCard === 'amex') return 17;
+    
+    // For Visa, Mastercard, Discover: 16 digits + 3 spaces = 19 chars
+    return 19;
+  };
+
   const handleFocus = (field) => {
     setFocused({...focused, [field]: true});
   };
   
   const handleBlur = (field) => {
+    setTouchedFields({...touchedFields, [field]: true});
     setFocused({...focused, [field]: false});
+    validateField(field);
+  };
+  
+  const validateField = (field) => {
+    let errorMessage = "";
+    switch (field) {
+      case 'name':
+        errorMessage = validateName(name);
+        break;
+      case 'cardNumber':
+        errorMessage = validateCardNumber(cardNumber);
+        break;
+      case 'expiry':
+        errorMessage = validateExpiry(expiry);
+        break;
+      case 'cvv':
+        errorMessage = validateCVV(cvv);
+        break;
+      default:
+        break;
+    }
+    setErrors(prev => ({
+      ...prev,
+      [field]: errorMessage
+    }));
+    setValidFields(prev => ({
+      ...prev,
+      [field]: !errorMessage
+    }));
+    return !errorMessage;
   };
 
-  // Detect card type based on number
+  const handleNameChange = (e) => {
+    const value = e.target.value;
+    if (/^[A-Za-z\s.'-]*$/.test(value) || value === '') {
+      setName(value);
+      if (touchedFields.name) {
+        validateField('name');
+      }
+    }
+  };
+  
+  const handleCardNumberChange = (e) => {
+    const value = e.target.value;
+    const formattedValue = formatCardNumber(value);
+    setCardNumber(formattedValue);
+    if (touchedFields.cardNumber) {
+      validateField('cardNumber');
+    }
+  };
+  
+  const handleExpiryChange = (e) => {
+    const value = e.target.value;
+    const formattedValue = formatExpiry(value);
+    setExpiry(formattedValue);
+    if (touchedFields.expiry) {
+      validateField('expiry');
+    }
+  };
+  
+  const handleCVVChange = (e) => {
+    const value = e.target.value;
+    // Ensure we only accept digits
+    if (!/^\d*$/.test(value)) return;
+    
+    // Get the proper max length based on current card type
+    const maxLength = activeCard === 'amex' ? 4 : 3;
+    
+    // Only accept input if it's within max length
+    if (value.length <= maxLength) {
+      setCvv(value);
+      
+      // Validate if the field has been touched
+      if (touchedFields.cvv) {
+        validateField('cvv');
+      }
+    }
+  };
+
   useEffect(() => {
     if (!manuallySelectedCard) {
       const cardNumberClean = cardNumber.replace(/\s+/g, '');
@@ -117,67 +283,73 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
     }
   }, [cardNumber, manuallySelectedCard]);
 
-  // Handle card selection
+  useEffect(() => {
+    // Clear CVV when changing between Amex (4 digits) and other cards (3 digits)
+    if (cvv.length > 0) {
+      const isAmex = activeCard === 'amex';
+      const requiredLength = isAmex ? 4 : 3;
+      
+      if (cvv.length > requiredLength) {
+        // Truncate CVV if it's longer than the new required length
+        setCvv(cvv.slice(0, requiredLength));
+      }
+      
+      // Revalidate if the field has been touched
+      if (touchedFields.cvv) {
+        setTimeout(() => validateField('cvv'), 0);
+      }
+    }
+  }, [activeCard]); // Run effect when card type changes
+
   const handleCardSelection = (cardType) => {
     setActiveCard(cardType);
     setManuallySelectedCard(cardType);
-  };
-
-  // Validate inputs
-  const validateInputs = () => {
-    const newErrors = {};
     
-    if (!name.trim()) newErrors.name = "Cardholder name is required";
-    
-    const cardNumberClean = cardNumber.replace(/\s+/g, '');
-    if (!cardNumberClean || cardNumberClean.length < 13) {
-      newErrors.cardNumber = "Valid card number is required";
+    // When switching between Amex and other cards, we need to revalidate the CVV
+    if (touchedFields.cvv) {
+      setTimeout(() => validateField('cvv'), 0);
     }
     
-    const expiryParts = expiry.split('/');
-    if (expiryParts.length !== 2 || !expiry.trim()) {
-      newErrors.expiry = "Valid expiry date is required";
-    } else {
-      const month = parseInt(expiryParts[0], 10);
-      const year = parseInt(`20${expiryParts[1]}`, 10);
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth() + 1;
+    // When switching between Amex and other cards, we need to revalidate the card number
+    if (touchedFields.cardNumber) {
+      setTimeout(() => validateField('cardNumber'), 0);
+    }
+  };
+
+  useEffect(() => {
+    if (manuallySelectedCard && cardNumber) {
+      // Reformat the existing card number for the new card type
+      const cleanNumber = cardNumber.replace(/\s/g, '');
+      setCardNumber(formatCardNumber(cleanNumber));
       
-      if (month < 1 || month > 12) {
-        newErrors.expiry = "Invalid month";
-      } else if (year < currentYear || (year === currentYear && month < currentMonth)) {
-        newErrors.expiry = "Card has expired";
+      // Re-validate if needed
+      if (touchedFields.cardNumber) {
+        validateField('cardNumber');
       }
     }
-    
-    const cvvLength = activeCard === 'amex' ? 4 : 3;
-    if (!cvv.trim() || cvv.length < cvvLength) {
-      newErrors.cvv = `${cvvLength}-digit CVV is required`;
-    }
-    
-    const amountValue = parseFloat(amount);
-    if (isNaN(amountValue) || amountValue <= 0) {
-      newErrors.amount = "Please enter a valid amount";
-    } else if (amountValue > 1000000) {
-      newErrors.amount = "Amount cannot exceed LKR 1,000,000.00";
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  }, [manuallySelectedCard]);
+
+  const validateInputs = () => {
+    const allTouched = {
+      name: true,
+      cardNumber: true,
+      expiry: true,
+      cvv: true
+    };
+    setTouchedFields(allTouched);
+    const nameValid = validateField('name');
+    const cardNumberValid = validateField('cardNumber');
+    const expiryValid = validateField('expiry');
+    const cvvValid = validateField('cvv');
+    return nameValid && cardNumberValid && expiryValid && cvvValid;
   };
 
-  // Process payment
   const handlePayment = async (e) => {
     e.preventDefault();
     if (validateInputs()) {
       setIsProcessing(true);
-      
       try {
-        // Remove spaces from card number
         const cleanCardNumber = cardNumber.replace(/\s+/g, '');
-        
-        // Use provided userData if available, otherwise extract from token
         let currentUserData = userData;
         if (!currentUserData) {
           try {
@@ -187,7 +359,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
               currentUserData = {
                 id: decoded.userId || decoded.id || decoded._id,
                 email: decoded.email || '',
-                name: decoded.name || decoded.fullName || name,  // Use cardholderName as fallback
+                name: decoded.name || decoded.fullName || name,
                 role: decoded.role || '',
                 userType: decoded.userType || '',
               };
@@ -196,8 +368,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
             console.error("Error decoding token:", tokenError);
           }
         }
-        
-        // Create payment payload
         const paymentData = {
           name,
           cardNumber: cleanCardNumber,
@@ -208,25 +378,18 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
           commissionAmount,
           commissionRate: context === 'milestone' ? COMMISSION_RATE : 0,
           context,
-          user: currentUserData, // Include user data
+          user: currentUserData,
         };
-        
-        // Add order data if available
         if (order) {
           paymentData.order = order;
         }
-        
-        // Add work/milestone data if available
         if (window.workId) {
           paymentData.workId = window.workId;
         }
-        
         if (window.milestoneId) {
           paymentData.milestoneId = window.milestoneId;
         }
-        
         console.log("Sending payment data:", paymentData);
-        
         const response = await fetch('http://localhost:5000/api/payments/process-payment', {
           method: 'POST',
           headers: {
@@ -235,8 +398,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
           },
           body: JSON.stringify(paymentData)
         });
-
-        // Improved error handling with more detailed logging
         if (!response.ok) {
           const errorText = await response.text();
           console.error("Payment API error response:", {
@@ -244,7 +405,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
             statusText: response.statusText,
             responseBody: errorText
           });
-          
           let errorMessage = 'Payment processing failed';
           try {
             const errorData = JSON.parse(errorText);
@@ -256,11 +416,8 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
           }
           throw new Error(errorMessage);
         }
-
         const data = await response.json();
-        
         console.log("Payment response:", data);
-
         if (data.success) {
           setInvoiceData({
             ...data.payment,
@@ -292,7 +449,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
     }
   };
 
-  // Show notification message
   const showNotificationMessage = (type, message) => {
     setNotificationType(type);
     setNotificationMessage(message);
@@ -300,7 +456,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
     setTimeout(() => setShowNotification(false), 4000);
   };
 
-  // Reset form
   const resetForm = () => {
     setCardNumber('');
     setExpiry('');
@@ -308,18 +463,23 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
     setName('');
     setIsComplete(false);
     setErrors({});
+    setTouchedFields({});
+    setValidFields({
+      name: false,
+      cardNumber: false,
+      expiry: false,
+      cvv: false
+    });
     setManuallySelectedCard(null);
     setActiveCard('visa');
   };
 
-  // Update amount when initialized
   useEffect(() => {
     if (initialAmount) {
       setAmount(initialAmount);
     }
   }, [initialAmount]);
 
-  // Handle amount changes
   const handleAmountChange = (value) => {
     const cleaned = value.replace(/[^\d.]/g, '');
     const parts = cleaned.split('.');
@@ -329,18 +489,14 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
     setAmount(cleaned);
   };
 
-  // Calculate commission when amount changes
   useEffect(() => {
     if (initialAmount) {
       const original = parseFloat(initialAmount);
       setOriginalAmount(original);
-      
-      // Only apply commission for milestone payments
       if (context === 'milestone') {
         const commission = original * COMMISSION_RATE;
         setCommissionAmount(commission);
         setTotalAmount(original + commission);
-        // Update the displayed amount to include commission
         setAmount((original + commission).toFixed(2));
       } else {
         setCommissionAmount(0);
@@ -350,7 +506,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
     }
   }, [initialAmount, context]);
 
-  // Extract user data from token when component mounts
   useEffect(() => {
     const extractUserData = () => {
       try {
@@ -358,18 +513,14 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
         if (token) {
           const decoded = jwtDecode(token);
           console.log("Token decoded successfully:", decoded);
-          
-          // Extract all available user data
           const userData = {
             id: decoded.userId || decoded.id || decoded._id,
             email: decoded.email,
             name: decoded.name || decoded.fullName,
             role: decoded.role,
             userType: decoded.userType,
-            // Add any other fields that might be in the token
             ...decoded
           };
-          
           setUserData(userData);
           return userData;
         }
@@ -378,11 +529,21 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
       }
       return null;
     };
-    
     extractUserData();
   }, []);
+  
+  const getInputClasses = (field) => {
+    const baseClasses = "w-full p-4 border rounded-md pl-12 transition-all duration-200";
+    if (touchedFields[field]) {
+      if (errors[field]) {
+        return `${baseClasses} border-red-500 ring-1 ring-red-500`;
+      } else if (validFields[field]) {
+        return `${baseClasses} border-green-500 ring-1 ring-green-500`;
+      }
+    }
+    return `${baseClasses} border-gray-300 focus:border-blue-500 focus:ring-blue-500`;
+  };
 
-  // Card logo components
   const CardLogo = ({ type }) => {
     const logos = {
       visa: (
@@ -414,18 +575,15 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
         </div>
       )
     };
-    
     return logos[type] || logos.default;
   };
 
-  // Display success screen if payment is complete
   if (isComplete) {
     return (
       <>
         <style>{printStyles}</style>
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-800 p-6">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-3xl w-full invoice-section border border-gray-100">
-            {/* Company Header with enhanced styling */}
             <div className="flex flex-col md:flex-row justify-between items-start border-b border-gray-200 pb-6 mb-8">
               <div className="mb-4 md:mb-0">
                 <div className="flex items-center mb-3">
@@ -445,8 +603,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                 <p className="text-gray-500">Time: {new Date().toLocaleTimeString()}</p>
               </div>
             </div>
-
-            {/* Success Message */}
             <div className="flex items-center justify-center py-6 mb-8 bg-green-50 rounded-lg">
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -458,10 +614,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                 </div>
               </div>
             </div>
-
-            {/* Payment Details Grid */}
             <div className="grid grid-cols-2 gap-8 mb-8">
-              {/* Customer Information */}
               <div>
                 <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
                   Customer Information
@@ -478,8 +631,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                   )}
                 </div>
               </div>
-
-              {/* Payment Method */}
               <div>
                 <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
                   Payment Method
@@ -495,8 +646,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                 </div>
               </div>
             </div>
-
-            {/* Payment Summary */}
             <div className="border-t border-gray-200 pt-8 mb-8">
               <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
                 Payment Summary
@@ -506,22 +655,18 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                   <span>Milestone Amount</span>
                   <span>{formatLKR(originalAmount)}</span>
                 </div>
-                
                 {context === 'milestone' && (
                   <div className="flex justify-between text-gray-600">
                     <span>BuildMart Service Fee (10%)</span>
                     <span>{formatLKR(commissionAmount)}</span>
                   </div>
                 )}
-                
                 <div className="flex justify-between font-semibold text-lg pt-4 border-t border-gray-200">
                   <span>Total Amount</span>
                   <span className="text-green-600">{formatLKR(totalAmount)}</span>
                 </div>
               </div>
             </div>
-
-            {/* Actions */}
             <div className="flex flex-col md:flex-row gap-4">
               <button 
                 onClick={() => window.print()}
@@ -532,10 +677,8 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                 </svg>
                 Print Receipt
               </button>
-              
               <button 
                 onClick={() => {
-                  // Create a PDF-like blob and download it
                   const receiptContent = document.querySelector('.invoice-section').innerHTML;
                   const blob = new Blob([`
                     <html>
@@ -553,7 +696,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                       </body>
                     </html>
                   `], {type: 'text/html'});
-                  
                   const link = document.createElement('a');
                   link.href = URL.createObjectURL(blob);
                   link.download = `buildmart-receipt-${new Date().toISOString().slice(0,10)}.html`;
@@ -568,7 +710,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                 </svg>
                 Download Receipt
               </button>
-              
               <button 
                 onClick={resetForm}
                 className="flex-1 py-3 px-6 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-300 flex items-center justify-center no-print shadow-md"
@@ -579,8 +720,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                 Make Another Payment
               </button>
             </div>
-
-            {/* Footer */}
             <div className="mt-8 text-center text-sm text-gray-500">
               <p>Thank you for your business!</p>
               <p className="mt-1">For any questions, please contact our support team.</p>
@@ -592,22 +731,18 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
     );
   }
 
-  // Update the amount input to be readonly if initialAmount is provided
   const amountInputProps = initialAmount
     ? { readOnly: true, className: 'bg-gray-50' }
     : {};
 
-  // Modify the header text based on context
   const getHeaderText = () => {
     return context === 'supplier' ? 'Supplier Payment' : 'Payment Gateway';
   };
 
-  // Add context-specific text in the payment form
   return (
     <>
       <style>{printStyles}</style>
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-[#002855] to-[#0057B7] p-4">
-        {/* Notification */}
         {showNotification && (
           <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg flex items-center ${
             notificationType === 'success' ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500'
@@ -631,10 +766,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
             </button>
           </div>
         )}
-
-        {/* Payment form with scrollable container */}
         <div className="bg-white rounded-lg shadow-2xl p-6 md:p-8 max-w-3xl w-full mx-auto max-h-[90vh] overflow-y-auto">
-          {/* Header with more spacing */}
           <div className="flex flex-col md:flex-row items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-gray-800 mb-4 md:mb-0">
               {getHeaderText()}
@@ -646,8 +778,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
               <CardLogo type="discover" />
             </div>
           </div>
-
-          {/* Add context indicator if needed */}
           {context === 'supplier' && (
             <div className="mb-6 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-800">
@@ -655,20 +785,19 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
               </p>
             </div>
           )}
-
-          {/* Form with improved layout for wider container */}
           <form onSubmit={handlePayment} className="space-y-6">
-            {/* Cardholder Name */}
             <div className="mb-5">
               <label className="block text-gray-700 text-sm font-medium mb-2">
                 Cardholder Name<span className="text-red-500">*</span>
               </label>
-              <div className={`relative rounded-md shadow-sm`}>
+              <div className="relative rounded-md shadow-sm">
                 <input 
                   type="text" 
-                  className={`w-full p-4 border ${errors.name ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 transition-all duration-200`} 
+                  className={getInputClasses('name')}
                   value={name} 
-                  onChange={(e) => setName(e.target.value)} 
+                  onChange={handleNameChange} 
+                  onFocus={() => handleFocus('name')}
+                  onBlur={() => handleBlur('name')}
                   placeholder="John Doe"
                 />
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -678,11 +807,16 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                     </svg>
                   </div>
                 </div>
+                {validFields.name && touchedFields.name && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <CheckCircle size={16} className="text-green-500" />
+                  </div>
+                )}
               </div>
-              {errors.name && <p className="mt-1 text-red-500 text-xs">{errors.name}</p>}
+              {touchedFields.name && errors.name && (
+                <p className="mt-1 text-red-500 text-xs">{errors.name}</p>
+              )}
             </div>
-
-            {/* Card Type Selection with smaller, more compact buttons */}
             <div className="mb-5">
               <label className="block text-gray-700 text-sm font-medium mb-2">
                 Card Type<span className="text-red-500">*</span>
@@ -727,74 +861,102 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                 ))}
               </div>
             </div>
-
-            {/* Card Number with more padding */}
             <div className="mb-5">
               <label className="block text-gray-700 text-sm font-medium mb-2">
                 Card Number<span className="text-red-500">*</span>
               </label>
-              <div className={`relative rounded-md shadow-sm`}>
+              <div className="relative rounded-md shadow-sm">
                 <input 
                   type="text" 
-                  className={`w-full p-4 border ${errors.cardNumber ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 pr-10 transition-all duration-200`} 
+                  className={getInputClasses('cardNumber')}
                   value={cardNumber} 
-                  onChange={(e) => setCardNumber(formatCardNumber(e.target.value))} 
-                  placeholder="1234 5678 9012 3456"
-                  maxLength={19}
+                  onChange={handleCardNumberChange}
+                  onFocus={() => handleFocus('cardNumber')}
+                  onBlur={() => handleBlur('cardNumber')}
+                  placeholder={activeCard === 'amex' ? "XXXX XXXXXX XXXXX" : "XXXX XXXX XXXX XXXX"}
+                  maxLength={getCardNumberMaxLength()}
                 />
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <CreditCard size={20} className="text-gray-400" />
                 </div>
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                  {validFields.cardNumber && touchedFields.cardNumber ? (
+                    <CheckCircle size={16} className="text-green-500 mr-2" />
+                  ) : null}
                   <CardLogo type={activeCard} />
                 </div>
               </div>
-              {errors.cardNumber && <p className="mt-1 text-red-500 text-xs">{errors.cardNumber}</p>}
+              {touchedFields.cardNumber && errors.cardNumber && (
+                <p className="mt-1 text-red-500 text-xs">{errors.cardNumber}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                {activeCard === 'amex' ? 'American Express: 15 digits (XXXX XXXXXX XXXXX)' : 'Card number: 16 digits (XXXX XXXX XXXX XXXX)'}
+              </p>
+              <p className="mt-1 text-xs text-gray-400">
+                Test card: {formatCardNumber(testCards[activeCard] || testCards.visa)}
+              </p>
             </div>
-
-            {/* Expiry and CVV in a row with improved spacing */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
               <div>
                 <label className="block text-gray-700 text-sm font-medium mb-2">
                   Expiry Date<span className="text-red-500">*</span>
                 </label>
-                <div className={`relative rounded-md shadow-sm`}>
+                <div className="relative rounded-md shadow-sm">
                   <input 
                     type="text" 
-                    className={`w-full p-4 border ${errors.expiry ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 transition-all duration-200`} 
+                    className={getInputClasses('expiry')}
                     value={expiry} 
-                    onChange={(e) => setExpiry(formatExpiry(e.target.value))} 
+                    onChange={handleExpiryChange}
+                    onFocus={() => handleFocus('expiry')}
+                    onBlur={() => handleBlur('expiry')}
                     placeholder="MM/YY"
                     maxLength={5}
                   />
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Calendar size={20} className="text-gray-400" />
                   </div>
+                  {validFields.expiry && touchedFields.expiry && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <CheckCircle size={16} className="text-green-500" />
+                    </div>
+                  )}
                 </div>
-                {errors.expiry && <p className="mt-1 text-red-500 text-xs">{errors.expiry}</p>}
+                {touchedFields.expiry && errors.expiry && (
+                  <p className="mt-1 text-red-500 text-xs">{errors.expiry}</p>
+                )}
               </div>
               <div>
                 <label className="block text-gray-700 text-sm font-medium mb-2">
                   CVV<span className="text-red-500">*</span>
+                  <span className="text-xs text-gray-500 ml-1">
+                    ({activeCard === 'amex' ? '4 digits' : '3 digits'})
+                  </span>
                 </label>
-                <div className={`relative rounded-md shadow-sm`}>
+                <div className="relative rounded-md shadow-sm">
                   <input 
                     type="text" 
-                    className={`w-full p-4 border ${errors.cvv ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} rounded-md pl-12 transition-all duration-200`} 
+                    className={getInputClasses('cvv')}
                     value={cvv} 
-                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, ''))} 
+                    onChange={handleCVVChange}
+                    onFocus={() => handleFocus('cvv')}
+                    onBlur={() => handleBlur('cvv')}
                     placeholder={activeCard === 'amex' ? "4 digits" : "3 digits"}
                     maxLength={activeCard === 'amex' ? 4 : 3}
                   />
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Lock size={20} className="text-gray-400" />
                   </div>
+                  {validFields.cvv && touchedFields.cvv && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <CheckCircle size={16} className="text-green-500" />
+                    </div>
+                  )}
                 </div>
-                {errors.cvv && <p className="mt-1 text-red-500 text-xs">{errors.cvv}</p>}
+                {touchedFields.cvv && errors.cvv && (
+                  <p className="mt-1 text-red-500 text-xs">{errors.cvv}</p>
+                )}
               </div>
             </div>
-
-            {/* Amount with larger input */}
             <div className="mb-6">
               <label className="block text-gray-700 text-sm font-medium mb-2">
                 Payment Details<span className="text-red-500">*</span>
@@ -804,7 +966,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                   <span className="text-gray-700">Amount:</span>
                   <span className="font-medium">{formatLKR(originalAmount)}</span>
                 </div>
-                
                 {context === 'milestone' && (
                   <div className="flex justify-between items-center mt-2">
                     <div className="flex items-center">
@@ -821,15 +982,12 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                     <span className="font-medium text-blue-600">{formatLKR(commissionAmount)}</span>
                   </div>
                 )}
-                
                 <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center">
                   <span className="font-medium text-gray-700">Total Amount:</span>
                   <span className="text-lg font-bold text-blue-700">{formatLKR(totalAmount)}</span>
                 </div>
               </div>
             </div>
-
-            {/* Enhanced Security note */}
             <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-lg border border-blue-100 shadow-sm">
               <div className="flex items-center">
                 <div className="bg-blue-500 rounded-full p-3 mr-4">
@@ -841,13 +999,40 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
                 </div>
               </div>
             </div>
-
-            {/* Submit button with increased size */}
+            {Object.keys(errors).length > 0 && Object.values(errors).some(error => error) && (
+              <div className="p-4 mb-4 bg-red-50 border-l-4 border-red-500 rounded shadow-sm">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <AlertCircle className="h-5 w-5 text-red-500" aria-hidden="true" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800">
+                      Please correct the following errors:
+                    </h3>
+                    <div className="mt-2 text-sm text-red-700">
+                      <ul className="list-disc pl-5 space-y-1">
+                        {Object.entries(errors).map(([field, error]) => 
+                          error ? (
+                            <li key={field}>
+                              {error}
+                            </li>
+                          ) : null
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="pt-4">
               <button 
                 type="submit" 
-                className="w-full py-5 px-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white text-lg font-bold rounded-lg shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.01] flex items-center justify-center" 
-                disabled={isProcessing || parseFloat(amount) <= 0}
+                className={`w-full py-5 px-6 ${
+                  Object.values(validFields).every(field => field)
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:shadow-xl hover:scale-[1.01]' 
+                    : 'bg-gradient-to-r from-blue-400 to-indigo-400 cursor-not-allowed'
+                } text-white text-lg font-bold rounded-lg shadow-lg transition-all duration-300 flex items-center justify-center`}
+                disabled={isProcessing || parseFloat(amount) <= 0 || !Object.values(validFields).every(field => field)}
               >
                 {isProcessing ? (
                   <>
@@ -870,54 +1055,6 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
       </div>
     </>
   );
-};
-
-const handlePaymentSuccess = async (paymentResult) => {
-  try {
-    // Update milestone status and payment details
-    const { workId, milestoneId } = location.state;
-    
-    const response = await axios.patch(
-      `/api/ongoing-works/${workId}/milestone/${milestoneId}`,
-      {
-        status: 'completed',
-        actualAmountPaid: paymentResult.amount,
-        completedAt: new Date(),
-        paymentId: paymentResult.id
-      }
-    );
-
-    if (response.data) {
-      setIsComplete(true);
-      setInvoiceData({
-        id: paymentResult.id,
-        ...location.state,
-        paymentDate: new Date(),
-      });
-      
-      if (onSuccess) {
-        onSuccess(paymentResult);
-      }
-    }
-  } catch (error) {
-    console.error('Error updating milestone payment:', error);
-    showNotificationMessage('error', 'Payment recorded but milestone update failed');
-  }
-};
-
-const handlePaymentSubmit = (e) => {
-  e.preventDefault();
-  
-  // Process payment
-  
-  // If successful, pass payment details to parent
-  onSuccess({
-    cardholderName: cardholderName,
-    cardType: getCardType(cardNumber), // Implement this function to detect card type
-    lastFourDigits: cardNumber.slice(-4),
-    expiryDate: `${expiryMonth}/${expiryYear}`,
-    date: new Date().toISOString()
-  });
 };
 
 export default EnhancedPaymentGateway;
