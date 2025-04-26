@@ -13,6 +13,7 @@ import buildMartLogo from '../assets/images/buildmart_logo1.png';
 import { useNavigate } from 'react-router-dom';
 import UsersManagement from '../components/UserManagement';
 import AdminManagement from '../components/AdminManagement';
+import AdminInquiries from '../components/AdminInquiries';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend);
@@ -1202,23 +1203,24 @@ function Admindashboard() {
                   <p className="text-sm text-gray-500 mb-2">Service Provider Qualifications</p>
                   <p className="text-gray-800">{selectedBid.qualifications || 'No qualifications provided.'}</p>
                 </div>
-                
-                <div className="mt-6 border-t pt-6">
+              </div>
+              
+              <div className="mt-6 border-t pt-6">
                   <p className="text-sm font-medium text-gray-800 mb-3">Change Status</p>
-                  <div className="flex space-x-3">
-                    <button 
-                      onClick={() => handleBidStatusChange(selectedBid._id, 'accepted')}
+                <div className="flex space-x-3">
+                  <button 
+                    onClick={() => handleBidStatusChange(selectedBid._id, 'accepted')}
                       className={`px-4 py-2 rounded-lg flex items-center justify-center ${
                         selectedBid.status === 'accepted' 
                           ? 'bg-green-100 text-green-800 cursor-not-allowed' 
                           : 'bg-green-600 text-white hover:bg-green-700'
                       }`}
                       disabled={selectedBid.status === 'accepted'}
-                    >
-                      <FaCheck className="mr-2" />
+                  >
+                    <FaCheck className="mr-2" />
                       Accept
-                    </button>
-                    <button 
+                  </button>
+                                      <button 
                       onClick={() => handleBidStatusChange(selectedBid._id, 'rejected')}
                       className={`px-4 py-2 rounded-lg flex items-center justify-center ${
                         selectedBid.status === 'rejected' 
@@ -1232,9 +1234,10 @@ function Admindashboard() {
                     </button>
                   </div>
                 </div>
-              </div>
-              
-              <div className="border-t pt-4 flex justify-end">
+                </div>
+                
+<div className="border-t pt-4 flex justify-end">
+<div className="border-t pt-4 flex justify-end">
                 <button 
                   onClick={() => setSelectedBid(null)}
                   className="px-6 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-800 font-medium transition-colors"
@@ -1278,14 +1281,8 @@ function Admindashboard() {
           <h3 className="font-semibold text-lg text-gray-800">Inquiries Management</h3>
           <p className="text-sm text-gray-500">Handle customer inquiries and support requests</p>
         </div>
-        <div className="p-6 text-center text-gray-500">
-          <div className="flex flex-col items-center justify-center py-12">
-            <FaBuilding className="text-5xl text-gray-300 mb-4" />
-            <h4 className="text-lg font-medium mb-2">This feature is coming soon</h4>
-            <p className="text-gray-500 max-w-md text-center">
-              The inquiries management system is currently under development. Check back later for updates.
-            </p>
-          </div>
+        <div className="p-6">
+          <AdminInquiries />
         </div>
       </div>
     );
