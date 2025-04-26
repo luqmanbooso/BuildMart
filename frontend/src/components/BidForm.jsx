@@ -791,11 +791,40 @@ const projectDescription = jobDetails?.description || "";
 
   return (
     <div className="max-w-4xl mx-auto p-3">
-      <h1 className="text-2xl font-semibold mb-4">
-        Submit Bid
-      </h1>
-      <div>
-        <form onSubmit={handleSubmit(handleConfirmation)} className="space-y-10">
+      {/* Form header with project info */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-t-xl shadow-md mb-1">
+        <h1 className="text-2xl font-semibold mb-1">
+          Submit Bid: {jobDetails?.title || "Project"}
+        </h1>
+        <div className="flex justify-between items-center text-sm">
+          <div>Budget: RS {minBudget} - {maxBudget}</div>
+          <div className="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+            </svg>
+            {timeLeft.timeUp ? "Auction Ended" : `Time left: ${timeLeft.days}d ${timeLeft.hours}h ${timeLeft.minutes}m`}
+          </div>
+        </div>
+      </div>
+      
+      {/* Main form container with form design */}
+      <div className="bg-gray-50 p-6 rounded-b-xl shadow-md border border-gray-200">
+        {submissionError && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">{submissionError}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit(handleConfirmation)} className="space-y-8">
           <div className="hidden">
             <input type="hidden" {...register("projectName")} value={jobDetails?.title || ""} />
             <input type="hidden" {...register("projectId")} value={jobId} />
@@ -805,638 +834,687 @@ const projectDescription = jobDetails?.description || "";
           </div>
 
           {/* Form sections with visual separation */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-start">
-              <span className="bg-white pr-3 text-lg font-medium text-gray-900">1. Bid Amount & Profile</span>
-            </div>
-          </div>
+          <fieldset>
+            <legend className="relative">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-start">
+                <span className="bg-gray-50 pr-3 text-lg font-medium text-gray-900 flex items-center">
+                  <div className="bg-blue-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-sm mr-2">1</div>
+                  Bid Amount & Profile
+                </span>
+              </div>
+            </legend>
 
-          {/* Improved grid layout for Bid Amount & Profile */}
-          <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Bid Amount Section - Enhanced */}
-            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
-              
-              <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-700 p-2 rounded-lg mr-3 shadow-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                Your Bid Amount <span className="text-red-500 ml-1">*</span>
-              </h3>
-              
-              <div className="space-y-4">
-                <div className="relative">
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-gray-500 font-medium">RS</span>
-                    <input
-                      id="yourBid"
-                      type="text" 
-                      placeholder="Enter your bid amount"
-                      {...register("yourBid", {
-                        required: "Your bid is required",
-                        maxLength: {
-                          value: 12,
-                          message: "Bid amount cannot exceed 12 digits"
-                        },
-                        pattern: {
-                          value: /^[0-9]+(\.[0-9]{1,2})?$/,
-                          message: "Please enter a valid number with up to 2 decimal places"
-                        },
-                        validate: {
-                          positive: v => parseFloat(v) > 0 || "Bid must be greater than 0",
-                          minBudgetCheck: v => {
-                            const bidValue = parseFloat(v);
-                            const minValue = parseFloat(minBudget);
-                            return !minValue || bidValue >= minValue || `Bid must be at least LKR ${minBudget}`;
-                          },
-                          maxBudgetCheck: v => {
-                            const bidValue = parseFloat(v);
-                            const maxValue = parseFloat(maxBudget);
-                            return !maxValue || bidValue <= maxValue || `Bid cannot exceed LKR ${maxBudget}`;
-                          },
-                          validFormat: v => isValidDecimal(v) || "Please enter a valid number with up to 2 decimal places"
-                        }
-                      })}
-                      className={`w-full p-3 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${
-                        errors.yourBid ? "border-red-500 bg-red-50" : 
-                        "border-gray-300 focus:border-blue-500"
-                      }`}
-                      onBlur={() => trigger("yourBid")}
-                      onChange={(e) => {
-                        // Format the input value before setting it
-                        const rawValue = e.target.value;
-                        const formattedValue = formatDecimalInput(rawValue);
-                        
-                        if (rawValue !== formattedValue) {
-                          e.target.value = formattedValue;
-                        }
-                        
-                        // Call the regular onChange handler
-                        register("yourBid").onChange(e);
-                      }}
-                    />
+            {/* Improved grid layout for Bid Amount & Profile - keep existing styling */}
+            <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
+              {/* Bid Amount Section - Enhanced with form elements */}
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
+                
+                <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
+                  <div className="bg-gradient-to-r from-blue-500 to-blue-700 p-2 rounded-lg mr-3 shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                    </svg>
                   </div>
-                  {errors.yourBid && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
-                      </svg>
-                      {errors.yourBid.message}
+                  <label htmlFor="yourBid">Your Bid Amount <span className="text-red-500 ml-1">*</span></label>
+                </h3>
+                
+                <div className="space-y-4">
+                  <div className="relative">
+                    <div className="relative">
+                      <span className="absolute left-3 top-3 text-gray-500 font-medium">RS</span>
+                      <input
+                        id="yourBid"
+                        type="text" 
+                        placeholder="Enter your bid amount"
+                        {...register("yourBid", {
+                          required: "Your bid is required",
+                          maxLength: {
+                            value: 12,
+                            message: "Bid amount cannot exceed 12 digits"
+                          },
+                          pattern: {
+                            value: /^[0-9]+(\.[0-9]{1,2})?$/,
+                            message: "Please enter a valid number with up to 2 decimal places"
+                          },
+                          validate: {
+                            positive: v => parseFloat(v) > 0 || "Bid must be greater than 0",
+                            minBudgetCheck: v => {
+                              const bidValue = parseFloat(v);
+                              const minValue = parseFloat(minBudget);
+                              return !minValue || bidValue >= minValue || `Bid must be at least LKR ${minBudget}`;
+                            },
+                            maxBudgetCheck: v => {
+                              const bidValue = parseFloat(v);
+                              const maxValue = parseFloat(maxBudget);
+                              return !maxValue || bidValue <= maxValue || `Bid cannot exceed LKR ${maxBudget}`;
+                            },
+                            validFormat: v => isValidDecimal(v) || "Please enter a valid number with up to 2 decimal places"
+                          }
+                        })}
+                        className={`w-full p-3 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ${
+                          errors.yourBid ? "border-red-500 bg-red-50" : 
+                          "border-gray-300 focus:border-blue-500"
+                        }`}
+                        onBlur={() => trigger("yourBid")}
+                        onChange={(e) => {
+                          // Format the input value before setting it
+                          const rawValue = e.target.value;
+                          const formattedValue = formatDecimalInput(rawValue);
+                          
+                          if (rawValue !== formattedValue) {
+                            e.target.value = formattedValue;
+                          }
+                          
+                          // Call the regular onChange handler
+                          register("yourBid").onChange(e);
+                        }}
+                      />
+                    </div>
+                    {errors.yourBid && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                        </svg>
+                        {errors.yourBid.message}
+                      </p>
+                    )}
+                    <p className="mt-1 text-sm text-gray-500">
+                      Enter amount in RS between {minBudget} and {maxBudget}
                     </p>
-                  )}
-                  <p className="mt-1 text-sm text-gray-500">
-                    Enter amount in RS between {minBudget} and {maxBudget}
-                  </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Contractor Profile Preview - Enhanced */}
-            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-green-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
-              
-              <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
-                <div className="bg-gradient-to-r from-green-500 to-green-700 p-2 rounded-lg mr-3 shadow-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                Your Profile
-              </h3>
-              
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className="bg-blue-100 rounded-full p-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+              {/* Contractor Profile Preview - Enhanced with form elements */}
+              <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-green-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
+                
+                <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
+                  <div className="bg-gradient-to-r from-green-500 to-green-700 p-2 rounded-lg mr-3 shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-800">{contractorInfo?.companyName || userInfo?.username || "Unknown"}</p>
-                    <p className="text-sm text-gray-500">{contractorInfo?.experienceYears || "0"} years experience</p>
-                  </div>
-                </div>
+                  Your Profile Information
+                </h3>
                 
-                <div className="mt-2">
-                  <div className="text-sm text-gray-600 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    {qualificationCount} Qualification{qualificationCount !== 1 ? 's' : ''} Available
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-blue-100 rounded-full p-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">{contractorInfo?.companyName || userInfo?.username || "Unknown"}</p>
+                      <p className="text-sm text-gray-500">{contractorInfo?.experienceYears || "0"} years experience</p>
+                    </div>
+                  </div>
+                  
+                  <dl className="mt-2 divide-y divide-gray-200">
+                    <div className="flex justify-between py-2 text-sm">
+                      <dt className="text-gray-500">Qualifications:</dt>
+                      <dd className="text-gray-900 font-medium">{qualificationCount} available</dd>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm">
+                      <dt className="text-gray-500">Projects completed:</dt>
+                      <dd className="text-gray-900 font-medium">{contractorInfo?.completedProjects || userInfo?.completedProjects || 0}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+
+          {/* Cost Breakdown Section - Enhanced with form elements */}
+          <fieldset>
+            <legend className="relative">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-start">
+                <span className="bg-gray-50 pr-3 text-lg font-medium text-gray-900 flex items-center">
+                  <div className="bg-blue-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-sm mr-2">2</div>
+                  Cost Breakdown
+                </span>
+              </div>
+            </legend>
+
+            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden mt-4">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-yellow-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
+              
+              <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
+                <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 p-2 rounded-lg mr-3 shadow-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                Cost Breakdown <span className="text-red-500 ml-1">*</span>
+              </h3>
+              
+              {/* Progress bar showing completion toward bid amount */}
+              {parseFloat(watchBidAmount) > 0 && (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-gray-700">Breakdown Progress</span>
+                    <span className={`text-sm font-medium ${parseFloat(watchBidAmount) === costTotal ? 'text-green-600' : 'text-blue-600'}`}>
+                      {costTotal.toFixed(2)} / {parseFloat(watchBidAmount).toFixed(2)} RS
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className={`h-2.5 rounded-full ${
+                        parseFloat(watchBidAmount) === costTotal ? 'bg-green-600' : 
+                        costTotal > parseFloat(watchBidAmount) ? 'bg-red-600' : 'bg-blue-600'
+                      }`} 
+                      style={{ width: `${Math.min(100, (costTotal / parseFloat(watchBidAmount || 1) * 100))}%` }}
+                    ></div>
+                  </div>
+                  <div className="mt-1 text-xs">
+                    {parseFloat(watchBidAmount) === costTotal 
+                      ? "✓ Cost breakdown matches bid amount perfectly" 
+                      : costBreakdownError || "Add cost items until total matches bid amount"}
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Section separator */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-start">
-              <span className="bg-white pr-3 text-lg font-medium text-gray-900">2. Cost Breakdown</span>
-            </div>
-          </div>
-
-          {/* Cost Breakdown Section - Enhanced with better visual feedback */}
-          <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-yellow-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
-            
-            <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
-              <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 p-2 rounded-lg mr-3 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                </svg>
-              </div>
-              Cost Breakdown <span className="text-red-500 ml-1">*</span>
-            </h3>
-            
-            {/* Progress bar showing completion toward bid amount */}
-            {parseFloat(watchBidAmount) > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700">Breakdown Progress</span>
-                  <span className={`text-sm font-medium ${parseFloat(watchBidAmount) === costTotal ? 'text-green-600' : 'text-blue-600'}`}>
-                    {costTotal.toFixed(2)} / {parseFloat(watchBidAmount).toFixed(2)} RS
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div 
-                    className={`h-2.5 rounded-full ${
-                      parseFloat(watchBidAmount) === costTotal ? 'bg-green-600' : 
-                      costTotal > parseFloat(watchBidAmount) ? 'bg-red-600' : 'bg-blue-600'
-                    }`} 
-                    style={{ width: `${Math.min(100, (costTotal / parseFloat(watchBidAmount || 1) * 100))}%` }}
-                  ></div>
-                </div>
-                <div className="mt-1 text-xs">
-                  {parseFloat(watchBidAmount) === costTotal 
-                    ? "✓ Cost breakdown matches bid amount perfectly" 
-                    : costBreakdownError || "Add cost items until total matches bid amount"}
-                </div>
-              </div>
-            )}
-            
-            {/* Table of cost items */}
-            {costBreakdown.length > 0 && (
-              <div className="mb-4">
-                <div className="overflow-x-auto rounded-lg border border-gray-200">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (RS)</th>
-                        <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {costBreakdown.map((item, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                            {item.description}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 text-right">{parseFloat(item.amount).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveCostItem(index)}
-                              className="text-red-600 hover:text-red-900 text-sm"
-                            >
-                              Remove
-                            </button>
+              )}
+              
+              {/* Table of cost items - styled as form element */}
+              {costBreakdown.length > 0 ? (
+                <div className="mb-4 border border-gray-200 rounded-lg p-0.5">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                          <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (RS)</th>
+                          <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {costBreakdown.map((item, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                              {item.description}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-500 text-right">{parseFloat(item.amount).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCostItem(index)}
+                                className="text-red-600 hover:text-red-900 text-sm"
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">Total</td>
+                          <td colSpan={2} className={`px-4 py-3 text-sm font-bold text-right ${
+                            parseFloat(watchBidAmount) === costTotal ? 'text-green-700' : 'text-red-700'
+                          }`}>
+                            {costTotal.toFixed(2)}
                           </td>
                         </tr>
-                      ))}
-                      <tr className="bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">Total</td>
-                        <td colSpan={2} className={`px-4 py-3 text-sm font-bold text-right ${
-                          parseFloat(watchBidAmount) === costTotal ? 'text-green-700' : 'text-red-700'
-                        }`}>
-                          {costTotal.toFixed(2)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-            
-            {/* Add cost item form with improved input filtering */}
-            <div className="grid md:grid-cols-12 gap-4 items-end mt-4">
-              <div className="md:col-span-5">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description <span className="text-xs text-gray-500">(max 10 words, no special characters)</span>
-                </label>
-                <input
-                  type="text"
-                  value={newCostItem.description}
-                  onChange={(e) => {
-                    // Apply sanitization to filter out invalid characters in real-time
-                    const sanitizedValue = sanitizeDescription(e.target.value);
-                    setNewCostItem({...newCostItem, description: sanitizedValue});
-                  }}
-                  placeholder="e.g., Materials, Labor, Transportation"
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              <div className="md:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Amount (RS)
-                </label>
-                <input
-                  type="text" // Changed from "number" to "text" for better control
-                  min="0"
-                  value={newCostItem.amount}
-                  onChange={(e) => {
-                    // Apply decimal formatting constraints in real time
-                    const rawValue = e.target.value;
-                    const formattedValue = formatDecimalInput(rawValue);
-                    
-                    // Only update if it's a valid decimal or empty
-                    if (formattedValue === '' || isValidDecimal(formattedValue) || formattedValue === '.') {
-                      setNewCostItem({...newCostItem, amount: formattedValue});
-                    }
-                  }}
-                  placeholder="0.00"
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">Format: Maximum 2 decimal places</p>
-              </div>
-              
-              <div className="md:col-span-4">
-                <button
-                  type="button"
-                  onClick={handleAddCostItem}
-                  className="w-full py-2.5 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center"
-                  disabled={!watchBidAmount}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                  </svg>
-                  Add Item
-                </button>
-              </div>
-            </div>
-            
-            {costBreakdownError && (
-              <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
-                </svg>
-                {costBreakdownError}
-              </div>
-            )}
-            
-            <div className="mt-3 text-sm text-gray-500">
-              Break down your bid amount into specific categories. The total must exactly equal your bid amount.
-            </div>
-          </div>
-
-          {/* Section separator */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-start">
-              <span className="bg-white pr-3 text-lg font-medium text-gray-900">3. Project Timeline</span>
-            </div>
-          </div>
-
-          {/* Timeline Section - Enhanced */}
-          <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
-            
-            <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-2 rounded-lg mr-3 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                </svg>
-              </div>
-              Project Timeline <span className="text-red-500 ml-1">*</span>
-            </h3>
-            
-            {/* Overall project timeline section */}
-            <div className="grid md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date (Auction End)
-                </label>
-                <input
-                  type="date"
-                  value={timelineBreakdown.startDate}
-                  disabled={true}
-                  className="w-full p-2.5 border border-gray-300 bg-gray-100 rounded-lg text-gray-700 cursor-not-allowed"
-                />
-                <div className="mt-1 text-xs text-gray-500">
-                  Project starts when the auction ends
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={timelineBreakdown.endDate}
-                  onChange={(e) => handleEndDateChange(e.target.value)}
-                  className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    timelineBreakdownError ? "border-red-500 bg-red-50" : "border-gray-300"
-                  }`}
-                  min={timelineBreakdown.startDate}
-                  max={getMaxEndDate()}
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Total Project Duration
-                </label>
-                <div className="flex items-center bg-gray-50 border border-gray-300 rounded-lg p-2.5">
-                  <span className="text-gray-700 font-semibold">{timelineBreakdown.totalDays || '0'}</span>
-                  <span className="text-gray-500 ml-1">days</span>
-                </div>
-              </div>
-            </div>
-            
-            {timelineBreakdownError && (
-              <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
-                </svg>
-                {timelineBreakdownError}
-              </div>
-            )}
-            
-            {/* Work Breakdown Timeline */}
-            {timelineBreakdown.startDate && timelineBreakdown.endDate && (
-              <div className="mt-8 border-t pt-6 border-gray-200">
-                <h4 className="font-semibold text-md mb-3 text-gray-700 flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                    <path fillRule="evenodd" d="M4 5a2 2 0 002-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
-                    <path d="M10 14a1 1 0 100-2 1 1 0 000 2z" />
-                  </svg>
-                  Work Breakdown Schedule
-                </h4>
-                
-                {/* Timeline visualization */}
-                {workItems.length > 0 && (
-                  <div className="mb-6 mt-4">
-                    <div className="relative bg-gray-100 rounded-lg p-4 overflow-x-auto">
-                      <div className="min-w-[600px]">
-                        <div className="flex justify-between mb-2">
-                          <span className="text-xs font-medium">{new Date(timelineBreakdown.startDate).toLocaleDateString()}</span>
-                          <span className="text-xs font-medium">{new Date(timelineBreakdown.endDate).toLocaleDateString()}</span>
-                        </div>
-                        
-                        <div className="h-6 bg-gray-200 rounded-full mb-6 relative">
-                          {/* Timeline markers */}
-                          <div className="absolute left-0 top-0 h-full w-1 bg-blue-600 rounded-l-full"></div>
-                          <div className="absolute right-0 top-0 h-full w-1 bg-blue-600 rounded-r-full"></div>
-                        </div>
-
-                        {/* Work items */}
-                        <div className="space-y-3">
-                          {workItems.map((item, index) => {
-                            const projectStart = new Date(timelineBreakdown.startDate).getTime();
-                            const projectEnd = new Date(timelineBreakdown.endDate).getTime();
-                            const itemStart = new Date(item.startDate).getTime();
-                            const itemEnd = new Date(item.endDate).getTime();
-                            
-                            // Calculate positioning percentages
-                            const leftPos = ((itemStart - projectStart) / (projectEnd - projectStart)) * 100;
-                            const width = ((itemEnd - itemStart) / (projectEnd - projectStart)) * 100;
-                            
-                            return (
-                              <div key={index} className="relative h-8">
-                                <div 
-                                  className="absolute h-full bg-blue-500 rounded-md flex items-center px-2 text-white text-xs font-medium"
-                                  style={{ left: `${leftPos}%`, width: `${width}%` }}
-                                >
-                                  {item.name}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
+                      </tbody>
+                    </table>
                   </div>
-                )}
-                
-                {/* Table of work items */}
-                {workItems.length > 0 && (
-                  <div className="mb-4">
-                    <div className="overflow-x-auto rounded-lg border border-gray-200">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Work Item</th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {workItems.map((item, index) => (
-                            <tr key={index} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.name}</td>
-                              <td className="px-4 py-3 text-sm text-gray-700">{new Date(item.startDate).toLocaleDateString()}</td>
-                              <td className="px-4 py-3 text-sm text-gray-700">{new Date(item.endDate).toLocaleDateString()}</td>
-                              <td className="px-4 py-3 text-sm text-gray-700">{item.duration} days</td>
-                              <td className="px-4 py-3 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveWorkItem(index)}
-                                  className="text-red-600 hover:text-red-900 text-sm"
-                                >
-                                  Remove
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                </div>
+              ) : (
+                parseFloat(watchBidAmount) > 0 && (
+                  <div className="bg-gray-50 border border-gray-200 border-dashed rounded-lg p-6 mb-4 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h4 className="mt-2 text-sm font-medium text-gray-900">No cost items yet</h4>
+                    <p className="text-xs text-gray-500 mt-1">Add your first cost item below</p>
                   </div>
-                )}
-                
-                {/* Add work item form */}
-                <h5 className="font-medium text-sm mt-6 mb-3 text-gray-600">Add Work Item:</h5>
+                )
+              )}
+              
+              {/* Add cost item form with improved form styling */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="text-sm font-medium text-gray-700 mb-3">Add New Cost Item</div>
                 <div className="grid md:grid-cols-12 gap-4 items-end">
-                  <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Work Item Name
+                  <div className="md:col-span-5">
+                    <label htmlFor="cost-description" className="block text-sm font-medium text-gray-700 mb-1">
+                      Description <span className="text-xs text-gray-500">(max 10 words)</span>
                     </label>
                     <input
+                      id="cost-description"
                       type="text"
-                      name="name"
-                      value={newWorkItem.name}
-                      onChange={handleWorkItemChange}
-                      placeholder="e.g., Foundation, Framing"
+                      value={newCostItem.description}
+                      onChange={(e) => {
+                        // Apply sanitization to filter out invalid characters in real-time
+                        const sanitizedValue = sanitizeDescription(e.target.value);
+                        setNewCostItem({...newCostItem, description: sanitizedValue});
+                      }}
+                      placeholder="e.g., Materials, Labor, Transportation"
                       className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                   
                   <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Date
+                    <label htmlFor="cost-amount" className="block text-sm font-medium text-gray-700 mb-1">
+                      Amount (RS)
                     </label>
-                    <input
-                      type="date"
-                      name="startDate"
-                      value={newWorkItem.startDate}
-                      onChange={handleWorkItemChange}
-                      min={timelineBreakdown.startDate}
-                      max={timelineBreakdown.endDate}
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-3 text-gray-500 font-medium">RS</span>
+                      <input
+                        id="cost-amount"
+                        type="text"
+                        min="0"
+                        value={newCostItem.amount}
+                        onChange={(e) => {
+                          // Apply decimal formatting constraints in real time
+                          const rawValue = e.target.value;
+                          const formattedValue = formatDecimalInput(rawValue);
+                          
+                          // Only update if it's a valid decimal or empty
+                          if (formattedValue === '' || isValidDecimal(formattedValue) || formattedValue === '.') {
+                            setNewCostItem({...newCostItem, amount: formattedValue});
+                          }
+                        }}
+                        placeholder="0.00"
+                        className="w-full p-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Maximum 2 decimal places</p>
                   </div>
                   
-                  <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      name="endDate"
-                      value={newWorkItem.endDate}
-                      onChange={handleWorkItemChange}
-                      min={newWorkItem.startDate || timelineBreakdown.startDate}
-                      max={timelineBreakdown.endDate}
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  
-                  <div className="md:col-span-3">
+                  <div className="md:col-span-4">
                     <button
                       type="button"
-                      onClick={handleAddWorkItem}
+                      onClick={handleAddCostItem}
                       className="w-full py-2.5 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center"
+                      disabled={!watchBidAmount}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                       </svg>
-                      Add Work Item
+                      Add Item
                     </button>
                   </div>
                 </div>
-                
-                {workItemError && (
-                  <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
-                    </svg>
-                    {workItemError}
-                  </div>
-                )}
-              </div>
-            )}
-            
-            <div className="mt-3 text-sm text-gray-500">
-              First set your overall project timeline, then break it down into specific work items with their own start and end dates.
-            </div>
-          </div>
-
-          {/* Section separator */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-start">
-              <span className="bg-white pr-3 text-lg font-medium text-gray-900">4. Special Requests</span>
-            </div>
-          </div>
-
-          {/* Special Requests Section - Modified with word limit and error handling */}
-          <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-purple-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
-            
-            <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
-              <div className="bg-gradient-to-r from-purple-500 to-purple-700 p-2 rounded-lg mr-3 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd" />
-                </svg>
-              </div>
-              Special Requests & Additional Details <span className="text-xs text-gray-500 ml-2">(max {MAX_SPECIAL_REQUESTS_WORDS} words)</span>
-            </h3>
-            
-            <div className="space-y-3 relative z-10">
-              <p className="text-sm text-gray-600 mb-4 bg-purple-50/70 p-4 rounded-lg border-l-4 border-purple-400 shadow-sm">
-                Use this section to include any special considerations, approach details, or requirements that will help your bid stand out from competitors. This is your opportunity to demonstrate your understanding of the project's unique challenges.
-              </p>
-              
-              <textarea
-                id="specialRequests"
-                {...register("specialRequests")}
-                className={`w-full p-4 border ${specialRequestsError ? 'border-red-500 bg-red-50/30' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white shadow-sm`}
-                rows="5"
-                placeholder="Describe your approach, special requirements, specific materials, or other custom requests for this project..."
-                onChange={(e) => {
-                  const value = e.target.value;
-                  register("specialRequests").onChange(e);
-                  setSpecialRequests(value);
-                  const charCount = value.trim().length;
-                  if (charCount > MAX_SPECIAL_REQUESTS_WORDS) {
-                    setSpecialRequestsError(`Character limit exceeded (${charCount}/${MAX_SPECIAL_REQUESTS_WORDS} characters)`);
-                  } else {
-                    setSpecialRequestsError(null);
-                  }
-                }}
-              ></textarea>
-              
-              <div className="flex justify-end mt-2">
-                <span className={`text-xs font-medium ${
-                  specialRequests && specialRequests.trim().length > MAX_SPECIAL_REQUESTS_WORDS
-                    ? 'text-red-600' 
-                    : 'text-gray-600'
-                }`}>
-                  {specialRequests && specialRequests.trim() 
-                    ? specialRequests.trim().length 
-                    : 0} / {MAX_SPECIAL_REQUESTS_WORDS} characters
-                </span>
               </div>
               
-              {specialRequestsError && (
+              {costBreakdownError && (
                 <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
                   </svg>
-                  {specialRequestsError}
+                  {costBreakdownError}
                 </div>
               )}
               
-              <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-lg mt-3 border border-gray-200 shadow-sm">
-                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-purple-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                  </svg>
-                  Pro Tips for Winning Bids:
-                </h4>
-                <ul className="text-xs text-gray-600 space-y-1.5 pl-5 list-disc">
-                  <li>Highlight specific quality materials you plan to use that exceed standard requirements</li>
-                  <li>Describe your unique approach to solving specific challenges in this project</li>
-                  <li>Mention any warranties or guarantees beyond what's typically offered</li>
-                  <li>Include value-added services that differentiate your bid (e.g., post-completion support)</li>
-                  <li>Reference similar projects you've successfully completed</li>
-                </ul>
+              <div className="mt-3 text-sm text-gray-500">
+                Break down your bid amount into specific categories. The total must exactly equal your bid amount.
               </div>
             </div>
-          </div>
+          </fieldset>
 
-          {/* Final section with submit button */}
-          <div className="pt-6 pb-2">
+          {/* Project Timeline Section - Enhanced with form elements */}
+          <fieldset>
+            <legend className="relative">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-start">
+                <span className="bg-gray-50 pr-3 text-lg font-medium text-gray-900 flex items-center">
+                  <div className="bg-blue-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-sm mr-2">3</div>
+                  Project Timeline
+                </span>
+              </div>
+            </legend>
+
+            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden mt-4">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
+              
+              <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
+                <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-2 rounded-lg mr-3 shadow-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                Project Timeline <span className="text-red-500 ml-1">*</span>
+              </h3>
+              
+              {/* Overall project timeline section - form style */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 mb-6">
+                <div className="text-sm font-medium text-gray-700 mb-3">Project Duration</div>
+                <div className="grid md:grid-cols-3 gap-6">
+                  <div>
+                    <label htmlFor="project-start-date" className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Date (Auction End)
+                    </label>
+                    <input
+                      id="project-start-date"
+                      type="date"
+                      value={timelineBreakdown.startDate}
+                      disabled={true}
+                      className="w-full p-2.5 border border-gray-300 bg-gray-100 rounded-lg text-gray-700 cursor-not-allowed"
+                    />
+                    <div className="mt-1 text-xs text-gray-500">
+                      Project starts when the auction ends
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="project-end-date" className="block text-sm font-medium text-gray-700 mb-1">
+                      End Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="project-end-date"
+                      type="date"
+                      value={timelineBreakdown.endDate}
+                      onChange={(e) => handleEndDateChange(e.target.value)}
+                      className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        timelineBreakdownError ? "border-red-500 bg-red-50" : "border-gray-300"
+                      }`}
+                      min={timelineBreakdown.startDate}
+                      max={getMaxEndDate()}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="project-duration" className="block text-sm font-medium text-gray-700 mb-1">
+                      Total Project Duration
+                    </label>
+                    <div className="flex items-center bg-white border border-gray-300 rounded-lg p-2.5">
+                      <span className="text-gray-700 font-semibold">{timelineBreakdown.totalDays || '0'}</span>
+                      <span className="text-gray-500 ml-1">days</span>
+                    </div>
+                  </div>
+                </div>
+                {timelineBreakdownError && (
+                  <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                    </svg>
+                    {timelineBreakdownError}
+                  </div>
+                )}
+              </div>
+              
+              {/* Work Breakdown Timeline - only show if project timeline is set */}
+              {timelineBreakdown.startDate && timelineBreakdown.endDate && (
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-md mb-3 text-gray-700 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                      <path fillRule="evenodd" d="M4 5a2 2 0 002-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
+                      <path d="M10 14a1 1 0 100-2 1 1 0 000 2z" />
+                    </svg>
+                    Work Breakdown Schedule
+                  </h4>
+                  
+                  {/* Timeline visualization - keep as-is */}
+                  {workItems.length > 0 && (
+                    <div className="mb-6 mt-4">
+                      <div className="relative bg-gray-100 rounded-lg p-4 overflow-x-auto">
+                        <div className="min-w-[600px]">
+                          <div className="flex justify-between mb-2">
+                            <span className="text-xs font-medium">{new Date(timelineBreakdown.startDate).toLocaleDateString()}</span>
+                            <span className="text-xs font-medium">{new Date(timelineBreakdown.endDate).toLocaleDateString()}</span>
+                          </div>
+                          
+                          <div className="h-6 bg-gray-200 rounded-full mb-6 relative">
+                            {/* Timeline markers */}
+                            <div className="absolute left-0 top-0 h-full w-1 bg-blue-600 rounded-l-full"></div>
+                            <div className="absolute right-0 top-0 h-full w-1 bg-blue-600 rounded-r-full"></div>
+                          </div>
+
+                          {/* Work items */}
+                          <div className="space-y-3">
+                            {workItems.map((item, index) => {
+                              const projectStart = new Date(timelineBreakdown.startDate).getTime();
+                              const projectEnd = new Date(timelineBreakdown.endDate).getTime();
+                              const itemStart = new Date(item.startDate).getTime();
+                              const itemEnd = new Date(item.endDate).getTime();
+                              
+                              // Calculate positioning percentages
+                              const leftPos = ((itemStart - projectStart) / (projectEnd - projectStart)) * 100;
+                              const width = ((itemEnd - itemStart) / (projectEnd - projectStart)) * 100;
+                              
+                              return (
+                                <div key={index} className="relative h-8">
+                                  <div 
+                                    className="absolute h-full bg-blue-500 rounded-md flex items-center px-2 text-white text-xs font-medium"
+                                    style={{ left: `${leftPos}%`, width: `${width}%` }}
+                                  >
+                                    {item.name}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Table of work items - make more form-like */}
+                  {workItems.length > 0 && (
+                    <div className="mb-4 border border-gray-200 rounded-lg">
+                      <div className="p-3 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-700">
+                        Work Items
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Work Item</th>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                              <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {workItems.map((item, index) => (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.name}</td>
+                                <td className="px-4 py-3 text-sm text-gray-700">{new Date(item.startDate).toLocaleDateString()}</td>
+                                <td className="px-4 py-3 text-sm text-gray-700">{new Date(item.endDate).toLocaleDateString()}</td>
+                                <td className="px-4 py-3 text-sm text-gray-700">{item.duration} days</td>
+                                <td className="px-4 py-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveWorkItem(index)}
+                                    className="text-red-600 hover:text-red-900 text-sm"
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Add work item form - enhanced with better form styling */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4">
+                    <div className="text-sm font-medium text-gray-700 mb-3">Add New Work Item</div>
+                    <div className="grid md:grid-cols-12 gap-4 items-end">
+                      <div className="md:col-span-3">
+                        <label htmlFor="work-item-name" className="block text-sm font-medium text-gray-700 mb-1">
+                          Work Item Name
+                        </label>
+                        <input
+                          id="work-item-name"
+                          type="text"
+                          name="name"
+                          value={newWorkItem.name}
+                          onChange={handleWorkItemChange}
+                          placeholder="e.g., Foundation, Framing"
+                          className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-3">
+                        <label htmlFor="work-start-date" className="block text-sm font-medium text-gray-700 mb-1">
+                          Start Date
+                        </label>
+                        <input
+                          id="work-start-date"
+                          type="date"
+                          name="startDate"
+                          value={newWorkItem.startDate}
+                          onChange={handleWorkItemChange}
+                          min={timelineBreakdown.startDate}
+                          max={timelineBreakdown.endDate}
+                          className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-3">
+                        <label htmlFor="work-end-date" className="block text-sm font-medium text-gray-700 mb-1">
+                          End Date
+                        </label>
+                        <input
+                          id="work-end-date"
+                          type="date"
+                          name="endDate"
+                          value={newWorkItem.endDate}
+                          onChange={handleWorkItemChange}
+                          min={newWorkItem.startDate || timelineBreakdown.startDate}
+                          max={timelineBreakdown.endDate}
+                          className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-3">
+                        <button
+                          type="button"
+                          onClick={handleAddWorkItem}
+                          className="w-full py-2.5 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                          </svg>
+                          Add Work Item
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {workItemError && (
+                      <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                        </svg>
+                        {workItemError}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              <div className="mt-3 text-sm text-gray-500">
+                First set your overall project timeline, then break it down into specific work items with their own start and end dates.
+              </div>
+            </div>
+          </fieldset>
+
+          {/* Special Requests Section - Enhanced with form elements */}
+          <fieldset>
+            <legend className="relative">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-start">
+                <span className="bg-gray-50 pr-3 text-lg font-medium text-gray-900 flex items-center">
+                  <div className="bg-blue-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-sm mr-2">4</div>
+                  Special Requests
+                </span>
+              </div>
+            </legend>
+
+            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden mt-4">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-purple-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
+              
+              <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
+                <div className="bg-gradient-to-r from-purple-500 to-purple-700 p-2 rounded-lg mr-3 shadow-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <label htmlFor="specialRequests">Special Requests & Additional Details</label> <span className="text-xs text-gray-500 ml-2">(max {MAX_SPECIAL_REQUESTS_WORDS} words)</span>
+              </h3>
+              
+              <div className="space-y-3 relative z-10">
+                <p className="text-sm text-gray-600 mb-4 bg-purple-50/70 p-4 rounded-lg border-l-4 border-purple-400 shadow-sm">
+                  Use this section to include any special considerations, approach details, or requirements that will help your bid stand out from competitors. This is your opportunity to demonstrate your understanding of the project's unique challenges.
+                </p>
+                
+                <textarea
+                  id="specialRequests"
+                  {...register("specialRequests")}
+                  className={`w-full p-4 border ${specialRequestsError ? 'border-red-500 bg-red-50/30' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white shadow-sm`}
+                  rows="5"
+                  placeholder="Describe your approach, special requirements, specific materials, or other custom requests for this project..."
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    register("specialRequests").onChange(e);
+                    setSpecialRequests(value);
+                    const charCount = value.trim().length;
+                    if (charCount > MAX_SPECIAL_REQUESTS_WORDS) {
+                      setSpecialRequestsError(`Character limit exceeded (${charCount}/${MAX_SPECIAL_REQUESTS_WORDS} characters)`);
+                    } else {
+                      setSpecialRequestsError(null);
+                    }
+                  }}
+                ></textarea>
+                
+                <div className="flex justify-end mt-2">
+                  <span className={`text-xs font-medium ${
+                    specialRequests && specialRequests.trim().length > MAX_SPECIAL_REQUESTS_WORDS
+                      ? 'text-red-600' 
+                      : 'text-gray-600'
+                  }`}>
+                    {specialRequests && specialRequests.trim() 
+                      ? specialRequests.trim().length 
+                      : 0} / {MAX_SPECIAL_REQUESTS_WORDS} characters
+                  </span>
+                </div>
+                
+                {specialRequestsError && (
+                  <div className="mt-2 text-sm text-red-600 flex items-center bg-red-50 p-2 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                    </svg>
+                    {specialRequestsError}
+                  </div>
+                )}
+                
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-lg mt-3 border border-gray-200 shadow-sm">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-purple-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                    </svg>
+                    Pro Tips for Winning Bids:
+                  </h4>
+                  <ul className="text-xs text-gray-600 space-y-1.5 pl-5 list-disc">
+                    <li>Highlight specific quality materials you plan to use that exceed standard requirements</li>
+                    <li>Describe your unique approach to solving specific challenges in this project</li>
+                    <li>Mention any warranties or guarantees beyond what's typically offered</li>
+                    <li>Include value-added services that differentiate your bid (e.g., post-completion support)</li>
+                    <li>Reference similar projects you've successfully completed</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+
+          {/* Form submission section - improved with better form actions */}
+          <div className="border-t border-gray-200 pt-6">
             <div className="p-4 mb-6 border border-blue-100 rounded-lg bg-blue-50/50">
               <div className="flex items-start">
                 <div className="flex-shrink-0">
@@ -1450,18 +1528,28 @@ const projectDescription = jobDetails?.description || "";
               </div>
             </div>
 
-            <div className="flex justify-center pt-6">
+            <div className="flex justify-between">
+              <button
+                type="button"
+                onClick={handleBackToProject}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 -ml-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                </svg>
+                Back to Project
+              </button>
+
               <button
                 type="submit"
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-12 rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-10 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center shadow-lg"
                 disabled={loading || timeLeft.timeUp || costBreakdownError || timelineBreakdownError || !timelineBreakdown.endDate || specialRequestsError}
               >
                 {loading ? (
                   <span className="flex items-center">
                     <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 ```jsx
-  12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     Submitting...
                   </span>
@@ -1478,25 +1566,28 @@ const projectDescription = jobDetails?.description || "";
           </div>
         </form>
 
-             {showConfirmation && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full">
-              <h3 className="text-xl font-bold mb-4">Confirm Bid Submission</h3>
-              <p className="mb-4">Are you sure you want to submit this bid?</p>
+        {/* Confirmation modal - enhanced with form styling */}
+        {showConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full shadow-xl">
+              <h3 className="text-xl font-bold mb-4 text-gray-900">Confirm Bid Submission</h3>
+              <p className="mb-6 text-gray-600">
+                Are you sure you want to submit this bid? Once submitted, you won't be able to edit it.
+              </p>
               <div className="flex justify-end space-x-4">
                 <button
                   type="button"
                   onClick={() => setShowConfirmation(false)}
-                  className="px-4 py-2 border rounded hover:bg-gray-100"
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmSubmit}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  Confirm
+                  Confirm Submission
                 </button>
               </div>
             </div>
