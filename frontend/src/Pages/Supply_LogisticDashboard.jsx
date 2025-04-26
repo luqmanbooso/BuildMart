@@ -36,7 +36,8 @@ import {
   Trash2,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  Eye,
 } from "lucide-react";
 import axios from "axios"; // Add axios import
 import { toast, ToastContainer } from "react-toastify"; // Add toast for notifications
@@ -991,11 +992,8 @@ const updateOrderStatus = async (orderId, newStatus) => {
   // Helper: Disallow forbidden special characters in names
   const forbiddenNameChars = /[#$@%\^*!_~`\[\]{}:;"'<>?/\\|]/;
 
-  // Helper: Check if string starts with special char, number or space
-  const startsWithSpecialOrSpace = (str) => /^[^a-zA-Z]/.test(str);
-  
-  // Update this helper to check specifically for letters-only first character
-  const startsWithSpecialNumberOrSpace = (str) => /^[^a-zA-Z]/.test(str);
+  // Helper: Disallow starting with special character or space
+  const startsWithSpecialOrSpace = (str) => /^[^a-zA-Z0-9]/.test(str);
 
   const validateSupplierForm = () => {
     const errors = {};
@@ -1006,8 +1004,8 @@ const updateOrderStatus = async (orderId, newStatus) => {
       errors.supplierName = "Supplier name must be at least 2 characters";
     } else if (supplierName.trim().length > 100) {
       errors.supplierName = "Supplier name cannot exceed 100 characters";
-    } else if (startsWithSpecialNumberOrSpace(supplierName.trim())) {
-      errors.supplierName = "Supplier name cannot start with a special character, number, or space";
+    } else if (startsWithSpecialOrSpace(supplierName.trim())) {
+      errors.supplierName = "Supplier name cannot start with a special character or space";
     } else if (forbiddenNameChars.test(supplierName)) {
       errors.supplierName = "Supplier name cannot contain special characters like #, $, @, %, etc.";
     } else if (hasSqlKeyword(supplierName)) {
@@ -1019,8 +1017,14 @@ const updateOrderStatus = async (orderId, newStatus) => {
       errors.selectedProduct = "Please select a product";
     }
     
-    // Category - removed validation since category is read-only
-    
+    // Category
+    if (supplierCategory && supplierCategory.length > 50) {
+      errors.supplierCategory = "Category cannot exceed 50 characters";
+    } else if (startsWithSpecialOrSpace(supplierCategory.trim())) {
+      errors.supplierCategory = "Category cannot start with a special character or space";
+    } else if (!/^[a-zA-Z0-9\s]+$/.test(supplierCategory)) {
+      errors.supplierCategory = "Category should contain only letters, numbers, and spaces";
+    }
     // Price
     if (!supplierPrice) {
       errors.supplierPrice = "Price is required";
@@ -1049,8 +1053,8 @@ const updateOrderStatus = async (orderId, newStatus) => {
       errors.supplierContact = "Contact name must be at least 2 characters";
     } else if (supplierContact.trim().length > 100) {
       errors.supplierContact = "Contact name cannot exceed 100 characters";
-    } else if (startsWithSpecialNumberOrSpace(supplierContact.trim())) {
-      errors.supplierContact = "Contact name cannot start with a special character, number, or space";
+    } else if (startsWithSpecialOrSpace(supplierContact.trim())) {
+      errors.supplierContact = "Contact name cannot start with a special character or space";
     } else if (forbiddenNameChars.test(supplierContact)) {
       errors.supplierContact = "Contact name cannot contain special characters";
     } else if (!/^[a-zA-Z][a-zA-Z\s.-]*$/.test(supplierContact.trim())) {
@@ -1070,8 +1074,6 @@ const updateOrderStatus = async (orderId, newStatus) => {
       errors.supplierPhone = "Phone number is required";
     } else if (!/^(?:\+94|0)[0-9]{9,10}$/.test(supplierPhone.replace(/\s+/g, ''))) {
       errors.supplierPhone = "Please enter a valid Sri Lankan phone number";
-    } else if (supplierPhone.replace(/\s+/g, '').length > 12) {
-      errors.supplierPhone = "Phone number cannot exceed 12 digits";
     }
     // City
     if (supplierCity) {
@@ -1086,8 +1088,6 @@ const updateOrderStatus = async (orderId, newStatus) => {
     // Address
     if (supplierAddress && supplierAddress.length > 250) {
       errors.supplierAddress = "Address cannot exceed 250 characters";
-    } else if (supplierAddress && /^[\s~`!@#$%^&*()_\-+=\[\]{}|\\;:"'<>,.?/]/.test(supplierAddress.trim())) {
-      errors.supplierAddress = "Address cannot start with a special character or space";
     }
     // Payment terms
     if (paymentTerms && paymentTerms.length > 100) {
@@ -1622,11 +1622,27 @@ const updateOrderStatus = async (orderId, newStatus) => {
   // Move renderOrdersCards INSIDE the component function - place this before the return statement
   const renderOrdersCards = () => {
     if (ordersLoading) {
-      return <div className="loading-spinner flex justify-center p-8"><Loader className="animate-spin h-8 w-8 text-blue-600" /></div>;
+      return (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader className="animate-spin h-10 w-10 text-indigo-600 mb-4" />
+          <p className="text-gray-600">Loading your orders...</p>
+        </div>
+      );
     }
     
     if (ordersError) {
-      return <div className="error-message bg-red-50 p-4 rounded-lg text-red-600 border border-red-200">{ordersError}</div>;
+      return (
+        <div className="bg-red-50 p-6 rounded-lg text-red-700 border border-red-200 flex items-start">
+          <AlertTriangle className="h-6 w-6 text-red-500 mr-3 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-medium">Unable to load orders</h3>
+            <p className="text-sm">{ordersError}</p>
+            <button className="mt-3 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm font-medium transition-colors">
+              Retry
+            </button>
+          </div>
+        </div>
+      );
     }
     
     // Divide orders into pending and others
@@ -1634,59 +1650,76 @@ const updateOrderStatus = async (orderId, newStatus) => {
     const otherOrders = orders.filter(order => order.status !== 'Pending');
     
     return (
-      <div className="space-y-6">
+      <div className="space-y-10">
         {/* Pending Orders Section */}
         <div>
-          <h4 className="text-lg font-medium text-gray-700 mb-3 flex items-center">
+          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
             <ClockIcon className="mr-2 h-5 w-5 text-amber-500" />
             Pending Orders ({pendingOrders.length})
           </h4>
           
           {pendingOrders.length === 0 ? (
-            <p className="text-gray-500 bg-gray-50 p-4 rounded-lg text-center">No pending orders available</p>
+            <div className="bg-gray-50 rounded-lg p-8 text-center border border-gray-200">
+              <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-gray-900">No pending orders</h3>
+              <p className="text-gray-500 mt-1 max-w-md mx-auto">All orders have been processed or are in transit. New orders will appear here.</p>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {pendingOrders.map((order) => (
-                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-amber-200 hover:shadow-md transition-shadow overflow-hidden">
-                  <div className="border-b border-amber-100 bg-amber-50 px-4 py-2 flex justify-between items-center">
-                    <span className="font-medium text-gray-700 truncate">#{order.id.substring(0, 8)}...</span>
+                <div key={order.id} className="bg-white rounded-xl shadow-md border border-amber-200 hover:shadow-xl transition-all duration-300 overflow-hidden group">
+                  <div className="absolute top-0 right-0 mt-4 mr-4">
                     <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
                       {order.status}
                     </span>
                   </div>
-                  
-                  <div className="p-4">
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500">Customer</p>
-                      <p className="font-medium">{order.customer}</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
                       <div>
-                        <p className="text-sm text-gray-500">Items</p>
-                        <p className="font-medium">{order.items}</p>
+                        <p className="text-sm text-gray-500 mb-1">Order ID</p>
+                        <p className="font-medium text-gray-900">{order.id.substring(0, 8)}...</p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Value</p>
-                        <p className="font-medium">Rs. {order.value.toLocaleString()}</p>
+                      <div className="h-10 w-10 bg-amber-50 rounded-full flex items-center justify-center">
+                        <ClockIcon className="h-5 w-5 text-amber-600" />
                       </div>
                     </div>
                     
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500">Order Date</p>
-                      <p className="font-medium">{order.date}</p>
+                    <div className="mb-5 pb-5 border-b border-gray-100">
+                      <p className="text-sm text-gray-500 mb-1">Customer</p>
+                      <p className="font-medium text-gray-900">{order.customer}</p>
                     </div>
                     
-                    <button
-                      onClick={() => {
-                        setSelectedOrderForShipment(order);
-                        setActiveTab("shipments");
-                      }}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md flex items-center justify-center"
-                    >
-                      <Truck className="mr-2 h-4 w-4" />
-                      Arrange Shipment
-                    </button>
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Items</p>
+                        <p className="font-medium text-lg">{order.items}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Value</p>
+                        <p className="font-medium text-lg text-indigo-700">Rs. {order.value.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Order Date</p>
+                        <p className="font-medium">{order.date}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Expected Delivery</p>
+                        <p className="font-medium">7-10 days</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-auto">
+                      <button
+                        onClick={() => {
+                          setSelectedOrderForShipment(order);
+                          setActiveTab("shipments");
+                        }}
+                        className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white py-2.5 px-4 rounded-lg flex items-center justify-center font-medium shadow-sm transition-colors group-hover:shadow-md"
+                      >
+                        <Truck className="mr-2 h-5 w-5" />
+                        Arrange Shipment
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1696,63 +1729,86 @@ const updateOrderStatus = async (orderId, newStatus) => {
         
         {/* Orders In Progress Section */}
         <div>
-          <h4 className="text-lg font-medium text-gray-700 mb-3 flex items-center">
+          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
             <Activity className="mr-2 h-5 w-5 text-blue-500" />
             In Progress ({otherOrders.length})
           </h4>
           
           {otherOrders.length === 0 ? (
-            <p className="text-gray-500 bg-gray-50 p-4 rounded-lg text-center">No orders in progress</p>
+            <div className="bg-gray-50 rounded-lg p-8 text-center border border-gray-200">
+              <Activity className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-gray-900">No orders in progress</h3>
+              <p className="text-gray-500 mt-1">When orders are being processed, they will appear here</p>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {otherOrders.map((order) => (
-                <div key={order.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow overflow-hidden">
-                  <div className="border-b border-gray-100 bg-gray-50 px-4 py-2 flex justify-between items-center">
-                    <span className="font-medium text-gray-700 truncate">#{order.id.substring(0, 8)}...</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      order.status === 'Processing' ? 'bg-yellow-100 text-yellow-700' : 
-                      order.status === 'In Transit' ? 'bg-blue-100 text-blue-700' : 
-                      order.status === 'Delivered' ? 'bg-green-100 text-green-700' : 
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {order.status}
-                    </span>
-                  </div>
-                  
-                  <div className="p-4">
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500">Customer</p>
-                      <p className="font-medium">{order.customer}</p>
+                <div key={order.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
+                  <div className="p-5">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-xs text-gray-500">#{order.id.substring(0, 8)}...</span>
+                        <h3 className="font-semibold text-gray-900 mt-1">{order.customer}</h3>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        order.status === 'Processing' ? 'bg-yellow-100 text-yellow-800' : 
+                        order.status === 'In Transit' ? 'bg-blue-100 text-blue-800' : 
+                        order.status === 'Delivered' ? 'bg-green-100 text-green-800' : 
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {order.status}
+                      </span>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="mt-4 flex justify-between text-sm">
                       <div>
-                        <p className="text-sm text-gray-500">Items</p>
-                        <p className="font-medium">{order.items}</p>
+                        <p className="text-gray-500">Value</p>
+                        <p className="font-medium text-gray-900">Rs. {order.value.toLocaleString()}</p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Value</p>
-                        <p className="font-medium">Rs. {order.value.toLocaleString()}</p>
+                      <div className="text-right">
+                        <p className="text-gray-500">Items</p>
+                        <p className="font-medium text-gray-900">{order.items}</p>
                       </div>
                     </div>
                     
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500">Order Date</p>
-                      <p className="font-medium">{order.date}</p>
+                    <div className="mt-4">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Order Progress</span>
+                        <span>
+                          {order.status === 'Processing' ? '25%' : 
+                          order.status === 'In Transit' ? '75%' : 
+                          order.status === 'Delivered' ? '100%' : '10%'}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full ${
+                            order.status === 'Processing' ? 'bg-yellow-500' : 
+                            order.status === 'In Transit' ? 'bg-blue-500' : 
+                            order.status === 'Delivered' ? 'bg-green-500' : 
+                            'bg-gray-500'
+                          }`}
+                          style={{ 
+                            width: order.status === 'Processing' ? '25%' : 
+                                   order.status === 'In Transit' ? '75%' : 
+                                   order.status === 'Delivered' ? '100%' : '10%'
+                          }}
+                        ></div>
+                      </div>
                     </div>
                     
-                    <button
-                      className={`w-full py-2 px-4 rounded-md flex items-center justify-center ${
-                        order.status === 'Delivered' ? 'bg-green-100 text-green-700' : 
-                        'bg-gray-100 text-gray-700'
-                      }`}
-                      disabled
-                    >
-                      {order.status === 'Processing' && "Processing"}
-                      {order.status === 'In Transit' && "In Transit"}
-                      {order.status === 'Delivered' && "Delivered"}
-                      {!['Processing', 'In Transit', 'Delivered'].includes(order.status) && order.status}
-                    </button>
+                    <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
+                      <div className="text-xs text-gray-500">
+                        <Calendar className="inline h-3 w-3 mr-1" /> {order.date}
+                      </div>
+                      
+                      {order.status !== 'Delivered' && (
+                        <button className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center">
+                          <Eye className="h-3 w-3 mr-1" />
+                          Track Order
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1939,7 +1995,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
                 {activeTab === "dashboard" && "Dashboard Overview"}
                 {activeTab === "inventory" && "Inventory Management"}
                 {activeTab === "shipments" && "Shipment Tracking"}
-                {activeTab === "orders" && "Order Management"}
+                {activeTab === "orders" && null}
                 {activeTab === "suppliers" && null}
                 {activeTab === "reports" && "Reports & Analytics"}
               </h1>
@@ -1975,7 +2031,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
                               <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
                             )}
                             {notification.type === "success" && (
-                              <CheckCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
+                              <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
                             )}
                             {notification.type === "info" && (
                               <Bell className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
@@ -2037,617 +2093,240 @@ const updateOrderStatus = async (orderId, newStatus) => {
             </div>
           )}
 
-          {activeTab === "dashboard" && (
-  <div className="space-y-8">
-    {/* Dashboard Header */}
-    <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg overflow-hidden">
-      <div className="px-8 py-6 text-white">
-        <h2 className="text-2xl font-bold tracking-tight">Dashboard Overview</h2>
-        <p className="mt-1 text-blue-100 text-sm">Track, analyze, and manage your supply chain operations</p>
-        
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg px-5 py-4 border border-white/20">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-blue-100 text-xs font-medium">TOTAL INVENTORY</p>
-                <h3 className="text-3xl font-bold text-white mt-1">
-                  {inventoryLoading ? (
-                    <Loader className="h-6 w-6 text-white animate-spin" />
-                  ) : (
-                    `${inventory.length}`
-                  )}
-                </h3>
-                <p className="mt-1 text-blue-100 text-xs">unique items</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
-                <Box className="h-5 w-5 text-white" />
-              </div>
-            </div>
-            {inventoryLoading ? null : (
-              <div className="mt-3 flex items-center text-xs">
-                <span className="text-green-300 font-medium">↑ 12% </span>
-                <span className="ml-1 text-blue-100">from last month</span>
-              </div>
-            )}
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg px-5 py-4 border border-white/20">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-blue-100 text-xs font-medium">LOW STOCK ALERTS</p>
-                <h3 className="text-3xl font-bold text-white mt-1">
-                  {inventoryLoading ? (
-                    <Loader className="h-6 w-6 text-white animate-spin" />
-                  ) : (
-                    `${inventory.filter(item => item.status === "Low Stock" || item.status === "Critical").length}`
-                  )}
-                </h3>
-                <p className="mt-1 text-blue-100 text-xs">items need attention</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-amber-300" />
-              </div>
-            </div>
-            {inventoryLoading ? null : (
-              <div className="mt-3 flex items-center text-xs">
-                <span className="text-red-300 font-medium">↑ 3 </span>
-                <span className="ml-1 text-blue-100">items since yesterday</span>
-              </div>
-            )}
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg px-5 py-4 border border-white/20">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-blue-100 text-xs font-medium">INVENTORY VALUE</p>
-                <h3 className="text-3xl font-bold text-white mt-1">
-                  {inventoryLoading ? (
-                    <Loader className="h-6 w-6 text-white animate-spin" />
-                  ) : (
-                    `Rs. ${inventory
-                      .reduce((total, item) => 
-                        total + item.stock * (item.name === "Sand (cubic m)" ? 7500 : 2500), 0)
-                      .toLocaleString()}`
-                  )}
-                </h3>
-                <p className="mt-1 text-blue-100 text-xs">total investment</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
-                <Activity className="h-5 w-5 text-green-300" />
-              </div>
-            </div>
-            {inventoryLoading ? null : (
-              <div className="mt-3 flex items-center text-xs">
-                <span className="text-green-300 font-medium">↑ 8.5% </span>
-                <span className="ml-1 text-blue-100">from previous quarter</span>
-              </div>
-            )}
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg px-5 py-4 border border-white/20">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-blue-100 text-xs font-medium">PENDING ORDERS</p>
-                <h3 className="text-3xl font-bold text-white mt-1">
-                  {orders.filter(order => order.status === "Pending" || order.status === "Processing").length}
-                </h3>
-                <p className="mt-1 text-blue-100 text-xs">awaiting processing</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
-                <ShoppingCart className="h-5 w-5 text-purple-300" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-center text-xs">
-              <span className="text-green-300 font-medium">↓ 2 </span>
-              <span className="ml-1 text-blue-100">orders since yesterday</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    {/* Supply Chain Health Overview */}
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Critical Inventory Items */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden lg:col-span-2">
-        <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800">Critical Inventory Status</h3>
-            <p className="text-sm text-gray-500">Items requiring immediate attention</p>
-          </div>
-          <button 
-            onClick={() => setActiveTab("inventory")}
-            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
-          >
-            View Inventory
-          </button>
-        </div>
-        <div className="p-6">
-          {inventoryLoading ? (
-            <div className="flex justify-center items-center py-10">
-              <Loader className="h-8 w-8 text-blue-600 animate-spin" />
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-amber-50 p-4 rounded-lg border border-amber-100">
-                  <h4 className="text-amber-700 text-sm font-medium">Low Stock</h4>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {inventory.filter(item => item.status === "Low Stock").length}
-                  </p>
-                  <div className="mt-2 text-xs text-amber-600">
-                    Below threshold, order soon
-                  </div>
-                </div>
-                
-                <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                  <h4 className="text-red-700 text-sm font-medium">Critical</h4>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {inventory.filter(item => item.status === "Critical").length}
-                  </p>
-                  <div className="mt-2 text-xs text-red-600">
-                    Immediate action required
-                  </div>
-                </div>
-                
-                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                  <h4 className="text-green-700 text-sm font-medium">Healthy</h4>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {inventory.filter(item => item.status === "In Stock").length}
-                  </p>
-                  <div className="mt-2 text-xs text-green-600">
-                    Stock levels sufficient
-                  </div>
-                </div>
+          {activeTab === "orders" && (
+            <div className="space-y-6">
+              {/* Add gradient header for Order Management - similar to Supplier Management */}
+              <div className="bg-gradient-to-r from-indigo-700 to-purple-900 rounded-xl shadow-lg p-6 mb-8">
+                <h2 className="text-3xl font-bold text-white">Order Management</h2>
+                <p className="text-indigo-100 mt-1">Track orders, arrange shipments, and manage your fulfillment workflow</p>
               </div>
               
-              {/* Critical Items List */}
-              <div className="rounded-lg border border-gray-200 overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2 text-xs font-medium text-gray-500 uppercase">
-                  Critical & Low Stock Items
+              {/* Payment Modal */}
+              {showPaymentModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+                  <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4">
+                    <div className="flex justify-between items-center p-4 border-b">
+                      <h3 className="text-lg font-semibold">
+                        Process Supplier Payment
+                      </h3>
+                      <button
+                        onClick={() => setShowPaymentModal(false)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <X className="h-6 w-6" />
+                      </button>
+                    </div>
+                    <div className="p-4">
+                      <EnhancedPaymentGateway
+                        amount={selectedOrder?.value}
+                        onSuccess={handlePaymentSuccess}
+                        onCancel={() => setShowPaymentModal(false)}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="divide-y divide-gray-200 max-h-[300px] overflow-y-auto">
-                  {inventory
-                    .filter(item => item.status === "Critical" || item.status === "Low Stock")
-                    .slice(0, 5)
-                    .map(item => (
-                      <div key={item._id} className={`px-4 py-3 ${item.status === "Critical" ? "bg-red-50" : ""}`}>
-                        <div className="flex justify-between">
-                          <div>
-                            <div className="font-medium text-gray-800">{item.name}</div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {item.supplier} • {item.category || "General"}
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end">
-                            <div className="flex items-center space-x-1">
-                              <span className="font-bold text-gray-700">{item.stock}</span>
-                              <span className="text-gray-400">/</span>
-                              <span className="text-gray-500">{item.threshold}</span>
-                            </div>
-                            <div className={`mt-1 text-xs px-2 py-0.5 rounded-full font-medium inline-flex items-center
-                              ${item.status === "Critical" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                              <span className={`h-1.5 w-1.5 rounded-full mr-1 
-                                ${item.status === "Critical" ? "bg-red-500" : "bg-amber-500"}`}>
-                              </span>
-                              {item.status}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {!item.restockRequested && (
-                          <button
-                            onClick={() => handleRestockRequest(item.name)}
-                            className="mt-2 text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded inline-flex items-center"
-                          >
-                            <RefreshCw className="h-3 w-3 mr-1" />
-                            Request Restock
-                          </button>
-                        )}
+              )}
+
+              {/* Orders stats with enhanced design */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">
+                        Total Orders
+                      </p>
+                      <h3 className="text-3xl font-bold text-gray-900 mt-1">
+                        {orders.length}
+                      </h3>
+                      <p className="text-xs text-indigo-600 mt-2">
+                        {Math.floor(Math.random() * 20)}% increase from last month
+                      </p>
+                    </div>
+                    <div className="h-14 w-14 rounded-full bg-indigo-50 flex items-center justify-center">
+                      <ShoppingCart className="h-7 w-7 text-indigo-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">
+                        Delivered Orders
+                      </p>
+                      <h3 className="text-3xl font-bold text-gray-900 mt-1">
+                        {
+                          orders.filter((order) => order.status === "Delivered")
+                            .length
+                        }
+                      </h3>
+                      <p className="text-xs text-green-600 mt-2">
+                        {Math.floor(Math.random() * 20)}% increase from last month
+                      </p>
+                    </div>
+                    <div className="h-14 w-14 rounded-full bg-green-50 flex items-center justify-center">
+                      <CheckCircle className="h-7 w-7 text-green-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">
+                        In Transit Orders
+                      </p>
+                      <h3 className="text-3xl font-bold text-gray-900 mt-1">
+                        {
+                          orders.filter(
+                            (order) => order.status === "In Transit"
+                          ).length
+                        }
+                      </h3>
+                      <p className="text-xs text-blue-600 mt-2">
+                        {Math.floor(Math.random() * 20)}% increase from last month
+                      </p>
+                    </div>
+                    <div className="h-14 w-14 rounded-full bg-blue-50 flex items-center justify-center">
+                      <Truck className="h-7 w-7 text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">
+                        Pending Orders
+                      </p>
+                      <h3 className="text-3xl font-bold text-gray-900 mt-1">
+                        {
+                          orders.filter(
+                            (order) => order.status === "Pending"
+                          ).length
+                        }
+                      </h3>
+                      <p className="text-xs text-amber-600 mt-2">
+                        {Math.floor(Math.random() * 20)}% increase from last week
+                      </p>
+                    </div>
+                    <div className="h-14 w-14 rounded-full bg-amber-50 flex items-center justify-center">
+                      <ClockIcon className="h-7 w-7 text-amber-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Orders Content Section - Redesigned */}
+              <div className="bg-white p-0 rounded-xl shadow-md border border-gray-200 overflow-hidden">
+                <div className="border-b border-gray-200 bg-gray-50">
+                  <div className="flex justify-between items-center px-6 py-4">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-lg font-medium text-gray-800 flex items-center">
+                        <Package className="mr-2 h-5 w-5 text-indigo-600" />
+                        Order List
+                      </h3>
+                      <span className="px-2.5 py-1 text-xs font-medium bg-indigo-100 text-indigo-800 rounded-full">
+                        {orders.length} total
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search orders..."
+                          className="px-3 py-2 pr-8 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        />
+                        <Search className="absolute right-2 top-2 h-4 w-4 text-gray-400" />
                       </div>
-                    ))}
-                </div>
-                {inventory.filter(item => item.status === "Critical" || item.status === "Low Stock").length > 5 && (
-                  <div className="bg-gray-50 px-4 py-2 text-xs text-center border-t border-gray-200">
-                    <button 
-                      onClick={() => setActiveTab("inventory")}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      View all {inventory.filter(item => item.status === "Critical" || item.status === "Low Stock").length} items
+                      <button
+                        className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                        onClick={() => {
+                          setOrdersLoading(true);
+                          axios
+                            .get("http://localhost:5000/api/orders?all=true")
+                            .then((response) => {
+                              if (response.data.success) {
+                                const transformedOrders =
+                                  response.data.orders.map((order) => ({
+                                    id: order._id,
+                                    customer:
+                                      order.customer?.name || "Unknown Customer",
+                                    items: Array.isArray(order.items) ? order.items.length : 0,
+                                    value: order.totalAmount || 0,
+                                    status: mapOrderStatus(order.orderStatus),
+                                    date: new Date(order.orderDate || order.createdAt)
+                                      .toISOString()
+                                      .split("T")[0],
+                                    shippingAddress: order.shippingAddress,
+                                  }));
+                                setOrders(transformedOrders);
+                                toast.success("Orders data refreshed");
+                              }
+                            })
+                            .catch((error) => {
+                              console.error("Error refreshing orders:", error);
+                              toast.error("Failed to refresh orders data");
+                            })
+                            .finally(() => {
+                              setOrdersLoading(false);
+                            });
+                        }}
+                      >
+                        <RefreshCw className="h-5 w-5 text-gray-600" />
+                      </button>
+                      <button
+                        className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                        onClick={() => {
+                          const csvContent =
+                            "data:text/csv;charset=utf-8," +
+                            "Order ID,Customer,Items,Value,Status,Date\n" +
+                            orders
+                              .map(
+                                (order) =>
+                                  `"${order.id}","${order.customer}",${
+                                    order.items
+                                  },${order.value},"${order.status}","${order.date}"`
+                              )
+                              .join("\n");
+                          const encodedUri = encodeURI(csvContent);
+                          const link = document.createElement("a");
+                          link.setAttribute("href", encodedUri);
+                          link.setAttribute("download", "orders_report.csv");
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                      >
+                        <Download className="h-5 w-5 text-gray-600" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Order Tabs */}
+                  <div className="px-6 flex space-x-4 border-b border-gray-200">
+                    <button className="px-1 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600">
+                      All Orders
+                    </button>
+                    <button className="px-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700">
+                      Pending
+                    </button>
+                    <button className="px-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700">
+                      In Transit
+                    </button>
+                    <button className="px-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700">
+                      Delivered
                     </button>
                   </div>
-                )}
+                </div>
+                {/* Leave the renderOrdersCards function call as is, but update the function definition elsewhere */}
+                <div className="p-6">
+                  {renderOrdersCards()}
+                </div>
               </div>
-            </>
+            </div>
           )}
-        </div>
-      </div>
-      
-      {/* Active Supply Chain Stats */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-          <h3 className="text-lg font-semibold text-gray-800">Supply Chain Overview</h3>
-          <p className="text-sm text-gray-500">Current status & performance</p>
-        </div>
-        <div className="p-6">
-          <div className="space-y-6">
-            {/* Restock Stats */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 mb-3">RESTOCK REQUESTS</h4>
-              <div className="flex items-center mb-4">
-                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mr-4">
-                  <RefreshCw className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {restockRequests.length}
-                  </p>
-                  <p className="text-sm text-gray-500">active requests</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Pending</span>
-                  <span className="font-medium text-gray-800">
-                    {restockRequests.filter(req => 
-                      ['requested', 'approved', 'ordered', 'shipped'].includes(req.status)
-                    ).length}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div 
-                    className="h-2 rounded-full bg-amber-500"
-                    style={{ 
-                      width: `${restockRequests.length ? 
-                        (restockRequests.filter(req => 
-                          ['requested', 'approved', 'ordered', 'shipped'].includes(req.status)
-                        ).length / restockRequests.length) * 100 : 0}%` 
-                    }}
-                  ></div>
-                </div>
-              </div>
-              <div className="mt-4">
-                <button
-                  onClick={() => setActiveTab("restock")}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                >
-                  Manage Restock Requests
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="border-t border-gray-100 pt-5">
-              <h4 className="text-sm font-medium text-gray-500 mb-3">SHIPMENT STATUS</h4>
-              <div className="flex items-center mb-4">
-                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mr-4">
-                  <Truck className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {activeShipments.length}
-                  </p>
-                  <p className="text-sm text-gray-500">active shipments</p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center text-sm">
-                  <span className="w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
-                  <span className="text-gray-600 flex-1">In Transit</span>
-                  <span className="font-medium text-gray-800">
-                    {activeShipments.filter(s => s.status === "In Transit").length}
-                  </span>
-                </div>
-                <div className="flex items-center text-sm">
-                  <span className="w-3 h-3 rounded-full bg-amber-500 mr-2"></span>
-                  <span className="text-gray-600 flex-1">Loading/Preparing</span>
-                  <span className="font-medium text-gray-800">
-                    {activeShipments.filter(s => s.status === "Loading" || s.status === "Preparing").length}
-                  </span>
-                </div>
-                <div className="flex items-center text-sm">
-                  <span className="w-3 h-3 rounded-full bg-purple-500 mr-2"></span>
-                  <span className="text-gray-600 flex-1">Out for Delivery</span>
-                  <span className="font-medium text-gray-800">
-                    {activeShipments.filter(s => s.status === "Out for Delivery").length}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-4">
-                <button
-                  onClick={() => setActiveTab("shipments")}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                >
-                  Manage Shipments
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    {/* Active Shipments Section */}
-    <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-      <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800">Active Shipments</h3>
-          <p className="text-sm text-gray-500">Track ongoing deliveries & shipments</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button 
-            onClick={() => {
-              const fetchShipmentData = async () => {
-                try {
-                  setShipmentsLoading(true);
-                  const response = await axios.get('http://localhost:5000/api/shipping/active');
-                  setActiveShipments(response.data);
-                  setShipmentsError(null);
-                  toast.success("Shipment data refreshed");
-                } catch (error) {
-                  console.error('Error fetching shipments:', error);
-                  toast.error("Failed to refresh shipments");
-                } finally {
-                  setShipmentsLoading(false);
-                }
-              };
-              fetchShipmentData();
-            }} 
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <RefreshCw className="h-5 w-5 text-gray-600" />
-          </button>
-          <button 
-            onClick={() => setActiveTab("shipments")}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-          >
-            All Shipments
-          </button>
-        </div>
-      </div>
-      
-      <div className="p-6">
-        {shipmentsLoading ? (
-          <div className="flex justify-center items-center py-10">
-            <Loader className="h-10 w-10 text-blue-600 animate-spin mr-3" />
-            <p className="text-gray-600">Loading shipment data...</p>
-          </div>
-        ) : shipmentsError ? (
-          <div className="bg-red-50 p-4 rounded-lg text-red-700 border border-red-200">
-            <div className="flex items-center">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              <span>Error loading shipment data</span>
-            </div>
-            <p className="mt-2 text-sm">{shipmentsError}</p>
-          </div>
-        ) : activeShipments.length === 0 ? (
-          <div className="text-center py-10">
-            <Truck className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-gray-900">No active shipments</h3>
-            <p className="text-gray-500 mt-1">There are no ongoing shipments at the moment</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {activeShipments.slice(0, 3).map((shipment) => (
-              <div key={shipment.id || shipment._id} className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                    <div className="mb-3 md:mb-0">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                          <Truck className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="text-lg font-medium text-gray-800">{shipment.id}</h4>
-                          <p className="text-sm text-gray-600">
-                            Order #{shipment.orderId?.substring(0, 8) || "N/A"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col md:items-end">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        shipment.status === "In Transit" ? "bg-blue-100 text-blue-800" :
-                        shipment.status === "Loading" ? "bg-amber-100 text-amber-800" :
-                        shipment.status === "Out for Delivery" ? "bg-purple-100 text-purple-800" :
-                        "bg-gray-100 text-gray-800"
-                      }`}>
-                        <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${
-                          shipment.status === "In Transit" ? "bg-blue-500" :
-                          shipment.status === "Loading" ? "bg-amber-500" :
-                          shipment.status === "Out for Delivery" ? "bg-purple-500" :
-                          "bg-gray-500"
-                        }`}></span>
-                        {shipment.status}
-                      </span>
-                      
-                      <span className="text-sm text-gray-500 mt-1">
-                        ETA: {shipment.eta || "Unknown"}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500">FROM</p>
-                      <p className="text-sm font-medium text-gray-800">{shipment.origin || "Warehouse"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">TO</p>
-                      <p className="text-sm font-medium text-gray-800">{shipment.destination || "Customer Site"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">DRIVER</p>
-                      <p className="text-sm font-medium text-gray-800">{shipment.driver || "Not Assigned"}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>Progress</span>
-                      <span>{shipment.progress || 0}%</span>
-                    </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-2 rounded-full ${
-                          shipment.status === "In Transit" ? "bg-blue-500" :
-                          shipment.status === "Loading" ? "bg-amber-500" :
-                          shipment.status === "Out for Delivery" ? "bg-purple-500" :
-                          "bg-gray-500"
-                        }`}
-                        style={{ width: `${shipment.progress || 0}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-            
-            {activeShipments.length > 3 && (
-              <div className="text-center mt-4">
-                <button
-                  onClick={() => setActiveTab("shipments")}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium inline-flex items-center"
-                >
-                  View All {activeShipments.length} Shipments
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-    
-    {/* Recent Orders Overview */}
-    <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-      <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800">Recent Orders</h3>
-          <p className="text-sm text-gray-500">Latest customer orders requiring fulfillment</p>
-        </div>
-        <button 
-          onClick={() => setActiveTab("orders")}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-        >
-          View All Orders
-        </button>
-      </div>
-      
-      <div className="p-6">
-        {ordersLoading ? (
-          <div className="flex justify-center items-center py-10">
-            <Loader className="h-10 w-10 text-blue-600 animate-spin mr-3" />
-            <p className="text-gray-600">Loading order data...</p>
-          </div>
-        ) : ordersError ? (
-          <div className="bg-red-50 p-4 rounded-lg text-red-700 border border-red-200">
-            <div className="flex items-center">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              <span>Error loading order data</span>
-            </div>
-            <p className="mt-2 text-sm">{ordersError}</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Order ID
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Value
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {orders
-                  .filter(order => order.status === "Pending")
-                  .slice(0, 5)
-                  .map((order) => (
-                    <tr key={order.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          #{order.id.substring(0, 8)}...
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{order.customer}</div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          Rs. {order.value.toLocaleString()}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                          ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : 
-                          order.status === 'In Transit' ? 'bg-blue-100 text-blue-800' : 
-                          order.status === 'Processing' ? 'bg-yellow-100 text-yellow-800' : 
-                          'bg-gray-100 text-gray-800'}`}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {order.date}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => {
-                            setSelectedOrderForShipment(order);
-                            setActiveTab("shipments");
-                          }}
-                          className="text-blue-600 hover:text-blue-900 inline-flex items-center"
-                        >
-                          <Truck className="mr-1 h-4 w-4" /> 
-                          Ship
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-            
-            {orders.filter(order => order.status === "Pending").length === 0 && (
-              <div className="text-center py-8">
-                <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <h3 className="text-lg font-medium text-gray-900">No pending orders</h3>
-                <p className="text-gray-500 mt-1">All orders have been processed</p>
-              </div>
-            )}
-            
-            {orders.filter(order => order.status === "Pending").length > 5 && (
-              <div className="text-right mt-4">
-                <button
-                  onClick={() => setActiveTab("orders")}
-                  className="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center"
-                >
-                  View all {orders.filter(order => order.status === "Pending").length} pending orders
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
           {activeTab === "inventory" && (
             <div className="space-y-6">
               {/* Inventory Filter Section */}
@@ -2760,7 +2439,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                 <div className="flex items-center">
                                   <div className="h-10 w-10 flex-shrink-0 bg-gray-100 rounded-md flex items-center justify-center mr-4">
                                     {item.name?.toLowerCase().includes("safety") || item.category?.toLowerCase().includes("safety") ? (
-                                      <AlertCircle className="h-5 w-5 text-blue-500" />
+                                      <AlertCircle className="h-5 w-5 text-green-500" />
                                     ) : item.name?.toLowerCase().includes("tool") || item.category?.toLowerCase().includes("tool") ? (
                                       <Wrench className="h-5 w-5 text-blue-500" />
                                     ) : item.name?.toLowerCase().includes("cement") || item.name?.toLowerCase().includes("brick") ? (
@@ -2823,7 +2502,8 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   </button>
                                 )}
                                 {item.restockRequested && (
-                                  <div className="mt-2 text-xs text-blue-600 inline-flex items-center">
+                                  <div className="mt-2 text-xs text-green-600 inline-flex items-center">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
                                     Restock Requested
                                   </div>
                                 )}
@@ -2882,190 +2562,6 @@ const updateOrderStatus = async (orderId, newStatus) => {
                 shipmentsError={shipmentsError}
                 setShipmentsError={setShipmentsError}
               />
-            </div>
-          )}
-
-          {activeTab === "orders" && (
-            <div className="space-y-6">
-              {/* Payment Modal */}
-              {showPaymentModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-                  <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4">
-                    <div className="flex justify-between items-center p-4 border-b">
-                      <h3 className="text-lg font-semibold">
-                        Process Supplier Payment
-                      </h3>
-                      <button
-                        onClick={() => setShowPaymentModal(false)}
-                        className="text-gray-500 hover:text-gray-700"
-                      >
-                        <X className="h-6 w-6" />
-                      </button>
-                    </div>
-                    <div className="p-4">
-                      <EnhancedPaymentGateway
-                        amount={selectedOrder?.value}
-                        onSuccess={handlePaymentSuccess}
-                        onCancel={() => setShowPaymentModal(false)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Orders stats */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Total Orders
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {orders.length}
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-                      <ShoppingCart className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Delivered Orders
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          orders.filter((order) => order.status === "Delivered")
-                            .length
-                        }
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        In Transit Orders
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          orders.filter(
-                            (order) => order.status === "In Transit"
-                          ).length
-                        }
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-                      <Truck className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        Pending Orders
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {
-                          orders.filter(
-                            (order) => order.status === "Pending"
-                          ).length
-                        }
-                      </h3>
-                    </div>
-                    <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
-                      <ClockIcon className="h-6 w-6 text-amber-600" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Orders Content Section */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">
-                    Order Management
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                      onClick={() => {
-                        // Refresh orders data
-                        setOrdersLoading(true);
-                        axios
-                          .get("http://localhost:5000/api/orders?all=true")
-                          .then((response) => {
-                            if (response.data.success) {
-                              const transformedOrders =
-                                response.data.orders.map((order) => ({
-                                  id: order._id,
-                                  customer:
-                                    order.customer?.name || "Unknown Customer",
-                                  items: Array.isArray(order.items) ? order.items.length : 0,
-                                  value: order.totalAmount || 0,
-                                  status: mapOrderStatus(order.orderStatus),
-                                  date: new Date(order.orderDate || order.createdAt)
-                                    .toISOString()
-                                    .split("T")[0],
-                                  shippingAddress: order.shippingAddress,
-                                }));
-                              setOrders(transformedOrders);
-                              toast.success("Orders data refreshed");
-                            }
-                          })
-                          .catch((error) => {
-                            console.error("Error refreshing orders:", error);
-                            toast.error("Failed to refresh orders data");
-                          })
-                          .finally(() => {
-                            setOrdersLoading(false);
-                          });
-                      }}
-                    >
-                      <RefreshCw className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button
-                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                      onClick={() => {
-                        // Export orders data as CSV
-                        const csvContent =
-                          "data:text/csv;charset=utf-8," +
-                          "Order ID,Customer,Items,Value,Status,Date\n" +
-                          orders
-                            .map(
-                              (order) =>
-                                `"${order.id}","${order.customer}",${
-                                  order.items
-                                },${order.value},"${order.status}","${order.date}"`
-                            )
-                            .join("\n");
-                        const encodedUri = encodeURI(csvContent);
-                        const link = document.createElement("a");
-                        link.setAttribute("href", encodedUri);
-                        link.setAttribute("download", "orders_report.csv");
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                      }}
-                    >
-                      <Download className="h-5 w-5 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-                {/* Replace the table render with our new card rendering function */}
-                {renderOrdersCards()}
-              </div>
             </div>
           )}
 
@@ -3140,13 +2636,13 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                     const value = e.target.value;
                                     setSupplierName(value);
                                     
-                                    // Real-time validation for special characters, numbers, and spaces
-                                    if (/^[^a-zA-Z]/.test(value)) {
-                                      setValidationErrors(prev => ({ ...prev, supplierName: 'Supplier name cannot start with a special character, number, or space' }));
+                                    // Real-time validation for special characters
+                                    if (/^[^a-zA-Z0-9]/.test(value)) {
+                                      setValidationErrors(prev => ({ ...prev, supplierName: 'Supplier name cannot start with a special character or space' }));
                                     } else if (/[#$@%\^*!_~`\[\]{}:;"'<>?/\\|]/.test(value)) {
                                       setValidationErrors(prev => ({ ...prev, supplierName: 'Supplier name cannot contain special characters like #, $, @, %, etc.' }));
                                     } else if (validationErrors.supplierName && 
-                                      (validationErrors.supplierName === 'Supplier name cannot start with a special character, number, or space' ||
+                                      (validationErrors.supplierName === 'Supplier name cannot start with a special character or space' ||
                                        validationErrors.supplierName === 'Supplier name cannot contain special characters like #, $, @, %, etc.')) {
                                       // Only clear special character errors
                                       setValidationErrors(prev => { const n = { ...prev }; delete n.supplierName; return n; });
@@ -3160,6 +2656,11 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   placeholder="Enter company name"
                                   required
                                 />
+                                {supplierName.trim() && !validationErrors.supplierName && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                  </div>
+                                )}
                               </div>
                               {validationErrors.supplierName && (
                                 <p className="mt-1 text-sm text-red-600">{validationErrors.supplierName}</p>
@@ -3187,10 +2688,15 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                     </option>
                                   ))}
                                 </select>
-                                {validationErrors.selectedProduct && (
-                                  <p className="mt-1 text-sm text-red-600">{validationErrors.selectedProduct}</p>
+                                {selectedProduct && !validationErrors.selectedProduct && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                  </div>
                                 )}
                               </div>
+                              {validationErrors.selectedProduct && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.selectedProduct}</p>
+                              )}
                             </div>
 
                             <div>
@@ -3223,13 +2729,6 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                       setValidationErrors(newErrors);
                                     }
                                   }}
-                                  onKeyDown={(e) => {
-                                    // Allow only numbers, backspace, delete, arrow keys, decimal point
-                                    if (!/^[0-9.]$/.test(e.key) && 
-                                        !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
-                                      e.preventDefault();
-                                    }
-                                  }}
                                   className={`w-full px-3 py-2 bg-gray-50 border ${
                                     validationErrors.supplierPrice 
                                       ? "border-red-500 focus:ring-red-500" 
@@ -3238,10 +2737,15 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   placeholder="Enter purchase price"
                                   required
                                 />
-                                {validationErrors.supplierPrice && (
-                                  <p className="mt-1 text-sm text-red-600">{validationErrors.supplierPrice}</p>
+                                {supplierPrice && parseFloat(supplierPrice) > 0 && !validationErrors.supplierPrice && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                  </div>
                                 )}
                               </div>
+                              {validationErrors.supplierPrice && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierPrice}</p>
+                              )}
                             </div>
 
                             <div>
@@ -3267,7 +2771,19 @@ const updateOrderStatus = async (orderId, newStatus) => {
                               )}
                             </div>
                             
-                            {/* Notes field moved after address */}
+                            {/* Add Notes field here to ensure important information can still be captured */}
+                            <div className="md:col-span-2">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Notes
+                              </label>
+                              <textarea
+                                value={supplierNotes}
+                                onChange={(e) => setSupplierNotes(e.target.value)}
+                                rows="3"
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                                placeholder="Any additional information about this supplier..."
+                              ></textarea>
+                            </div>
                           </div>
                         </div>
 
@@ -3309,10 +2825,15 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
                                   placeholder="Full name"
                                 />
-                                {validationErrors.supplierContact && (
-                                  <p className="mt-1 text-sm text-red-600">{validationErrors.supplierContact}</p>
+                                {supplierContact.trim() && !validationErrors.supplierContact && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                  </div>
                                 )}
                               </div>
+                              {validationErrors.supplierContact && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierContact}</p>
+                              )}
                             </div>
 
                             <div>
@@ -3339,10 +2860,15 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
                                   placeholder="email@example.com"
                                 />
-                                {validationErrors.supplierEmail && (
-                                  <p className="mt-1 text-sm text-red-600">{validationErrors.supplierEmail}</p>
+                                {supplierEmail.trim() && !validationErrors.supplierEmail && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                  </div>
                                 )}
                               </div>
+                              {validationErrors.supplierEmail && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierEmail}</p>
+                              )}
                             </div>
 
                             <div>
@@ -3354,9 +2880,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   type="tel"
                                   value={supplierPhone}
                                   onChange={(e) => {
-                                    // Allow only numbers, +, and spaces
-                                    const value = e.target.value.replace(/[^\d+\s]/g, '');
-                                    setSupplierPhone(value);
+                                    setSupplierPhone(e.target.value);
                                     if (validationErrors.supplierPhone) {
                                       setValidationErrors({
                                         ...validationErrors,
@@ -3364,7 +2888,6 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                       });
                                     }
                                   }}
-                                  maxLength={15}
                                   className={`w-full px-3 py-2 bg-gray-50 border ${
                                     validationErrors.supplierPhone 
                                       ? "border-red-500 focus:ring-red-500" 
@@ -3372,10 +2895,15 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
                                   placeholder="+94XXXXXXXXX or 07XXXXXXXX"
                                 />
-                                {validationErrors.supplierPhone && (
-                                  <p className="mt-1 text-sm text-red-600">{validationErrors.supplierPhone}</p>
+                                {supplierPhone.trim() && !validationErrors.supplierPhone && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                  </div>
                                 )}
                               </div>
+                              {validationErrors.supplierPhone && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierPhone}</p>
+                              )}
                             </div>
 
                             <div>
@@ -3385,29 +2913,10 @@ const updateOrderStatus = async (orderId, newStatus) => {
                               <input
                                 type="text"
                                 value={supplierCity}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  setSupplierCity(value);
-                                  
-                                  // Real-time validation 
-                                  if (/^[^a-zA-Z]/.test(value)) {
-                                    setValidationErrors(prev => ({ ...prev, supplierCity: 'City name cannot start with a special character or space' }));
-                                  } else if (!/^[a-zA-Z\s]*$/.test(value)) {
-                                    setValidationErrors(prev => ({ ...prev, supplierCity: 'City name should contain only letters and spaces' }));
-                                  } else if (validationErrors.supplierCity) {
-                                    setValidationErrors(prev => { const n = { ...prev }; delete n.supplierCity; return n; });
-                                  }
-                                }}
-                                className={`w-full px-3 py-2 bg-gray-50 border ${
-                                  validationErrors.supplierCity 
-                                    ? "border-red-500 focus:ring-red-500" 
-                                    : "border-gray-300 focus:ring-blue-500"
-                                } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                                onChange={(e) => setSupplierCity(e.target.value)}
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                                 placeholder="City"
                               />
-                              {validationErrors.supplierCity && (
-                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierCity}</p>
-                              )}
                             </div>
                           </div>
 
@@ -3417,42 +2926,10 @@ const updateOrderStatus = async (orderId, newStatus) => {
                             </label>
                             <textarea
                               value={supplierAddress}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                setSupplierAddress(value);
-                                
-                                // Real-time validation for starting with special character or space
-                                if (value && /^[\s~`!@#$%^&*()_\-+=\[\]{}|\\:;"'<>,.?/]/.test(value)) {
-                                  setValidationErrors(prev => ({ ...prev, supplierAddress: 'Address cannot start with a special character or space' }));
-                                } else if (validationErrors.supplierAddress && 
-                                  validationErrors.supplierAddress === 'Address cannot start with a special character or space') {
-                                  setValidationErrors(prev => { const n = { ...prev }; delete n.supplierAddress; return n; });
-                                }
-                              }}
+                              onChange={(e) => setSupplierAddress(e.target.value)}
                               rows="2"
-                              className={`w-full px-3 py-2 bg-gray-50 border ${
-                                validationErrors.supplierAddress 
-                                  ? "border-red-500 focus:ring-red-500" 
-                                  : "border-gray-300 focus:ring-blue-500"
-                              } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
-                              placeholder="Street address"
-                            ></textarea>
-                            {validationErrors.supplierAddress && (
-                              <p className="mt-1 text-sm text-red-600">{validationErrors.supplierAddress}</p>
-                            )}
-                          </div>
-                          
-                          {/* Add Notes field here after address */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Notes
-                            </label>
-                            <textarea
-                              value={supplierNotes}
-                              onChange={(e) => setSupplierNotes(e.target.value)}
-                              rows="3"
                               className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                              placeholder="Any additional information about this supplier..."
+                              placeholder="Street address"
                             ></textarea>
                           </div>
                         </div>
