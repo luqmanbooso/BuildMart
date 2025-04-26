@@ -3,6 +3,7 @@ const router = express.Router();
 const Contractor = require('../models/Contractor');
 const OngoingWork = require('../models/Ongoingworkmodel');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken'); // Add this missing import
 
 router.post('/', async (req, res) => {
   try {
@@ -216,7 +217,62 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
-// Update the refresh endpoint to handle manual counts properly
+// Update the PUT endpoint to handle manualCompletedProjects field
+router.put('/:id', async (req, res) => {
+  try {
+    let contractor = await Contractor.findById(req.params.id);
+    
+    if (!contractor) {
+      return res.status(404).json({ error: 'Contractor not found' });
+    }
+    
+    // Update fields
+    const updateData = {};
+    if (req.body.phone) updateData.phone = req.body.phone;
+    if (req.body.address) updateData.address = req.body.address;
+    if (req.body.companyName !== undefined) updateData.companyName = req.body.companyName; // Allow null
+    if (req.body.specialization) updateData.specialization = req.body.specialization;
+    if (req.body.experienceYears) updateData.experienceYears = req.body.experienceYears;
+    
+    // Handle completedProjects properly - save as manualCompletedProjects
+    if (req.body.completedProjects !== undefined) {
+      // Store the manual count directly provided by user
+      updateData.manualCompletedProjects = parseInt(req.body.completedProjects);
+      
+      // Recalculate total completedProjects
+      const completedWorks = await OngoingWork.countDocuments({
+        contractorId: contractor.userId,
+        jobStatus: 'Completed'
+      });
+      
+      // Set total as sum of manual + system
+      updateData.completedProjects = updateData.manualCompletedProjects + completedWorks;
+      
+      console.log(`Updating contractor ${contractor._id} projects: manual=${updateData.manualCompletedProjects}, system=${completedWorks}, total=${updateData.completedProjects}`);
+    }
+    
+    if (req.body.bio) updateData.bio = req.body.bio;
+    
+    // Only update fields that were provided
+    const updatedContractor = await Contractor.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true }
+    );
+    
+    res.json(updatedContractor);
+  } catch (error) {
+    console.error('Error updating contractor profile:', error);
+    
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({ error: 'Contractor not found' });
+    }
+    
+    res.status(500).json({ error: 'Server error', details: error.message });
+  }
+});
+
+// Fix the refresh endpoint logic to correctly calculate counts
 router.get('/refresh-completed-projects/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -229,11 +285,12 @@ router.get('/refresh-completed-projects/:userId', async (req, res) => {
       return res.status(404).json({ error: 'Contractor not found' });
     }
     
-    // Get the manual count from the query parameter or the stored value
-    const manualCount = parseInt(req.query.manualCount) || 
-                        contractor.manualCompletedProjects || 
-                        contractor.completedProjects || 
-                        0;
+    // Get manual count from stored value or from query parameter
+    const manualCount = req.query.manualCount !== undefined ? 
+                        parseInt(req.query.manualCount) : 
+                        contractor.manualCompletedProjects || 0;
+    
+    console.log(`Manual count from ${req.query.manualCount !== undefined ? 'query' : 'database'}: ${manualCount}`);
     
     // Count completed works for this contractor
     const completedWorks = await OngoingWork.countDocuments({ 
@@ -241,11 +298,12 @@ router.get('/refresh-completed-projects/:userId', async (req, res) => {
       jobStatus: 'Completed' 
     });
     
-    console.log(`Found ${completedWorks} completed works for contractor ${userId}`);
-    console.log(`Manual count: ${manualCount}`);
+    console.log(`System completed works count: ${completedWorks}`);
     
-    // Store both values separately and calculate the total
+    // Store manual count separately
     contractor.manualCompletedProjects = manualCount;
+    
+    // Set total as sum of manual + system
     contractor.completedProjects = manualCount + completedWorks;
     
     await contractor.save();
@@ -270,195 +328,63 @@ router.get('/refresh-completed-projects/:userId', async (req, res) => {
   }
 });
 
-// Add a clear endpoint to allow admin to reset counts for debugging
-router.post('/admin/reset-completion-count/:userId', async (req, res) => {
+// Add a fix endpoint to reset and correct possibly corrupted counts
+router.post('/fix-project-counts/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { manualCount = 0, resetSystem = false } = req.body;
+    const { resetManualTo } = req.body;
+    
+    console.log(`Fixing completed projects counts for contractor: ${userId}`);
+    console.log(`Request to set manual count to: ${resetManualTo !== undefined ? resetManualTo : '(not specified)'}`);
     
     // Find the contractor
-    let contractor = await Contractor.findOne({ userId });
+    const contractor = await Contractor.findOne({ userId });
     
     if (!contractor) {
       return res.status(404).json({ error: 'Contractor not found' });
     }
     
-    // Store the original manually entered count
+    // Get the actual count from the system
+    const systemCompletedCount = await OngoingWork.countDocuments({
+      contractorId: userId,
+      jobStatus: 'Completed'
+    });
+    
+    console.log(`Current values - manual: ${contractor.manualCompletedProjects}, total: ${contractor.completedProjects}, system actual: ${systemCompletedCount}`);
+    
+    // Set manual count to provided value or keep existing
+    const manualCount = resetManualTo !== undefined ? 
+                       parseInt(resetManualTo) : 
+                       contractor.manualCompletedProjects || 0;
+    
+    // Fix the counts
     contractor.manualCompletedProjects = manualCount;
-    
-    // If requested to reset the system count as well
-    if (resetSystem) {
-      contractor.completedProjects = manualCount;
-    } else {
-      // Otherwise get the system count and add it to manual count
-      const completedWorks = await OngoingWork.countDocuments({
-        contractorId: userId,
-        jobStatus: 'Completed'
-      });
-      contractor.completedProjects = manualCount + completedWorks;
-    }
+    contractor.completedProjects = manualCount + systemCompletedCount;
     
     await contractor.save();
     
-    res.json({
-      message: 'Contractor completion count reset successfully',
-      manualCompletedProjects: contractor.manualCompletedProjects,
-      totalCompletedProjects: contractor.completedProjects
-    });
-  } catch (error) {
-    console.error('Error resetting completion count:', error);
-    res.status(500).json({ error: 'Server error', details: error.message });
-  }
-});
-
-// New endpoint to refresh contractor's completed projects count
-router.get('/refresh-completed-projects/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    console.log(`Refreshing completed projects for contractor with userId: ${userId}`);
-    
-    // Find the contractor
-    let contractor = await Contractor.findOne({ userId });
-    
-    if (!contractor) {
-      return res.status(404).json({ error: 'Contractor not found' });
-    }
-    
-    // Count completed works for this contractor
-    const completedWorks = await OngoingWork.countDocuments({ 
-      contractorId: userId, 
-      jobStatus: 'Completed' 
-    });
-    
-    console.log(`Found ${completedWorks} completed works for contractor ${userId}`);
-    
-    // Get the original count for logging
-    const originalCount = contractor.completedProjects || 0;
-    const manuallyEnteredCount = parseInt(req.query.manualCount) || originalCount;
-    
-    // Update the contractor's completedProjects field - ADD the count instead of replacing
-    // If manualCount query parameter is provided, use that as the base
-    contractor.completedProjects = manuallyEnteredCount + completedWorks;
-    
-    await contractor.save();
-    
-    console.log(`Updated completed projects from ${originalCount} to ${contractor.completedProjects} for contractor ${userId}`);
-    console.log(`(${manuallyEnteredCount} manually entered + ${completedWorks} from system)`);
+    console.log(`Fixed completed projects for ${userId}: manual=${manualCount}, system=${systemCompletedCount}, total=${contractor.completedProjects}`);
     
     res.status(200).json({
-      message: 'Completed projects count refreshed successfully',
-      originalCount,
-      systemCompletedWorks: completedWorks,
-      manuallyEnteredCount,
-      newTotalCount: contractor.completedProjects,
+      message: 'Project counts fixed successfully',
+      before: {
+        storedManualCount: contractor.manualCompletedProjects !== manualCount ? contractor.manualCompletedProjects : manualCount,
+        storedTotal: contractor.completedProjects !== (manualCount + systemCompletedCount) ? contractor.completedProjects : (manualCount + systemCompletedCount)
+      },
+      after: {
+        manualCount,
+        systemCount: systemCompletedCount,
+        totalCount: manualCount + systemCompletedCount
+      },
       contractor
     });
   } catch (error) {
-    console.error('Error refreshing completed projects:', error);
+    console.error('Error fixing project counts:', error);
     res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
 
-// Update the PUT endpoint to handle manualCompletedProjects field
-router.put('/:id', async (req, res) => {
-  try {
-    let contractor = await Contractor.findById(req.params.id);
-    
-    if (!contractor) {
-      return res.status(404).json({ error: 'Contractor not found' });
-    }
-    
-    // Update fields
-    const updateData = {};
-    if (req.body.phone) updateData.phone = req.body.phone;
-    if (req.body.address) updateData.address = req.body.address;
-    if (req.body.companyName !== undefined) updateData.companyName = req.body.companyName; // Allow null
-    if (req.body.specialization) updateData.specialization = req.body.specialization;
-    if (req.body.experienceYears) updateData.experienceYears = req.body.experienceYears;
-    
-    // Handle completedProjects as manualCompletedProjects
-    if (req.body.completedProjects !== undefined) {
-      updateData.manualCompletedProjects = req.body.completedProjects;
-      
-      // Recalculate total completedProjects
-      const completedWorks = await OngoingWork.countDocuments({
-        contractorId: contractor.userId,
-        jobStatus: 'Completed'
-      });
-      
-      updateData.completedProjects = req.body.completedProjects + completedWorks;
-    }
-    
-    if (req.body.bio) updateData.bio = req.body.bio;
-    
-    // Only update fields that were provided
-    const updatedContractor = await Contractor.findByIdAndUpdate(
-      req.params.id,
-      { $set: updateData },
-      { new: true }
-    );
-    
-    res.json(updatedContractor);
-  } catch (error) {
-    console.error('Error updating contractor profile:', error);
-    
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ error: 'Contractor not found' });
-    }
-    
-    res.status(500).json({ error: 'Server error', details: error.message });
-  }
-});
-
-
-router.delete('/:id', async (req, res) => {
-  try {
-    const contractor = await Contractor.findById(req.params.id);
-    
-    if (!contractor) {
-      return res.status(404).json({ error: 'Contractor not found' });
-    }
-    
-    await Contractor.findByIdAndDelete(req.params.id);
-    
-    res.json({ message: 'Contractor profile deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting contractor profile:', error);
-    
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ error: 'Contractor not found' });
-    }
-    
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-
-router.put('/verify/:id', async (req, res) => {
-  try {
-    const contractor = await Contractor.findById(req.params.id);
-    
-    if (!contractor) {
-      return res.status(404).json({ error: 'Contractor not found' });
-    }
-    
-    // Toggle verification status
-    contractor.verified = !contractor.verified;
-    await contractor.save();
-    
-    // Populate the user data before sending response
-    const populatedContractor = await Contractor.findById(contractor._id)
-      .populate('userId', 'username email profilePic');
-    
-    res.json({ 
-      message: `Contractor ${contractor.verified ? 'verified' : 'unverified'} successfully`,
-      contractor: populatedContractor
-    });
-  } catch (error) {
-    console.error('Error verifying contractor:', error);
-    res.status(500).json({ error: 'Server error', details: error.message });
-  }
-});
+// ...existing code...
 
 // Search and filter contractors
 router.get('/search/filters', async (req, res) => {

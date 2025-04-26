@@ -51,13 +51,36 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
     username: { valid: true, message: '' }
   });
 
+  // Check if this is an existing contractor (already onboarded)
+  const isExistingContractor = Boolean(contractorData?._id);
+
   // Validation functions
   const validatePhone = (phone) => {
     if (!phone) return { valid: false, message: 'Phone number is required' };
-    const digits = phone.replace(/[^0-9]/g, '');
-    if (digits.length < 10 || digits.length > 12) {
-      return { valid: false, message: 'Phone number should be 10-12 digits' };
+    
+    // Check for the correct format: either +94... or 07...
+    const validFormat = /^(\+94|0)[7][0-9\s]*$/.test(phone);
+    if (!validFormat) {
+      return { valid: false, message: 'Phone number must start with +94 or 07' };
     }
+    
+    // Remove all non-digit characters except the leading '+' if present
+    const cleanedPhone = phone.replace(/[^\d+]/g, '');
+    
+    // Check length - should be 11 digits with +94 or 10 digits with 0
+    const correctLength = cleanedPhone.startsWith('+') 
+      ? cleanedPhone.length === 12 
+      : cleanedPhone.length === 10;
+      
+    if (!correctLength) {
+      return { 
+        valid: false, 
+        message: cleanedPhone.startsWith('+') 
+          ? 'Phone number with +94 should have 11 digits total' 
+          : 'Phone number with 0 should have 10 digits' 
+      };
+    }
+    
     return { valid: true, message: '' };
   };
 
@@ -164,7 +187,22 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    if (name === 'username') {
+    if (name === 'phone') {
+      // Only allow valid phone number inputs
+      // Allow digits, spaces, and + only at the beginning
+      const sanitizedValue = value
+        .replace(/[^\d\s+]/g, '') // Remove anything that's not a digit, space, or +
+        .replace(/(?!^)\+/g, ''); // Remove any + that's not at the beginning
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: sanitizedValue
+      }));
+      setValidation(prev => ({
+        ...prev,
+        phone: validatePhone(sanitizedValue)
+      }));
+    } else if (name === 'username') {
       const sanitizedValue = sanitizeUsername(value);
       setFormData(prev => ({
         ...prev,
@@ -213,13 +251,8 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
         [name]: value
       }));
 
-      // Perform validation
-      if (name === 'phone') {
-        setValidation(prev => ({
-          ...prev,
-          phone: validatePhone(value)
-        }));
-      } else if (name === 'bio') {
+      // Perform validation for other fields
+      if (name === 'bio') {
         setValidation(prev => ({
           ...prev,
           bio: validateBio(value)
@@ -230,10 +263,13 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
 
   const handleNumericChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: parseInt(value) || 0
-    });
+    // Only allow changes if this is a new contractor (not yet onboarded)
+    if (!isExistingContractor) {
+      setFormData({
+        ...formData,
+        [name]: parseInt(value) || 0
+      });
+    }
   };
 
   // Handle specialization toggle
@@ -392,6 +428,7 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
                 Phone Number <span className="text-red-500">*</span>
+                <span className="ml-1 text-xs text-gray-500">(Format: +94 7XXXXXXXX or 07XXXXXXXX)</span>
               </label>
               <input
                 type="tel"
@@ -469,8 +506,11 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
             </div>
 
             <div>
-              <label htmlFor="experienceYears" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="experienceYears" className="flex items-center text-sm font-medium text-gray-700 mb-1">
                 Years of Experience
+                {isExistingContractor && (
+                  <span className="ml-2 bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">Read-only</span>
+                )}
               </label>
               <input
                 type="number"
@@ -479,14 +519,22 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
                 value={formData.experienceYears}
                 onChange={handleNumericChange}
                 min="0"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                className={`w-full border ${isExistingContractor ? 'bg-gray-100 cursor-not-allowed' : 'border-gray-300'} rounded-md px-3 py-2 focus:outline-none ${!isExistingContractor && 'focus:ring-2 focus:ring-blue-500'} transition-all duration-200`}
                 placeholder="5"
+                readOnly={isExistingContractor}
+                disabled={isExistingContractor}
               />
+              {isExistingContractor && (
+                <p className="mt-1 text-xs text-gray-500">This field cannot be modified after initial setup</p>
+              )}
             </div>
             
             <div>
-              <label htmlFor="completedProjects" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="completedProjects" className="flex items-center text-sm font-medium text-gray-700 mb-1">
                 Completed Projects
+                {isExistingContractor && (
+                  <span className="ml-2 bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">Auto-updated</span>
+                )}
               </label>
               <input
                 type="number"
@@ -495,9 +543,14 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
                 value={formData.completedProjects}
                 onChange={handleNumericChange}
                 min="0"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                className={`w-full border ${isExistingContractor ? 'bg-gray-100 cursor-not-allowed' : 'border-gray-300'} rounded-md px-3 py-2 focus:outline-none ${!isExistingContractor && 'focus:ring-2 focus:ring-blue-500'} transition-all duration-200`}
                 placeholder="0"
+                readOnly={isExistingContractor}
+                disabled={isExistingContractor}
               />
+              {isExistingContractor && (
+                <p className="mt-1 text-xs text-gray-500">This is automatically updated by the system</p>
+              )}
             </div>
           </div>
         </div>

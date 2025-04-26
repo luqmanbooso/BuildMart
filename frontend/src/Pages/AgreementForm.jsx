@@ -22,26 +22,6 @@ const AgreementForm = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [bidAlreadyAccepted, setBidAlreadyAccepted] = useState(false);
   
-  const createContractorEmail = (contractor, job, bid) => {
-    const subject = `Agreement for Project: ${job?.title || 'Your Project'}`;
-    const body = `Dear ${contractor?.name || 'Contractor'},
-
-I've reviewed our agreement for the project "${job?.title || 'Project'}" and would like to discuss the following details:
-
-Project: ${job?.title || 'Project'}
-Bid Amount: LKR ${parseFloat(bid?.price).toLocaleString() || 'N/A'}
-Timeline: ${bid?.timeline || 'N/A'} days
-
-Please let me know if you have any questions or if we need to make any adjustments to the agreement.
-
-Thank you for your partnership.
-
-Best regards,
-${localStorage.getItem('clientName') || 'Client'}`;
-
-    return `mailto:${contractor?.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  };
-
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -168,6 +148,7 @@ ${localStorage.getItem('clientName') || 'Client'}`;
         // Contractor ID from bid
         const contractor = matchingBid.contractorId || matchingBid.contractor;
         
+
 
 // Get token for authentication
 const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -858,18 +839,6 @@ try {
               >
                 Back to Project
               </button>
-              
-              {!bidAlreadyAccepted && contractorDetails?.email && (
-                <a
-                  href={createContractorEmail(contractorDetails, jobDetails, bidDetails)}
-                  className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 flex items-center"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Email Contractor
-                </a>
-              )}
               
               {!bidAlreadyAccepted && (
                 <button
