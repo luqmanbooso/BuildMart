@@ -63,17 +63,50 @@ router.post('/', qualificationUpload.single('documentImage'), async (req, res) =
   try {
     const { userId, type, name, issuer, year, expiry } = req.body;
     
+    // Server-side validation
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
+    }
+    
+    // Validate name and issuer for special characters
+    const validationRegex = /^[a-zA-Z0-9\s\-.,()&]+$/;
+    
+    // Check if name is valid
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    if (!validationRegex.test(name)) {
+      return res.status(400).json({ error: 'Name contains invalid characters' });
+    }
+    
+    // Check if issuer is valid
+    if (!issuer || !issuer.trim()) {
+      return res.status(400).json({ error: 'Issuer is required' });
+    }
+    if (!validationRegex.test(issuer)) {
+      return res.status(400).json({ error: 'Issuer contains invalid characters' });
+    }
+    
+    // Validate year format (4-digit number between 1900 and current year)
+    if (!year || !year.trim() || !/^\d{4}$/.test(year)) {
+      return res.status(400).json({ error: 'Year must be a 4-digit number' });
+    }
+    
+    const yearNum = parseInt(year);
+    const currentYear = new Date().getFullYear();
+    if (yearNum > currentYear || yearNum < 1900) {
+      return res.status(400).json({ 
+        error: `Year must be between 1900 and ${currentYear}` 
+      });
     }
     
     const qualificationData = {
       userId,
       type,
-      name,
-      issuer,
+      name: name.trim(),
+      issuer: issuer.trim(),
       year,
-      expiry: expiry || 'N/A'
+      expiry: expiry && expiry.trim() ? expiry.trim() : 'N/A'
     };
     
     // If file was uploaded, save the file path
@@ -101,6 +134,46 @@ router.put('/:id', qualificationUpload.single('documentImage'), async (req, res)
     const existingQualification = await Qualification.findById(id);
     if (!existingQualification) {
       return res.status(404).json({ error: 'Qualification not found' });
+    }
+    
+    // Server-side validation
+    const validationRegex = /^[a-zA-Z0-9\s\-.,()&]+$/;
+    
+    // Check if name is valid
+    if (updateData.name) {
+      if (!updateData.name.trim()) {
+        return res.status(400).json({ error: 'Name cannot be empty' });
+      }
+      if (!validationRegex.test(updateData.name)) {
+        return res.status(400).json({ error: 'Name contains invalid characters' });
+      }
+      updateData.name = updateData.name.trim();
+    }
+    
+    // Check if issuer is valid
+    if (updateData.issuer) {
+      if (!updateData.issuer.trim()) {
+        return res.status(400).json({ error: 'Issuer cannot be empty' });
+      }
+      if (!validationRegex.test(updateData.issuer)) {
+        return res.status(400).json({ error: 'Issuer contains invalid characters' });
+      }
+      updateData.issuer = updateData.issuer.trim();
+    }
+    
+    // Validate year format if provided
+    if (updateData.year) {
+      if (!updateData.year.trim() || !/^\d{4}$/.test(updateData.year)) {
+        return res.status(400).json({ error: 'Year must be a 4-digit number' });
+      }
+      
+      const yearNum = parseInt(updateData.year);
+      const currentYear = new Date().getFullYear();
+      if (yearNum > currentYear || yearNum < 1900) {
+        return res.status(400).json({ 
+          error: `Year must be between 1900 and ${currentYear}` 
+        });
+      }
     }
     
     // If file was uploaded, save the file path and delete old file

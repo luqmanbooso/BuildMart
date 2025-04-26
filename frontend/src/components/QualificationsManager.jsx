@@ -44,6 +44,13 @@ const QualificationsManager = ({ userId }) => {
   // File size limit in bytes (1MB)
   const MAX_FILE_SIZE = 1024 * 1024;
 
+  // Add this helper function near the top of your component
+  const ensureFullImagePath = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
+    return `http://localhost:5000${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
+
   // Fetch qualifications from API
   const fetchQualifications = async () => {
     if (!userId) return;
@@ -53,7 +60,16 @@ const QualificationsManager = ({ userId }) => {
 
     try {
       const response = await axios.get(`http://localhost:5000/qualify/user/${userId}`);
-      setQualifications(response.data);
+      
+      // Process image URLs to ensure they're complete
+      const processedQualifications = response.data.map(qual => {
+        if (qual.documentImage) {
+          qual.documentImage = ensureFullImagePath(qual.documentImage);
+        }
+        return qual;
+      });
+      
+      setQualifications(processedQualifications);
     } catch (error) {
       console.error('Error fetching qualifications:', error);
       setError('Failed to load your qualifications. Please try again.');
@@ -74,23 +90,27 @@ const QualificationsManager = ({ userId }) => {
     
     switch (name) {
       case 'name':
-        if (!value.trim()) {
+        if (!value || !value.trim()) {
           errorMessage = 'Name is required';
         } else if (value.length > MAX_LENGTHS.name) {
           errorMessage = `Name must be ${MAX_LENGTHS.name} characters or less`;
+        } else if (!/^[a-zA-Z0-9\s\-.,()&]+$/.test(value)) {
+          errorMessage = 'Name contains invalid characters. Only letters, numbers, spaces, and common punctuation are allowed';
         }
         break;
         
       case 'issuer':
-        if (!value.trim()) {
+        if (!value || !value.trim()) {
           errorMessage = 'Issuing organization is required';
         } else if (value.length > MAX_LENGTHS.issuer) {
           errorMessage = `Issuer must be ${MAX_LENGTHS.issuer} characters or less`;
+        } else if (!/^[a-zA-Z0-9\s\-.,()&]+$/.test(value)) {
+          errorMessage = 'Organization name contains invalid characters. Only letters, numbers, spaces, and common punctuation are allowed';
         }
         break;
         
       case 'year':
-        if (!value.trim()) {
+        if (!value || !value.trim()) {
           errorMessage = 'Year is required';
         } else if (!/^\d{4}$/.test(value)) {
           errorMessage = 'Year must be a 4-digit number';
@@ -115,8 +135,44 @@ const QualificationsManager = ({ userId }) => {
         break;
         
       case 'documentFile':
-        if (value && value.size > MAX_FILE_SIZE) {
-          errorMessage = 'File size must be less than 1MB';
+        if (value) {
+          // Check file size
+          if (value.size > MAX_FILE_SIZE) {
+            errorMessage = `File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`;
+          }
+          
+          // Check file type
+          const acceptedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+          if (!acceptedTypes.includes(value.type)) {
+            errorMessage = 'Only JPEG and PNG image formats are allowed';
+          }
+          
+          // Additional validation: check image dimensions
+          if (!errorMessage && (value.type === 'image/jpeg' || value.type === 'image/png' || value.type === 'image/jpg')) {
+            // We'll create a promise to check the dimensions before uploading
+            const checkDimensions = () => {
+              return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                  URL.revokeObjectURL(img.src);
+                  // Check if image is too small
+                  if (img.width < 200 || img.height < 200) {
+                    resolve('Image is too small. Minimum dimensions: 200x200 pixels');
+                  } else {
+                    resolve('');
+                  }
+                };
+                img.onerror = () => {
+                  URL.revokeObjectURL(img.src);
+                  resolve('Failed to load image. Please try another file.');
+                };
+                img.src = URL.createObjectURL(value);
+              });
+            };
+            
+            // Store the promise for later validation in handleFileChange
+            value._dimensionCheck = checkDimensions;
+          }
         }
         break;
         
@@ -133,15 +189,38 @@ const QualificationsManager = ({ userId }) => {
   };
 
   // Handle file selection and validation
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     
     if (file) {
-      // Validate file size
+      // Validate file size and type first
       const fileError = validateField('documentFile', file);
+      
+      // If there's already an error, don't continue with dimension check
+      if (fileError) {
+        setFormErrors({
+          ...formErrors,
+          documentFile: fileError
+        });
+        return;
+      }
+      
+      // Now check dimensions if applicable
+      if (file._dimensionCheck) {
+        const dimensionError = await file._dimensionCheck();
+        if (dimensionError) {
+          setFormErrors({
+            ...formErrors,
+            documentFile: dimensionError
+          });
+          return;
+        }
+      }
+      
+      // If we got here, file is valid
       setFormErrors({
         ...formErrors,
-        documentFile: fileError
+        documentFile: ''
       });
       
       // Store the File object directly for FormData if valid
@@ -229,6 +308,25 @@ const QualificationsManager = ({ userId }) => {
   const handleAddQualification = async (e) => {
     e.preventDefault();
     
+    // Check for input that's just spaces
+    if (!newQualification.name.trim()) {
+      setFormErrors({
+        ...formErrors,
+        name: 'Name is required'
+      });
+      toast.error('Please correct the form errors before submitting');
+      return;
+    }
+    
+    if (!newQualification.issuer.trim()) {
+      setFormErrors({
+        ...formErrors,
+        issuer: 'Issuing organization is required'
+      });
+      toast.error('Please correct the form errors before submitting');
+      return;
+    }
+    
     // Validate all fields before submission
     const errors = {
       name: validateField('name', newQualification.name),
@@ -304,6 +402,25 @@ const QualificationsManager = ({ userId }) => {
     e.preventDefault();
     
     if (!editingQualification) return;
+    
+    // Check for input that's just spaces
+    if (!newQualification.name.trim()) {
+      setFormErrors({
+        ...formErrors,
+        name: 'Name is required'
+      });
+      toast.error('Please correct the form errors before submitting');
+      return;
+    }
+    
+    if (!newQualification.issuer.trim()) {
+      setFormErrors({
+        ...formErrors,
+        issuer: 'Issuing organization is required'
+      });
+      toast.error('Please correct the form errors before submitting');
+      return;
+    }
     
     // Validate all fields before submission
     const errors = {
@@ -426,7 +543,8 @@ const QualificationsManager = ({ userId }) => {
       documentFile: ''
     });
     
-    setPreviewImage(qualification.documentImage || null);
+    // Make sure image preview has full path
+    setPreviewImage(ensureFullImagePath(qualification.documentImage) || null);
     setShowAddForm(true);
   };
 
@@ -584,6 +702,11 @@ const QualificationsManager = ({ userId }) => {
                       src={previewImage} 
                       alt="Certificate preview" 
                       className="max-h-40 object-contain mx-auto"
+                      onError={(e) => {
+                        console.error("Failed to display preview image");
+                        e.target.onerror = null;
+                        e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23f87171' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E";
+                      }}
                     />
                   </div>
                 )}
@@ -671,6 +794,18 @@ const QualificationsManager = ({ userId }) => {
                         src={qualification.documentImage} 
                         alt={`${qualification.name} certificate`} 
                         className="max-h-28 object-contain border rounded"
+                        loading="lazy" // Add lazy loading
+                        onError={(e) => {
+                          console.error("Failed to load image:", qualification.documentImage);
+                          // Replace with error placeholder
+                          e.target.onerror = null;
+                          e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23f87171' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E";
+                          // Show error message under the image
+                          const errorMsg = document.createElement('p');
+                          errorMsg.className = "text-red-500 text-xs mt-1";
+                          errorMsg.innerText = "Error loading image. Click edit to view or update.";
+                          e.target.parentNode.appendChild(errorMsg);
+                        }}
                       />
                     </div>
                   )}
