@@ -64,6 +64,11 @@ function PaymentDashboard() {
   const [incrementType, setIncrementType] = useState('fixed'); // 'fixed' or 'percentage'
   const [salaryChangeType, setSalaryChangeType] = useState('increment'); // Add this for increment/decrement
 
+  // Add search functionality
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  
   // Add these state variables at the top of the component
   const [adminExpenses, setAdminExpenses] = useState([]);
 
@@ -162,6 +167,104 @@ function PaymentDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Add search function to filter data
+  const searchRecords = (query) => {
+    setIsSearching(true);
+    
+    if (!query || query.trim() === '') {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    const lowercaseQuery = query.toLowerCase().trim();
+    
+    // Search through all data sources
+    const results = [
+      ...supplierPayments.filter(payment => 
+        (payment.supplierName && payment.supplierName.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.product && payment.product.toLowerCase().includes(lowercaseQuery)) || 
+        (payment.status && payment.status.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.amount && payment.amount.toString().includes(lowercaseQuery))
+      ).map(payment => ({ ...payment, type: 'Supplier Payment' })),
+      
+      ...serviceProviderPayments.filter(payment => 
+        (payment.providerName && payment.providerName.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.status && payment.status.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.amount && payment.amount.toString().includes(lowercaseQuery))
+      ).map(payment => ({ ...payment, type: 'Service Provider Payment' })),
+      
+      ...itemsPayments.filter(payment => 
+        (payment.itemName && payment.itemName.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.customerName && payment.customerName.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.status && payment.status.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.amount && payment.amount.toString().includes(lowercaseQuery))
+      ).map(payment => ({ ...payment, type: 'Inventory Sale' })),
+      
+      ...commissionPayments.filter(payment => 
+        (payment.commissionAmount && payment.commissionAmount.toString().includes(lowercaseQuery)) ||
+        (payment.originalAmount && payment.originalAmount.toString().includes(lowercaseQuery)) ||
+        (payment.date && payment.date.toLowerCase().includes(lowercaseQuery))
+      ).map(payment => ({ ...payment, type: 'Commission Income' })),
+      
+      ...agreementFeePayments.filter(payment => 
+        (payment.clientName && payment.clientName.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.agreementType && payment.agreementType.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.status && payment.status.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.amount && payment.amount.toString().includes(lowercaseQuery))
+      ).map(payment => ({ ...payment, type: 'Agreement Fee' }))
+    ];
+    
+    setSearchResults(results);
+    setIsSearching(false);
+  };
+
+  // Handle search query change
+  const handleSearchQueryChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    if (query.length > 2) {
+      // Only search if at least 3 characters are entered
+      searchRecords(query);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  // Navigate to record details when search result is clicked
+  const navigateToSearchResult = (result) => {
+    // Set the active page based on result type
+    switch(result.type) {
+      case 'Supplier Payment':
+        setActivePage('Expenses');
+        setExpensesSubPage('Supplier Payments');
+        break;
+      case 'Service Provider Payment':
+        setActivePage('Service Providers');
+        break;
+      case 'Inventory Sale':
+        setActivePage('Inventory Sales');
+        break;
+      case 'Commission Income':
+        setActivePage('Commission Income');
+        break;
+      case 'Agreement Fee':
+        setActivePage('Agreement Fees');
+        break;
+      default:
+        setActivePage('Dashboard');
+    }
+    
+    // Clear the search after navigating
+    clearSearch();
   };
 
   // Fetch supplier payments when expenses tab is selected
@@ -3196,7 +3299,37 @@ function PaymentDashboard() {
             <div className="flex justify-between items-center">
               {/* Enhanced Search */}
               <div className="relative w-96">
-                
+                <input
+                  type="text"
+                  placeholder="Search records..."
+                  value={searchQuery}
+                  onChange={handleSearchQueryChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={clearSearch}
+                    className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={20} />
+                  </button>
+                )}
+                {searchResults.length > 0 && (
+                  <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-2 z-50">
+                    <ul className="divide-y divide-gray-200">
+                      {searchResults.map((result, index) => (
+                        <li
+                          key={index}
+                          className="px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => navigateToSearchResult(result)}
+                        >
+                          <div className="text-sm font-medium text-gray-900">{result.type}</div>
+                          <div className="text-xs text-gray-500">{result.supplierName || result.providerName || result.itemName || result.clientName}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {/* User Profile Section */}
