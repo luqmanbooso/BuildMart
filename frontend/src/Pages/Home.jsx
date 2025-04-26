@@ -5,7 +5,7 @@ import {
   FaChevronDown, FaHammer, FaHandshake, FaStar, FaShoppingCart, 
   FaMapMarkerAlt, FaCrown, FaAngleRight, FaArrowRight, 
   FaChartBar, FaCog, FaSignOutAlt, FaTools, FaRegClock,
-  FaUsers, FaLayerGroup, FaHeadset, FaRegLightbulb
+  FaUsers, FaLayerGroup, FaHeadset, FaRegLightbulb, FaCheckCircle
 } from "react-icons/fa";
 import heroBg from "../assets/images/hero-bg.jpg";
 import person_tablet from "../assets/images/person-tablet.jpg";
@@ -18,6 +18,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { jwtDecode } from 'jwt-decode';
 import ClientNavBar from "../components/ClientNavBar";
 import ContractorUserNav from "../components/ContractorUserNav";
+import Footer from "../components/Footer";
 import axios from 'axios';
 
 // Enhanced component for animated section headings
@@ -51,6 +52,10 @@ const Home = () => {
   const userMenuRef = useRef(null);
   const navigate = useNavigate();
   
+  const [featuredContractors, setFeaturedContractors] = useState([]);
+  const [isLoadingContractors, setIsLoadingContractors] = useState(true);
+  const [contractorError, setContractorError] = useState(null);
+
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem("token");
@@ -210,41 +215,6 @@ const handleLogout = () => {
       cta: "Post a Project",
       bgColor: "from-emerald-800 to-blue-800",
       image: heroBg,
-    },
-  ];
-
-  const professionals = [
-    {
-      name: "XYZ CONSTRUCTORS",
-      area: "Colombo",
-      completedRequests: 10,
-      rating: 4,
-      specialty: "Residential Construction",
-      image: constructor_icon,
-    },
-    {
-      name: "ABC BUILDERS",
-      area: "Colombo",
-      completedRequests: 15,
-      rating: 4.5,
-      specialty: "Commercial Projects",
-      image: constructor_icon,
-    },
-    {
-      name: "MODERN ARCHITECTS",
-      area: "Colombo",
-      completedRequests: 8,
-      rating: 5,
-      specialty: "Interior Design",
-      image: constructor_icon,
-    },
-    {
-      name: "RELIABLE PLUMBING",
-      area: "Colombo",
-      completedRequests: 22,
-      rating: 4.2,
-      specialty: "Plumbing Services",
-      image: constructor_icon,
     },
   ];
 
@@ -476,6 +446,60 @@ const handleLogout = () => {
       setIsLoadingProducts(false);
     }
   };
+
+  useEffect(() => {
+    const fetchContractors = async () => {
+      setIsLoadingContractors(true);
+      setContractorError(null);
+      
+      try {
+        const response = await axios.get('http://localhost:5000/api/contractors');
+        
+        if (!response.data || response.data.length === 0) {
+          setFeaturedContractors([]);
+          return;
+        }
+        
+        // Map the backend data structure to match the frontend component needs
+        // and take only the first 4 contractors for the featured section
+        const formattedContractors = response.data
+          .slice(0, 4)
+          .map(contractor => {
+            // Get username from userId if available
+            const username = contractor.userId?.username || 'Unknown Contractor';
+            const companyName = contractor.companyName || username;
+            // Format profile picture URL
+            const profilePic = contractor.userId?.profilePic 
+              ? contractor.userId.profilePic.startsWith('http') 
+                ? contractor.userId.profilePic 
+                : `http://localhost:5000${contractor.userId.profilePic}`
+              : constructor_icon;
+            
+            return {
+              id: contractor._id,
+              name: companyName,
+              area: contractor.address || 'Not specified',
+              completedRequests: contractor.completedProjects || 0,
+              rating: contractor.averageRating || 0,
+              specialty: contractor.specialization?.join(', ') || 'General Contractor',
+              image: profilePic,
+              verified: contractor.verified || false,
+              experienceYears: contractor.experienceYears || 0
+            };
+          });
+          
+        console.log('Contractors fetched for homepage:', formattedContractors);
+        setFeaturedContractors(formattedContractors);
+      } catch (error) {
+        console.error('Error fetching contractors:', error);
+        setContractorError("Failed to load featured professionals");
+      } finally {
+        setIsLoadingContractors(false);
+      }
+    };
+    
+    fetchContractors();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
@@ -839,46 +863,142 @@ const handleLogout = () => {
         <div className="px-12">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-bold">Featured Professionals</h2>
-            <a href="#" className="text-blue-500 hover:underline">
-              See all result
-            </a>
+            <Link to="/contractors" className="text-blue-500 hover:underline">
+              See all professionals
+            </Link>
           </div>
 
-          <div className="grid grid-cols-4 gap-6">
-            {professionals.map((professional, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
-              >
-                <div className="flex justify-center mb-4">
-                  <img
-                    src={constructor_icon}
-                    alt="Constructor"
-                    className="w-24 h-24"
-                  />
+          {isLoadingContractors ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="animate-pulse bg-white rounded-lg shadow-md p-6">
+                  <div className="flex justify-center mb-4">
+                    <div className="w-24 h-24 rounded-full bg-gray-300"></div>
+                  </div>
+                  <div className="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-4"></div>
+                  <div className="h-3 bg-gray-300 rounded w-2/3 mb-2"></div>
+                  <div className="h-3 bg-gray-300 rounded w-1/2 mb-4"></div>
+                  <div className="flex justify-center mb-3">
+                    <div className="flex space-x-1">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="w-4 h-4 rounded-full bg-gray-300"></div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-200 pt-4 mt-2">
+                    <div className="h-8 bg-gray-300 rounded"></div>
+                  </div>
                 </div>
-
-                <h3 className="font-bold text-center">{professional.name}</h3>
-                <p className="text-gray-600 text-sm mt-2">
-                  <span className="font-semibold">Area:</span>{" "}
-                  {professional.area}
-                </p>
-                <p className="text-gray-600 text-sm">
-                  <span className="font-semibold">Completed Requests:</span>{" "}
-                  {professional.completedRequests}
-                </p>
-
-                <div className="flex justify-center my-3">
-                  {renderStars(professional.rating)}
-                </div>
-
-                <div className="border-t border-gray-200 pt-4 mt-2">
-                  <button className="bg-blue-500 text-white px-4 py-2 text-sm w-full hover:bg-blue-600 transition">
-                    More Details ››
-                  </button>
+              ))}
+            </div>
+          ) : contractorError ? (
+            <div className="text-center py-10">
+              <div className="flex justify-center">
+                <div className="h-20 w-20 bg-red-50 rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
               </div>
-            ))}
+              <h3 className="text-xl font-medium text-gray-800 mt-5">{contractorError}</h3>
+              <button 
+                onClick={() => {
+                  setIsLoadingContractors(true);
+                  fetchContractors();
+                }}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : featuredContractors.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredContractors.map((contractor, index) => (
+                <motion.div
+                  key={contractor.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
+                >
+                  <div className="flex justify-center mb-4 relative">
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200">
+                      <img
+                        src={contractor.image}
+                        alt={contractor.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.src = constructor_icon;
+                        }}
+                      />
+                    </div>
+                    {contractor.verified && (
+                      <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1.5 border-2 border-white">
+                        <FaCheckCircle className="text-white text-xs" />
+                      </div>
+                    )}
+                  </div>
+
+                  <h3 className="font-bold text-center">{contractor.name}</h3>
+                  <p className="text-gray-600 text-sm mt-2 flex items-center justify-center">
+                    <FaMapMarkerAlt className="text-blue-500 mr-1"/> {contractor.area}
+                  </p>
+                  <p className="text-gray-600 text-sm text-center">
+                    <span className="font-semibold">Experience:</span>{" "}
+                    {contractor.experienceYears} years
+                  </p>
+                  <p className="text-gray-600 text-sm text-center">
+                    <span className="font-semibold">Projects:</span>{" "}
+                    {contractor.completedRequests}
+                  </p>
+
+                  <div className="flex justify-center my-3">
+                    {renderStars(contractor.rating)}
+                  </div>
+
+                  <div className="border-t border-gray-200 pt-4 mt-2">
+                    <Link to={`/contractors`}>
+                      <button className="bg-blue-500 text-white px-4 py-2 text-sm w-full hover:bg-blue-600 transition rounded-md">
+                        More Details ››
+                      </button>
+                    </Link>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <div className="flex justify-center">
+                <div className="h-20 w-20 bg-blue-50 rounded-full flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="text-xl font-medium text-gray-800 mt-5">No Professionals Available</h3>
+              <p className="text-gray-600 mt-2 max-w-md mx-auto">
+                There are no professionals in our system at this time. Check back later.
+              </p>
+              <Link to="/contractors">
+                <button className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                  View Contractors
+                </button>
+              </Link>
+            </div>
+          )}
+
+          <div className="text-center mt-10">
+            <Link to="/contractors">
+              <motion.button 
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-all inline-flex items-center"
+              >
+                View All Professionals
+                <FaArrowRight className="ml-2" />
+              </motion.button>
+            </Link>
           </div>
         </div>
       </div>
@@ -1043,71 +1163,8 @@ const handleLogout = () => {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="bg-blue-900 text-white py-12">
-        <div className="container mx-auto px-12">
-          <div className="flex">
-            <div className="w-1/3">
-              <img
-                src={logo_white}
-                alt="BuildMart"
-                className="h-25 mb-2"
-              />
-              <p className="text-sm text-gray-300 mt-4">
-                Your all-in-one platform for finding top-rated contractors and
-                architects. Compare bids, connect with professionals, and ensure
-                secure payments with our escrow system. Build smarter, faster,
-                and hassle-free!
-              </p>
-            </div>
-
-            <div className="w-1/3 pl-12">
-              <h3 className="text-lg font-bold mb-4">Quick Links</h3>
-              <ul className="space-y-3">
-                <li>
-                  <a href="#" className="text-gray-300 hover:text-white">
-                    About Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-300 hover:text-white">
-                    Register to bid
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-300 hover:text-white">
-                    Terms & Conditions
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-300 hover:text-white">
-                    Privacy Policy
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div className="w-1/3"></div>
-          </div>
-
-          <div className="flex justify-between items-center mt-12 pt-6 border-t border-blue-800">
-            <p className="text-sm text-gray-300">
-              © 2025 BuildMart - All rights reserved
-            </p>
-            <div className="flex space-x-4">
-              <a href="#" className="text-white hover:text-gray-300">
-                <FaFacebook />
-              </a>
-              <a href="#" className="text-white hover:text-gray-300">
-                <FaTwitter />
-              </a>
-              <a href="#" className="text-white hover:text-gray-300">
-                <FaInstagram />
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Replace the existing footer with the Footer component */}
+      <Footer />
     </div>
   );
 };
