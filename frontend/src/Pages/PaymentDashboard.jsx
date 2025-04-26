@@ -615,6 +615,7 @@ function PaymentDashboard() {
     fetchPayments();
     fetchAdminSalaries();
     fetchAdminExpenses(); // Add this to load expenses on mount
+    fetchSupplierPayments(); // Add this line to load supplier payments on initial mount
   }, []);
 
   // Fetch supplier payments when expenses tab is selected
@@ -1073,7 +1074,8 @@ function PaymentDashboard() {
       value: `Rs. ${(paymentStats?.serviceProviderTotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
       icon: <Users className="h-6 w-6 text-blue-600" />,
       trend: "up",
-      isIncome: false // Service Provider payments are not considered income
+      isIncome: false, // Service Provider payments are not considered income
+      isExpense: false // Service Provider payments are not considered expenses
     },
     {
       title: "Inventory Sales",
@@ -1793,11 +1795,11 @@ function PaymentDashboard() {
                       <p className="text-2xl font-bold text-red-800">
                         Rs. {(
                           (totalSalaryPaid || 0) + 
-                          (supplierPayments
+                          ((supplierPayments || [])
                             .filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
-                            .reduce((sum, p) => sum + (p.amount || 0), 0) +
-                          (paymentStats?.serviceProviderTotal || 0)
-                          )).toLocaleString()}
+                            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+                          )
+                        ).toLocaleString()}
                       </p>
                     </div>
                     <div className="p-3 bg-red-200 rounded-lg">
@@ -1806,7 +1808,7 @@ function PaymentDashboard() {
                   </div>
                   <div className="mt-4 flex items-center">
                     <Activity size={16} className="text-red-600 mr-2" />
-                    <span className="text-xs font-medium text-red-700">Service providers, salaries & supplier payments</span>
+                    <span className="text-xs font-medium text-red-700">Salaries & supplier payments</span>
                   </div>
                 </div>
                 
@@ -1821,11 +1823,11 @@ function PaymentDashboard() {
                           (paymentStats?.commissionIncome || 0) + 
                           (paymentStats?.agreementFeeIncome || 0) - 
                           (totalSalaryPaid || 0) - 
-                          (supplierPayments
+                          ((supplierPayments || [])
                             .filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
-                            .reduce((sum, p) => sum + (p.amount || 0), 0)) -
-                          (paymentStats?.serviceProviderTotal || 0)
-                          ).toLocaleString()}
+                            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+                          )
+                        ).toLocaleString()}
                       </p>
                     </div>
                     <div className="p-3 bg-blue-200 rounded-lg">
@@ -1975,19 +1977,17 @@ function PaymentDashboard() {
                   <div className="h-64 transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center">
                     <Doughnut
                       data={{
-                        labels: ['Admin Salaries', 'Supplier Payments', 'Service Providers'],
+                        labels: ['Admin Salaries', 'Supplier Payments'],
                         datasets: [
                           {
                             data: [
                               totalSalaryPaid || 0,
-                              supplierPayments.filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
-                                .reduce((sum, p) => sum + p.amount, 0) || 0,
-                              paymentStats?.serviceProviderTotal || 0
+                              (supplierPayments || []).filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
+                                .reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0
                             ],
                             backgroundColor: [
                               'rgba(234, 179, 8, 0.9)',
-                              'rgba(107, 114, 128, 0.9)',
-                              'rgba(37, 99, 235, 0.9)'
+                              'rgba(107, 114, 128, 0.9)'
                             ],
                             borderWidth: 0,
                             hoverOffset: 15,
@@ -2052,11 +2052,10 @@ function PaymentDashboard() {
                       }}
                     />
                   </div>
-                  <div className="mt-6 grid grid-cols-3 gap-4">
+                  <div className="mt-6 grid grid-cols-2 gap-4">
                     {[
                       { label: 'Admin Salaries', color: 'bg-yellow-500', value: totalSalaryPaid || 0 },
-                      { label: 'Supplier Payments', color: 'bg-gray-500', value: supplierPayments.filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded').reduce((sum, p) => sum + p.amount, 0) || 0 },
-                      { label: 'Service Providers', color: 'bg-blue-500', value: paymentStats?.serviceProviderTotal || 0 }
+                      { label: 'Supplier Payments', color: 'bg-gray-500', value: (supplierPayments || []).filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded').reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0 }
                     ].map((item, index) => (
                       <div key={index} className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-all">
                         <div className={`w-3 h-3 rounded-full ${item.color} mb-2`}></div>
