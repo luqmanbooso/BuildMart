@@ -12,6 +12,9 @@ const ContractorViewDetails = () => {
   const [contractorUser, setContractorUser] = useState(null);
   // New state for qualifications
   const [qualifications, setQualifications] = useState([]);
+  // New state for reviews
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   useEffect(() => {
     const fetchContractorDetails = async () => {
@@ -50,6 +53,33 @@ const ContractorViewDetails = () => {
               console.log('Could not fetch qualifications:', qualError);
             }
             
+            // Fetch contractor reviews - Updated endpoint path
+            try {
+              setReviewsLoading(true);
+              // Try with /api/reviews path first
+              try {
+                const reviewsResponse = await axios.get(`http://localhost:5000/api/reviews/contractor/${contractorId}`);
+                if (reviewsResponse.data) {
+                  setReviews(reviewsResponse.data);
+                  console.log("Fetched reviews:", reviewsResponse.data);
+                }
+              } catch (firstAttemptError) {
+                console.log('First attempt failed, trying alternate path:', firstAttemptError);
+                // If that fails, try with just /reviews path
+                const reviewsResponse = await axios.get(`http://localhost:5000/reviews/contractor/${contractorId}`);
+                if (reviewsResponse.data) {
+                  setReviews(reviewsResponse.data);
+                  console.log("Fetched reviews (alternate path):", reviewsResponse.data);
+                }
+              }
+            } catch (reviewError) {
+              console.log('Could not fetch reviews:', reviewError);
+              // Set to empty array to prevent undefined errors
+              setReviews([]);
+            } finally {
+              setReviewsLoading(false);
+            }
+            
             // Extract contractor details from bid
             const extractedContractor = {
               _id: matchingBid.contractorId,
@@ -79,6 +109,15 @@ const ContractorViewDetails = () => {
     
     fetchContractorDetails();
   }, [contractorId, bidId, projectId]);
+
+  // Calculate average rating from reviews
+  const calculateAverageRating = () => {
+    if (reviews && reviews.length > 0) {
+      const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+      return (totalRating / reviews.length).toFixed(1);
+    }
+    return contractor?.rating || "0";
+  };
 
   // Helper function to extract experience from qualifications text
   const extractExperienceFromQualifications = (qualifications) => {
@@ -177,6 +216,10 @@ const ContractorViewDetails = () => {
     );
   }
 
+  // Calculate actual rating from reviews
+  const averageRating = calculateAverageRating();
+  const reviewCount = reviews.length;
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-5xl mx-auto px-4">
@@ -217,14 +260,14 @@ const ContractorViewDetails = () => {
                           {[1, 2, 3, 4, 5].map((star) => (
                             <svg 
                               key={star}
-                              className={`h-4 w-4 ${star <= Math.round(contractor?.rating || 0) ? 'text-yellow-400' : 'text-gray-300'}`} 
+                              className={`h-4 w-4 ${star <= Math.round(averageRating) ? 'text-yellow-400' : 'text-gray-300'}`} 
                               fill="currentColor" 
                               viewBox="0 0 20 20"
                             >
                               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                             </svg>
                           ))}
-                          <span className="ml-2 text-sm text-gray-600">({contractor?.rating || '0'}/5)</span>
+                          <span className="ml-2 text-sm text-gray-600">({averageRating}/5 • {reviewCount} reviews)</span>
                         </div>
                       </div>
                     </div>
@@ -246,7 +289,7 @@ const ContractorViewDetails = () => {
                   </div>
                 </div>
                 
-                {/* Qualifications Display Section - NEW */}
+                {/* Qualifications Display Section */}
                 <div className="mt-4 bg-white p-4 rounded-lg border border-gray-200">
                   <h3 className="font-medium text-gray-700 mb-3 flex items-center">
                     <svg className="h-5 w-5 mr-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -308,14 +351,87 @@ const ContractorViewDetails = () => {
                     </div>
                   )}
                 </div>
-                
+
+                {/* Reviews Section - NEW */}
+                <div className="mt-4 bg-white p-4 rounded-lg border border-gray-200">
+                  <h3 className="font-medium text-gray-700 mb-3 flex items-center">
+                    <svg className="h-5 w-5 mr-2 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                    </svg>
+                    Client Reviews ({reviewCount})
+                  </h3>
+                  
+                  {reviewsLoading ? (
+                    <div className="flex justify-center py-6">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    </div>
+                  ) : reviews.length > 0 ? (
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                      {reviews.map((review) => (
+                        <div 
+                          key={review._id} 
+                          className="p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-blue-50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <span className="text-xs font-semibold text-gray-500">
+                                {review.clientId?.username || "Anonymous Client"}
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-500">
+                              {new Date(review.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center mt-1 mb-2">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <svg 
+                                key={star}
+                                className={`h-3 w-3 ${star <= review.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                                fill="currentColor" 
+                                viewBox="0 0 20 20"
+                              >
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                            ))}
+                          </div>
+                          
+                          <p className="text-sm text-gray-700">{review.comment}</p>
+
+                          {review.contractorResponse && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <p className="text-xs font-medium text-gray-500">Contractor Response:</p>
+                              <p className="text-xs text-gray-600 mt-1">{review.contractorResponse.comment}</p>
+                            </div>
+                          )}
+                          
+                          {review.projectId?.title && (
+                            <div className="mt-2">
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                                {review.projectId.title}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 bg-gray-50 rounded-md border border-dashed border-gray-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      <p className="text-sm text-gray-500">No reviews yet</p>
+                    </div>
+                  )}
+                </div>
+
                 {contractorUser?.email && (
                   <div className="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <h3 className="font-medium text-gray-700 mb-2">Contact Information</h3>
                     <div className="text-sm">
                       <p className="flex items-center text-gray-600 mb-2">
                         <svg className="h-4 w-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         {contractorUser.email}
                       </p>
