@@ -597,9 +597,7 @@ function PaymentDashboard() {
     const totalSupplierExpenses = paidSupplierPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
     
     // Update stats calculation to use this filtered total
-    stats.totalExpenses = (paymentStats?.serviceProviderTotal || 0) + 
-                          (totalSalaryPaid || 0) + 
-                          totalSupplierExpenses;
+    stats.totalExpenses = (totalSalaryPaid || 0) + totalSupplierExpenses;
   };
 
   // Helper function to convert backend status to UI status
@@ -1073,15 +1071,13 @@ function PaymentDashboard() {
     {
       title: "Service Provider Payments",
       value: `Rs. ${(paymentStats?.serviceProviderTotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-    
       icon: <Users className="h-6 w-6 text-blue-600" />,
       trend: "up",
-      isIncome: false // Mark this as not income
+      isIncome: false // Service Provider payments are not considered income
     },
     {
       title: "Inventory Sales",
       value: `Rs. ${(paymentStats?.inventorySalesTotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-  
       icon: <ShoppingCart className="h-6 w-6 text-green-600" />,
       trend: "up",
       isIncome: true
@@ -1089,7 +1085,6 @@ function PaymentDashboard() {
     {
       title: "Agreement Fees",
       value: `Rs. ${(paymentStats?.agreementFeeIncome || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-
       icon: <FileText className="h-6 w-6 text-orange-600" />,
       trend: "up",
       isIncome: true
@@ -1097,7 +1092,6 @@ function PaymentDashboard() {
     {
       title: "Commission Income",
       value: `Rs. ${(paymentStats?.commissionIncome || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-
       icon: <Percent className="h-6 w-6 text-purple-600" />,
       trend: "up",
       isIncome: true
@@ -1107,7 +1101,6 @@ function PaymentDashboard() {
       value: `Rs. ${((paymentStats?.inventorySalesTotal || 0) + 
               (paymentStats?.commissionIncome || 0) + 
               (paymentStats?.agreementFeeIncome || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-   
       icon: <DollarSign className="h-6 w-6 text-indigo-600" />,
       trend: "up",
       isIncome: true
@@ -1798,12 +1791,13 @@ function PaymentDashboard() {
                     <div>
                       <p className="text-sm font-medium text-red-700 mb-1">Total Expenses</p>
                       <p className="text-2xl font-bold text-red-800">
-                        Rs. {((paymentStats?.serviceProviderTotal || 0) + 
-                        (totalSalaryPaid || 0) + 
-                        (supplierPayments
-                          .filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
-                          .reduce((sum, p) => sum + (p.amount || 0), 0)
-                        )).toLocaleString()}
+                        Rs. {(
+                          (totalSalaryPaid || 0) + 
+                          (supplierPayments
+                            .filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
+                            .reduce((sum, p) => sum + (p.amount || 0), 0) +
+                          (paymentStats?.serviceProviderTotal || 0)
+                          )).toLocaleString()}
                       </p>
                     </div>
                     <div className="p-3 bg-red-200 rounded-lg">
@@ -1812,7 +1806,7 @@ function PaymentDashboard() {
                   </div>
                   <div className="mt-4 flex items-center">
                     <Activity size={16} className="text-red-600 mr-2" />
-                    <span className="text-xs font-medium text-red-700">Service providers, salaries & confirmed supplier payments</span>
+                    <span className="text-xs font-medium text-red-700">Service providers, salaries & supplier payments</span>
                   </div>
                 </div>
                 
@@ -1822,12 +1816,16 @@ function PaymentDashboard() {
                     <div>
                       <p className="text-sm font-medium text-blue-700 mb-1">Net Profit</p>
                       <p className="text-2xl font-bold text-blue-800">
-                        Rs. {((paymentStats?.inventorySalesTotal || 0) + 
-                        (paymentStats?.commissionIncome || 0) + 
-                        (paymentStats?.agreementFeeIncome || 0) - 
-                        (paymentStats?.serviceProviderTotal || 0) - 
-                        (totalSalaryPaid || 0) - 
-                        (supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0)).toLocaleString()}
+                        Rs. {(
+                          (paymentStats?.inventorySalesTotal || 0) + 
+                          (paymentStats?.commissionIncome || 0) + 
+                          (paymentStats?.agreementFeeIncome || 0) - 
+                          (totalSalaryPaid || 0) - 
+                          (supplierPayments
+                            .filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
+                            .reduce((sum, p) => sum + (p.amount || 0), 0)) -
+                          (paymentStats?.serviceProviderTotal || 0)
+                          ).toLocaleString()}
                       </p>
                     </div>
                     <div className="p-3 bg-blue-200 rounded-lg">
@@ -1977,18 +1975,19 @@ function PaymentDashboard() {
                   <div className="h-64 transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center">
                     <Doughnut
                       data={{
-                        labels: ['Service Providers', 'Admin Salaries', 'Supplier Payments'],
+                        labels: ['Admin Salaries', 'Supplier Payments', 'Service Providers'],
                         datasets: [
                           {
                             data: [
-                              paymentStats?.serviceProviderTotal || 0,
                               totalSalaryPaid || 0,
-                              supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0
+                              supplierPayments.filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
+                                .reduce((sum, p) => sum + p.amount, 0) || 0,
+                              paymentStats?.serviceProviderTotal || 0
                             ],
                             backgroundColor: [
-                              'rgba(37, 99, 235, 0.9)',
                               'rgba(234, 179, 8, 0.9)',
-                              'rgba(107, 114, 128, 0.9)'
+                              'rgba(107, 114, 128, 0.9)',
+                              'rgba(37, 99, 235, 0.9)'
                             ],
                             borderWidth: 0,
                             hoverOffset: 15,
@@ -2055,9 +2054,9 @@ function PaymentDashboard() {
                   </div>
                   <div className="mt-6 grid grid-cols-3 gap-4">
                     {[
-                      { label: 'Service Providers', color: 'bg-blue-500', value: paymentStats?.serviceProviderTotal || 0 },
                       { label: 'Admin Salaries', color: 'bg-yellow-500', value: totalSalaryPaid || 0 },
-                      { label: 'Supplier Payments', color: 'bg-gray-500', value: supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0 }
+                      { label: 'Supplier Payments', color: 'bg-gray-500', value: supplierPayments.filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded').reduce((sum, p) => sum + p.amount, 0) || 0 },
+                      { label: 'Service Providers', color: 'bg-blue-500', value: paymentStats?.serviceProviderTotal || 0 }
                     ].map((item, index) => (
                       <div key={index} className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-all">
                         <div className={`w-3 h-3 rounded-full ${item.color} mb-2`}></div>
@@ -2096,7 +2095,7 @@ function PaymentDashboard() {
                             // Categorize as income or expense
                             if (payment.paymentType === 'inventory' || payment.paymentType === 'agreement_fee' || payment.commissionAmount > 0) {
                               monthlyData[monthYear].income += payment.amount;
-                            } else if (payment.paymentType === 'milestone' || payment.workId) {
+                            } else if (payment.workId) {
                               monthlyData[monthYear].expenses += payment.amount;
                             }
                           });
