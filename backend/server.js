@@ -34,7 +34,8 @@ app.use('/api/contractors', require('./routes/contractorprofile'));
 app.use('/api/email', require('./routes/email'));
 app.use('/api/orders', orderRoutes); // Add this line
 app.use('/api/reviews', reviewsRoutes); 
-app.use('/api/supplierPayments', supplierPaymentRoutes); // Add this line
+app.use('/api/supplierPayments', supplierPaymentRoutes); // Original camelCase route
+app.use('/api/supplier-payments', supplierPaymentRoutes); // New dash-case route to fix the 404 error
 
 // Register the contractors routes
 app.use('/api/contractors', require('./routes/contractors'));
