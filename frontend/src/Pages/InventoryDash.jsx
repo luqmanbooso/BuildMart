@@ -11,24 +11,24 @@ import {
   FiAlertTriangle,
   FiCheckCircle,
   FiRefreshCw,
-  FiBell,
   FiImage,
   FiUpload,
   FiX,
-  FiLogOut
+  FiLogOut,
+  FiArrowUp,
+  FiArrowDown,
+  FiPackage,
+  FiDollarSign
 } from "react-icons/fi";
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 
-
-
+// Updated category colors with more modern shades
 const categoryColors = {
-  "Safety Gear & Accessories": "bg-blue-100 text-blue-800",
-  "Tools & Equipment": "bg-green-100 text-green-800",
-  "Construction Materials": "bg-purple-100 text-purple-800",
-  "Safety Gear & Accessories": "bg-orange-100 text-orange-800",
-  "Plumbing & Electrical Supplies": "bg-yellow-100 text-yellow-800",
-  
+  "Safety Gear & Accessories": "bg-blue-100 text-blue-800 border border-blue-200",
+  "Tools & Equipment": "bg-emerald-100 text-emerald-800 border border-emerald-200",
+  "Construction Materials": "bg-violet-100 text-violet-800 border border-violet-200",
+  "Plumbing & Electrical Supplies": "bg-amber-100 text-amber-800 border border-amber-200",
 };
 
 // Predefined categories for construction materials
@@ -36,16 +36,11 @@ const predefinedCategories = [
   "Safety Gear & Accessories",
   "Tools & Equipment",
   "Construction Materials", 
-  "Safety Gear & Accessories",
   "Plumbing & Electrical Supplies",
 ];
 
-// Add initialInventory before the component declaration
-
 // Initialize with empty array instead of undefined
 const initialInventory = [];
-
-// Add this helper function:
 
 // Helper to get correct image URL
 const getImageUrl = (imagePath) => {
@@ -212,11 +207,6 @@ const InventoryDash = () => {
         
         setInventory(updatedInventory);
         
-        // Check if stock falls below threshold
-        if (newStock < stockUpdateItem.threshold) {
-          checkLowStock({...stockUpdateItem, stock: newStock});
-        }
-        
         // Update toast to success
         toast.update(toastId, {
           render: `Stock ${type === 'remove' ? 'decreased' : 'increased'} successfully`,
@@ -246,186 +236,136 @@ const InventoryDash = () => {
     return item; // This just returns the same item without changes
   });
 
-  // Replace the existing handleDeleteItem function with this improved version:
+  const handleDeleteItem = async (id) => {
+    if (!id) {
+      toast.error('Cannot delete: Item ID is missing');
+      return;
+    }
+    
+    if (window.confirm("Are you sure you want to delete this item?")) {
+      try {
+        console.log('Deleting item with ID:', id);
+        
+        // MongoDB items use _id, local items use id
+        const itemId = typeof id === 'object' ? id._id : id;
+        
+        await axios.delete(`http://localhost:5000/product/products/${itemId}`);
+        
+        // Filter items with improved logic
+        setInventory(inventory.filter(item => {
+          // For items with _id property
+          if (item._id) {
+            return item._id !== itemId;
+          }
+          // For items with id property
+          if (item.id) {
+            return item.id !== id;
+          }
+          // Default case (shouldn't happen)
+          return true;
+        }));
+        
+        toast.success('Product deleted successfully');
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        toast.error('Error deleting product: ' + (error.response?.data?.message || error.message));
+      }
+    }
+  };
 
-const handleDeleteItem = async (id) => {
-  if (!id) {
-    toast.error('Cannot delete: Item ID is missing');
-    return;
-  }
-  
-  if (window.confirm("Are you sure you want to delete this item?")) {
+  const handleAddProduct = async (formData) => {
     try {
-      console.log('Deleting item with ID:', id);
-      
-      // MongoDB items use _id, local items use id
-      const itemId = typeof id === 'object' ? id._id : id;
-      
-      await axios.delete(`http://localhost:5000/product/products/${itemId}`);
-      
-      // Filter items with improved logic
-      setInventory(inventory.filter(item => {
-        // For items with _id property
-        if (item._id) {
-          return item._id !== itemId;
-        }
-        // For items with id property
-        if (item.id) {
-          return item.id !== id;
-        }
-        // Default case (shouldn't happen)
-        return true;
-      }));
-      
-      toast.success('Product deleted successfully');
-    } catch (error) {
-      console.error('Error deleting product:', error);
-      toast.error('Error deleting product: ' + (error.response?.data?.message || error.message));
-    }
-  }
-};
-
-  // Update supplier notification endpoint
-  const notifySupplier = async (item) => {
-    try {
-      await axios.post('http://localhost:5000/api/email/supplier-notification', {
-        productName: item.name,
-        currentStock: item.stock,
-        threshold: item.threshold,
-        sku: item.sku
-      });
-      
-      toast.success(`Supplier notified about low stock of ${item.name}`, {
-        position: "top-right",
-        autoClose: 3000
-      });
-    } catch (error) {
-      console.error('Error notifying supplier:', error);
-      toast.error(`Failed to notify supplier about ${item.name}`, {
-        position: "top-right",
-        autoClose: 3000
-      });
-    }
-  };
-
-  // Add check for low stock items
-  const checkLowStock = (item) => {
-    if (item.stock < item.threshold) {
-      notifySupplier(item);
-    }
-  };
-
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { 
-        staggerChildren: 0.05 
-      } 
-    }
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1 }
-  };
-
-  // Replace the existing handleAddProduct function with this:
-
-const handleAddProduct = async (formData) => {
-  try {
-    // Make API request
-    const response = await axios.post('http://localhost:5000/product/products', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    });
-    
-    if (response.data.success && response.data.product) {
-      // Update state with the new product from the response
-      setInventory([...inventory, response.data.product]);
-      setFilteredInventory([...filteredInventory, response.data.product]);
-      setIsFormOpen(false);
-      setPreviewImage(null);
-      
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      
-      toast.success('Product added successfully');
-    } else {
-      toast.error('Error adding product: ' + (response.data.message || 'Unknown error'));
-    }
-  } catch (error) {
-    console.error('Error adding product:', error);
-    toast.error('Error adding product: ' + (error.response?.data?.error || error.message));
-  }
-};
-
-  // Handle edit product - update endpoint
-const handleEditProduct = async (editedProduct) => {
-  try {
-    // Create FormData to handle file uploads
-    const formData = new FormData();
-    
-    // Add all product data to FormData
-    formData.append('name', editedProduct.name);
-    formData.append('sku', editedProduct.sku);
-    formData.append('category', editedProduct.category);
-    formData.append('price', parseFloat(editedProduct.price));
-    formData.append('stock', parseInt(editedProduct.stock));
-    formData.append('threshold', parseInt(editedProduct.threshold));
-    formData.append('description', editedProduct.description || '');
-    
-    // Handle image - could be a file, data URL, or existing path
-    if (editedProduct.image) {
-      // If image is a string that starts with data:, it's a new image as data URL
-      if (typeof editedProduct.image === 'string') {
-        if (editedProduct.image.startsWith('data:')) {
-          formData.append('image', editedProduct.image);
-        } else {
-          // It's an existing image path, do nothing special
-          formData.append('image', editedProduct.image);
-        }
-      } else if (editedProduct.image instanceof File) {
-        // If it's a File object, append as productImage
-        formData.append('productImage', editedProduct.image);
-      }
-    }
-    
-    // Make API request
-    const response = await axios.put(
-      `http://localhost:5000/product/products/${editedProduct._id || editedProduct.id}`,
-      formData,
-      {
+      // Make API request
+      const response = await axios.post('http://localhost:5000/product/products', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
+      });
+      
+      if (response.data.success && response.data.product) {
+        // Update state with the new product from the response
+        setInventory([...inventory, response.data.product]);
+        setFilteredInventory([...filteredInventory, response.data.product]);
+        setIsFormOpen(false);
+        setPreviewImage(null);
+        
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        
+        toast.success('Product added successfully');
+      } else {
+        toast.error('Error adding product: ' + (response.data.message || 'Unknown error'));
       }
-    );
-    
-    if (response.data.success && response.data.product) {
-      // Update the inventory state with the updated product
-      const updatedInventory = inventory.map(item =>
-        (item._id && item._id === (editedProduct._id || editedProduct.id)) || 
-        (item.id && item.id === (editedProduct._id || editedProduct.id)) 
-          ? response.data.product 
-          : item
+    } catch (error) {
+      console.error('Error adding product:', error);
+      toast.error('Error adding product: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  // Handle edit product - update endpoint
+  const handleEditProduct = async (editedProduct) => {
+    try {
+      // Create FormData to handle file uploads
+      const formData = new FormData();
+      
+      // Add all product data to FormData
+      formData.append('name', editedProduct.name);
+      formData.append('sku', editedProduct.sku);
+      formData.append('category', editedProduct.category);
+      formData.append('price', parseFloat(editedProduct.price));
+      formData.append('stock', parseInt(editedProduct.stock));
+      formData.append('threshold', parseInt(editedProduct.threshold));
+      formData.append('description', editedProduct.description || '');
+      
+      // Handle image - could be a file, data URL, or existing path
+      if (editedProduct.image) {
+        // If image is a string that starts with data:, it's a new image as data URL
+        if (typeof editedProduct.image === 'string') {
+          if (editedProduct.image.startsWith('data:')) {
+            formData.append('image', editedProduct.image);
+          } else {
+            // It's an existing image path, do nothing special
+            formData.append('image', editedProduct.image);
+          }
+        } else if (editedProduct.image instanceof File) {
+          // If it's a File object, append as productImage
+          formData.append('productImage', editedProduct.image);
+        }
+      }
+      
+      // Make API request
+      const response = await axios.put(
+        `http://localhost:5000/product/products/${editedProduct._id || editedProduct.id}`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
       );
       
-      setInventory(updatedInventory);
-      setEditingItem(null);
-      toast.success('Product updated successfully');
-    } else {
-      toast.error('Error updating product: ' + (response.data.message || 'Unknown error'));
+      if (response.data.success && response.data.product) {
+        // Update the inventory state with the updated product
+        const updatedInventory = inventory.map(item =>
+          (item._id && item._id === (editedProduct._id || editedProduct.id)) || 
+          (item.id && item.id === (editedProduct._id || editedProduct.id)) 
+            ? response.data.product 
+            : item
+        );
+        
+        setInventory(updatedInventory);
+        setEditingItem(null);
+        toast.success('Product updated successfully');
+      } else {
+        toast.error('Error updating product: ' + (response.data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error updating product:', error);
+      toast.error('Error updating product: ' + (error.response?.data?.error || error.message));
     }
-  } catch (error) {
-    console.error('Error updating product:', error);
-    toast.error('Error updating product: ' + (error.response?.data?.error || error.message));
-  }
-};
+  };
 
   // Add this function to handle image selection
   const handleImageChange = (e) => {
@@ -497,46 +437,71 @@ const handleEditProduct = async (editedProduct) => {
     }
   };
 
+  // Animation variants for smoother interactions
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { 
+        staggerChildren: 0.05 
+      } 
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100 } }
+  };
+
+  const fadeIn = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.4 } }
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Dashboard Header */}
+      {/* Modern Dashboard Header */}
       <motion.header
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-white shadow-md relative"
+        className="bg-white shadow-sm relative"
       >
-        <div className="absolute top-4 right-4">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              window.location.href = '/login';
-            }}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-md flex items-center space-x-1 text-sm"
-          >
-            <FiLogOut size={16} />
-            <span>Logout</span>
-          </motion.button>
-        </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900">Inventory Management</h1>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setIsFormOpen(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-            >
-              <FiPlusCircle />
-              <span>Add Item</span>
-            </motion.button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Inventory Management</h1>
+              <p className="text-gray-500 mt-1">Manage your construction materials and equipment</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  window.location.href = '/login';
+                }}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md flex items-center space-x-2 text-sm transition-colors"
+              >
+                <FiLogOut size={16} />
+                <span>Logout</span>
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setIsFormOpen(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md flex items-center space-x-2 shadow-sm transition-colors"
+              >
+                <FiPlusCircle />
+                <span>Add Item</span>
+              </motion.button>
+            </div>
           </div>
         </div>
       </motion.header>
 
-      {/* Dashboard Stats */}
+      {/* Dashboard Stats - Modern cards with gradients */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <motion.div 
           variants={containerVariants}
@@ -544,37 +509,46 @@ const handleEditProduct = async (editedProduct) => {
           animate="visible"
           className="grid grid-cols-1 md:grid-cols-3 gap-6"
         >
-          <motion.div variants={itemVariants} className="bg-white rounded-lg shadow p-6">
+          <motion.div 
+            variants={itemVariants} 
+            className="bg-gradient-to-br from-white to-indigo-50 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-300"
+          >
             <div className="flex items-center">
               <div className="p-3 rounded-full bg-indigo-100 text-indigo-600">
-                <FiBarChart2 size={24} />
+                <FiPackage size={24} />
               </div>
               <div className="ml-5">
-                <p className="text-gray-500 text-sm">Total Inventory</p>
+                <p className="text-gray-500 text-sm font-medium">Total Inventory</p>
                 <h3 className="text-2xl font-semibold text-gray-900">{totalItems.toLocaleString()} units</h3>
               </div>
             </div>
           </motion.div>
           
-          <motion.div variants={itemVariants} className="bg-white rounded-lg shadow p-6">
+          <motion.div 
+            variants={itemVariants} 
+            className="bg-gradient-to-br from-white to-emerald-50 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-300"
+          >
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-green-100 text-green-600">
-                <FiCheckCircle size={24} />
+              <div className="p-3 rounded-full bg-emerald-100 text-emerald-600">
+                <FiDollarSign size={24} />
               </div>
               <div className="ml-5">
-                <p className="text-gray-500 text-sm">Inventory Value</p>
+                <p className="text-gray-500 text-sm font-medium">Inventory Value</p>
                 <h3 className="text-2xl font-semibold text-gray-900">LKR {totalValue.toLocaleString()}</h3>
               </div>
             </div>
           </motion.div>
           
-          <motion.div variants={itemVariants} className="bg-white rounded-lg shadow p-6">
+          <motion.div 
+            variants={itemVariants} 
+            className="bg-gradient-to-br from-white to-amber-50 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-300"
+          >
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-red-100 text-red-600">
+              <div className="p-3 rounded-full bg-amber-100 text-amber-600">
                 <FiAlertTriangle size={24} />
               </div>
               <div className="ml-5">
-                <p className="text-gray-500 text-sm">Low Stock Items</p>
+                <p className="text-gray-500 text-sm font-medium">Low Stock Items</p>
                 <h3 className="text-2xl font-semibold text-gray-900">{lowStockItems} products</h3>
               </div>
             </div>
@@ -582,9 +556,14 @@ const handleEditProduct = async (editedProduct) => {
         </motion.div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white shadow-md rounded-lg p-6">
+      {/* Modern Search and Filters */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
+        <motion.div 
+          variants={fadeIn}
+          initial="hidden"
+          animate="visible"
+          className="bg-white shadow-sm rounded-xl p-6 border border-gray-100"
+        >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div className="w-full md:w-96 relative">
               <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -593,7 +572,7 @@ const handleEditProduct = async (editedProduct) => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by name or SKU..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
               />
             </div>
             <div className="flex space-x-4">
@@ -602,7 +581,8 @@ const handleEditProduct = async (editedProduct) => {
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none"
+                  style={{ backgroundImage: "url(\"data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.75rem center", backgroundSize: "1rem" }}
                 >
                   {categories.map(category => (
                     <option key={category} value={category}>{category}</option>
@@ -610,67 +590,84 @@ const handleEditProduct = async (editedProduct) => {
                 </select>
               </div>
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => {
                   setSearchTerm("");
                   setCategoryFilter("All");
                   setSortConfig({ key: null, direction: null });
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-1"
+                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center space-x-2 transition-colors"
               >
                 <FiRefreshCw size={16} />
                 <span>Reset</span>
               </motion.button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
-      {/* Inventory Table */}
+      {/* Modern Inventory Table */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+        <motion.div 
+          variants={fadeIn}
+          initial="hidden"
+          animate="visible"
+          className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100"
+        >
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th 
                     onClick={() => requestSort('name')}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="group px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
-                    Product Name
-                    {sortConfig.key === 'name' && (
-                      <span className="ml-1">{sortConfig.direction === 'ascending' ? '↑' : '↓'}</span>
-                    )}
+                    <div className="flex items-center space-x-1">
+                      <span>Product Name</span>
+                      {sortConfig.key === 'name' ? (
+                        sortConfig.direction === 'ascending' ? <FiArrowUp className="text-indigo-500" /> : <FiArrowDown className="text-indigo-500" />
+                      ) : (
+                        <FiArrowUp className="text-gray-300 group-hover:text-gray-400 transition-colors" />
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     SKU
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Category
                   </th>
                   <th 
                     onClick={() => requestSort('price')}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="group px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
-                    Price
-                    {sortConfig.key === 'price' && (
-                      <span className="ml-1">{sortConfig.direction === 'ascending' ? '↑' : '↓'}</span>
-                    )}
+                    <div className="flex items-center space-x-1">
+                      <span>Price</span>
+                      {sortConfig.key === 'price' ? (
+                        sortConfig.direction === 'ascending' ? <FiArrowUp className="text-indigo-500" /> : <FiArrowDown className="text-indigo-500" />
+                      ) : (
+                        <FiArrowUp className="text-gray-300 group-hover:text-gray-400 transition-colors" />
+                      )}
+                    </div>
                   </th>
                   <th 
                     onClick={() => requestSort('stock')}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="group px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                   >
-                    Stock
-                    {sortConfig.key === 'stock' && (
-                      <span className="ml-1">{sortConfig.direction === 'ascending' ? '↑' : '↓'}</span>
-                    )}
+                    <div className="flex items-center space-x-1">
+                      <span>Stock</span>
+                      {sortConfig.key === 'stock' ? (
+                        sortConfig.direction === 'ascending' ? <FiArrowUp className="text-indigo-500" /> : <FiArrowDown className="text-indigo-500" />
+                      ) : (
+                        <FiArrowUp className="text-gray-300 group-hover:text-gray-400 transition-colors" />
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last Updated
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -679,7 +676,7 @@ const handleEditProduct = async (editedProduct) => {
                 {filteredInventory.length > 0 ? (
                   filteredInventory.map((item) => (
                     <motion.tr 
-                      key={item.id}
+                      key={item._id || item.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -693,7 +690,7 @@ const handleEditProduct = async (editedProduct) => {
                         {item.sku}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${categoryColors[item.category] || "bg-gray-100 text-gray-800"}`}>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${categoryColors[item.category] || "bg-gray-100 text-gray-800 border border-gray-200"}`}>
                           {item.category}
                         </span>
                       </td>
@@ -702,8 +699,10 @@ const handleEditProduct = async (editedProduct) => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${item.stock < item.threshold ? "bg-red-500" : "bg-green-500"}`}></span>
-                          <span className="text-sm text-gray-900">{item.stock}</span>
+                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${item.stock < item.threshold ? "bg-red-500" : "bg-emerald-500"}`}></span>
+                          <span className={`text-sm ${item.stock < item.threshold ? "text-red-600 font-medium" : "text-gray-900"}`}>
+                            {item.stock}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -716,7 +715,8 @@ const handleEditProduct = async (editedProduct) => {
                               setStockUpdateItem(item);
                               setUpdateQuantity(0);
                             }}
-                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
+                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50 transition-colors"
+                            title="Add Stock"
                           >
                             <FiPlusCircle size={18} />
                           </button>
@@ -725,32 +725,26 @@ const handleEditProduct = async (editedProduct) => {
                               setStockUpdateItem({...item, type: 'remove'});
                               setUpdateQuantity(0);
                             }}
-                            className="text-orange-600 hover:text-orange-900 p-1 rounded hover:bg-orange-50"
+                            className="text-orange-600 hover:text-orange-900 p-1 rounded hover:bg-orange-50 transition-colors"
+                            title="Remove Stock"
                           >
                             <FiMinusCircle size={18} />
                           </button>
                           <button
                             onClick={() => setEditingItem(item)}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
+                            title="Edit Product"
                           >
                             <FiEdit size={18} />
                           </button>
                           <button
                             onClick={() => handleDeleteItem(item._id || item.id)}
-                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
+                            title="Delete Product"
                           >
                             <FiTrash2 size={18} />
                           </button>
-                          {item.stock < item.threshold && (
-                            <button
-                              onClick={() => notifySupplier(item)}
-                              className="text-yellow-600 hover:text-yellow-900 p-1 rounded hover:bg-yellow-50"
-                              title="Notify Supplier"
-                            >
-                              <FiBell size={18} />
-                            </button>
-                          )}
-                          {item.stock < item.threshold && !pendingOrderItems.includes(item._id || item.id) ? (
+                          {item.stock < item.threshold && !pendingOrderItems.includes(item._id || item.id) && (
                             <button
                               onClick={() => {
                                 setOrderRequestItem(item);
@@ -759,12 +753,13 @@ const handleEditProduct = async (editedProduct) => {
                                   quantity: Math.max(item.threshold - item.stock, 10)
                                 });
                               }}
-                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                              title="Request Order"
+                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
+                              title="Request Restock"
                             >
                               <FiRefreshCw size={18} />
                             </button>
-                          ) : item.stock < item.threshold ? (
+                          )}
+                          {item.stock < item.threshold && pendingOrderItems.includes(item._id || item.id) && (
                             <button
                               disabled
                               className="text-gray-400 p-1 rounded"
@@ -772,39 +767,47 @@ const handleEditProduct = async (editedProduct) => {
                             >
                               <FiCheckCircle size={18} />
                             </button>
-                          ) : null}
+                          )}
                         </div>
                       </td>
                     </motion.tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="px-6 py-10 text-center text-gray-500">
-                      No inventory items found matching your criteria.
+                    <td colSpan="7" className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <FiPackage className="w-12 h-12 text-gray-300" />
+                        <h3 className="mt-2 text-base font-medium text-gray-900">No items found</h3>
+                        <p className="mt-1 text-sm text-gray-500">No inventory items match your criteria.</p>
+                      </div>
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </div>
+        </motion.div>
       </div>
 
-      {/* Stock Update Modal */}
+      {/* Stock Update Modal - Modernized */}
       {stockUpdateItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-6 w-full max-w-md"
+            className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold mb-4">
+            <h3 className="text-lg font-semibold mb-2">
               {stockUpdateItem.type === 'remove' ? 'Remove from' : 'Add to'} Inventory
             </h3>
-            <p className="mb-4">
-              {stockUpdateItem.name} (Current stock: {stockUpdateItem.stock})
+            <p className="mb-4 text-gray-500 text-sm">
+              Update the stock quantity for this product
             </p>
+            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <div className="font-medium">{stockUpdateItem.name}</div>
+              <div className="text-sm text-gray-500 mt-1">Current stock: {stockUpdateItem.stock}</div>
+            </div>
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Quantity
@@ -814,20 +817,22 @@ const handleEditProduct = async (editedProduct) => {
                 min="1"
                 value={updateQuantity}
                 onChange={(e) => setUpdateQuantity(Math.max(1, parseInt(e.target.value) || 0))}
-                className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
               />
             </div>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setStockUpdateItem(null)}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleStockUpdate(stockUpdateItem.type === 'remove' ? 'remove' : 'add')}
-                className={`px-4 py-2 text-white rounded-md ${
-                  stockUpdateItem.type === 'remove' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                className={`px-4 py-2.5 text-white rounded-lg transition-colors ${
+                  stockUpdateItem.type === 'remove' 
+                    ? 'bg-orange-600 hover:bg-orange-700' 
+                    : 'bg-indigo-600 hover:bg-indigo-700'
                 }`}
               >
                 {stockUpdateItem.type === 'remove' ? 'Remove Stock' : 'Add Stock'}
@@ -837,17 +842,19 @@ const handleEditProduct = async (editedProduct) => {
         </div>
       )}
 
-      {/* Edit Item Modal */}
+      {/* Edit Item Modal - Modernized */}
       {editingItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-6 w-full max-w-2xl"
+            className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold mb-4">Edit Product</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <h3 className="text-lg font-semibold mb-2">Edit Product</h3>
+            <p className="mb-4 text-gray-500 text-sm">Update the product details</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Product Name
@@ -856,7 +863,7 @@ const handleEditProduct = async (editedProduct) => {
                   type="text"
                   value={editingItem.name}
                   onChange={(e) => setEditingItem({...editingItem, name: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                 />
               </div>
               <div>
@@ -867,7 +874,7 @@ const handleEditProduct = async (editedProduct) => {
                   type="text"
                   value={editingItem.sku}
                   onChange={(e) => setEditingItem({...editingItem, sku: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                 />
               </div>
               <div>
@@ -877,7 +884,8 @@ const handleEditProduct = async (editedProduct) => {
                 <select
                   value={editingItem.category}
                   onChange={(e) => setEditingItem({...editingItem, category: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 appearance-none"
+                  style={{ backgroundImage: "url(\"data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.75rem center", backgroundSize: "1rem" }}
                 >
                   {predefinedCategories.map(category => (
                     <option key={category} value={category}>{category}</option>
@@ -894,7 +902,7 @@ const handleEditProduct = async (editedProduct) => {
                   step="0.01"
                   value={editingItem.price}
                   onChange={(e) => setEditingItem({...editingItem, price: parseFloat(e.target.value)})}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                 />
               </div>
               <div>
@@ -906,7 +914,7 @@ const handleEditProduct = async (editedProduct) => {
                   min="0"
                   value={editingItem.stock}
                   onChange={(e) => setEditingItem({...editingItem, stock: parseInt(e.target.value)})}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                 />
               </div>
               <div>
@@ -918,10 +926,10 @@ const handleEditProduct = async (editedProduct) => {
                   min="0"
                   value={editingItem.threshold}
                   onChange={(e) => setEditingItem({...editingItem, threshold: parseInt(e.target.value)})}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                 />
               </div>
-              <div className="md:col-span-2 mt-4">
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Product Description
                 </label>
@@ -929,12 +937,12 @@ const handleEditProduct = async (editedProduct) => {
                   rows={3}
                   value={editingItem.description || ''}
                   onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                 />
               </div>
 
-              <div className="md:col-span-2 mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Product Image
                 </label>
                 <div className="mt-1 flex items-center">
@@ -947,12 +955,12 @@ const handleEditProduct = async (editedProduct) => {
                             : `http://localhost:5000${editingItem.image}`
                         } 
                         alt={editingItem.name}
-                        className="h-24 w-auto object-contain" 
+                        className="h-28 w-auto object-contain rounded-lg border border-gray-200" 
                       />
                       <button
                         type="button"
                         onClick={() => setEditingItem({...editingItem, image: ''})}
-                        className="absolute top-0 right-0 bg-red-100 rounded-full p-1 hover:bg-red-200"
+                        className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition-colors"
                       >
                         <FiX className="text-red-600" size={16} />
                       </button>
@@ -961,10 +969,12 @@ const handleEditProduct = async (editedProduct) => {
                     <button
                       type="button"
                       onClick={() => document.getElementById('edit-product-image').click()}
-                      className="flex justify-center items-center h-24 w-32 border-2 border-gray-300 border-dashed rounded-md hover:border-indigo-400"
+                      className="flex justify-center items-center h-28 w-full border-2 border-gray-300 border-dashed rounded-lg hover:border-indigo-400 transition-colors"
                     >
-                      <FiUpload className="text-gray-400" />
-                      <span className="ml-2 text-sm text-gray-500">Upload image</span>
+                      <div className="text-center">
+                        <FiUpload className="mx-auto h-8 w-8 text-gray-400" />
+                        <span className="mt-1 text-sm text-gray-500">Upload image</span>
+                      </div>
                     </button>
                   )}
                   <input
@@ -987,38 +997,42 @@ const handleEditProduct = async (editedProduct) => {
               </div>
             </div>
             
+            <div className="flex justify-end space-x-3 mt-4">
               <button
                 onClick={() => setEditingItem(null)}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleEditProduct(editingItem)}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                className="px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
               >
                 Save Changes
               </button>
-            </motion.div>
+            </div>
+          </motion.div>
         </div>
       )}
 
-      {/* Add New Item Modal */}
+      {/* Add New Item Modal - Modernized */}
       {isFormOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-6 w-full max-w-2xl"
+            className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold mb-4">Add New Product</h3>
+            <h3 className="text-lg font-semibold mb-2">Add New Product</h3>
+            <p className="mb-4 text-gray-500 text-sm">Enter the details for the new product</p>
+            
             <form onSubmit={(e) => {
               e.preventDefault();
               const formData = new FormData(e.target);
               handleAddProduct(formData);
             }}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Product Name
@@ -1027,7 +1041,8 @@ const handleEditProduct = async (editedProduct) => {
                     type="text"
                     name="name"
                     required
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
+                    placeholder="Enter product name"
                   />
                 </div>
                 <div>
@@ -1038,7 +1053,8 @@ const handleEditProduct = async (editedProduct) => {
                     type="text"
                     name="sku"
                     required
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
+                    placeholder="Enter SKU"
                   />
                 </div>
                 <div>
@@ -1048,8 +1064,10 @@ const handleEditProduct = async (editedProduct) => {
                   <select 
                     name="category"
                     required
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 appearance-none"
+                    style={{ backgroundImage: "url(\"data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.75rem center", backgroundSize: "1rem" }}
                   >
+                    <option value="" disabled selected>Select a category</option>
                     {predefinedCategories.map(category => (
                       <option key={category} value={category}>{category}</option>
                     ))}
@@ -1065,7 +1083,8 @@ const handleEditProduct = async (editedProduct) => {
                     min="0"
                     step="0.01"
                     required
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
+                    placeholder="0.00"
                   />
                 </div>
                 <div>
@@ -1077,7 +1096,8 @@ const handleEditProduct = async (editedProduct) => {
                     name="stock"
                     min="0"
                     required
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
+                    placeholder="0"
                   />
                 </div>
                 <div>
@@ -1089,7 +1109,8 @@ const handleEditProduct = async (editedProduct) => {
                     name="threshold"
                     min="1"
                     required
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
+                    placeholder="10"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -1099,27 +1120,27 @@ const handleEditProduct = async (editedProduct) => {
                   <textarea
                     name="description"
                     rows={3}
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                     placeholder="Enter product description..."
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Product Image
                   </label>
-                  <div className="mt-1 flex items-center">
+                  <div className="mt-1">
                     <div 
-                      className={`flex justify-center items-center w-full h-32 border-2 border-dashed rounded-lg ${
+                      className={`flex justify-center items-center w-full h-36 border-2 border-dashed rounded-lg ${
                         previewImage ? 'border-indigo-300' : 'border-gray-300'
                       } hover:border-indigo-400 cursor-pointer transition-colors`}
                       onClick={() => fileInputRef.current?.click()}
                     >
                       {previewImage ? (
-                        <div className="relative w-full h-full">
+                        <div className="relative w-full h-full flex items-center justify-center">
                           <img 
                             src={previewImage} 
                             alt="Preview" 
-                            className="h-full max-h-28 mx-auto object-contain"
+                            className="max-h-32 max-w-full object-contain rounded"
                           />
                           <button
                             type="button"
@@ -1128,17 +1149,18 @@ const handleEditProduct = async (editedProduct) => {
                               setPreviewImage(null);
                               if (fileInputRef.current) fileInputRef.current.value = '';
                             }}
-                            className="absolute top-1 right-1 bg-red-100 rounded-full p-1 hover:bg-red-200"
+                            className="absolute top-1 right-1 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
                           >
                             <FiX className="text-red-600" size={16} />
                           </button>
                         </div>
                       ) : (
-                        <div className="text-center">
+                        <div className="text-center p-6">
                           <FiImage className="mx-auto h-10 w-10 text-gray-400" />
-                          <p className="mt-1 text-sm text-gray-500">
+                          <p className="mt-2 text-sm text-gray-500">
                             Click to upload product image
                           </p>
+                          <p className="text-xs text-gray-400 mt-1">PNG, JPG up to 5MB</p>
                         </div>
                       )}
                     </div>
@@ -1153,17 +1175,17 @@ const handleEditProduct = async (editedProduct) => {
                   </div>
                 </div>
               </div>
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-end space-x-3 mt-4">
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
                 >
                   Add Product
                 </button>
@@ -1173,24 +1195,24 @@ const handleEditProduct = async (editedProduct) => {
         </div>
       )}
 
-      {/* Order Request Modal */}
+      {/* Order Request Modal - Modernized */}
       {orderRequestItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-6 w-full max-w-md"
+            className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold mb-4">Request Restock Order</h3>
-            <div className="mb-4">
-              <p className="font-medium">{orderRequestItem.name}</p>
-              <div className="mt-1 flex items-center text-sm text-gray-500">
-                <span>Current Stock: {orderRequestItem.stock}</span>
-                <span className="mx-2">•</span>
-                <span>Threshold: {orderRequestItem.threshold}</span>
+            <h3 className="text-lg font-semibold mb-2">Request Restock Order</h3>
+            <p className="mb-4 text-gray-500 text-sm">Submit a request to restock this product</p>
+            
+            <div className="bg-gray-50 p-4 rounded-lg mb-5">
+              <div className="font-medium">{orderRequestItem.name}</div>
+              <div className="flex justify-between mt-1">
+                <div className="text-sm text-gray-500">Current Stock: {orderRequestItem.stock}</div>
+                <div className="text-sm text-gray-500">Threshold: {orderRequestItem.threshold}</div>
               </div>
-              
             </div>
             
             <div className="space-y-4">
@@ -1206,7 +1228,7 @@ const handleEditProduct = async (editedProduct) => {
                     ...orderRequestDetails,
                     quantity: Math.max(1, parseInt(e.target.value) || 0)
                   })}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                 />
               </div>
               
@@ -1220,7 +1242,8 @@ const handleEditProduct = async (editedProduct) => {
                     ...orderRequestDetails,
                     priority: e.target.value
                   })}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 appearance-none"
+                  style={{ backgroundImage: "url(\"data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.75rem center", backgroundSize: "1rem" }}
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -1240,7 +1263,7 @@ const handleEditProduct = async (editedProduct) => {
                     notes: e.target.value
                   })}
                   rows={3}
-                  className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                   placeholder="Any specific requirements or details..."
                 />
               </div>
@@ -1256,13 +1279,13 @@ const handleEditProduct = async (editedProduct) => {
                     notes: ""
                   });
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleOrderRequest}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
               >
                 Submit Request
               </button>
@@ -1270,7 +1293,7 @@ const handleEditProduct = async (editedProduct) => {
           </motion.div>
         </div>
       )}
-      <ToastContainer />
+      <ToastContainer position="bottom-right" theme="colored" />
     </div>
   );
 };
