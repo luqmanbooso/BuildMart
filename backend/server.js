@@ -16,6 +16,8 @@ const shippingRoutes = require('./routes/shippingRoutes'); // Add this line
 const app = express();
 const restockRoutes = require('./routes/restockRoutes'); // Add this line
 const inquiriesRoutes = require('./routes/inquiries');
+const reviewsRoutes = require('./routes/reviews');
+const supplierPaymentRoutes = require('./routes/supplierPaymentRoutes'); // Add this line
 
 // Middleware
 app.use(cors());
@@ -31,6 +33,8 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/contractors', require('./routes/contractorprofile'));
 app.use('/api/email', require('./routes/email'));
 app.use('/api/orders', orderRoutes); // Add this line
+app.use('/api/reviews', reviewsRoutes); 
+app.use('/api/supplierPayments', supplierPaymentRoutes); // Add this line
 
 // Register the contractors routes
 app.use('/api/contractors', require('./routes/contractors'));
