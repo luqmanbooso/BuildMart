@@ -21,6 +21,23 @@ router.post('/', async (req, res) => {
   try {
     const payment = new SupplierPayment(req.body);
     const savedPayment = await payment.save();
+    // Update restock request payment status and details
+    if (req.body.requestId) {
+      const updatedRequest = await RestockRequest.findByIdAndUpdate(
+        req.body.requestId,
+        {
+          paymentStatus: 'pending payment',
+          paymentDetails: {
+            method: 'Direct Payment',
+            amount: req.body.amount,
+            transactionId: savedPayment._id,
+            paidDate: new Date()
+          }
+        },
+        { new: true }
+      );
+      console.log('Updated restock request:', updatedRequest);
+    }
     res.status(201).json(savedPayment);
   } catch (error) {
     console.error('Error creating supplier payment:', error);

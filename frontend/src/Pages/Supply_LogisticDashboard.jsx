@@ -1855,7 +1855,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
                 {activeTab === "inventory" && "Inventory Management"}
                 {activeTab === "shipments" && "Shipment Tracking"}
                 {activeTab === "orders" && "Order Management"}
-                {activeTab === "suppliers" && "Supplier Directory"}
+                {activeTab === "suppliers" && null}
                 {activeTab === "reports" && "Reports & Analytics"}
               </h1>
             </div>
@@ -1944,6 +1944,14 @@ const updateOrderStatus = async (orderId, newStatus) => {
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          {/* Supplier Management Gradient Header */}
+          {activeTab === "suppliers" && (
+            <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg p-6 mb-8">
+              <h2 className="text-3xl font-bold text-white">Supplier Management</h2>
+              <p className="text-blue-100 mt-1">Manage your suppliers, add new ones, and keep your supply chain strong</p>
+            </div>
+          )}
+
           {activeTab === "dashboard" && (
   <div className="space-y-8">
     {/* Dashboard Header */}

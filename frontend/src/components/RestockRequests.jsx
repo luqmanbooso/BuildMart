@@ -442,7 +442,7 @@ const RestockRequests = ({ inventory, setInventory }) => {
                         setRestockRequests(prev => 
                           prev.map(req => 
                             req._id === selectedRestockRequest._id
-                              ? { ...req, paymentStatus: 'paid' }
+                              ? { ...req, paymentStatus: 'pending payment' }
                               : req
                           )
                         );
@@ -700,32 +700,18 @@ const RestockRequests = ({ inventory, setInventory }) => {
                             </div>
                           )}
                           
-                          {request.status === 'delivered' && request.paymentStatus !== 'paid' && (
+                          {request.status === 'delivered' && request.paymentStatus === 'pending payment' && (
+                            <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                              Pending Payment
+                            </span>
+                          )}
+                          {request.status === 'delivered' && request.paymentStatus !== 'paid' && request.paymentStatus !== 'pending payment' && (
                             <button
                               onClick={() => openPaymentModal(request)}
                               className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
                             >
                               Pay Now
                             </button>
-                          )}
-                          
-                          {request.status === 'delivered' && request.paymentStatus === 'paid' && (
-                            <div className="relative inline-block text-left">
-                              <select
-                                className="px-2 py-1 text-xs bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    updatePaymentStatus(request._id, e.target.value);
-                                  }
-                                }}
-                                defaultValue=""
-                              >
-                                <option value="" disabled>
-                                  {statusTypesLoading ? "Loading..." : "Payment status"}
-                                </option>
-                                {getPaymentStatusOptions(request.paymentStatus)}
-                              </select>
-                            </div>
                           )}
                         </div>
                       </td>
