@@ -10,6 +10,11 @@ import {
   Clock // Add this import
 } from 'lucide-react';
 import { useSupplierPayments } from '../context/SupplierPaymentContext';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title } from 'chart.js';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
+
+// Register ChartJS components
+ChartJS.register(ArcElement, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
 function PaymentDashboard() {
   // Keep existing state variables
@@ -834,7 +839,7 @@ const processPaymentData = (data) => {
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Amount
               </th>
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1528,7 +1533,7 @@ const processPaymentData = (data) => {
       case 'Dashboard':
         return (
           <div className="space-y-6">
-            {/* Dashboard Controls */}
+            {/* Dashboard Controls - keep existing code */}
             <div className="flex justify-between items-center flex-wrap gap-4">
               <h2 className="text-lg font-semibold">Payment Overview</h2>
               <div className="flex space-x-2">
@@ -1572,13 +1577,13 @@ const processPaymentData = (data) => {
               </div>
             </div>
             
-            {/* Display Filters */}
+            {/* Display Filters - keep existing code */}
             {renderFilters()}
             
-            {/* Stats Cards */}
+            {/* Financial Summary Cards */}
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[1, 2, 3, 4].map((_, index) => (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[1, 2, 3].map((_, index) => (
                   <div key={index} className="bg-white rounded-xl shadow-sm p-6 animate-pulse">
                     <div className="flex justify-between items-start">
                       <div>
@@ -1605,74 +1610,377 @@ const processPaymentData = (data) => {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {stats.map((stat, index) => (
-                  <div key={index} className="bg-white rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 mb-1">{stat.title}</p>
-                        <p className="text-xl font-bold text-gray-900">{stat.value}</p>
-                      </div>
-                      <div className="p-3 bg-blue-50 rounded-lg">
-                        {stat.icon}
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Total Income Card */}
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md border border-green-200">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-green-700 mb-1">Total Income</p>
+                      <p className="text-2xl font-bold text-green-800">
+                        Rs. {((paymentStats?.inventorySalesTotal || 0) + 
+                        (paymentStats?.commissionIncome || 0) + 
+                        (paymentStats?.agreementFeeIncome || 0)).toLocaleString()}
+                      </p>
                     </div>
-                    <div className="mt-4 flex items-center">
-                      <span className={`text-xs font-medium ${
-                        stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {stat.change}
-                      </span>
-                      <TrendingUp 
-                        size={16} 
-                        className={`ml-2 ${
-                          stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                        } ${stat.trend === 'down' ? 'transform rotate-180' : ''}`}
-                      />
+                    <div className="p-3 bg-green-200 rounded-lg">
+                      <ArrowUpRight className="h-6 w-6 text-green-700" />
                     </div>
                   </div>
-                ))}
+                  <div className="mt-4 flex items-center">
+                    <TrendingUp size={16} className="text-green-600 mr-2" />
+                    <span className="text-xs font-medium text-green-700">Income from sales, commissions & fees</span>
+                  </div>
+                </div>
+                
+                {/* Total Expenses Card */}
+                <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md border border-red-200">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-red-700 mb-1">Total Expenses</p>
+                      <p className="text-2xl font-bold text-red-800">
+                        Rs. {((paymentStats?.serviceProviderTotal || 0) + 
+                        (totalSalaryPaid || 0) + 
+                        (supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0)).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-red-200 rounded-lg">
+                      <ArrowDownRight className="h-6 w-6 text-red-700" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center">
+                    <Activity size={16} className="text-red-600 mr-2" />
+                    <span className="text-xs font-medium text-red-700">Service providers, salaries & suppliers</span>
+                  </div>
+                </div>
+                
+                {/* Profit Card */}
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-sm p-6 transition-all duration-200 hover:shadow-md border border-blue-200">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-blue-700 mb-1">Net Profit</p>
+                      <p className="text-2xl font-bold text-blue-800">
+                        Rs. {((paymentStats?.inventorySalesTotal || 0) + 
+                        (paymentStats?.commissionIncome || 0) + 
+                        (paymentStats?.agreementFeeIncome || 0) - 
+                        (paymentStats?.serviceProviderTotal || 0) - 
+                        (totalSalaryPaid || 0) - 
+                        (supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0)).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-blue-200 rounded-lg">
+                      <DollarSign className="h-6 w-6 text-blue-700" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center">
+                    <TrendingUp size={16} className="text-blue-600 mr-2" />
+                    <span className="text-xs font-medium text-blue-700">Total income minus expenses</span>
+                  </div>
+                </div>
               </div>
             )}
             
-            {/* Payment Methods Distribution */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
-              {loading ? (
-                <div className="animate-pulse">
-                  <div className="flex items-center space-x-4">
-                    {[1, 2, 3].map((_, index) => (
-                      <div key={index} className="flex-1">
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="h-4 bg-gray-200 rounded w-20"></div>
-                          <div className="h-4 bg-gray-200 rounded w-10"></div>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-2">
-                          <div className="bg-gray-300 h-2 rounded-full" style={{ width: '60%' }}></div>
-                        </div>
-                      </div>
-                    ))}
+            {/* Charts Grid */}
+            {!loading && !error && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                {/* Income Breakdown Chart */}
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Income Distribution</h3>
+                  <div className="h-64">
+                    <Bar 
+                      data={{
+                        labels: ['Inventory Sales', 'Commission Income', 'Agreement Fees'],
+                        datasets: [
+                          {
+                            label: 'Income Amount (Rs.)',
+                            data: [
+                              paymentStats?.inventorySalesTotal || 0,
+                              paymentStats?.commissionIncome || 0,
+                              paymentStats?.agreementFeeIncome || 0
+                            ],
+                            backgroundColor: [
+                              'rgba(34, 197, 94, 0.6)',
+                              'rgba(124, 58, 237, 0.6)',
+                              'rgba(249, 115, 22, 0.6)'
+                            ],
+                            borderColor: [
+                              'rgba(34, 197, 94, 1)',
+                              'rgba(124, 58, 237, 1)',
+                              'rgba(249, 115, 22, 1)'
+                            ],
+                            borderWidth: 1
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            display: false
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                return `Rs. ${context.raw.toLocaleString()}`;
+                              }
+                            }
+                          }
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            grid: {
+                              color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                              callback: function(value) {
+                                return `Rs. ${value.toLocaleString()}`;
+                              }
+                            }
+                          },
+                          x: {
+                            grid: {
+                              display: false
+                            }
+                          }
+                        }
+                      }}
+                    />
                   </div>
                 </div>
-              ) : (
-                <div className="flex items-center space-x-4">
-                  {paymentMethodsData.map((method, index) => (
-                    <div key={index} className="flex-1">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-gray-500">{method.method}</span>
-                        <span className="text-sm font-semibold text-gray-900">{method.percentage}%</span>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${method.percentage}%` }}
-                        ></div>
+                
+                {/* Expense Breakdown Chart */}
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Expense Distribution</h3>
+                  <div className="h-64 flex items-center justify-center">
+                    <Doughnut
+                      data={{
+                        labels: ['Service Providers', 'Admin Salaries', 'Supplier Payments'],
+                        datasets: [
+                          {
+                            data: [
+                              paymentStats?.serviceProviderTotal || 0,
+                              totalSalaryPaid || 0,
+                              supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0
+                            ],
+                            backgroundColor: [
+                              'rgba(59, 130, 246, 0.6)',
+                              'rgba(234, 179, 8, 0.6)',
+                              'rgba(107, 114, 128, 0.6)'
+                            ],
+                            borderColor: [
+                              'rgba(59, 130, 246, 1)',
+                              'rgba(234, 179, 8, 1)',
+                              'rgba(107, 114, 128, 1)'
+                            ],
+                            borderWidth: 1
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: 'right',
+                            labels: {
+                              boxWidth: 12,
+                              padding: 15
+                            }
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                return `${context.label}: Rs. ${context.raw.toLocaleString()}`;
+                              }
+                            }
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                {/* Profit/Loss TrendChart (Using recent 6 months) */}
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Profit/Loss Trend</h3>
+                  <div className="h-64">
+                    {(() => {
+                      // Generate monthly profit data from payments
+                      const getMonthlyProfitData = () => {
+                        // Create a map to store monthly data
+                        const monthlyData = {};
+                        
+                        // Process income data (all payments)
+                        if (Array.isArray(payments)) {
+                          payments.forEach(payment => {
+                            const date = new Date(payment.createdAt);
+                            const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                            
+                            if (!monthlyData[monthYear]) {
+                              monthlyData[monthYear] = {
+                                month: date.toLocaleString('default', { month: 'short' }),
+                                year: date.getFullYear(),
+                                income: 0,
+                                expenses: 0
+                              };
+                            }
+                            
+                            // Categorize as income or expense
+                            if (payment.paymentType === 'inventory' || payment.paymentType === 'agreement_fee' || payment.commissionAmount > 0) {
+                              monthlyData[monthYear].income += payment.amount;
+                            } else if (payment.paymentType === 'milestone' || payment.workId) {
+                              monthlyData[monthYear].expenses += payment.amount;
+                            }
+                          });
+                        }
+                        
+                        // Convert to array and sort by date
+                        return Object.values(monthlyData)
+                          .sort((a, b) => {
+                            return new Date(`${a.year}-${a.month}-01`) - new Date(`${b.year}-${b.month}-01`);
+                          })
+                          .slice(-6); // Only take last 6 months
+                      };
+                      
+                      const monthlyProfitData = getMonthlyProfitData();
+                      const labels = monthlyProfitData.map(d => `${d.month} ${d.year}`);
+                      const incomeData = monthlyProfitData.map(d => d.income);
+                      const expenseData = monthlyProfitData.map(d => d.expenses);
+                      const profitData = monthlyProfitData.map(d => d.income - d.expenses);
+                      
+                      return (
+                        <Line
+                          data={{
+                            labels: labels,
+                            datasets: [
+                              {
+                                label: 'Income',
+                                data: incomeData,
+                                borderColor: 'rgba(34, 197, 94, 1)',
+                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                tension: 0.3,
+                                fill: false
+                              },
+                              {
+                                label: 'Expenses',
+                                data: expenseData,
+                                borderColor: 'rgba(239, 68, 68, 1)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                tension: 0.3,
+                                fill: false
+                              },
+                              {
+                                label: 'Profit',
+                                data: profitData,
+                                borderColor: 'rgba(59, 130, 246, 1)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.3,
+                                fill: false
+                              }
+                            ]
+                          }}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                              legend: {
+                                position: 'top'
+                              },
+                              tooltip: {
+                                callbacks: {
+                                  label: function(context) {
+                                    return `${context.dataset.label}: Rs. ${context.raw.toLocaleString()}`;
+                                  }
+                                }
+                              }
+                            },
+                            scales: {
+                              y: {
+                                grid: {
+                                  color: 'rgba(0, 0, 0, 0.05)'
+                                },
+                                ticks: {
+                                  callback: function(value) {
+                                    return `Rs. ${value.toLocaleString()}`;
+                                  }
+                                }
+                              }
+                            }
+                          }}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+                
+                {/* Payment Methods Distribution */}
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
+                  {loading ? (
+                    <div className="animate-pulse">
+                      <div className="flex items-center space-x-4">
+                        {[1, 2, 3].map((_, index) => (
+                          <div key={index} className="flex-1">
+                            <div className="flex justify-between items-center mb-2">
+                              <div className="h-4 bg-gray-200 rounded w-20"></div>
+                              <div className="h-4 bg-gray-200 rounded w-10"></div>
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-2">
+                              <div className="bg-gray-300 h-2 rounded-full" style={{ width: '60%' }}></div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="h-64 flex items-center justify-center">
+                      <Doughnut
+                        data={{
+                          labels: paymentMethodsData.map(method => method.method),
+                          datasets: [
+                            {
+                              data: paymentMethodsData.map(method => method.percentage),
+                              backgroundColor: [
+                                'rgba(59, 130, 246, 0.6)',
+                                'rgba(234, 179, 8, 0.6)',
+                                'rgba(107, 114, 128, 0.6)'
+                              ],
+                              borderColor: [
+                                'rgba(59, 130, 246, 1)',
+                                'rgba(234, 179, 8, 1)',
+                                'rgba(107, 114, 128, 1)'
+                              ],
+                              borderWidth: 1
+                            }
+                          ]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              position: 'right',
+                              labels: {
+                                boxWidth: 12,
+                                padding: 15
+                              }
+                            },
+                            tooltip: {
+                              callbacks: {
+                                label: function(context) {
+                                  return `${context.label}: ${context.raw}%`;
+                                }
+                              }
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
             
             {/* Payment Details Modal */}
             {renderPaymentDetailsModal()}
@@ -1877,7 +2185,6 @@ const processPaymentData = (data) => {
           </div>
         );
   
-      // ... rest of your cases remain the same
       case 'Wages':
         return (
           <div className="space-y-6">
@@ -2052,7 +2359,7 @@ const processPaymentData = (data) => {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-lg font-semibold">Supplier Payment Records</h2>
                   <div className="flex space-x-2">
-                    <button className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg">
+                    <button className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
                       <Download size={16} className="mr-2" />
                       Export
                     </button>
@@ -2149,9 +2456,9 @@ const processPaymentData = (data) => {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee Name</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -2244,7 +2551,7 @@ const processPaymentData = (data) => {
                   </p>
                 </div>
                 <div className="bg-purple-50 p-4 rounded-lg">
-                  <p className="text-sm text-purple-600 font-medium">Commission Transactions</p>
+                  <p className="text-sm text-purple-600 font-medium">Total Agreements</p>
                   <p className="text-2xl font-bold text-purple-700">
                     {commissionPayments.length}
                   </p>
@@ -2287,11 +2594,7 @@ const processPaymentData = (data) => {
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              {payment.paymentType === 'milestone' 
-                                ? 'Milestone Payment' 
-                                : payment.paymentType === 'inventory' 
-                                  ? 'Inventory Sale'
-                                  : 'Transaction'}
+                              {payment.paymentType || 'Transaction'}
                             </div>
                             <div className="text-xs text-gray-500">ID: {payment.id}</div>
                           </td>
@@ -2416,13 +2719,11 @@ const processPaymentData = (data) => {
                           <td className="px-3 py-4 whitespace-nowrap">
                             {getStatusBadge(payment.status)}
                           </td>
-                          <td className="px-3 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-orange-700">
-                              Rs. {parseFloat(payment.amount).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              })}
-                            </div>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-orange-700">
+                            Rs. {parseFloat(payment.amount).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
                           </td>
                         </tr>
                       ))
@@ -2721,11 +3022,6 @@ const processPaymentData = (data) => {
 }
 
 // Define missing functions
-const showNotificationMessage = (type, message) => {
-  // Simple alert implementation (you could replace with toast notifications)
-  alert(`${type.toUpperCase()}: ${message}`);
-};
-
 const exportServiceProviderData = () => {
   // Create CSV header
   const headers = [
@@ -2849,6 +3145,12 @@ const exportAgreementFeeData = () => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+};
+
+// Add this helper function inside the component too
+const showNotificationMessage = (type, message) => {
+  // Simple alert implementation (you could replace with toast notifications)
+  alert(`${type.toUpperCase()}: ${message}`);
 };
 
 export default PaymentDashboard;
