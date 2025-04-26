@@ -35,6 +35,11 @@ router.post('/', async (req, res) => {
         active: true
       });
     }
+
+    // Calculate total amount
+    const unitPrice = req.body.unitPrice || (supplier ? supplier.price : 0);
+    const quantity = req.body.quantity || (product.threshold - product.stock + 10);
+    const totalAmount = unitPrice * quantity;
     
     const restockRequest = new RestockRequest({
       productId: product._id,
@@ -42,12 +47,14 @@ router.post('/', async (req, res) => {
       sku: product.sku,
       currentStock: product.stock,
       threshold: product.threshold,
-      quantity: req.body.quantity || (product.threshold - product.stock + 10), // Default to threshold + buffer
+      quantity: quantity,
+      unitPrice: unitPrice,
+      totalAmount: totalAmount,
       priority: req.body.priority || (product.stock <= 0 ? 'urgent' : product.stock < product.threshold/2 ? 'high' : 'medium'),
       supplierId: supplier ? supplier._id : null,
       supplierName: supplier ? supplier.name : 'Not assigned',
       status: 'requested',
-      notes: req.body.notes || `Automatic restock request for ${product.name}`,
+      notes: req.body.notes || `Automatic restock request for ${product.name}. Total amount: Rs. ${totalAmount.toLocaleString()}`,
     });
 
     const savedRequest = await restockRequest.save();

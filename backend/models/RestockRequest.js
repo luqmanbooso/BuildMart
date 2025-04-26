@@ -11,12 +11,25 @@ const restockRequestSchema = new mongoose.Schema({
     required: true
   },
   sku: String,
-  currentStock: Number,
-  threshold: Number,
+  currentStock: {
+    type: Number,
+    required: true
+  },
+  threshold: {
+    type: Number,
+    required: true
+  },
   quantity: {
     type: Number,
-    required: true,
-    min: 1
+    required: true
+  },
+  unitPrice: {
+    type: Number,
+    required: true
+  },
+  totalAmount: {
+    type: Number,
+    required: true
   },
   priority: {
     type: String,
@@ -25,9 +38,13 @@ const restockRequestSchema = new mongoose.Schema({
   },
   supplierId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Supplier'
+    ref: 'Supplier',
+    required: true
   },
-  supplierName: String,
+  supplierName: {
+    type: String,
+    required: true
+  },
   status: {
     type: String,
     enum: ['requested', 'approved', 'ordered', 'shipped', 'delivered', 'cancelled'],
@@ -38,7 +55,7 @@ const restockRequestSchema = new mongoose.Schema({
   deliveryDate: Date,
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid', 'rejected'],
+    enum: ['pending', 'paid', 'failed'],
     default: 'pending'
   },
   paymentDetails: {
@@ -55,6 +72,8 @@ const restockRequestSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: true
 });
 
 // Update the 'updatedAt' field on save

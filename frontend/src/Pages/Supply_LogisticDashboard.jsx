@@ -287,7 +287,6 @@ function Supply_LogisticDashboard() {
   const [supplierEmail, setSupplierEmail] = useState("");
   const [supplierAddress, setSupplierAddress] = useState("");
   const [supplierCategory, setSupplierCategory] = useState("");
-  const [supplierValue, setSupplierValue] = useState("");
   const [supplierPhone, setSupplierPhone] = useState("");
   const [supplierCity, setSupplierCity] = useState("");
   const [supplierCountry, setSupplierCountry] = useState("");
@@ -308,6 +307,10 @@ function Supply_LogisticDashboard() {
   const [restockRequests, setRestockRequests] = useState([]);
   const [selectedOrderForShipment, setSelectedOrderForShipment] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  // Add state variable for supplier price
+  const [supplierPrice, setSupplierPrice] = useState("");
+  const [supplierValue, setSupplierValue] = useState("");
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
@@ -854,67 +857,73 @@ const updateOrderStatus = async (orderId, newStatus) => {
     return filtered;
   };
 
-  // Fix handleRestockRequest function
-const handleRestockRequest = async (itemName) => {
-  try {
-    // Find the product in inventory
-    const product = inventory.find(item => item.name === itemName);
-    
-    if (!product) {
-      toast.error(`Product ${itemName} not found in inventory`);
-      return;
+  // Update handleRestockRequest function to use supplier price
+  const handleRestockRequest = async (itemName) => {
+    try {
+      // Find the product in inventory
+      const product = inventory.find(item => item.name === itemName);
+      
+      if (!product) {
+        toast.error(`Product ${itemName} not found in inventory`);
+        return;
+      }
+
+      // Find the specific supplier for this product based on productId
+      const productSupplier = suppliers.find(sup => sup.productId === product._id);
+      
+      if (!productSupplier) {
+        toast.error(`No supplier found for ${itemName}. Please add a supplier first.`);
+        return;
+      }
+
+      // Calculate quantity needed based on threshold
+      const quantityToOrder = product.threshold - product.stock + 10; // Order enough to be above threshold plus buffer
+      
+      // Always use the supplier's price for calculation
+      if (!productSupplier.price || productSupplier.price <= 0) {
+        toast.error(`Supplier for ${itemName} has no valid price set. Please update the supplier information.`);
+        return;
+      }
+      
+      // Calculate total amount to pay using supplier price
+      const totalAmount = quantityToOrder * productSupplier.price;
+
+      // Optimistically update UI
+      setInventory((prevInventory) =>
+        prevInventory.map((item) =>
+          item.name === itemName ? { ...item, restockRequested: true } : item
+        )
+      );
+
+      // Send request to backend
+      const restockData = {
+        productId: product._id,
+        productName: product.name,
+        quantity: quantityToOrder,
+        unitPrice: productSupplier.price,
+        totalAmount: totalAmount,
+        priority:
+          product.stock === 0
+            ? "urgent"
+            : product.stock < product.threshold / 2
+            ? "high"
+            : "medium",
+        supplierId: productSupplier._id,
+        supplierName: productSupplier.name,
+        notes: `Automatic restock request for ${product.name}. Total amount: Rs. ${totalAmount.toLocaleString()}`,
+      };
+
+      const newRequest = await restockService.createRequest(restockData);
+      
+      // Add to restock requests list
+      setRestockRequests(prevRequests => [...prevRequests, newRequest]);
+      
+      toast.success(`Restock request created for ${product.name}. Amount: Rs. ${totalAmount.toLocaleString()}`);
+    } catch (error) {
+      console.error("Error creating restock request:", error);
+      toast.error(`Failed to create restock request: ${error.message || 'Server error'}`);
     }
-
-    // Find suitable supplier for this product
-    const supplierToUse = suppliers.find(sup => 
-      sup.category && product.category && 
-      sup.category.toLowerCase().includes(product.category.toLowerCase())
-    );
-
-    // Optimistically update UI
-    setInventory((prevInventory) =>
-      prevInventory.map((item) =>
-        item.name === itemName ? { ...item, restockRequested: true } : item
-      )
-    );
-
-    // Send request to backend
-    const restockData = {
-      productId: product._id,
-      productName: product.name,
-      quantity: product.threshold - product.stock + 10, // Order enough to be above threshold plus buffer
-      priority:
-        product.stock === 0
-          ? "urgent"
-          : product.stock < product.threshold / 2
-          ? "high"
-          : "medium",
-      supplierId: supplierToUse?._id,
-      supplierName: supplierToUse?.name || "Not assigned",
-      notes: `Automatic restock request for ${product.name}`,
-    };
-
-    const newRequest = await restockService.createRequest(restockData);
-    
-    // Add to restock requests list if the component has this state
-    if (typeof setRestockRequests === 'function') {
-      setRestockRequests(prev => [newRequest, ...prev]);
-    }
-
-    toast.success(`Restock request for ${itemName} sent successfully`);
-  } catch (error) {
-    console.error("Error submitting restock request:", error);
-
-    // Revert optimistic update
-    setInventory((prevInventory) =>
-      prevInventory.map((item) =>
-        item.name === itemName ? { ...item, restockRequested: false } : item
-      )
-    );
-
-    toast.error(`Failed to send restock request for ${itemName}`);
-  }
-};
+  };
 
   // Handle payment status update
   const handlePaymentStatusUpdate = async (itemName, status) => {
@@ -975,143 +984,188 @@ const handleRestockRequest = async (itemName) => {
   // Supplier management functions
   const validateSupplierForm = () => {
     const errors = {};
-
-    // Supplier name validation (required)
+    
     if (!supplierName.trim()) {
       errors.supplierName = "Supplier name is required";
     }
-
-    // Category validation (required)
-    if (!supplierCategory.trim()) {
-      errors.supplierCategory = "Category is required";
-    }
-
-    // Contact person validation (required)
+    
     if (!supplierContact.trim()) {
       errors.supplierContact = "Contact person is required";
     }
-
-    // Email validation (required)
+    
     if (!supplierEmail.trim()) {
-      errors.supplierEmail = "Email address is required";
-    } else if (!/^[\w.-]+@[a-zA-Z\d.-]+\.[a-zA-Z]{2,}$/.test(supplierEmail)) {
+      errors.supplierEmail = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplierEmail)) {
       errors.supplierEmail = "Please enter a valid email address";
     }
-
-    // Phone number validation (required)
+    
     if (!supplierPhone.trim()) {
       errors.supplierPhone = "Phone number is required";
     } else if (!/^(?:\+94|0)[0-9]{9,10}$/.test(supplierPhone.replace(/\s+/g, ''))) {
-      errors.supplierPhone = "Please enter a valid Sri Lankan phone number (e.g., +94XXXXXXXXX or 07XXXXXXXX)";
+      errors.supplierPhone = "Please enter a valid Sri Lankan phone number";
     }
-
-    // Business Value validation (should be between 0-100%)
-    if (supplierValue) {
-      const numValue = Number(supplierValue);
-      if (isNaN(numValue) || numValue < 0 || numValue > 100) {
-        errors.supplierValue = "Business Value must be a number between 0 and 100";
+    
+    if (!selectedProduct) {
+      errors.selectedProduct = "Please select a product";
+    } else {
+      // Check if this product already has a supplier
+      const existingSupplier = suppliers.find(s => s.productId === selectedProduct._id);
+      
+      if (existingSupplier && (!currentSupplier || currentSupplier.id !== existingSupplier._id)) {
+        // If we're adding a new supplier or editing a different supplier
+        errors.selectedProduct = `This product already has a supplier: ${existingSupplier.name}`;
       }
     }
-
-    // Rest of your existing validation code...
+    
+    if (!supplierPrice || parseFloat(supplierPrice) <= 0) {
+      errors.supplierPrice = "Please enter a valid price greater than 0";
+    }
     
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   // Update handleAddSupplier function
-const handleAddSupplier = async () => {
-  // Validate form first
-  if (!validateSupplierForm()) {
-    toast.error("Please correct the errors in the form");
-    return;
-  }
+  const handleAddSupplier = async () => {
+    // Validate form first
+    if (!validateSupplierForm()) {
+      toast.error("Please correct the errors in the form");
+      return;
+    }
 
-  try {
-    setIsLoading(true);
-    const newSupplier = {
-      name: supplierName,
-      value: parseInt(supplierValue) || 0,
-      contact: supplierContact,
-      email: supplierEmail,
-      address: supplierAddress,
-      category: supplierCategory,
-      phone: supplierPhone,
-      city: supplierCity,
-      country: supplierCountry,
-      website: supplierWebsite,
-      paymentTerms: paymentTerms,
-      leadTime: leadTime,
-      notes: supplierNotes,
-    };
+    // Check if a product is selected
+    if (!selectedProduct) {
+      setValidationErrors({
+        ...validationErrors,
+        selectedProduct: "Please select a product"
+      });
+      toast.error("Please select a product");
+      return;
+    }
 
-    const createdSupplier = await supplierService.createSupplier(newSupplier);
-    setSuppliers([...suppliers, createdSupplier]);
-    resetForm();
-    setError(null);
-    toast.success("Supplier added successfully");
-  } catch (error) {
-    setError("Failed to add supplier. Please try again.");
-    toast.error("Failed to add supplier");
-  } finally {
-    setIsLoading(false);
-  }
-};
+    try {
+      setIsLoading(true);
+      const newSupplier = {
+        name: supplierName || "",
+        value: supplierValue ? parseFloat(supplierValue) : 0,
+        contact: supplierContact || "",
+        email: supplierEmail || "",
+        address: supplierAddress || "",
+        category: supplierCategory || "",
+        phone: supplierPhone || "",
+        city: supplierCity || "",
+        country: supplierCountry || "",
+        website: supplierWebsite || "",
+        paymentTerms: paymentTerms || "",
+        leadTime: leadTime ? parseInt(leadTime) : 0,
+        notes: supplierNotes || "",
+        productId: selectedProduct._id,
+        active: true,
+        price: supplierPrice ? parseFloat(supplierPrice) : 0 // Add price field
+      };
 
-// Similarly update handleUpdateSupplier
-const handleUpdateSupplier = async () => {
-  if (!currentSupplier || !currentSupplier.id) {
-    setError("Cannot update: Missing supplier ID");
-    return;
-  }
+      console.log("Adding new supplier with data:", newSupplier);
 
-  // Validate form first
-  if (!validateSupplierForm()) {
-    toast.error("Please correct the errors in the form");
-    return;
-  }
+      const createdSupplier = await supplierService.createSupplier(newSupplier);
+      
+      // Update local suppliers list
+      setSuppliers(prevSuppliers => [...prevSuppliers, createdSupplier]);
+      
+      // Close the form
+      resetForm();
+      setShowSupplierForm(false);
+      
+      setError(null);
+      toast.success("Supplier added successfully");
+      
+      // Refresh the suppliers list
+      await fetchSuppliers();
+    } catch (error) {
+      console.error("Add supplier error:", error);
+      setError(`Failed to add supplier: ${error.message || 'Server error'}`);
+      toast.error(`Failed to add supplier: ${error.message || 'Server error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  try {
-    setIsLoading(true);
-    const updatedSupplierData = {
-      name: supplierName,
-      value: parseInt(supplierValue) || 0,
-      contact: supplierContact,
-      email: supplierEmail,
-      address: supplierAddress,
-      category: supplierCategory,
-      phone: supplierPhone,
-      city: supplierCity,
-      country: supplierCountry,
-      website: supplierWebsite,
-      paymentTerms: paymentTerms,
-      leadTime: parseInt(leadTime) || 0,
-      notes: supplierNotes,
-    };
+  // Update handleUpdateSupplier function
+  const handleUpdateSupplier = async () => {
+    if (!currentSupplier || !currentSupplier.id) {
+      setError("Cannot update: Missing supplier ID");
+      return;
+    }
 
-    const updatedSupplier = await supplierService.updateSupplier(
-      currentSupplier.id,
-      updatedSupplierData
-    );
+    // Validate form first
+    if (!validateSupplierForm()) {
+      toast.error("Please correct the errors in the form");
+      return;
+    }
 
-    setSuppliers(
-      suppliers.map((supplier) =>
-        supplier._id === currentSupplier.id
-          ? { ...supplier, ...updatedSupplierData }
-          : supplier
-      )
-    );
+    // Check if a product is selected
+    if (!selectedProduct) {
+      setValidationErrors({
+        ...validationErrors,
+        selectedProduct: "Please select a product"
+      });
+      toast.error("Please select a product");
+      return;
+    }
 
-    toast.success("Supplier updated successfully");
-    resetForm();
-    setError(null);
-  } catch (error) {
-    setError(`Failed to update supplier: ${error.message || 'Server error'}`);
-    toast.error(`Failed to update supplier: ${error.message || 'Server error'}`);
-  } finally {
-    setIsLoading(false);
-  }
-};
+    try {
+      setIsLoading(true);
+      const updatedSupplierData = {
+        name: supplierName || "",
+        value: supplierValue ? parseFloat(supplierValue) : 0,
+        contact: supplierContact || "",
+        email: supplierEmail || "",
+        address: supplierAddress || "",
+        category: supplierCategory || "",
+        phone: supplierPhone || "",
+        city: supplierCity || "",
+        country: supplierCountry || "",
+        website: supplierWebsite || "",
+        paymentTerms: paymentTerms || "",
+        leadTime: leadTime ? parseInt(leadTime) : 0,
+        notes: supplierNotes || "",
+        productId: selectedProduct._id,
+        active: true,
+        price: supplierPrice ? parseFloat(supplierPrice) : 0 // Add price field
+      };
+
+      console.log("Updating supplier with data:", updatedSupplierData);
+
+      const updatedSupplier = await supplierService.updateSupplier(
+        currentSupplier.id,
+        updatedSupplierData
+      );
+
+      // Update local suppliers list
+      setSuppliers(prevSuppliers =>
+        prevSuppliers.map(supplier =>
+          supplier.id === currentSupplier.id
+            ? { ...supplier, ...updatedSupplierData }
+            : supplier
+        )
+      );
+
+      // Close the form
+      resetForm();
+      setShowSupplierForm(false);
+      
+      setError(null);
+      toast.success("Supplier updated successfully");
+      
+      // Refresh the suppliers list
+      await fetchSuppliers();
+    } catch (error) {
+      console.error("Update supplier error:", error);
+      setError(`Failed to update supplier: ${error.message || 'Server error'}`);
+      toast.error(`Failed to update supplier: ${error.message || 'Server error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleDeleteSupplier = async (supplierId) => {
     const confirmed = window.confirm(
@@ -1129,9 +1183,24 @@ const handleUpdateSupplier = async () => {
         }
         
         await supplierService.deleteSupplier(supplierId);
+        
+        // Update local suppliers list
         setSuppliers(suppliers.filter((supplier) => supplier._id !== supplierId));
-        toast.success("Supplier deleted successfully");
         setError(null);
+        toast.success("Supplier deleted successfully");
+        
+        // Refresh the suppliers list after deletion
+        try {
+          const data = await supplierService.getAllSuppliers();
+          if (Array.isArray(data)) {
+            setSuppliers(data.map(supplier => ({
+              ...supplier,
+              id: supplier._id || supplier.id
+            })));
+          }
+        } catch (refreshError) {
+          console.error("Error refreshing suppliers:", refreshError);
+        }
       } catch (error) {
         console.error("Delete supplier error:", error);
         setError(`Failed to delete supplier: ${error.message || 'Server error'}`);
@@ -1142,9 +1211,10 @@ const handleUpdateSupplier = async () => {
     }
   };
 
+  // Update editSupplier function
   const editSupplier = (supplier) => {
     setCurrentSupplier({
-      id: supplier._id, // Make sure we're using the MongoDB _id
+      id: supplier._id,
       ...supplier
     });
     setSupplierName(supplier.name || "");
@@ -1153,16 +1223,21 @@ const handleUpdateSupplier = async () => {
     setSupplierAddress(supplier.address || "");
     setSupplierPhone(supplier.phone || "");
     setSupplierCity(supplier.city || "");
-    setSupplierCountry(supplier.country || "");
-    setSupplierCategory(supplier.category || "");
-    setSupplierValue(supplier.value?.toString() || "");
     setSupplierWebsite(supplier.website || "");
     setPaymentTerms(supplier.paymentTerms || "");
     setLeadTime(supplier.leadTime?.toString() || "");
     setSupplierNotes(supplier.notes || "");
+    setSupplierPrice(supplier.price?.toString() || "");
+    
+    // Set the selected product
+    const product = inventory.find(p => p._id === supplier.productId);
+    setSelectedProduct(product);
+    setSupplierCategory(product ? product.category : "");
+    
     setShowSupplierForm(true);
   };
 
+  // Update resetForm function
   const resetForm = () => {
     setCurrentSupplier(null);
     setSupplierName("");
@@ -1171,14 +1246,14 @@ const handleUpdateSupplier = async () => {
     setSupplierAddress("");
     setSupplierPhone("");
     setSupplierCity("");
-    setSupplierCountry("");
     setSupplierCategory("");
-    setSupplierValue("");
     setSupplierWebsite("");
     setPaymentTerms("");
     setLeadTime("");
     setSupplierNotes("");
-    setShowSupplierForm(false);
+    setSupplierPrice("");
+    setSelectedProduct(null);
+    setValidationErrors({});
   };
 
   // Helper function to determine stock status
@@ -1186,6 +1261,44 @@ const handleUpdateSupplier = async () => {
     if (stock <= 0) return "Critical";
     if (stock < threshold) return "Low Stock";
     return "In Stock";
+  };
+
+  // Add a new function to handle modal closing and refresh suppliers
+  const handleCloseSupplierForm = () => {
+    resetForm();
+    setShowSupplierForm(false);
+    // Refresh suppliers list when form is closed
+    fetchSuppliers();
+  };
+
+  // Update the product selection change handler to check if product already has a supplier
+  const handleProductChange = (e) => {
+    const product = inventory.find(p => p._id === e.target.value);
+    
+    if (product) {
+      // Check if this product already has a supplier
+      const existingSupplier = suppliers.find(s => s.productId === product._id);
+      
+      if (existingSupplier && (!currentSupplier || currentSupplier.id !== existingSupplier._id)) {
+        // If we're adding a new supplier or editing a different supplier
+        setValidationErrors({
+          ...validationErrors,
+          selectedProduct: `This product already has a supplier: ${existingSupplier.name}`
+        });
+      } else {
+        // Clear validation error if no conflict
+        const newErrors = {...validationErrors};
+        delete newErrors.selectedProduct;
+        setValidationErrors(newErrors);
+      }
+      
+      // Do NOT set default price from product - leave it blank
+      // This allows user to enter their own price
+      setSupplierPrice("");
+    }
+    
+    setSelectedProduct(product);
+    setSupplierCategory(product ? product.category : "");
   };
 
   if (loading) {
@@ -1593,6 +1706,22 @@ const handleUpdateSupplier = async () => {
     
     toast.success("Payment processed successfully");
     setShowPaymentModal(false);
+  };
+
+  // Add fetchSuppliers function after the useEffect hooks
+  const fetchSuppliers = async () => {
+    try {
+      const data = await supplierService.getAllSuppliers();
+      if (Array.isArray(data)) {
+        setSuppliers(data.map(supplier => ({
+          ...supplier,
+          id: supplier._id || supplier.id
+        })));
+      }
+    } catch (error) {
+      console.error("Error fetching suppliers:", error);
+      setError("Failed to fetch suppliers");
+    }
   };
 
   return (
@@ -2884,7 +3013,7 @@ const handleUpdateSupplier = async () => {
                             : "Add New Supplier"}
                         </h3>
                         <button
-                          onClick={resetForm}
+                          onClick={handleCloseSupplierForm}
                           className="text-gray-500 hover:text-gray-700 transition-colors"
                         >
                           <X className="h-5 w-5" />
@@ -2917,7 +3046,6 @@ const handleUpdateSupplier = async () => {
                                   value={supplierName}
                                   onChange={(e) => {
                                     setSupplierName(e.target.value);
-                                    // Clear validation error when user types
                                     if (validationErrors.supplierName) {
                                       const newErrors = {...validationErrors};
                                       delete newErrors.supplierName;
@@ -2945,40 +3073,82 @@ const handleUpdateSupplier = async () => {
 
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Category <span className="text-red-500">*</span>
+                                Product <span className="text-red-500">*</span>
                               </label>
                               <div className="relative">
                                 <select
-                                  value={supplierCategory}
-                                  onChange={(e) => {
-                                    setSupplierCategory(e.target.value);
-                                    if (validationErrors.supplierCategory) {
-                                      setValidationErrors({
-                                        ...validationErrors,
-                                        supplierCategory: null
-                                      });
-                                    }
-                                  }}
+                                  value={selectedProduct ? selectedProduct._id : ""}
+                                  onChange={handleProductChange}
                                   className={`w-full px-3 py-2 bg-gray-50 border ${
-                                    validationErrors.supplierCategory 
+                                    validationErrors.selectedProduct 
                                       ? "border-red-500 focus:ring-red-500" 
                                       : "border-gray-300 focus:ring-blue-500"
                                   } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
                                 >
-                                  <option value="">Select a category</option>
-                                  <option value="Safety Gear & Accessories">Safety Gear & Accessories</option>
-                                  <option value="Tools & Equipment">Tools & Equipment</option>
-                                  <option value="Construction Materials">Construction Materials</option>
-                                  <option value="Plumbing & Electrical Supplies">Plumbing & Electrical Supplies</option>
+                                  <option value="">Select a product</option>
+                                  {inventory.map(product => (
+                                    <option key={product._id} value={product._id}>
+                                      {product.name} ({product.category})
+                                    </option>
+                                  ))}
                                 </select>
-                                {supplierCategory && !validationErrors.supplierCategory && (
+                                {selectedProduct && !validationErrors.selectedProduct && (
                                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                     <CheckCircle className="h-5 w-5 text-green-500" />
                                   </div>
                                 )}
                               </div>
-                              {validationErrors.supplierCategory && (
-                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierCategory}</p>
+                              {validationErrors.selectedProduct && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.selectedProduct}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Category
+                              </label>
+                              <input
+                                type="text"
+                                value={supplierCategory}
+                                readOnly
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Price per Item (LKR) <span className="text-red-500">*</span>
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="0.01"
+                                  step="0.01"
+                                  value={supplierPrice}
+                                  onChange={(e) => {
+                                    setSupplierPrice(e.target.value);
+                                    if (validationErrors.supplierPrice) {
+                                      const newErrors = {...validationErrors};
+                                      delete newErrors.supplierPrice;
+                                      setValidationErrors(newErrors);
+                                    }
+                                  }}
+                                  className={`w-full px-3 py-2 bg-gray-50 border ${
+                                    validationErrors.supplierPrice 
+                                      ? "border-red-500 focus:ring-red-500" 
+                                      : "border-gray-300 focus:ring-blue-500"
+                                  } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                                  placeholder="Enter purchase price"
+                                  required
+                                />
+                                {supplierPrice && parseFloat(supplierPrice) > 0 && !validationErrors.supplierPrice && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                  </div>
+                                )}
+                              </div>
+                              {validationErrors.supplierPrice && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierPrice}</p>
                               )}
                             </div>
 
@@ -2992,15 +3162,8 @@ const handleUpdateSupplier = async () => {
                                 </span>
                                 <input
                                   type="text"
-                                  value={supplierWebsite.replace(
-                                    /^https?:\/\//,
-                                    ""
-                                  )}
-                                  onChange={(e) =>
-                                    setSupplierWebsite(
-                                      `https://${e.target.value}`
-                                    )
-                                  }
+                                  value={supplierWebsite.replace(/^https?:\/\//, "")}
+                                  onChange={(e) => setSupplierWebsite(`https://${e.target.value}`)}
                                   className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                                   placeholder="example.com"
                                 />
@@ -3011,61 +3174,6 @@ const handleUpdateSupplier = async () => {
                                 </p>
                               )}
                             </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Business Value (0-100%)
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  value={supplierValue}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setSupplierValue(val);
-                                    
-                                    // Real-time validation
-                                    if (val) {
-                                      const numValue = Number(val);
-                                      if (isNaN(numValue) || numValue < 0 || numValue > 100) {
-                                        setValidationErrors({
-                                          ...validationErrors,
-                                          supplierValue: "Business Value must be a number between 0 and 100"
-                                        });
-                                      } else {
-                                        setValidationErrors({
-                                          ...validationErrors,
-                                          supplierValue: null
-                                        });
-                                      }
-                                    } else {
-                                      // Empty field - clear error
-                                      setValidationErrors({
-                                        ...validationErrors,
-                                        supplierValue: null
-                                      });
-                                    }
-                                  }}
-                                  className={`w-full px-3 py-2 bg-gray-50 border ${
-                                    validationErrors.supplierValue 
-                                      ? "border-red-500 focus:ring-red-500" 
-                                      : "border-gray-300 focus:ring-blue-500"
-                                  } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
-                                  placeholder="Percentage of business (0-100)"
-                                />
-                                {supplierValue && !validationErrors.supplierValue && Number(supplierValue) >= 0 && Number(supplierValue) <= 100 && (
-                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                  </div>
-                                )}
-                              </div>
-                              {validationErrors.supplierValue && (
-                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierValue}</p>
-                              )}
-                            </div>
-
                           </div>
                         </div>
 
@@ -3113,35 +3221,50 @@ const handleUpdateSupplier = async () => {
 
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Phone Number <span className="text-red-500">*</span>
+                                Email <span className="text-red-500">*</span>
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="email"
+                                  value={supplierEmail}
+                                  onChange={(e) => {
+                                    setSupplierEmail(e.target.value);
+                                    if (validationErrors.supplierEmail) {
+                                      setValidationErrors({
+                                        ...validationErrors,
+                                        supplierEmail: null
+                                      });
+                                    }
+                                  }}
+                                  className={`w-full px-3 py-2 bg-gray-50 border ${
+                                    validationErrors.supplierEmail 
+                                      ? "border-red-500 focus:ring-red-500" 
+                                      : "border-gray-300 focus:ring-blue-500"
+                                  } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                                  placeholder="email@example.com"
+                                />
+                                {supplierEmail.trim() && !validationErrors.supplierEmail && (
+                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <CheckCircle className="h-5 w-5 text-green-500" />
+                                  </div>
+                                )}
+                              </div>
+                              {validationErrors.supplierEmail && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierEmail}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Phone <span className="text-red-500">*</span>
                               </label>
                               <div className="relative">
                                 <input
                                   type="tel"
                                   value={supplierPhone}
                                   onChange={(e) => {
-                                    const val = e.target.value;
-                                    setSupplierPhone(val);
-                                    
-                                    // Real-time validation for Sri Lankan phone numbers
-                                    if (val) {
-                                      // Remove spaces for validation
-                                      const cleanedPhone = val.replace(/\s+/g, '');
-                                      
-                                      // Check if it matches Sri Lankan format: +94XXXXXXXXX or 0XXXXXXXXX
-                                      if (!/^(?:\+94|0)[0-9]{9,10}$/.test(cleanedPhone)) {
-                                        setValidationErrors({
-                                          ...validationErrors,
-                                          supplierPhone: "Please enter a valid Sri Lankan phone number (e.g., +94XXXXXXXXX or 07XXXXXXXX)"
-                                        });
-                                      } else {
-                                        setValidationErrors({
-                                          ...validationErrors,
-                                          supplierPhone: null
-                                        });
-                                      }
-                                    } else {
-                                      // Empty field - clear error
+                                    setSupplierPhone(e.target.value);
+                                    if (validationErrors.supplierPhone) {
                                       setValidationErrors({
                                         ...validationErrors,
                                         supplierPhone: null
@@ -3153,10 +3276,9 @@ const handleUpdateSupplier = async () => {
                                       ? "border-red-500 focus:ring-red-500" 
                                       : "border-gray-300 focus:ring-blue-500"
                                   } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
-                                  placeholder="+94 XX XXX XXXX"
-                                  required
+                                  placeholder="+94XXXXXXXXX or 07XXXXXXXX"
                                 />
-                                {supplierPhone && !validationErrors.supplierPhone && (
+                                {supplierPhone.trim() && !validationErrors.supplierPhone && (
                                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                     <CheckCircle className="h-5 w-5 text-green-500" />
                                   </div>
@@ -3167,50 +3289,19 @@ const handleUpdateSupplier = async () => {
                               )}
                             </div>
 
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Email Address <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                City
+                              </label>
                               <input
-                                type="email"
-                                value={supplierEmail}
-                                onChange={(e) => {
-                                  setSupplierEmail(e.target.value);
-                                  if (validationErrors.supplierEmail) {
-                                    setValidationErrors({
-                                      ...validationErrors,
-                                      supplierEmail: null
-                                    });
-                                  }
-                                }}
-                                className={`w-full px-3 py-2 bg-gray-50 border ${
-                                  validationErrors.supplierEmail 
-                                    ? "border-red-500 focus:ring-red-500" 
-                                    : "border-gray-300 focus:ring-blue-500"
-                                } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
-                                placeholder="email@example.com"
-                                required
+                                type="text"
+                                value={supplierCity}
+                                onChange={(e) => setSupplierCity(e.target.value)}
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                                placeholder="City"
                               />
-                              {supplierEmail && !validationErrors.supplierEmail && (
-                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                  <CheckCircle className="h-5 w-5 text-green-500" />
-                                </div>
-                              )}
                             </div>
-                            {validationErrors.supplierEmail && (
-                              <p className="mt-1 text-sm text-red-600">{validationErrors.supplierEmail}</p>
-                            )}
                           </div>
-                        </div>
-
-                        {/* Location Information */}
-                        <div className="space-y-4 md:col-span-2">
-                          <h4 className="text-sm font-medium text-blue-600 uppercase tracking-wider">
-                            Location
-                          </h4>
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -3218,30 +3309,11 @@ const handleUpdateSupplier = async () => {
                             </label>
                             <textarea
                               value={supplierAddress}
-                              onChange={(e) =>
-                                setSupplierAddress(e.target.value)
-                              }
+                              onChange={(e) => setSupplierAddress(e.target.value)}
                               rows="2"
                               className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                               placeholder="Street address"
                             ></textarea>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Country
-                              </label>
-                              <input
-                                type="text"
-                                value={supplierCountry}
-                                onChange={(e) =>
-                                  setSupplierCountry(e.target.value)
-                                }
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                                placeholder="Country"
-                              />
-                            </div>
                           </div>
                         </div>
 
@@ -3256,25 +3328,13 @@ const handleUpdateSupplier = async () => {
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Payment Terms
                               </label>
-                              <select
+                              <input
+                                type="text"
                                 value={paymentTerms}
-                                onChange={(e) =>
-                                  setPaymentTerms(e.target.value)
-                                }
+                                onChange={(e) => setPaymentTerms(e.target.value)}
                                 className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                              >
-                                <option value="">Select payment terms</option>
-                                <option value="Net 15">Net 15</option>
-                                <option value="Net 30">Net 30</option>
-                                <option value="Net 45">Net 45</option>
-                                <option value="Net 60">Net 60</option>
-                                <option value="Due on Receipt">
-                                  Due on Receipt
-                                </option>
-                                <option value="Advance Payment">
-                                  Advance Payment
-                                </option>
-                              </select>
+                                placeholder="e.g., Net 30"
+                              />
                             </div>
 
                             <div>
@@ -3283,26 +3343,14 @@ const handleUpdateSupplier = async () => {
                               </label>
                               <input
                                 type="number"
-                                min="1"
+                                min="0"
                                 value={leadTime}
                                 onChange={(e) => setLeadTime(e.target.value)}
                                 className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                                placeholder="Estimated lead time"
+                                placeholder="Number of days"
                               />
-                              {validationErrors.leadTime && (
-                                <p className="text-red-500 text-xs mt-1">
-                                  {validationErrors.leadTime}
-                                </p>
-                              )}
                             </div>
                           </div>
-                        </div>
-
-                        {/* Additional Notes */}
-                        <div className="space-y-4 md:col-span-2">
-                          <h4 className="text-sm font-medium text-blue-600 uppercase tracking-wider">
-                            Additional Information
-                          </h4>
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -3327,7 +3375,7 @@ const handleUpdateSupplier = async () => {
                       </div>
                       <div className="flex items-center space-x-3">
                         <button
-                          onClick={resetForm}
+                          onClick={handleCloseSupplierForm}
                           className="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
                           disabled={isLoading}
                         >
@@ -3387,13 +3435,13 @@ const handleUpdateSupplier = async () => {
                             Supplier
                           </th>
                           <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Product
+                          </th>
+                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Category
                           </th>
                           <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Contact Details
-                          </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Business Value
                           </th>
                           <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
@@ -3421,22 +3469,18 @@ const handleUpdateSupplier = async () => {
                               >
                                 <td className="px-6 py-4">
                                   <div className="flex items-center">
-                                    <div className="h-10 w-10 flex-shrink-0 bg-blue-100 rounded-md flex items-center justify-center mr-4">
-                                      <span className="text-blue-700 font-semibold">
-                                        {supplier.name ? supplier.name.charAt(0).toUpperCase() : "S"}
-                                      </span>
+                                    <div className="h-10 w-10 flex-shrink-0 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                                      <Users className="h-5 w-5 text-blue-600" />
                                     </div>
                                     <div>
                                       <div className="font-medium text-gray-900">{supplier.name}</div>
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        {supplier.email && (
-                                          <span className="flex items-center">
-                                            <Mail className="h-3 w-3 mr-1" />
-                                            {supplier.email}
-                                          </span>
-                                        )}
-                                      </div>
+                                      <div className="text-sm text-gray-500">{supplier.website}</div>
                                     </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="text-sm text-gray-900">
+                                    {inventory.find(p => p._id === supplier.productId)?.name || 'N/A'}
                                   </div>
                                 </td>
                                 <td className="px-6 py-4">
@@ -3455,45 +3499,12 @@ const handleUpdateSupplier = async () => {
                                   </span>
                                 </td>
                                 <td className="px-6 py-4">
-                                  <div className="space-y-1">
-                                    {supplier.contact && (
-                                      <div className="text-sm font-medium text-gray-700 flex items-center">
-                                        <Users className="h-4 w-4 mr-1.5 text-gray-500" />
-                                        {supplier.contact}
-                                      </div>
-                                    )}
-                                    {supplier.phone && (
-                                      <div className="text-sm text-gray-600 flex items-center">
-                                        <Phone className="h-4 w-4 mr-1.5 text-gray-500" />
-                                        {supplier.phone}
-                                      </div>
-                                    )}
-                                    {supplier.address && (
-                                      <div className="text-sm text-gray-600 flex items-start">
-                                        <MapPin className="h-4 w-4 mr-1.5 mt-0.5 text-gray-500" />
-                                        <span className="truncate max-w-xs">{supplier.address}</span>
-                                      </div>
-                                    )}
-                                  </div>
+                                  <div className="text-sm text-gray-900">{supplier.contact}</div>
+                                  <div className="text-sm text-gray-500">{supplier.email}</div>
+                                  <div className="text-sm text-gray-500">{supplier.phone}</div>
                                 </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center">
-                                    <span className="text-gray-900 font-medium">{supplier.value || 0}%</span>
-                                    
-                                    {/* Value indicator */}
-                                    <div className="ml-4 w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                      <div 
-                                        className="h-full rounded-full bg-blue-500"
-                                        style={{ width: `${supplier.value || 0}%` }}
-                                      ></div>
-                                    </div>
-                                  </div>
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    {supplier.leadTime ? `${supplier.leadTime} days lead time` : 'Standard delivery'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex space-x-2">
+                                <td className="px-6 py-4 text-right text-sm font-medium">
+                                  <div className="flex justify-end space-x-2">
                                     <button
                                       onClick={() => editSupplier(supplier)}
                                       className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
@@ -3508,14 +3519,6 @@ const handleUpdateSupplier = async () => {
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </button>
-                                    <div className="relative">
-                                      <button
-                                        className="p-1.5 rounded-md bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors"
-                                        title="More Options"
-                                      >
-                                        <MoreVertical className="h-4 w-4" />
-                                      </button>
-                                    </div>
                                   </div>
                                 </td>
                               </tr>

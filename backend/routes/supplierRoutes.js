@@ -50,29 +50,35 @@ router.get('/:id', async (req, res) => {
 
 // Create a supplier
 router.post('/', async (req, res) => {
-  const supplier = new Supplier({
-    name: req.body.name,
-    value: req.body.value,
-    contact: req.body.contact,
-    email: req.body.email,
-    phone: req.body.phone,
-    address: req.body.address,
-    city: req.body.city,
-    country: req.body.country,
-    category: req.body.category,
-    website: req.body.website,
-    paymentTerms: req.body.paymentTerms,
-    minimumOrder: req.body.minimumOrder,
-    leadTime: req.body.leadTime,
-    taxId: req.body.taxId,
-    rating: req.body.rating,
-    preferredPayment: req.body.preferredPayment,
-    notes: req.body.notes,
-    active: req.body.active !== undefined ? req.body.active : true,
-    productCategories: req.body.productCategories || []
-  });
-
   try {
+    // Check if a supplier already exists for this product
+    const existingSupplier = await Supplier.findOne({ productId: req.body.productId });
+    if (existingSupplier) {
+      return res.status(400).json({ message: 'A supplier already exists for this product' });
+    }
+
+    const supplier = new Supplier({
+      name: req.body.name,
+      contact: req.body.contact,
+      email: req.body.email,
+      phone: req.body.phone,
+      address: req.body.address,
+      city: req.body.city,
+      country: req.body.country,
+      category: req.body.category,
+      website: req.body.website,
+      paymentTerms: req.body.paymentTerms,
+      minimumOrder: req.body.minimumOrder,
+      leadTime: req.body.leadTime,
+      taxId: req.body.taxId,
+      rating: req.body.rating,
+      preferredPayment: req.body.preferredPayment,
+      notes: req.body.notes,
+      active: req.body.active !== undefined ? req.body.active : true,
+      productId: req.body.productId,
+      price: req.body.price || 0
+    });
+
     const newSupplier = await supplier.save();
     res.status(201).json(newSupplier);
   } catch (err) {
@@ -88,12 +94,20 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Supplier not found' });
     }
 
+    // If productId is being changed, check if another supplier exists for that product
+    if (req.body.productId && req.body.productId !== supplier.productId.toString()) {
+      const existingSupplier = await Supplier.findOne({ productId: req.body.productId });
+      if (existingSupplier) {
+        return res.status(400).json({ message: 'A supplier already exists for this product' });
+      }
+    }
+
     // Update fields if they exist in the request body
     const updateFields = [
-      'name', 'value', 'contact', 'email', 'phone', 'address', 
+      'name', 'contact', 'email', 'phone', 'address', 
       'city', 'country', 'category', 'website', 'paymentTerms', 
       'minimumOrder', 'leadTime', 'taxId', 'rating', 
-      'preferredPayment', 'notes', 'active', 'productCategories'
+      'preferredPayment', 'notes', 'active', 'productId', 'price'
     ];
 
     updateFields.forEach(field => {

@@ -4,16 +4,18 @@ import {
   RefreshCw, Search, Loader, CheckCircle, Clock, DollarSign, X
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import EnhancedPaymentGateway from './Payment';
+import { useSupplierPayments } from '../context/SupplierPaymentContext';
 import { restockService } from "../services/restockService";
+import { supplierPaymentService } from '../services/supplierPaymentService';
 
-const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, setInventory }) => {
+const RestockRequests = ({ inventory, setInventory }) => {
   const [restockRequests, setRestockRequests] = useState([]);
   const [restockLoading, setRestockLoading] = useState(true);
   const [restockError, setRestockError] = useState(null);
   const [showRestockPaymentModal, setShowRestockPaymentModal] = useState(false);
   const [selectedRestockRequest, setSelectedRestockRequest] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const { addSupplierPayment } = useSupplierPayments();
   
   // Add state for status types
   const [statusTypes, setStatusTypes] = useState([]);
@@ -347,74 +349,185 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
     return "In Stock";
   };
 
+  // Add a helper function to calculate total amount if not provided
+  const calculateTotalAmount = (request) => {
+    if (request.totalAmount) {
+      return request.totalAmount;
+    }
+    
+    if (request.unitPrice && request.quantity) {
+      return request.unitPrice * request.quantity;
+    }
+    
+    return 0;
+  };
+
+  // Update the payment modal open function
+  const openPaymentModal = (request) => {
+    const totalAmount = calculateTotalAmount(request);
+    
+    setSelectedRestockRequest({
+      ...request,
+      totalAmount: totalAmount
+    });
+    setShowRestockPaymentModal(true);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Restock Payment Modal */}
+      {/* Payment Modal */}
       {showRestockPaymentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-semibold">
-                Process Payment to Supplier
-              </h3>
-              <button
-                onClick={() => setShowRestockPaymentModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <div className="p-4">
-              <div className="mb-4">
-                <h4 className="font-medium text-gray-800">Payment Details</h4>
-                <p className="text-sm text-gray-600">
-                  Product: {selectedRestockRequest?.productName}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Quantity: {selectedRestockRequest?.quantity} units
-                </p>
-                <p className="text-sm text-gray-600">
-                  Supplier: {selectedRestockRequest?.supplierName}
-                </p>
+        <div className="fixed inset-0 overflow-y-auto z-50">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Record Supplier Payment</h3>
+                  <button
+                    onClick={() => setShowRestockPaymentModal(false)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="mb-4">
+                  <p className="text-sm text-gray-500">
+                    You are about to record payment for the following restock request:
+                  </p>
+                  <div className="mt-3 bg-gray-50 p-3 rounded-md">
+                    <p><span className="font-medium">Product:</span> {selectedRestockRequest?.productName}</p>
+                    <p><span className="font-medium">Supplier:</span> {selectedRestockRequest?.supplierName}</p>
+                    <p><span className="font-medium">Quantity:</span> {selectedRestockRequest?.quantity}</p>
+                    <p className="font-bold mt-2">Total Amount: Rs. {selectedRestockRequest?.totalAmount?.toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowRestockPaymentModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        setRestockLoading(true);
+                        
+                        // Create payment record with proper data formatting
+                        const paymentRecord = {
+                          amount: selectedRestockRequest.totalAmount,
+                          supplier: selectedRestockRequest.supplierName,
+                          supplierId: selectedRestockRequest.supplierId || '507f1f77bcf86cd799439011', // Fallback ID if missing
+                          product: selectedRestockRequest.productName,
+                          quantity: selectedRestockRequest.quantity,
+                          requestId: selectedRestockRequest._id,
+                          paymentDate: new Date().toISOString(),
+                          status: 'paid'
+                        };
+
+                        console.log('Attempting to create payment:', paymentRecord);
+                        
+                        // Save payment to database
+                        const savedPayment = await supplierPaymentService.createPayment(paymentRecord);
+                        console.log('Payment saved successfully:', savedPayment);
+                        
+                        // Add to supplier payments context with the saved payment data
+                        addSupplierPayment({
+                          ...savedPayment,
+                          id: savedPayment._id // Ensure ID is properly set for the context
+                        });
+                        
+                        // Update local state to reflect the payment
+                        setRestockRequests(prev => 
+                          prev.map(req => 
+                            req._id === selectedRestockRequest._id
+                              ? { ...req, paymentStatus: 'paid' }
+                              : req
+                          )
+                        );
+                        
+                        // Show success message
+                        toast.success(`Payment of Rs. ${paymentRecord.amount.toLocaleString()} recorded successfully`);
+                        
+                        // Close modal
+                        setShowRestockPaymentModal(false);
+                      } catch (error) {
+                        console.error("Error recording payment:", error);
+                        console.error("Error details:", {
+                          response: error.response?.data,
+                          status: error.response?.status,
+                          headers: error.response?.headers
+                        });
+                        const errorMessage = error.response?.data?.message || error.message;
+                        toast.error(`Failed to record payment: ${errorMessage}`);
+                      } finally {
+                        setRestockLoading(false);
+                      }
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Record Payment
+                  </button>
+                </div>
               </div>
-              <EnhancedPaymentGateway
-                amount={selectedRestockRequest?.quantity * 500} // Example price calculation
-                onSuccess={handleRestockPaymentSuccess}
-                onCancel={() => setShowRestockPaymentModal(false)}
-              />
             </div>
           </div>
         </div>
       )}
-    
-      {/* Restock Stats */}
+
+      {/* Gradient Header */}
+      <div className="bg-gradient-to-r from-[#1e40af] to-[#1d4ed8] rounded-xl shadow-lg p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Restock Management</h1>
+            <p className="text-blue-100 mt-1">Manage your inventory restocking process efficiently</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <button
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              onClick={() => {
+                setRestockLoading(true);
+                restockService.getAllRequests()
+                  .then(data => {
+                    setRestockRequests(data);
+                    toast.success("Restock data refreshed");
+                  })
+                  .catch(error => {
+                    console.error("Error refreshing restock data:", error);
+                    toast.error("Failed to refresh restock data");
+                  })
+                  .finally(() => {
+                    setRestockLoading(false);
+                  });
+              }}
+            >
+              <RefreshCw className="h-5 w-5 text-white" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">
-                Total Requests
-              </p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {restockRequests.length}
-              </h3>
+              <p className="text-sm font-medium text-gray-500">Total Requests</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">{restockRequests.length}</h3>
             </div>
             <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
               <RefreshCw className="h-6 w-6 text-blue-600" />
             </div>
           </div>
         </div>
-  
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">
-                In Process
-              </p>
+              <p className="text-sm font-medium text-gray-500">In Process</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {restockRequests.filter(req => 
-                  ['requested', 'approved', 'ordered', 'shipped'].includes(req.status)
-                ).length}
+                {restockRequests.filter(req => ['requested', 'approved', 'ordered', 'shipped'].includes(req.status)).length}
               </h3>
             </div>
             <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
@@ -422,13 +535,11 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
             </div>
           </div>
         </div>
-  
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">
-                Delivered
-              </p>
+              <p className="text-sm font-medium text-gray-500">Delivered</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">
                 {restockRequests.filter(req => req.status === 'delivered').length}
               </h3>
@@ -438,17 +549,13 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
             </div>
           </div>
         </div>
-  
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">
-                Pending Payment
-              </p>
+              <p className="text-sm font-medium text-gray-500">Pending Payment</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {restockRequests.filter(req => 
-                  req.status === 'delivered' && req.paymentStatus === 'pending'
-                ).length}
+                {restockRequests.filter(req => req.status === 'delivered' && req.paymentStatus === 'pending').length}
               </h3>
             </div>
             <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
@@ -457,50 +564,25 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
           </div>
         </div>
       </div>
-  
+
       {/* Restock Requests Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium text-gray-800">
-              Restock Requests
-            </h3>
-            <div className="flex items-center space-x-2">
-              <div className="relative">
-                <input
-                  type="text"
-                  className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  placeholder="Search requests..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
-              </div>
-              <button
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                onClick={() => {
-                  // Refresh restock data
-                  setRestockLoading(true);
-                  restockService.getAllRequests()
-                    .then(data => {
-                      setRestockRequests(data);
-                      toast.success("Restock data refreshed");
-                    })
-                    .catch(error => {
-                      console.error("Error refreshing restock data:", error);
-                      toast.error("Failed to refresh restock data");
-                    })
-                    .finally(() => {
-                      setRestockLoading(false);
-                    });
-                }}
-              >
-                <RefreshCw className="h-5 w-5 text-gray-600" />
-              </button>
+            <h3 className="text-lg font-medium text-gray-800">Restock Requests</h3>
+            <div className="relative">
+              <input
+                type="text"
+                className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                placeholder="Search requests..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
             </div>
           </div>
         </div>
-        
+
         {restockLoading ? (
           <div className="flex justify-center items-center py-10">
             <Loader className="h-10 w-10 text-blue-600 animate-spin" />
@@ -531,13 +613,13 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
                     Quantity
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date Requested
+                    Total Amount
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -552,19 +634,12 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
                     req.status?.toLowerCase().includes(searchTerm.toLowerCase())
                   )
                   .map(request => (
-                    <tr key={request._id} className="hover:bg-gray-50">
+                    <tr key={request._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{request.productName}</div>
-                            {request.notes && (
-                              <div className="text-xs text-gray-500 truncate max-w-xs" title={request.notes}>
-                                {request.notes}
-                              </div>
-                            )}
-                          </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="text-sm font-medium text-gray-900">{request.productName}</div>
                           {request.priority && (
-                            <span className={`ml-2 px-2 py-0.5 text-xs font-medium rounded-full ${
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                               request.priority === 'urgent' ? 'bg-red-100 text-red-600' :
                               request.priority === 'high' ? 'bg-amber-100 text-amber-600' :
                               'bg-blue-100 text-blue-600'
@@ -578,7 +653,14 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
                         <div className="text-sm text-gray-900">{request.supplierName}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{request.quantity} units</div>
+                        <div className="text-sm text-gray-900">
+                          {request.quantity} {request.unitPrice && <span className="text-xs text-gray-500">(Rs. {request.unitPrice.toLocaleString()} each)</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          Rs. {calculateTotalAmount(request).toLocaleString()}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
@@ -597,31 +679,8 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
                           {request.status.toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          request.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 
-                          request.paymentStatus === 'rejected' ? 'bg-red-100 text-red-800' : 
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {request.paymentStatus ? request.paymentStatus.toUpperCase() : 'PENDING'}
-                        </span>
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div className="flex items-center space-x-2">
-                          {/* Payment button - show only if payment is pending */}
-                          {request.status === 'delivered' && request.paymentStatus === 'pending' && (
-                            <button
-                              onClick={() => {
-                                setSelectedRestockRequest(request);
-                                setShowRestockPaymentModal(true);
-                              }}
-                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                            >
-                              Pay
-                            </button>
-                          )}
-                          
-                          {/* Status update dropdown */}
                           {request.status !== 'delivered' && request.status !== 'cancelled' && (
                             <div className="relative inline-block text-left">
                               <select
@@ -641,8 +700,16 @@ const RestockRequests = ({ useSupplierPayments, addSupplierPayment, inventory, s
                             </div>
                           )}
                           
-                          {/* Payment status dropdown */}
-                          {request.status === 'delivered' && (
+                          {request.status === 'delivered' && request.paymentStatus !== 'paid' && (
+                            <button
+                              onClick={() => openPaymentModal(request)}
+                              className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
+                            >
+                              Pay Now
+                            </button>
+                          )}
+                          
+                          {request.status === 'delivered' && request.paymentStatus === 'paid' && (
                             <div className="relative inline-block text-left">
                               <select
                                 className="px-2 py-1 text-xs bg-white border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
