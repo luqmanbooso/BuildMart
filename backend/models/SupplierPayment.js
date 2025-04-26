@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-console.log('Defining SupplierPayment Schema');
 
 const supplierPaymentSchema = new mongoose.Schema({
   amount: {
@@ -52,6 +51,5 @@ supplierPaymentSchema.pre('save', function(next) {
 // Create the model
 const SupplierPayment = mongoose.model('SupplierPayment', supplierPaymentSchema);
 
-console.log('SupplierPayment model registered');
 
 module.exports = SupplierPayment; 

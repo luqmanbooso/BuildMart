@@ -3,7 +3,6 @@ const router = express.Router();
 const SupplierPayment = require('../models/SupplierPayment');
 const RestockRequest = require('../models/RestockRequest');
 
-console.log('Initializing supplier payment routes');
 
 // Get all supplier payments
 router.get('/', async (req, res) => {
@@ -57,6 +56,5 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-console.log('Supplier payment routes initialized');
 
 module.exports = router;
