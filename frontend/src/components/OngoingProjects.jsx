@@ -515,9 +515,25 @@ const stats = {
   totalValue: projects.reduce((sum, p) => sum + (p.totalPrice || 0), 0)
 };
 
-  // Add function to handle opening the report modal
+  // Add function to handle opening the report modal with proper category
   const handleOpenReportModal = (project) => {
-    setSelectedProjectForReport(project);
+    // Log the project data for debugging
+    console.log("Project data for issue report:", {
+      id: project.id,
+      category: project.category,
+      fullProject: project
+    });
+    
+    // Extract the actual category name, not ID
+    const categoryName = project.category || 'Construction';
+    
+    // Set project data
+    setSelectedProjectForReport({
+      ...project,
+      // Ensure we have the correct category name as a separate property
+      categoryName: categoryName
+    });
+    
     setIsReportModalOpen(true);
   };
 
@@ -1140,6 +1156,10 @@ const stats = {
             projectId={selectedProjectForReport.id}
             userId={contractorData.id}
             userRole="Service Provider"
+            // Pass the category name specifically, not the ID
+            category={selectedProjectForReport.categoryName || selectedProjectForReport.category || "Construction"}
+            // Pass the project object separately for other context
+            work={selectedProjectForReport}
           />
         )}
       </div>
