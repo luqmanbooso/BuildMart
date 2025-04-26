@@ -578,9 +578,10 @@ const debugPaymentData = async () => {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-800">
    
-    <ClientNavBar/>
+    <ClientNavBar/><br></br><br></br><br></br>
     
       {/* Hero Section */}
+      
       <div className="relative overflow-hidden bg-gradient-to-r from-blue-800 via-blue-600 to-indigo-800">
         <br /><br /><br />
         <div className="absolute inset-0 bg-gradient-to-r from-blue-900 to-indigo-900 opacity-70"></div>
