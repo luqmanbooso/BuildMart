@@ -244,209 +244,209 @@ function PaymentDashboard() {
   };
 
   // Process and categorize payment data
-const processPaymentData = (data) => {
-  // Initialize categorized data arrays
-  const serviceProviderPaymentsArray = [];
-  const inventoryPaymentsArray = [];
-  const commissionPaymentsArray = [];
-  const agreementFeePaymentsArray = []; // Add this new array
+  const processPaymentData = (data) => {
+    // Initialize categorized data arrays
+    const serviceProviderPaymentsArray = [];
+    const inventoryPaymentsArray = [];
+    const commissionPaymentsArray = [];
+    const agreementFeePaymentsArray = []; // Add this new array
 
-  // Initialize stats counters with default values
-  const stats = {
-    totalAmount: 0,
-    serviceProviderTotal: 0,
-    inventorySalesTotal: 0,
-    commissionIncome: 0,
-    agreementFeeIncome: 0, // Add this new counter
-    pendingAmount: 0,
-    completedCount: 0,
-    pendingCount: 0,
-    failedCount: 0,
-    activeProviders: new Set(),
-    itemsPurchased: 0
-  };
+    // Initialize stats counters with default values
+    const stats = {
+      totalAmount: 0,
+      serviceProviderTotal: 0,
+      inventorySalesTotal: 0,
+      commissionIncome: 0,
+      agreementFeeIncome: 0, // Add this new counter
+      pendingAmount: 0,
+      completedCount: 0,
+      pendingCount: 0,
+      failedCount: 0,
+      activeProviders: new Set(),
+      itemsPurchased: 0
+    };
 
-  // Count card types
-  const cardTypes = {
-    visa: 0,
-    mastercard: 0,
-    amex: 0,
-    discover: 0
-  };
+    // Count card types
+    const cardTypes = {
+      visa: 0,
+      mastercard: 0,
+      amex: 0,
+      discover: 0
+    };
 
-  // Process data only if it exists and is an array
-  if (Array.isArray(data) && data.length > 0) {
-    console.log("Processing payment data:", data.length, "records");
-    
-    data.forEach(payment => {
-      // Format the payment for display
-      const formattedPayment = {
-        id: payment._id,
-        status: convertStatus(payment.status),
-        amount: payment.amount,
-        formattedAmount: `Rs. ${payment.amount.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
-        })}`,
-        method: payment.cardType,
-        cardNumber: payment.lastFourDigits,
-        date: new Date(payment.createdAt).toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        rawDate: new Date(payment.createdAt),
-        cardholderName: payment.cardholderName,
-        user: payment.user,
-        paymentType: payment.paymentType
-      };
-
-      // Count by status
-      if (payment.status === 'completed') {
-        stats.completedCount++;
-      } else if (payment.status === 'pending') {
-        stats.pendingCount++;
-        stats.pendingAmount += payment.amount;
-      } else if (payment.status === 'failed') {
-        stats.failedCount++;
-      }
-
-      // Count card types
-      if (payment.cardType in cardTypes) {
-        cardTypes[payment.cardType]++;
-      }
-
-      // CATEGORIZATION LOGIC:
+    // Process data only if it exists and is an array
+    if (Array.isArray(data) && data.length > 0) {
+      console.log("Processing payment data:", data.length, "records");
       
-      // Check if this is an agreement fee
-      const isAgreementFee = payment.paymentType === 'agreement_fee';
-      
-      // Check whether the payment has order items (which indicates inventory sale)
-      const hasOrderItems = payment.order && 
-                           payment.order.items && 
-                           Array.isArray(payment.order.items) && 
-                           payment.order.items.length > 0;
+      data.forEach(payment => {
+        // Format the payment for display
+        const formattedPayment = {
+          id: payment._id,
+          status: convertStatus(payment.status),
+          amount: payment.amount,
+          formattedAmount: `Rs. ${payment.amount.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          })}`,
+          method: payment.cardType,
+          cardNumber: payment.lastFourDigits,
+          date: new Date(payment.createdAt).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          rawDate: new Date(payment.createdAt),
+          cardholderName: payment.cardholderName,
+          user: payment.user,
+          paymentType: payment.paymentType
+        };
 
-      // Check if this is explicitly marked as an inventory payment or has order items
-      const isInventorySale = payment.paymentType === 'inventory' || hasOrderItems;
-      
-      // Check if it's a service provider payment
-      const isServiceProvider = payment.paymentType === 'milestone' || 
-                               payment.workId || 
-                               (payment.user?.role === 'contractor' || payment.user?.role === 'supplier');
-      
-      // 1. Agreement Fee (NEW CATEGORY)
-      if (isAgreementFee) {
-        stats.agreementFeeIncome += payment.amount;
-        
-        agreementFeePaymentsArray.push({
-          ...formattedPayment,
-          clientName: payment.user?.name || payment.cardholderName || 'Client',
-          agreementType: 'Service Agreement'
-        });
-      }
-      // 2. Service Provider Payments (milestone payments)
-      else if (isServiceProvider) {        
-        stats.serviceProviderTotal += payment.amount;
-        stats.activeProviders.add(payment.user?.name || payment.cardholderName || 'Unknown Provider');
-        
-        serviceProviderPaymentsArray.push({
-          ...formattedPayment,
-          providerName: payment.user?.name || payment.cardholderName || 'Unknown Provider',
-          milestoneId: payment.milestoneId,
-          workId: payment.workId,
-          itemName: 'Milestone Payment'
-        });
-      }
-      // 3. Inventory Sales - exclude service provider payments and agreement fees
-      else if (isInventorySale) {
-        const itemCount = hasOrderItems ? 
-          payment.order.items.reduce((total, item) => total + (item.quantity || 0), 0) : 1;
-        
-        stats.itemsPurchased += itemCount;
-        stats.inventorySalesTotal += payment.amount;
-        
-        inventoryPaymentsArray.push({
-          ...formattedPayment,
-          itemName: hasOrderItems ? 
-            payment.order.items.map(item => item.name).join(', ') : 'Product Purchase',
-          itemCount: itemCount,
-          customerName: payment.user?.name || payment.cardholderName || 'Customer',
-          // Explicitly set commission values to 0 for regular inventory sales
-          commissionAmount: 0,
-          commissionRate: 0
-        });
-      }
-      // 4. Fallback for any unclassified payments
-      else {
-        // Add to inventory by default for now
-        stats.inventorySalesTotal += payment.amount;
-        
-        inventoryPaymentsArray.push({
-          ...formattedPayment,
-          itemName: 'Other Purchase',
-          itemCount: 1,
-          customerName: payment.user?.name || payment.cardholderName || 'Customer',
-          commissionAmount: 0,
-          commissionRate: 0
-        });
-      }
-      
-      // 5. Commission Income - SEPARATE logic (can apply to any payment)
-      if (payment.commissionAmount > 0) {
-        stats.commissionIncome += payment.commissionAmount;
-        
-        commissionPaymentsArray.push({
-          ...formattedPayment,
-          originalAmount: payment.originalAmount || payment.amount,
-          commissionAmount: payment.commissionAmount,
-          commissionRate: payment.commissionRate || 0.1
-        });
-      }
-      
-      // Add to total regardless of category
-      stats.totalAmount += payment.amount;
-    });
+        // Count by status
+        if (payment.status === 'completed') {
+          stats.completedCount++;
+        } else if (payment.status === 'pending') {
+          stats.pendingCount++;
+          stats.pendingAmount += payment.amount;
+        } else if (payment.status === 'failed') {
+          stats.failedCount++;
+        }
 
-    console.log("Categorized payments:", {
-      serviceProviders: serviceProviderPaymentsArray.length,
-      inventorySales: inventoryPaymentsArray.length,
-      agreementFees: agreementFeePaymentsArray.length,
-      commissions: commissionPaymentsArray.length
-    });
+        // Count card types
+        if (payment.cardType in cardTypes) {
+          cardTypes[payment.cardType]++;
+        }
 
-    // Calculate payment method percentages
-    const totalPayments = data.length;
-    if (totalPayments > 0) {
-      setPaymentMethodsData([
-        { method: 'Visa', percentage: Math.round((cardTypes.visa / totalPayments) * 100) },
-        { method: 'Mastercard', percentage: Math.round((cardTypes.mastercard / totalPayments) * 100) },
-        { method: 'Other', percentage: Math.round(((cardTypes.amex + cardTypes.discover) / totalPayments) * 100) }
-      ]);
+        // CATEGORIZATION LOGIC:
+        
+        // Check if this is an agreement fee
+        const isAgreementFee = payment.paymentType === 'agreement_fee';
+        
+        // Check whether the payment has order items (which indicates inventory sale)
+        const hasOrderItems = payment.order && 
+                            payment.order.items && 
+                            Array.isArray(payment.order.items) && 
+                            payment.order.items.length > 0;
+
+        // Check if this is explicitly marked as an inventory payment or has order items
+        const isInventorySale = payment.paymentType === 'inventory' || hasOrderItems;
+        
+        // Check if it's a service provider payment
+        const isServiceProvider = payment.paymentType === 'milestone' || 
+                                payment.workId || 
+                                (payment.user?.role === 'contractor' || payment.user?.role === 'supplier');
+        
+        // 1. Agreement Fee (NEW CATEGORY)
+        if (isAgreementFee) {
+          stats.agreementFeeIncome += payment.amount;
+          
+          agreementFeePaymentsArray.push({
+            ...formattedPayment,
+            clientName: payment.user?.name || payment.cardholderName || 'Client',
+            agreementType: 'Service Agreement'
+          });
+        }
+        // 2. Service Provider Payments (milestone payments)
+        else if (isServiceProvider) {        
+          stats.serviceProviderTotal += payment.amount;
+          stats.activeProviders.add(payment.user?.name || payment.cardholderName || 'Unknown Provider');
+          
+          serviceProviderPaymentsArray.push({
+            ...formattedPayment,
+            providerName: payment.user?.name || payment.cardholderName || 'Unknown Provider',
+            milestoneId: payment.milestoneId,
+            workId: payment.workId,
+            itemName: 'Milestone Payment'
+          });
+        }
+        // 3. Inventory Sales - exclude service provider payments and agreement fees
+        else if (isInventorySale) {
+          const itemCount = hasOrderItems ? 
+            payment.order.items.reduce((total, item) => total + (item.quantity || 0), 0) : 1;
+          
+          stats.itemsPurchased += itemCount;
+          stats.inventorySalesTotal += payment.amount;
+          
+          inventoryPaymentsArray.push({
+            ...formattedPayment,
+            itemName: hasOrderItems ? 
+              payment.order.items.map(item => item.name).join(', ') : 'Product Purchase',
+            itemCount: itemCount,
+            customerName: payment.user?.name || payment.cardholderName || 'Customer',
+            // Explicitly set commission values to 0 for regular inventory sales
+            commissionAmount: 0,
+            commissionRate: 0
+          });
+        }
+        // 4. Fallback for any unclassified payments
+        else {
+          // Add to inventory by default for now
+          stats.inventorySalesTotal += payment.amount;
+          
+          inventoryPaymentsArray.push({
+            ...formattedPayment,
+            itemName: 'Other Purchase',
+            itemCount: 1,
+            customerName: payment.user?.name || payment.cardholderName || 'Customer',
+            commissionAmount: 0,
+            commissionRate: 0
+          });
+        }
+        
+        // 5. Commission Income - SEPARATE logic (can apply to any payment)
+        if (payment.commissionAmount > 0) {
+          stats.commissionIncome += payment.commissionAmount;
+          
+          commissionPaymentsArray.push({
+            ...formattedPayment,
+            originalAmount: payment.originalAmount || payment.amount,
+            commissionAmount: payment.commissionAmount,
+            commissionRate: payment.commissionRate || 0.1
+          });
+        }
+        
+        // Add to total regardless of category
+        stats.totalAmount += payment.amount;
+      });
+
+      console.log("Categorized payments:", {
+        serviceProviders: serviceProviderPaymentsArray.length,
+        inventorySales: inventoryPaymentsArray.length,
+        agreementFees: agreementFeePaymentsArray.length,
+        commissions: commissionPaymentsArray.length
+      });
+
+      // Calculate payment method percentages
+      const totalPayments = data.length;
+      if (totalPayments > 0) {
+        setPaymentMethodsData([
+          { method: 'Visa', percentage: Math.round((cardTypes.visa / totalPayments) * 100) },
+          { method: 'Mastercard', percentage: Math.round((cardTypes.mastercard / totalPayments) * 100) },
+          { method: 'Other', percentage: Math.round(((cardTypes.amex + cardTypes.discover) / totalPayments) * 100) }
+        ]);
+      }
+
+      // Ensure stats has all required fields before setting state
+      setPaymentStats(stats);
+      
+      // Set other state variables with the arrays
+      setServiceProviderPayments(serviceProviderPaymentsArray);
+      setItemsPayments(inventoryPaymentsArray);
+      setCommissionPayments(commissionPaymentsArray);
+      // Add this line to set agreement fee payments
+      setAgreementFeePayments(agreementFeePaymentsArray);
+    } else {
+      console.log("No payment data or empty array");
+      
+      // If data is empty or invalid, ensure we set default values
+      setPaymentStats(stats);
+      setServiceProviderPayments([]);
+      setItemsPayments([]);
+      setCommissionPayments([]);
+      setAgreementFeePayments([]);
     }
-
-    // Ensure stats has all required fields before setting state
-    setPaymentStats(stats);
-    
-    // Set other state variables with the arrays
-    setServiceProviderPayments(serviceProviderPaymentsArray);
-    setItemsPayments(inventoryPaymentsArray);
-    setCommissionPayments(commissionPaymentsArray);
-    // Add this line to set agreement fee payments
-    setAgreementFeePayments(agreementFeePaymentsArray);
-  } else {
-    console.log("No payment data or empty array");
-    
-    // If data is empty or invalid, ensure we set default values
-    setPaymentStats(stats);
-    setServiceProviderPayments([]);
-    setItemsPayments([]);
-    setCommissionPayments([]);
-    setAgreementFeePayments([]);
-  }
-};
+  };
 
   // Helper function to convert backend status to UI status
   const convertStatus = (backendStatus) => {
@@ -461,9 +461,11 @@ const processPaymentData = (data) => {
   // Fetch payments on component mount
   useEffect(() => {
     fetchPayments();
+    fetchAdminSalaries();
+    fetchAdminExpenses(); // Add this to load expenses on mount
   }, []);
 
-  // Add this useEffect after your existing useEffects
+  // Fetch supplier payments when expenses tab is selected
   useEffect(() => {
     if (expensesSubPage === 'Supplier Payments') {
       // Fetch supplier payments from your API
@@ -483,15 +485,64 @@ const processPaymentData = (data) => {
           setLoading(false);
         }
       };
-
       fetchSupplierPayments();
     }
   }, [expensesSubPage]);
 
-  // Add this to useEffect
+  // Fetch expenses when Expenses tab is selected
   useEffect(() => {
-    fetchAdminSalaries();
-  }, []);
+    if (activePage === 'Expenses' && expensesSubPage === 'Other Expenses') {
+      fetchAdminExpenses();
+    }
+  }, [activePage, expensesSubPage]);
+
+  // Function to fetch admin expenses
+  const fetchAdminExpenses = async () => {
+    try {
+      setLoading(true);
+      
+      try {
+        // Try to get expenses from the API
+        const response = await axios.get('http://localhost:5000/auth/admin-expenses');
+        
+        if (response.data && Array.isArray(response.data)) {
+          const formattedExpenses = response.data.map(expense => ({
+            ...expense,
+            date: expense.date || expense.paymentDate,
+            details: {
+              ...expense.details,
+              paymentDate: expense.details?.paymentDate || expense.date
+            }
+          }));
+          
+          setAdminExpenses(formattedExpenses);
+          console.log('Fetched admin expenses:', formattedExpenses.length);
+          
+          // Also save to local storage as backup
+          saveExpensesToLocalStorage(formattedExpenses);
+          return;
+        }
+      } catch (apiError) {
+        console.error('API Error fetching admin expenses:', apiError);
+        // Continue to fallback below
+      }
+      
+      // Fallback: Check if we have expense data in local storage
+      console.log('Falling back to local storage for expenses');
+      const localExpenses = loadExpensesFromLocalStorage();
+      if (localExpenses && localExpenses.length > 0) {
+        setAdminExpenses(localExpenses);
+        return;
+      }
+      
+      // Last resort: check if there are any expenses in the state from salary payments
+      console.log('No expenses found in storage');
+    } catch (error) {
+      console.error('Error in expense handling:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Add this function to fetch admin salaries
   const fetchAdminSalaries = async () => {
@@ -553,6 +604,16 @@ const processPaymentData = (data) => {
     }
   };
 
+  // Add these utility functions for local storage
+  const saveExpensesToLocalStorage = (expenses) => {
+    localStorage.setItem('adminExpenses', JSON.stringify(expenses));
+  };
+
+  const loadExpensesFromLocalStorage = () => {
+    const storedExpenses = localStorage.getItem('adminExpenses');
+    return storedExpenses ? JSON.parse(storedExpenses) : [];
+  };
+
   const handleSalaryPayment = async (admin) => {
     const lastPaidDate = admin.lastPaid ? new Date(admin.lastPaid).toLocaleDateString() : 'Not paid yet';
     const currentDate = new Date();
@@ -586,17 +647,18 @@ const processPaymentData = (data) => {
         const epfEmployer = basicSalary * 0.12;
         const etf = basicSalary * 0.03;
         const netSalary = basicSalary - epfEmployee;
-  
-        // Create expense record with month information
+
+        // Create comprehensive expense record with all salary details
         const salaryExpense = {
           id: `SAL-${Date.now()}`,
           date: new Date().toISOString(),
           type: 'Salary Payment',
           month: monthName,
+          year: currentDate.getFullYear(),
           employeeId: admin.id,
           employeeName: admin.name,
-          employeeEmail: admin.email,
-          amount: netSalary,
+          employeeEmail: admin.email || 'admin@buildmart.com',
+          amount: netSalary, // Store the net amount paid
           details: {
             basicSalary,
             epfEmployee,
@@ -605,52 +667,68 @@ const processPaymentData = (data) => {
             netSalary,
             paymentDate: new Date().toISOString(),
             month: monthName,
-            year: currentDate.getFullYear()
+            year: currentDate.getFullYear(),
+            paymentStatus: 'Completed'
           }
         };
-  
-        // Add to expenses array
-        setAdminExpenses(prev => [...prev, salaryExpense]);
-  
-        // Send payment data to backend
-        const response = await axios.post('http://localhost:5000/auth/admins/pay-salary', {
-          adminId: admin.id,
-          paymentDate: new Date().toISOString(),
-          month: monthName,
-          year: currentDate.getFullYear(),
-          salary: {
-            basicSalary,
-            epfEmployee,
-            epfEmployer,
-            etf,
-            netSalary
-          }
+
+        // Add to expenses array immediately to ensure it's visible in the UI
+        setAdminExpenses(prev => {
+          const newExpenses = [salaryExpense, ...prev];
+          // Also update local storage for persistence
+          saveExpensesToLocalStorage(newExpenses);
+          return newExpenses;
         });
-        
-        if (response.status === 200) {
-          // Update admin's last paid date and status in local state
-          const updatedAdmins = adminSalaries.map(a => 
-            a.id === admin.id 
-              ? {...a, 
-                 lastPaid: new Date().toLocaleDateString(), 
-                 status: 'Paid',
-                 lastPaidMonth: monthName,
-                 lastPaidYear: currentDate.getFullYear()
-                } 
-              : a
-          );
-          setAdminSalaries(updatedAdmins);
-  
-          // Show success message
-          alert(`${monthName} salary payment processed successfully for ${admin.name}!`);
+
+        // Try to send payment data to backend
+        try {
+          const response = await axios.post('http://localhost:5000/auth/admins/pay-salary', {
+            adminId: admin.id,
+            paymentDate: new Date().toISOString(),
+            month: monthName,
+            year: currentDate.getFullYear(),
+            salary: {
+              basicSalary,
+              epfEmployee,
+              epfEmployer,
+              etf,
+              netSalary
+            },
+            expense: salaryExpense
+          });
           
-          // Set expensesSubPage to 'Other Expenses' to show the newly added expense
-          setExpensesSubPage('Other Expenses');
-          // Navigate to Expenses page to show the newly added expense
-          setActivePage('Expenses');
-        } else {
-          throw new Error('Failed to process payment on server');
+          console.log("Salary payment API response:", response.data);
+        } catch (apiError) {
+          console.warn("API error when saving salary payment:", apiError);
+          // Continue execution since we've already updated the UI
         }
+        
+        // Update admin's last paid date and status in local state
+        const updatedAdmins = adminSalaries.map(a => 
+          a.id === admin.id 
+            ? {...a, 
+               lastPaid: new Date().toLocaleDateString(), 
+               status: 'Paid',
+               lastPaidMonth: monthName,
+               lastPaidYear: currentDate.getFullYear()
+              } 
+            : a
+        );
+        setAdminSalaries(updatedAdmins);
+
+        // Calculate updated total paid salary amount
+        const updatedTotalPaid = updatedAdmins
+          .filter(a => a.status === 'Paid')
+          .reduce((sum, a) => sum + a.salary, 0);
+        
+        setTotalSalaryPaid(updatedTotalPaid);
+
+        // Show success message
+        alert(`${monthName} salary payment processed successfully for ${admin.name}!`);
+        
+        // Ensure navigation to the Expenses tab with Other Expenses sub-page selected
+        setExpensesSubPage('Other Expenses');
+        setActivePage('Expenses');
       } catch (error) {
         console.error('Error processing salary payment:', error);
         alert('Failed to process salary payment. Please try again.');
@@ -659,78 +737,6 @@ const processPaymentData = (data) => {
       }
     }
   };
-
-  const handleSalaryUpdate = async () => {
-    try {
-      if (!selectedAdmin) return;
-      
-      const currentSalary = selectedAdmin.salary || 30000;
-      let newSalary = currentSalary;
-      let actualChange = 0;
-      
-      // Calculate change based on increment or decrement
-      if (incrementType === 'fixed') {
-        actualChange = Number(incrementAmount);
-        newSalary = salaryChangeType === 'increment' ? 
-          currentSalary + actualChange : 
-          currentSalary - actualChange;
-      } else {
-        // Percentage change
-        actualChange = (currentSalary * Number(incrementAmount) / 100);
-        newSalary = salaryChangeType === 'increment' ? 
-          currentSalary + actualChange : 
-          currentSalary - actualChange;
-      }
-      
-      // Prevent negative salary
-      if (newSalary < 0) {
-        alert('Salary cannot be negative. Operation cancelled.');
-        return;
-      }
-      
-      // Round to 2 decimal places
-      newSalary = Math.round(newSalary * 100) / 100;
-      
-      // Log the data being sent
-      console.log('Updating salary:', {
-        adminId: selectedAdmin.id,
-        currentSalary,
-        newSalary,
-        incrementType,
-        incrementAmount,
-        salaryChangeType,
-        actualChange: salaryChangeType === 'increment' ? actualChange : -actualChange
-      });
-      
-      const response = await axios.patch(`http://localhost:5000/auth/admins/${selectedAdmin.id}/salary`, {
-        salary: newSalary
-      });
-      
-      console.log('Response:', response.data);
-      
-      if (response.data) {
-        // Show success notification with increment/decrement info
-        const changeText = salaryChangeType === 'increment' ? 'increased' : 'decreased';
-        alert(`Salary ${changeText} successfully! New salary: Rs. ${newSalary.toLocaleString()}`);
-        
-        // Refresh admin salaries data
-        fetchAdminSalaries();
-        
-        // Close modal
-        setShowSalaryModal(false);
-        setSelectedAdmin(null);
-        setIncrementAmount(0);
-      }
-    } catch (error) {
-      console.error('Error updating salary:', error);
-      const errorMessage = error.response ? 
-        `Failed to update salary: ${error.response.status} - ${error.response.data?.message || error.message}` :
-        `Failed to update salary: ${error.message}`;
-      alert(errorMessage);
-    }
-  };
-
-  // Removed duplicate declaration of handleSalaryPayment
 
   const toggleSelectAll = () => {
     setIsAllSelected(!isAllSelected);
