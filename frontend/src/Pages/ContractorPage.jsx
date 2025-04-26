@@ -166,7 +166,7 @@ const ContractorProfile = () => {
     
     try {
       console.log("Fetching completed projects count from API...");
-      const response = await axios.get(`http://localhost:5000/api/ongoingworks/completed-count/${userId}`);
+       const response = await axios.get(`http://localhost:5000/api/ongoingworks/completed-count/${userId}`);
       
       const { systemCount, manualCount, totalCount } = response.data;
       
