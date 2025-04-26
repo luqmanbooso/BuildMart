@@ -1682,10 +1682,10 @@ const processPaymentData = (data) => {
             {/* Charts Grid */}
             {!loading && !error && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                {/* Income Breakdown Chart */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Income Distribution</h3>
-                  <div className="h-64">
+                {/* Income Breakdown Chart - Modern Style */}
+                <div className="bg-white/90 backdrop-blur-lg rounded-xl shadow-lg p-6 border border-gray-100 transition-all duration-300 hover:shadow-xl">
+                  <h3 className="text-lg font-semibold bg-gradient-to-r from-gray-800 to-green-800 bg-clip-text text-transparent mb-6">Income Distribution</h3>
+                  <div className="h-64 transition-all duration-300 transform hover:scale-[1.02]">
                     <Bar 
                       data={{
                         labels: ['Inventory Sales', 'Commission Income', 'Agreement Fees'],
@@ -1698,27 +1698,53 @@ const processPaymentData = (data) => {
                               paymentStats?.agreementFeeIncome || 0
                             ],
                             backgroundColor: [
-                              'rgba(34, 197, 94, 0.6)',
-                              'rgba(124, 58, 237, 0.6)',
-                              'rgba(249, 115, 22, 0.6)'
+                              'rgba(34, 197, 94, 0.9)',
+                              'rgba(124, 58, 237, 0.9)',
+                              'rgba(249, 115, 22, 0.9)'
                             ],
-                            borderColor: [
+                            borderWidth: 0,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            hoverBorderWidth: 0,
+                            hoverBackgroundColor: [
                               'rgba(34, 197, 94, 1)',
                               'rgba(124, 58, 237, 1)',
                               'rgba(249, 115, 22, 1)'
-                            ],
-                            borderWidth: 1
+                            ]
                           }
                         ]
                       }}
                       options={{
                         responsive: true,
                         maintainAspectRatio: false,
+                        layout: {
+                          padding: 10
+                        },
+                        animation: {
+                          duration: 2000,
+                          easing: 'easeOutQuart'
+                        },
                         plugins: {
                           legend: {
                             display: false
                           },
                           tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            titleColor: '#1f2937',
+                            bodyColor: '#4b5563',
+                            titleFont: {
+                              size: 14,
+                              weight: 'bold'
+                            },
+                            bodyFont: {
+                              size: 13
+                            },
+                            padding: 16,
+                            cornerRadius: 12,
+                            boxPadding: 8,
+                            usePointStyle: true,
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            borderWidth: 1,
                             callbacks: {
                               label: function(context) {
                                 return `Rs. ${context.raw.toLocaleString()}`;
@@ -1730,9 +1756,19 @@ const processPaymentData = (data) => {
                           y: {
                             beginAtZero: true,
                             grid: {
-                              color: 'rgba(0, 0, 0, 0.05)'
+                              display: true,
+                              color: 'rgba(0, 0, 0, 0.03)',
+                              drawBorder: false
+                            },
+                            border: {
+                              display: false
                             },
                             ticks: {
+                              padding: 12,
+                              font: {
+                                size: 12
+                              },
+                              color: '#64748b',
                               callback: function(value) {
                                 return `Rs. ${value.toLocaleString()}`;
                               }
@@ -1741,18 +1777,41 @@ const processPaymentData = (data) => {
                           x: {
                             grid: {
                               display: false
+                            },
+                            border: {
+                              display: false
+                            },
+                            ticks: {
+                              padding: 12,
+                              font: {
+                                size: 12
+                              },
+                              color: '#64748b'
                             }
                           }
                         }
                       }}
                     />
                   </div>
+                  <div className="mt-6 grid grid-cols-3 gap-4">
+                    {[
+                      { label: 'Inventory', color: 'bg-emerald-500', value: paymentStats?.inventorySalesTotal || 0 },
+                      { label: 'Commission', color: 'bg-purple-500', value: paymentStats?.commissionIncome || 0 },
+                      { label: 'Agreement Fees', color: 'bg-orange-500', value: paymentStats?.agreementFeeIncome || 0 }
+                    ].map((item, index) => (
+                      <div key={index} className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-all">
+                        <div className={`w-3 h-3 rounded-full ${item.color} mb-2`}></div>
+                        <p className="text-xs font-medium text-gray-500">{item.label}</p>
+                        <p className="text-sm font-bold text-gray-800">Rs. {item.value.toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                
-                {/* Expense Breakdown Chart */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Expense Distribution</h3>
-                  <div className="h-64 flex items-center justify-center">
+
+                {/* Expense Breakdown Chart - Modern Style */}
+                <div className="bg-white/90 backdrop-blur-lg rounded-xl shadow-lg p-6 border border-gray-100 transition-all duration-300 hover:shadow-xl">
+                  <h3 className="text-lg font-semibold bg-gradient-to-r from-gray-800 to-red-800 bg-clip-text text-transparent mb-6">Expense Distribution</h3>
+                  <div className="h-64 transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center">
                     <Doughnut
                       data={{
                         labels: ['Service Providers', 'Admin Salaries', 'Supplier Payments'],
@@ -1764,34 +1823,66 @@ const processPaymentData = (data) => {
                               supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0
                             ],
                             backgroundColor: [
-                              'rgba(59, 130, 246, 0.6)',
-                              'rgba(234, 179, 8, 0.6)',
-                              'rgba(107, 114, 128, 0.6)'
+                              'rgba(37, 99, 235, 0.9)',
+                              'rgba(234, 179, 8, 0.9)',
+                              'rgba(107, 114, 128, 0.9)'
                             ],
-                            borderColor: [
-                              'rgba(59, 130, 246, 1)',
-                              'rgba(234, 179, 8, 1)',
-                              'rgba(107, 114, 128, 1)'
-                            ],
-                            borderWidth: 1
+                            borderWidth: 0,
+                            hoverOffset: 15,
+                            offset: 5,
+                            hoverBorderColor: '#ffffff',
+                            hoverBorderWidth: 2
                           }
                         ]
                       }}
                       options={{
                         responsive: true,
                         maintainAspectRatio: false,
+                        cutout: '70%',
+                        radius: '90%',
+                        animation: {
+                          animateRotate: true,
+                          animateScale: true,
+                          duration: 2000,
+                          easing: 'easeOutQuart'
+                        },
                         plugins: {
                           legend: {
+                            display: true,
                             position: 'right',
                             labels: {
                               boxWidth: 12,
-                              padding: 15
+                              padding: 20,
+                              font: {
+                                size: 12
+                              },
+                              usePointStyle: true,
+                              pointStyle: 'circle'
                             }
                           },
                           tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            titleColor: '#1f2937',
+                            bodyColor: '#4b5563',
+                            titleFont: {
+                              size: 14,
+                              weight: 'bold'
+                            },
+                            bodyFont: {
+                              size: 13
+                            },
+                            padding: 16,
+                            cornerRadius: 12,
+                            boxPadding: 8,
+                            usePointStyle: true,
+                            borderColor: 'rgba(0, 0, 0, 0.1)',
+                            borderWidth: 1,
                             callbacks: {
                               label: function(context) {
-                                return `${context.label}: Rs. ${context.raw.toLocaleString()}`;
+                                const value = context.raw;
+                                const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `Rs. ${value.toLocaleString()} (${percentage}%)`;
                               }
                             }
                           }
@@ -1799,12 +1890,25 @@ const processPaymentData = (data) => {
                       }}
                     />
                   </div>
+                  <div className="mt-6 grid grid-cols-3 gap-4">
+                    {[
+                      { label: 'Service Providers', color: 'bg-blue-500', value: paymentStats?.serviceProviderTotal || 0 },
+                      { label: 'Admin Salaries', color: 'bg-yellow-500', value: totalSalaryPaid || 0 },
+                      { label: 'Supplier Payments', color: 'bg-gray-500', value: supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0 }
+                    ].map((item, index) => (
+                      <div key={index} className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-all">
+                        <div className={`w-3 h-3 rounded-full ${item.color} mb-2`}></div>
+                        <p className="text-xs font-medium text-gray-500">{item.label}</p>
+                        <p className="text-sm font-bold text-gray-800">Rs. {item.value.toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                
-                {/* Profit/Loss TrendChart (Using recent 6 months) */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Profit/Loss Trend</h3>
-                  <div className="h-64">
+
+                {/* Profit/Loss Trend Chart - Modern Style */}
+                <div className="bg-white/90 backdrop-blur-lg rounded-xl shadow-lg p-6 border border-gray-100 transition-all duration-300 hover:shadow-xl">
+                  <h3 className="text-lg font-semibold bg-gradient-to-r from-gray-800 to-blue-800 bg-clip-text text-transparent mb-6">Profit/Loss Trend</h3>
+                  <div className="h-64 transition-all duration-300 transform hover:scale-[1.02]">
                     {(() => {
                       // Generate monthly profit data from payments
                       const getMonthlyProfitData = () => {
@@ -1857,37 +1961,116 @@ const processPaymentData = (data) => {
                               {
                                 label: 'Income',
                                 data: incomeData,
-                                borderColor: 'rgba(34, 197, 94, 1)',
-                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                                tension: 0.3,
-                                fill: false
+                                borderColor: 'rgba(16, 185, 129, 1)',
+                                backgroundColor: (context) => {
+                                  const ctx = context.chart.ctx;
+                                  const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+                                  gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+                                  gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                                  return gradient;
+                                },
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 0,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                                pointHoverBackgroundColor: 'rgba(16, 185, 129, 1)',
+                                pointBorderColor: '#fff',
+                                pointHoverBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointHoverBorderWidth: 2,
+                                borderWidth: 3
                               },
                               {
                                 label: 'Expenses',
                                 data: expenseData,
                                 borderColor: 'rgba(239, 68, 68, 1)',
-                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                tension: 0.3,
-                                fill: false
+                                backgroundColor: (context) => {
+                                  const ctx = context.chart.ctx;
+                                  const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+                                  gradient.addColorStop(0, 'rgba(239, 68, 68, 0.3)');
+                                  gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+                                  return gradient;
+                                },
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 0,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: 'rgba(239, 68, 68, 1)',
+                                pointHoverBackgroundColor: 'rgba(239, 68, 68, 1)',
+                                pointBorderColor: '#fff',
+                                pointHoverBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointHoverBorderWidth: 2,
+                                borderWidth: 3
                               },
                               {
                                 label: 'Profit',
                                 data: profitData,
                                 borderColor: 'rgba(59, 130, 246, 1)',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                tension: 0.3,
-                                fill: false
+                                backgroundColor: (context) => {
+                                  const ctx = context.chart.ctx;
+                                  const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+                                  gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+                                  gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+                                  return gradient;
+                                },
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 0,
+                                pointHoverRadius: 6,
+                                pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                                pointHoverBackgroundColor: 'rgba(59, 130, 246, 1)',
+                                pointBorderColor: '#fff',
+                                pointHoverBorderColor: '#fff',
+                                pointBorderWidth: 2,
+                                pointHoverBorderWidth: 2,
+                                borderWidth: 3
                               }
                             ]
                           }}
                           options={{
                             responsive: true,
                             maintainAspectRatio: false,
+                            interaction: {
+                              mode: 'index',
+                              intersect: false,
+                            },
+                            animation: {
+                              duration: 2000,
+                              easing: 'easeOutQuart'
+                            },
                             plugins: {
                               legend: {
-                                position: 'top'
+                                position: 'top',
+                                labels: {
+                                  usePointStyle: true,
+                                  pointStyle: 'circle',
+                                  boxWidth: 8,
+                                  boxHeight: 8,
+                                  padding: 20,
+                                  font: {
+                                    size: 12
+                                  }
+                                }
                               },
                               tooltip: {
+                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                titleColor: '#1f2937',
+                                bodyColor: '#4b5563',
+                                titleFont: {
+                                  size: 14,
+                                  weight: 'bold'
+                                },
+                                bodyFont: {
+                                  size: 13
+                                },
+                                padding: 16,
+                                cornerRadius: 12,
+                                boxPadding: 8,
+                                usePointStyle: true,
+                                borderColor: 'rgba(0, 0, 0, 0.1)',
+                                borderWidth: 1,
                                 callbacks: {
                                   label: function(context) {
                                     return `${context.dataset.label}: Rs. ${context.raw.toLocaleString()}`;
@@ -1898,12 +2081,36 @@ const processPaymentData = (data) => {
                             scales: {
                               y: {
                                 grid: {
-                                  color: 'rgba(0, 0, 0, 0.05)'
+                                  color: 'rgba(0, 0, 0, 0.03)',
+                                  drawBorder: false
+                                },
+                                border: {
+                                  display: false
                                 },
                                 ticks: {
+                                  padding: 12,
+                                  font: {
+                                    size: 12
+                                  },
+                                  color: '#64748b',
                                   callback: function(value) {
                                     return `Rs. ${value.toLocaleString()}`;
                                   }
+                                }
+                              },
+                              x: {
+                                grid: {
+                                  display: false
+                                },
+                                border: {
+                                  display: false
+                                },
+                                ticks: {
+                                  padding: 12,
+                                  font: {
+                                    size: 12
+                                  },
+                                  color: '#64748b'
                                 }
                               }
                             }
@@ -1912,72 +2119,6 @@ const processPaymentData = (data) => {
                       );
                     })()}
                   </div>
-                </div>
-                
-                {/* Payment Methods Distribution */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods Distribution</h3>
-                  {loading ? (
-                    <div className="animate-pulse">
-                      <div className="flex items-center space-x-4">
-                        {[1, 2, 3].map((_, index) => (
-                          <div key={index} className="flex-1">
-                            <div className="flex justify-between items-center mb-2">
-                              <div className="h-4 bg-gray-200 rounded w-20"></div>
-                              <div className="h-4 bg-gray-200 rounded w-10"></div>
-                            </div>
-                            <div className="w-full bg-gray-100 rounded-full h-2">
-                              <div className="bg-gray-300 h-2 rounded-full" style={{ width: '60%' }}></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="h-64 flex items-center justify-center">
-                      <Doughnut
-                        data={{
-                          labels: paymentMethodsData.map(method => method.method),
-                          datasets: [
-                            {
-                              data: paymentMethodsData.map(method => method.percentage),
-                              backgroundColor: [
-                                'rgba(59, 130, 246, 0.6)',
-                                'rgba(234, 179, 8, 0.6)',
-                                'rgba(107, 114, 128, 0.6)'
-                              ],
-                              borderColor: [
-                                'rgba(59, 130, 246, 1)',
-                                'rgba(234, 179, 8, 1)',
-                                'rgba(107, 114, 128, 1)'
-                              ],
-                              borderWidth: 1
-                            }
-                          ]
-                        }}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          plugins: {
-                            legend: {
-                              position: 'right',
-                              labels: {
-                                boxWidth: 12,
-                                padding: 15
-                              }
-                            },
-                            tooltip: {
-                              callbacks: {
-                                label: function(context) {
-                                  return `${context.label}: ${context.raw}%`;
-                                }
-                              }
-                            }
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
             )}
