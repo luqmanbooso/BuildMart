@@ -33,5 +33,15 @@ export const supplierPaymentService = {
       console.error('Error fetching supplier payment:', error.response?.data || error.message);
       throw error;
     }
+  },
+
+  updatePaymentStatus: async (id, status) => {
+    try {
+      const response = await axios.patch(`${API_URL}/${id}/status`, { status });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating supplier payment status:', error.response?.data || error.message);
+      throw error;
+    }
   }
-}; 
+};

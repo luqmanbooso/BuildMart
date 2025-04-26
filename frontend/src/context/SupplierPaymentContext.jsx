@@ -14,7 +14,11 @@ export const SupplierPaymentProvider = ({ children }) => {
   };
 
   return (
-    <SupplierPaymentContext.Provider value={{ supplierPayments, addSupplierPayment }}>
+    <SupplierPaymentContext.Provider value={{ 
+      supplierPayments, 
+      setSupplierPayments, // Export the setter
+      addSupplierPayment 
+    }}>
       {children}
     </SupplierPaymentContext.Provider>
   );

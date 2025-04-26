@@ -10,6 +10,7 @@ import {
   Clock // Add this import
 } from 'lucide-react';
 import { useSupplierPayments } from '../context/SupplierPaymentContext';
+import { supplierPaymentService } from '../services/supplierPaymentService'; // Add this import
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 
@@ -163,6 +164,72 @@ function PaymentDashboard() {
     }
   };
 
+  // Fetch supplier payments when expenses tab is selected
+  useEffect(() => {
+    if (activePage === 'Expenses' && expensesSubPage === 'Supplier Payments') {
+      fetchSupplierPayments();
+    }
+  }, [activePage, expensesSubPage]);
+  
+  // Add this function to fetch supplier payments
+  const fetchSupplierPayments = async () => {
+    try {
+      setLoading(true);
+      const data = await supplierPaymentService.getAllPayments();
+      
+      // Process and format the supplier payments
+      const formattedPayments = data.map(payment => ({
+        ...payment,
+        id: payment._id,
+        supplierName: payment.supplier,
+        invoiceNumber: payment.requestId ? `REQ-${payment.requestId.substring(0, 8)}` : 'N/A',
+        paymentDate: new Date(payment.paymentDate || payment.createdAt).toISOString(),
+        status: payment.status || 'paid',
+        amount: payment.amount || 0,
+        productName: payment.product,
+        quantity: payment.quantity || 1
+      }));
+      
+      console.log('Fetched supplier payments:', formattedPayments);
+      setSupplierPayments(formattedPayments);
+    } catch (error) {
+      console.error('Error fetching supplier payments:', error);
+      setError('Failed to load supplier payment data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add this function to handle payment status update
+  const handleSupplierPaymentStatusUpdate = async (paymentId, newStatus) => {
+    try {
+      setLoading(true);
+      await supplierPaymentService.updatePaymentStatus(paymentId, newStatus);
+      
+      // Update the local state with the new status
+      setSupplierPayments(payments => 
+        payments.map(payment => 
+          payment.id === paymentId || payment._id === paymentId
+            ? { ...payment, status: newStatus }
+            : payment
+        )
+      );
+      
+      // Show success notification
+      alert(`Payment status updated to ${newStatus}`);
+      
+      // Refresh the dashboard stats if needed
+      if (activePage === 'Dashboard') {
+        fetchPayments();
+      }
+    } catch (error) {
+      console.error('Failed to update payment status:', error);
+      alert('Failed to update payment status. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Export payments as CSV
   const exportPayments = () => {
     // Create CSV header
@@ -203,6 +270,81 @@ function PaymentDashboard() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Add these export functions inside the component
+  const exportSupplierPayments = () => {
+    try {
+      // Create CSV header
+      const headers = ['Supplier Name', 'Product', 'Quantity', 'Amount (Rs.)', 'Invoice Number', 'Payment Date', 'Status'];
+      
+      // Convert payment data to CSV rows
+      const csvData = supplierPayments.map(payment => [
+        payment.supplierName || payment.supplier,
+        payment.productName || payment.product,
+        payment.quantity || 1,
+        payment.amount,
+        payment.invoiceNumber || (payment.requestId ? payment.requestId.substring(0, 8) : 'N/A'),
+        new Date(payment.paymentDate || payment.createdAt).toLocaleDateString(),
+        payment.status === 'paid' ? 'Paid' : 
+          payment.status === 'pending' ? 'Pending' : 'Failed'
+      ]);
+      
+      // Combine headers and data
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => row.join(','))
+      ].join('\n');
+      
+      // Create download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `supplier_payments_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('Supplier payments exported successfully');
+      alert('Supplier payments exported successfully');
+    } catch (error) {
+      console.error('Error exporting supplier payments:', error);
+      alert('Failed to export supplier payments: ' + error.message);
+    }
+  };
+
+  const exportExpensesData = () => {
+    try {
+      // CSV export for expense data
+      const headers = ['Date', 'Type', 'Month', 'Employee Name', 'Email', 'Amount'];
+      const csvData = adminExpenses.map(expense => [
+        new Date(expense.date).toLocaleDateString(),
+        expense.type,
+        expense.month || '-',
+        expense.employeeName,
+        expense.employeeEmail,
+        expense.amount
+      ]);
+      
+      const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `expenses_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('Expenses exported successfully');
+      alert('Expenses exported successfully');
+    } catch (error) {
+      console.error('Error exporting expenses:', error);
+      alert('Failed to export expenses: ' + error.message);
+    }
   };
 
   // View payment details
@@ -446,6 +588,18 @@ function PaymentDashboard() {
       setCommissionPayments([]);
       setAgreementFeePayments([]);
     }
+
+    // When calculating expense totals for dashboard, only count successful payments
+    const paidSupplierPayments = supplierPayments.filter(payment => 
+      payment.status === 'paid' || payment.status === 'Success' || payment.status === 'Succeeded'
+    );
+    
+    const totalSupplierExpenses = paidSupplierPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    // Update stats calculation to use this filtered total
+    stats.totalExpenses = (paymentStats?.serviceProviderTotal || 0) + 
+                          (totalSalaryPaid || 0) + 
+                          totalSupplierExpenses;
   };
 
   // Helper function to convert backend status to UI status
@@ -1646,7 +1800,10 @@ function PaymentDashboard() {
                       <p className="text-2xl font-bold text-red-800">
                         Rs. {((paymentStats?.serviceProviderTotal || 0) + 
                         (totalSalaryPaid || 0) + 
-                        (supplierPayments.reduce((sum, p) => sum + p.amount, 0) || 0)).toLocaleString()}
+                        (supplierPayments
+                          .filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
+                          .reduce((sum, p) => sum + (p.amount || 0), 0)
+                        )).toLocaleString()}
                       </p>
                     </div>
                     <div className="p-3 bg-red-200 rounded-lg">
@@ -1655,7 +1812,7 @@ function PaymentDashboard() {
                   </div>
                   <div className="mt-4 flex items-center">
                     <Activity size={16} className="text-red-600 mr-2" />
-                    <span className="text-xs font-medium text-red-700">Service providers, salaries & suppliers</span>
+                    <span className="text-xs font-medium text-red-700">Service providers, salaries & confirmed supplier payments</span>
                   </div>
                 </div>
                 
@@ -2506,10 +2663,48 @@ function PaymentDashboard() {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-lg font-semibold">Supplier Payment Records</h2>
                   <div className="flex space-x-2">
-                    <button className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-                      <Download size={16} className="mr-2" />
-                      Export
+                    <button 
+                      onClick={fetchSupplierPayments}
+                      className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                    >
+                      <RefreshCw size={16} className="mr-2" />
+                      Refresh
                     </button>
+                    <button 
+                      onClick={exportSupplierPayments}
+                      className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                    >
+                      <Download size={16} className="mr-2" />
+                      Export CSV
+                    </button>
+                  </div>
+                </div>
+      
+                {/* Summary Statistics */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-red-50 p-4 rounded-lg">
+                    <p className="text-sm text-red-600 font-medium">Total Paid</p>
+                    <p className="text-2xl font-bold text-red-700">
+                      Rs. {supplierPayments
+                        .filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
+                        .reduce((sum, p) => sum + (p.amount || 0), 0)
+                        .toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="bg-yellow-50 p-4 rounded-lg">
+                    <p className="text-sm text-yellow-600 font-medium">Pending Payments</p>
+                    <p className="text-2xl font-bold text-yellow-700">
+                      Rs. {supplierPayments
+                        .filter(p => p.status === 'pending' || p.status === 'Pending')
+                        .reduce((sum, p) => sum + (p.amount || 0), 0)
+                        .toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <p className="text-sm text-blue-600 font-medium">Active Suppliers</p>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {new Set(supplierPayments.map(p => p.supplierName || p.supplier)).size}
+                    </p>
                   </div>
                 </div>
       
@@ -2522,10 +2717,16 @@ function PaymentDashboard() {
                           Supplier Name
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Invoice Number
+                          Product
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Quantity
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           Amount
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Invoice Number
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           Payment Date
@@ -2539,37 +2740,75 @@ function PaymentDashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {supplierPayments.length === 0 ? (
+                      {loading ? (
                         <tr>
-                          <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
+                          <td colSpan="8" className="px-6 py-10 text-center">
+                            <Loader className="animate-spin h-6 w-6 text-blue-600 mx-auto mb-2" />
+                            <p className="text-gray-500">Loading supplier payments...</p>
+                          </td>
+                        </tr>
+                      ) : error ? (
+                        <tr>
+                          <td colSpan="8" className="px-6 py-10 text-center text-red-500">
+                            <p>{error}</p>
+                            <button 
+                              onClick={fetchSupplierPayments} 
+                              className="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+                            >
+                              Try Again
+                            </button>
+                          </td>
+                        </tr>
+                      ) : supplierPayments.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" className="px-6 py-10 text-center text-gray-500">
                             No supplier payments found
                           </td>
                         </tr>
                       ) : (
                         supplierPayments.map((payment, index) => (
-                          <tr key={payment.id} className="hover:bg-gray-50">
+                          <tr key={payment.id || payment._id || index} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {payment.supplierName}
+                              {payment.supplierName || payment.supplier}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {payment.invoiceNumber}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              Rs. {payment.amount.toLocaleString()}
+                              {payment.productName || payment.product}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(payment.paymentDate).toLocaleDateString()}
+                              {payment.quantity?.toLocaleString() || '1'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                              Rs. {payment.amount?.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {payment.invoiceNumber || payment.requestId?.substring(0, 8) || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {new Date(payment.paymentDate || payment.createdAt).toLocaleDateString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {getStatusBadge(payment.status)}
+                              {getStatusBadge(
+                                payment.status === 'paid' ? 'Succeeded' : 
+                                payment.status === 'pending' ? 'Pending' : 'Declined'
+                              )}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <button 
-                                onClick={() => viewPaymentDetails(payment)}
-                                className="text-blue-600 hover:text-blue-800"
-                              >
-                                View Details
-                              </button>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              {/* Show Pay Now button only for pending payments */}
+                              {(payment.status === 'pending' || payment.status === 'Pending') && (
+                                <button
+                                  onClick={() => handleSupplierPaymentStatusUpdate(payment.id || payment._id, 'paid')}
+                                  className="px-3 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200"
+                                  disabled={loading}
+                                >
+                                  {loading ? (
+                                    <div className="flex items-center">
+                                      <Loader size={14} className="animate-spin mr-1" /> Processing...
+                                    </div>
+                                  ) : (
+                                    'Pay Now'
+                                  )}
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))
@@ -3241,30 +3480,6 @@ const exportCommissionData = () => {
   const link = document.createElement('a');
   link.setAttribute('href', url);
   link.setAttribute('download', `commission_income_${new Date().toISOString()}.csv`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-const exportExpensesData = () => {
-  // CSV export for expense data
-  const headers = ['Date', 'Type', 'Month', 'Employee Name', 'Email', 'Amount'];
-  const csvData = adminExpenses.map(expense => [
-    new Date(expense.date).toLocaleDateString(),
-    expense.type,
-    expense.month || '-',
-    expense.employeeName,
-    expense.employeeEmail,
-    expense.amount
-  ]);
-  
-  const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', `expenses_${new Date().toISOString()}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
