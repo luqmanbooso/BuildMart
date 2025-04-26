@@ -991,8 +991,11 @@ const updateOrderStatus = async (orderId, newStatus) => {
   // Helper: Disallow forbidden special characters in names
   const forbiddenNameChars = /[#$@%\^*!_~`\[\]{}:;"'<>?/\\|]/;
 
-  // Helper: Disallow starting with special character or space
-  const startsWithSpecialOrSpace = (str) => /^[^a-zA-Z0-9]/.test(str);
+  // Helper: Check if string starts with special char, number or space
+  const startsWithSpecialOrSpace = (str) => /^[^a-zA-Z]/.test(str);
+  
+  // Update this helper to check specifically for letters-only first character
+  const startsWithSpecialNumberOrSpace = (str) => /^[^a-zA-Z]/.test(str);
 
   const validateSupplierForm = () => {
     const errors = {};
@@ -1003,8 +1006,8 @@ const updateOrderStatus = async (orderId, newStatus) => {
       errors.supplierName = "Supplier name must be at least 2 characters";
     } else if (supplierName.trim().length > 100) {
       errors.supplierName = "Supplier name cannot exceed 100 characters";
-    } else if (startsWithSpecialOrSpace(supplierName.trim())) {
-      errors.supplierName = "Supplier name cannot start with a special character or space";
+    } else if (startsWithSpecialNumberOrSpace(supplierName.trim())) {
+      errors.supplierName = "Supplier name cannot start with a special character, number, or space";
     } else if (forbiddenNameChars.test(supplierName)) {
       errors.supplierName = "Supplier name cannot contain special characters like #, $, @, %, etc.";
     } else if (hasSqlKeyword(supplierName)) {
@@ -1016,14 +1019,8 @@ const updateOrderStatus = async (orderId, newStatus) => {
       errors.selectedProduct = "Please select a product";
     }
     
-    // Category
-    if (supplierCategory && supplierCategory.length > 50) {
-      errors.supplierCategory = "Category cannot exceed 50 characters";
-    } else if (startsWithSpecialOrSpace(supplierCategory.trim())) {
-      errors.supplierCategory = "Category cannot start with a special character or space";
-    } else if (!/^[a-zA-Z0-9\s]+$/.test(supplierCategory)) {
-      errors.supplierCategory = "Category should contain only letters, numbers, and spaces";
-    }
+    // Category - removed validation since category is read-only
+    
     // Price
     if (!supplierPrice) {
       errors.supplierPrice = "Price is required";
@@ -1052,8 +1049,8 @@ const updateOrderStatus = async (orderId, newStatus) => {
       errors.supplierContact = "Contact name must be at least 2 characters";
     } else if (supplierContact.trim().length > 100) {
       errors.supplierContact = "Contact name cannot exceed 100 characters";
-    } else if (startsWithSpecialOrSpace(supplierContact.trim())) {
-      errors.supplierContact = "Contact name cannot start with a special character or space";
+    } else if (startsWithSpecialNumberOrSpace(supplierContact.trim())) {
+      errors.supplierContact = "Contact name cannot start with a special character, number, or space";
     } else if (forbiddenNameChars.test(supplierContact)) {
       errors.supplierContact = "Contact name cannot contain special characters";
     } else if (!/^[a-zA-Z][a-zA-Z\s.-]*$/.test(supplierContact.trim())) {
@@ -1073,6 +1070,8 @@ const updateOrderStatus = async (orderId, newStatus) => {
       errors.supplierPhone = "Phone number is required";
     } else if (!/^(?:\+94|0)[0-9]{9,10}$/.test(supplierPhone.replace(/\s+/g, ''))) {
       errors.supplierPhone = "Please enter a valid Sri Lankan phone number";
+    } else if (supplierPhone.replace(/\s+/g, '').length > 12) {
+      errors.supplierPhone = "Phone number cannot exceed 12 digits";
     }
     // City
     if (supplierCity) {
@@ -1087,6 +1086,8 @@ const updateOrderStatus = async (orderId, newStatus) => {
     // Address
     if (supplierAddress && supplierAddress.length > 250) {
       errors.supplierAddress = "Address cannot exceed 250 characters";
+    } else if (supplierAddress && /^[\s~`!@#$%^&*()_\-+=\[\]{}|\\;:"'<>,.?/]/.test(supplierAddress.trim())) {
+      errors.supplierAddress = "Address cannot start with a special character or space";
     }
     // Payment terms
     if (paymentTerms && paymentTerms.length > 100) {
@@ -1974,7 +1975,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
                               <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0" />
                             )}
                             {notification.type === "success" && (
-                              <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
+                              <CheckCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
                             )}
                             {notification.type === "info" && (
                               <Bell className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
@@ -2759,7 +2760,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                 <div className="flex items-center">
                                   <div className="h-10 w-10 flex-shrink-0 bg-gray-100 rounded-md flex items-center justify-center mr-4">
                                     {item.name?.toLowerCase().includes("safety") || item.category?.toLowerCase().includes("safety") ? (
-                                      <AlertCircle className="h-5 w-5 text-green-500" />
+                                      <AlertCircle className="h-5 w-5 text-blue-500" />
                                     ) : item.name?.toLowerCase().includes("tool") || item.category?.toLowerCase().includes("tool") ? (
                                       <Wrench className="h-5 w-5 text-blue-500" />
                                     ) : item.name?.toLowerCase().includes("cement") || item.name?.toLowerCase().includes("brick") ? (
@@ -2822,8 +2823,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   </button>
                                 )}
                                 {item.restockRequested && (
-                                  <div className="mt-2 text-xs text-green-600 inline-flex items-center">
-                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                  <div className="mt-2 text-xs text-blue-600 inline-flex items-center">
                                     Restock Requested
                                   </div>
                                 )}
@@ -3140,13 +3140,13 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                     const value = e.target.value;
                                     setSupplierName(value);
                                     
-                                    // Real-time validation for special characters
-                                    if (/^[^a-zA-Z0-9]/.test(value)) {
-                                      setValidationErrors(prev => ({ ...prev, supplierName: 'Supplier name cannot start with a special character or space' }));
+                                    // Real-time validation for special characters, numbers, and spaces
+                                    if (/^[^a-zA-Z]/.test(value)) {
+                                      setValidationErrors(prev => ({ ...prev, supplierName: 'Supplier name cannot start with a special character, number, or space' }));
                                     } else if (/[#$@%\^*!_~`\[\]{}:;"'<>?/\\|]/.test(value)) {
                                       setValidationErrors(prev => ({ ...prev, supplierName: 'Supplier name cannot contain special characters like #, $, @, %, etc.' }));
                                     } else if (validationErrors.supplierName && 
-                                      (validationErrors.supplierName === 'Supplier name cannot start with a special character or space' ||
+                                      (validationErrors.supplierName === 'Supplier name cannot start with a special character, number, or space' ||
                                        validationErrors.supplierName === 'Supplier name cannot contain special characters like #, $, @, %, etc.')) {
                                       // Only clear special character errors
                                       setValidationErrors(prev => { const n = { ...prev }; delete n.supplierName; return n; });
@@ -3160,11 +3160,6 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   placeholder="Enter company name"
                                   required
                                 />
-                                {supplierName.trim() && !validationErrors.supplierName && (
-                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                  </div>
-                                )}
                               </div>
                               {validationErrors.supplierName && (
                                 <p className="mt-1 text-sm text-red-600">{validationErrors.supplierName}</p>
@@ -3192,15 +3187,10 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                     </option>
                                   ))}
                                 </select>
-                                {selectedProduct && !validationErrors.selectedProduct && (
-                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                  </div>
+                                {validationErrors.selectedProduct && (
+                                  <p className="mt-1 text-sm text-red-600">{validationErrors.selectedProduct}</p>
                                 )}
                               </div>
-                              {validationErrors.selectedProduct && (
-                                <p className="mt-1 text-sm text-red-600">{validationErrors.selectedProduct}</p>
-                              )}
                             </div>
 
                             <div>
@@ -3233,6 +3223,13 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                       setValidationErrors(newErrors);
                                     }
                                   }}
+                                  onKeyDown={(e) => {
+                                    // Allow only numbers, backspace, delete, arrow keys, decimal point
+                                    if (!/^[0-9.]$/.test(e.key) && 
+                                        !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+                                      e.preventDefault();
+                                    }
+                                  }}
                                   className={`w-full px-3 py-2 bg-gray-50 border ${
                                     validationErrors.supplierPrice 
                                       ? "border-red-500 focus:ring-red-500" 
@@ -3241,15 +3238,10 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   placeholder="Enter purchase price"
                                   required
                                 />
-                                {supplierPrice && parseFloat(supplierPrice) > 0 && !validationErrors.supplierPrice && (
-                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                  </div>
+                                {validationErrors.supplierPrice && (
+                                  <p className="mt-1 text-sm text-red-600">{validationErrors.supplierPrice}</p>
                                 )}
                               </div>
-                              {validationErrors.supplierPrice && (
-                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierPrice}</p>
-                              )}
                             </div>
 
                             <div>
@@ -3274,6 +3266,8 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                 </p>
                               )}
                             </div>
+                            
+                            {/* Notes field moved after address */}
                           </div>
                         </div>
 
@@ -3315,15 +3309,10 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
                                   placeholder="Full name"
                                 />
-                                {supplierContact.trim() && !validationErrors.supplierContact && (
-                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                  </div>
+                                {validationErrors.supplierContact && (
+                                  <p className="mt-1 text-sm text-red-600">{validationErrors.supplierContact}</p>
                                 )}
                               </div>
-                              {validationErrors.supplierContact && (
-                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierContact}</p>
-                              )}
                             </div>
 
                             <div>
@@ -3350,15 +3339,10 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
                                   placeholder="email@example.com"
                                 />
-                                {supplierEmail.trim() && !validationErrors.supplierEmail && (
-                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                  </div>
+                                {validationErrors.supplierEmail && (
+                                  <p className="mt-1 text-sm text-red-600">{validationErrors.supplierEmail}</p>
                                 )}
                               </div>
-                              {validationErrors.supplierEmail && (
-                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierEmail}</p>
-                              )}
                             </div>
 
                             <div>
@@ -3370,7 +3354,9 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   type="tel"
                                   value={supplierPhone}
                                   onChange={(e) => {
-                                    setSupplierPhone(e.target.value);
+                                    // Allow only numbers, +, and spaces
+                                    const value = e.target.value.replace(/[^\d+\s]/g, '');
+                                    setSupplierPhone(value);
                                     if (validationErrors.supplierPhone) {
                                       setValidationErrors({
                                         ...validationErrors,
@@ -3378,6 +3364,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                       });
                                     }
                                   }}
+                                  maxLength={15}
                                   className={`w-full px-3 py-2 bg-gray-50 border ${
                                     validationErrors.supplierPhone 
                                       ? "border-red-500 focus:ring-red-500" 
@@ -3385,15 +3372,10 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
                                   placeholder="+94XXXXXXXXX or 07XXXXXXXX"
                                 />
-                                {supplierPhone.trim() && !validationErrors.supplierPhone && (
-                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                  </div>
+                                {validationErrors.supplierPhone && (
+                                  <p className="mt-1 text-sm text-red-600">{validationErrors.supplierPhone}</p>
                                 )}
                               </div>
-                              {validationErrors.supplierPhone && (
-                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierPhone}</p>
-                              )}
                             </div>
 
                             <div>
@@ -3403,10 +3385,29 @@ const updateOrderStatus = async (orderId, newStatus) => {
                               <input
                                 type="text"
                                 value={supplierCity}
-                                onChange={(e) => setSupplierCity(e.target.value)}
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setSupplierCity(value);
+                                  
+                                  // Real-time validation 
+                                  if (/^[^a-zA-Z]/.test(value)) {
+                                    setValidationErrors(prev => ({ ...prev, supplierCity: 'City name cannot start with a special character or space' }));
+                                  } else if (!/^[a-zA-Z\s]*$/.test(value)) {
+                                    setValidationErrors(prev => ({ ...prev, supplierCity: 'City name should contain only letters and spaces' }));
+                                  } else if (validationErrors.supplierCity) {
+                                    setValidationErrors(prev => { const n = { ...prev }; delete n.supplierCity; return n; });
+                                  }
+                                }}
+                                className={`w-full px-3 py-2 bg-gray-50 border ${
+                                  validationErrors.supplierCity 
+                                    ? "border-red-500 focus:ring-red-500" 
+                                    : "border-gray-300 focus:ring-blue-500"
+                                } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
                                 placeholder="City"
                               />
+                              {validationErrors.supplierCity && (
+                                <p className="mt-1 text-sm text-red-600">{validationErrors.supplierCity}</p>
+                              )}
                             </div>
                           </div>
 
@@ -3416,49 +3417,32 @@ const updateOrderStatus = async (orderId, newStatus) => {
                             </label>
                             <textarea
                               value={supplierAddress}
-                              onChange={(e) => setSupplierAddress(e.target.value)}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setSupplierAddress(value);
+                                
+                                // Real-time validation for starting with special character or space
+                                if (value && /^[\s~`!@#$%^&*()_\-+=\[\]{}|\\:;"'<>,.?/]/.test(value)) {
+                                  setValidationErrors(prev => ({ ...prev, supplierAddress: 'Address cannot start with a special character or space' }));
+                                } else if (validationErrors.supplierAddress && 
+                                  validationErrors.supplierAddress === 'Address cannot start with a special character or space') {
+                                  setValidationErrors(prev => { const n = { ...prev }; delete n.supplierAddress; return n; });
+                                }
+                              }}
                               rows="2"
-                              className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                              className={`w-full px-3 py-2 bg-gray-50 border ${
+                                validationErrors.supplierAddress 
+                                  ? "border-red-500 focus:ring-red-500" 
+                                  : "border-gray-300 focus:ring-blue-500"
+                              } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
                               placeholder="Street address"
                             ></textarea>
+                            {validationErrors.supplierAddress && (
+                              <p className="mt-1 text-sm text-red-600">{validationErrors.supplierAddress}</p>
+                            )}
                           </div>
-                        </div>
-
-                        {/* Business Terms */}
-                        <div className="space-y-4 md:col-span-2">
-                          <h4 className="text-sm font-medium text-blue-600 uppercase tracking-wider">
-                            Business Terms
-                          </h4>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Payment Terms
-                              </label>
-                              <input
-                                type="text"
-                                value={paymentTerms}
-                                onChange={(e) => setPaymentTerms(e.target.value)}
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                                placeholder="e.g., Net 30"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Lead Time (days)
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={leadTime}
-                                onChange={(e) => setLeadTime(e.target.value)}
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                                placeholder="Number of days"
-                              />
-                            </div>
-                          </div>
-
+                          
+                          {/* Add Notes field here after address */}
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Notes
@@ -3476,6 +3460,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
                     </div>
 
                     <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center rounded-b-lg">
+                      
                       <div className="flex items-center text-sm text-gray-500">
                         <span className="text-red-500 mr-1">*</span> Required
                         fields
