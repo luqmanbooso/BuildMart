@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-const IssueReportModal = ({ isOpen, onClose, projectId, userId, userRole }) => {
+const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, userId, username, userRole, category, work }) => {
   const [issueData, setIssueData] = useState({
     title: '',
     description: '',
-    category: 'technical',
+    category: category || 'technical',
     priority: 'medium',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,15 +51,43 @@ const IssueReportModal = ({ isOpen, onClose, projectId, userId, userRole }) => {
       // Get current date and time
       const submissionDate = new Date().toISOString();
       
-      const response = await axios.post('http://localhost:5000/api/inquiries', {
-        ...issueData,
-        projectId,
-        userId,
-        userRole,
+      // Get authentication token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      // Simplify the payload - only send absolutely required fields
+      const payload = {
+        title: issueData.title,
+        description: issueData.description,
+        category: issueData.category || 'technical',
+        priority: issueData.priority || 'medium',
         status: 'pending',
         submittedAt: submissionDate
-      });
+      };
       
+      // Only add these fields if they exist and are not null/undefined
+      if (projectName) payload.projectName = projectName;
+      if (projectId) payload.projectId = projectId;
+      if (userId) payload.userId = userId;
+      if (username) payload.username = username; // Add username to payload
+      if (userRole) payload.userRole = userRole;
+      
+      console.log('Sending simplified payload with username:', payload);
+      
+      // Make the request with auth token
+      const response = await axios.post(
+        'http://localhost:5000/api/inquiries', 
+        payload,
+        {
+          headers: token ? { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } : {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('Issue submission successful:', response.data);
       toast.success("Issue reported successfully! An administrator will review it shortly.");
       onClose();
       
@@ -67,12 +95,34 @@ const IssueReportModal = ({ isOpen, onClose, projectId, userId, userRole }) => {
       setIssueData({
         title: '',
         description: '',
-        category: 'technical',
+        category: category || 'technical',
         priority: 'medium',
       });
     } catch (error) {
       console.error("Error submitting issue:", error);
-      toast.error(error.response?.data?.message || "Failed to submit issue. Please try again.");
+      
+      // More detailed error logging
+      if (error.response) {
+        // The server responded with an error status
+        console.error('Server error details:', error.response.data);
+        console.error('Status code:', error.response.status);
+        
+        // Try to provide more specific error messages based on the response
+        const errorMessage = error.response.data?.message || 'Unknown server error';
+        toast.error(`Server error: ${errorMessage}`);
+        
+        // If it's a 400 error, it might be a validation issue
+        if (error.response.status === 400) {
+          toast.error("Please check that all required fields are filled correctly.");
+        }
+      } else if (error.request) {
+        // The request was made but no response received
+        console.error('No response received:', error.request);
+        toast.error("No response from server. Please check your connection.");
+      } else {
+        // Something else happened
+        toast.error(`Error: ${error.message}`);
+      }
     } finally {
       setIsSubmitting(false);
     }

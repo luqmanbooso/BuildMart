@@ -544,7 +544,14 @@ const handlePaymentSuccess = async (paymentData) => {
 
   // Add function to handle opening the issue report modal
   const handleReportIssue = () => {
-    setSelectedWorkForReport(activeWork);
+    // Create a properly formatted object with all required props
+    const enhancedWorkData = {
+      ...activeWork,
+      // Ensure we pass all required properties
+      projectName: activeWork.title || 'Untitled Project'
+    };
+    
+    setSelectedWorkForReport(enhancedWorkData);
     setIsReportModalOpen(true);
   };
 
@@ -989,6 +996,13 @@ const handlePaymentSuccess = async (paymentData) => {
         <IssueReportModal 
           isOpen={isReportModalOpen} 
           onClose={() => setIsReportModalOpen(false)} 
+          projectId={selectedWorkForReport.id || selectedWorkForReport.jobId}
+          projectName={selectedWorkForReport.projectName || selectedWorkForReport.title || 'Untitled Project'}
+          title={selectedWorkForReport.title || 'Untitled Project'}
+          userId={clientDetails?.id}
+          username={clientDetails?.name || 'Client'} // Pass client name as username
+          userRole="User"
+          category={selectedWorkForReport.category || 'Construction'}
           work={selectedWorkForReport} 
         />
       )}

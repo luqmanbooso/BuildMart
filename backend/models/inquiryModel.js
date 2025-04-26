@@ -29,13 +29,21 @@ const inquirySchema = new mongoose.Schema({
     type: String,
     required: false // Optional, as some inquiries might not be tied to a project
   },
+  projectName: {
+    type: String,
+    required: false // Add projectName field to store project names directly
+  },
   userId: {
     type: String,
     required: false // Optional for anonymous reports
   },
+  username: {
+    type: String,
+    required: false // Store the actual username
+  },
   userRole: {
     type: String,
-    enum: ['Client', 'Service Provider', 'Guest', 'Admin'],
+    enum: ['Client', 'Service Provider', 'Guest', 'Admin', 'User'], // Add 'User' to enum
     required: false
   },
   submittedAt: {

@@ -36,14 +36,27 @@ router.post('/', async (req, res) => {
       category, 
       priority, 
       projectId, 
-      userId, 
+      projectName,
+      userId,
+      username, // Add username field
       userRole,
       status,
       submittedAt
     } = req.body;
     
+    // Log the received data for debugging
+    console.log('Received inquiry data:', {
+      title, description, category, priority, projectId, projectName, userId, username, userRole, status
+    });
+    
     if (!title || !description) {
       return res.status(400).json({ message: 'Title and description are required' });
+    }
+    
+    // Check and normalize user role if needed
+    let normalizedUserRole = userRole;
+    if (userRole && !['Client', 'Service Provider', 'Guest', 'Admin', 'User'].includes(userRole)) {
+      normalizedUserRole = 'User'; // Default to 'User' if invalid role received
     }
     
     const inquiry = new Inquiry({
@@ -52,8 +65,10 @@ router.post('/', async (req, res) => {
       category: category || 'technical',
       priority: priority || 'medium',
       projectId,
+      projectName,
       userId,
-      userRole,
+      username, // Store username in database
+      userRole: normalizedUserRole,
       status: status || 'pending',
       submittedAt: submittedAt || new Date()
     });
@@ -62,7 +77,18 @@ router.post('/', async (req, res) => {
     res.status(201).json(savedInquiry);
   } catch (error) {
     console.error('Error creating inquiry:', error);
-    res.status(500).json({ message: 'Server error while creating inquiry' });
+    
+    // Improved error handling
+    if (error.name === 'ValidationError') {
+      // Mongoose validation error - send details to help debug
+      const validationErrors = Object.keys(error.errors).map(field => ({
+        field,
+        message: error.errors[field].message
+      }));
+      return res.status(400).json({ message: 'Validation error', errors: validationErrors });
+    }
+    
+    res.status(500).json({ message: 'Server error while creating inquiry', error: error.message });
   }
 });
 

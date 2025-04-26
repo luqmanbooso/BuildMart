@@ -18,7 +18,62 @@ const AdminInquiries = () => {
     setIsLoading(true);
     try {
       const response = await axios.get('http://localhost:5000/api/inquiries');
-      setInquiries(response.data);
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      console.log('Raw inquiry data:', response.data);
+      
+      // Create a set of all unique user IDs that we need to fetch data for
+      const userIds = new Set();
+      response.data.forEach(inquiry => {
+        if (inquiry.userId) userIds.add(inquiry.userId);
+      });
+      
+      // Fetch user details for all user IDs
+      const userDetailsMap = {};
+      if (userIds.size > 0) {
+        await Promise.all(Array.from(userIds).map(async (userId) => {
+          try {
+            const userResponse = await axios.get(`http://localhost:5000/auth/user/${userId}`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            userDetailsMap[userId] = userResponse.data;
+            console.log(`Fetched user data for ${userId}:`, userResponse.data);
+          } catch (err) {
+            console.error(`Failed to fetch details for user ${userId}:`, err);
+          }
+        }));
+      }
+      
+      // Format inquiries with user names and categories
+      const formattedInquiries = response.data.map(inquiry => {
+        // Get user display name
+        let userDisplayName = 'Anonymous';
+        let userDisplayRole = inquiry.userRole || 'User';
+        
+        if (inquiry.userId && userDetailsMap[inquiry.userId]) {
+          const userDetails = userDetailsMap[inquiry.userId];
+          userDisplayName = userDetails.username || userDetails.name || 'Anonymous';
+          
+          // Normalize role to User or Service Provider
+          if (inquiry.userRole === 'Service Provider' || 
+              userDetails.role === 'serviceProvider' || 
+              userDetails.role === 'service provider') {
+            userDisplayRole = 'Service Provider';
+          } else {
+            userDisplayRole = 'User';
+          }
+        }
+        
+        return {
+          ...inquiry,
+          projectDisplayName: inquiry.projectName || 'General Inquiry',
+          userDisplayName,
+          userDisplayRole
+        };
+      });
+      
+      console.log('Formatted inquiries with user details:', formattedInquiries);
+      setInquiries(formattedInquiries);
     } catch (error) {
       console.error('Error fetching inquiries:', error);
       setErrorMessage('Failed to load inquiries. Please try again.');
@@ -186,7 +241,7 @@ const AdminInquiries = () => {
       {!errorMessage && filteredInquiries.length === 0 && (
         <div className="text-center py-12">
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2h-3l-4 4z" />
           </svg>
           <h3 className="mt-2 text-sm font-medium text-gray-900">No inquiries found</h3>
           <p className="mt-1 text-sm text-gray-500">No inquiries match your current filter criteria.</p>
@@ -223,6 +278,10 @@ const AdminInquiries = () => {
                             {inquiry.priority}
                           </span>
                           <span className="mx-2 text-gray-400">·</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                            {inquiry.category}
+                          </span>
+                          <span className="mx-2 text-gray-400">·</span>
                           <span className="text-xs text-gray-500">{formatDate(inquiry.submittedAt)}</span>
                         </div>
                       </div>
@@ -230,14 +289,19 @@ const AdminInquiries = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {inquiry.projectId || 'General Inquiry'}
+                      {inquiry.projectDisplayName}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{inquiry.userId || 'Anonymous'}</div>
-                        <div className="text-xs text-gray-500">{inquiry.userRole || 'User'}</div>
+                        {/* Display username directly from inquiry if available */}
+                        <div className="text-sm font-medium text-gray-900">
+                          {inquiry.username || inquiry.userDisplayName || 'Anonymous'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {inquiry.userRole || 'User'}
+                        </div>
                       </div>
                     </div>
                   </td>
