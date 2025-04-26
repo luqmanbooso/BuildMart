@@ -6,6 +6,7 @@ import ContractorUserNav from './ContractorUserNav';
 import { Link } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { useNavigate } from 'react-router-dom';
+import Footer from './Footer'; // Import Footer component
 
 const BiddingHistoryPage = () => {
   const [biddingHistory, setBiddingHistory] = useState([]);
@@ -235,9 +236,9 @@ const BiddingHistoryPage = () => {
   };
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white min-h-screen flex flex-col">
       <ContractorUserNav />
-    <br /><br /><br /><br />
+      <br /><br /><br /><br />
       <motion.div 
         className="bg-blue-900 text-white py-8 px-4"
         initial={{ opacity: 0 }}
@@ -249,7 +250,7 @@ const BiddingHistoryPage = () => {
         </div>
       </motion.div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 flex-grow">
         {/* Main content only - removed sidebar with contractor details */}
         <motion.div 
           className="w-full"
@@ -433,6 +434,9 @@ const BiddingHistoryPage = () => {
           </motion.div>
         </motion.div>
       </div>
+      
+      {/* Add Footer */}
+      <Footer />
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { FaChartLine, FaMoneyBillWave, FaHourglassHalf, FaClipboardList } from '
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import ContractorUserNav from '../components/ContractorUserNav';
+import Footer from '../components/Footer'; // Import Footer component
 // Import Chart.js components
 import {
   Chart as ChartJS,
@@ -265,294 +266,296 @@ const MyEarningsPage = () => {
   }
 
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
       <ContractorUserNav/>
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <br /><br /><br /><br />
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">My Earnings</h1>
-      
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {/* Total Earnings Card */}
-        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 mr-4">
-              <FaMoneyBillWave className="text-green-600 text-2xl" />
+      <div className="container mx-auto px-4 py-8 max-w-7xl flex-grow">
+        <br /><br /><br /><br />
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">My Earnings</h1>
+        
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {/* Total Earnings Card */}
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-green-100 mr-4">
+                <FaMoneyBillWave className="text-green-600 text-2xl" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Total Earnings</p>
+                <p className="text-2xl font-bold text-gray-800">LKR {earnings.totalEarned.toLocaleString()}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Total Earnings</p>
-              <p className="text-2xl font-bold text-gray-800">LKR {earnings.totalEarned.toLocaleString()}</p>
+          </div>
+          
+          {/* Pending Earnings Card */}
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-yellow-100 mr-4">
+                <FaHourglassHalf className="text-yellow-600 text-2xl" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Pending Payments</p>
+                <p className="text-2xl font-bold text-gray-800">LKR {earnings.totalPending.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Projects Card */}
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+            <div className="flex items-center">
+              <div className="p-3 rounded-full bg-blue-100 mr-4">
+                <FaClipboardList className="text-blue-600 text-2xl" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">Active Projects</p>
+                <p className="text-2xl font-bold text-gray-800">{earnings.ongoingWorks.filter(w => w.jobStatus !== 'Completed').length}</p>
+              </div>
             </div>
           </div>
         </div>
         
-        {/* Pending Earnings Card */}
-        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 mr-4">
-              <FaHourglassHalf className="text-yellow-600 text-2xl" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Pending Payments</p>
-              <p className="text-2xl font-bold text-gray-800">LKR {earnings.totalPending.toLocaleString()}</p>
-            </div>
-          </div>
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="flex space-x-6">
+            <button 
+              className={`py-4 px-1 font-medium text-sm border-b-2 ${
+                selectedTab === 'summary' 
+                  ? 'border-blue-500 text-blue-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              onClick={() => setSelectedTab('summary')}
+            >
+              Earnings Summary
+            </button>
+            <button 
+              className={`py-4 px-1 font-medium text-sm border-b-2 ${
+                selectedTab === 'milestones' 
+                  ? 'border-blue-500 text-blue-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              onClick={() => setSelectedTab('milestones')}
+            >
+              Milestone Payments
+            </button>
+          </nav>
         </div>
-        
-        {/* Projects Card */}
-        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 mr-4">
-              <FaClipboardList className="text-blue-600 text-2xl" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Active Projects</p>
-              <p className="text-2xl font-bold text-gray-800">{earnings.ongoingWorks.filter(w => w.jobStatus !== 'Completed').length}</p>
-            </div>
-          </div>
+
+        {/* Timeframe Filter */}
+        <div className="mb-6 flex justify-end">
+          <select
+            value={selectedTimeframe}
+            onChange={(e) => setSelectedTimeframe(e.target.value)}
+            className="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+          >
+            <option value="all">All Time</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="year">This Year</option>
+          </select>
         </div>
-      </div>
-      
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="flex space-x-6">
-          <button 
-            className={`py-4 px-1 font-medium text-sm border-b-2 ${
-              selectedTab === 'summary' 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-            onClick={() => setSelectedTab('summary')}
-          >
-            Earnings Summary
-          </button>
-          <button 
-            className={`py-4 px-1 font-medium text-sm border-b-2 ${
-              selectedTab === 'milestones' 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-            onClick={() => setSelectedTab('milestones')}
-          >
-            Milestone Payments
-          </button>
-        </nav>
-      </div>
 
-      {/* Timeframe Filter */}
-      <div className="mb-6 flex justify-end">
-        <select
-          value={selectedTimeframe}
-          onChange={(e) => setSelectedTimeframe(e.target.value)}
-          className="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-        >
-          <option value="all">All Time</option>
-          <option value="week">This Week</option>
-          <option value="month">This Month</option>
-          <option value="year">This Year</option>
-        </select>
-      </div>
-
-      {/* Content based on selected tab */}
-      {selectedTab === 'summary' ? (
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
-            <h3 className="text-lg font-medium text-gray-900">Earnings Summary</h3>
-          </div>
-          
-          {/* Replace chart placeholder with actual Chart.js implementation */}
-          <div className="p-6" style={{ height: '350px' }}>
-            <Bar
-              data={chartData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    position: 'top',
-                  },
-                  title: {
-                    display: true,
-                    text: 'Project Earnings Breakdown'
-                  },
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    title: {
-                      display: true,
-                      text: 'Amount (LKR)'
-                    }
-                  },
-                  x: {
-                    title: {
-                      display: true,
-                      text: 'Projects'
-                    }
-                  }
-                }
-              }}
-            />
-          </div>
-          
-          {/* Add earnings over time line chart */}
-          <div className="px-6 pb-6 pt-2" style={{ height: '350px' }}>
-            <h4 className="text-md font-medium text-gray-800 mb-4">Earnings Over Time</h4>
-            <Line
-              data={prepareEarningsOverTimeData()}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    position: 'top',
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function(context) {
-                        return `LKR ${context.parsed.y.toLocaleString()}`;
-                      }
-                    }
-                  }
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    title: {
-                      display: true,
-                      text: 'Amount (LKR)'
+        {/* Content based on selected tab */}
+        {selectedTab === 'summary' ? (
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
+              <h3 className="text-lg font-medium text-gray-900">Earnings Summary</h3>
+            </div>
+            
+            {/* Replace chart placeholder with actual Chart.js implementation */}
+            <div className="p-6" style={{ height: '350px' }}>
+              <Bar
+                data={chartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'top',
                     },
-                    ticks: {
-                      callback: function(value) {
-                        return 'LKR ' + value.toLocaleString();
+                    title: {
+                      display: true,
+                      text: 'Project Earnings Breakdown'
+                    },
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      title: {
+                        display: true,
+                        text: 'Amount (LKR)'
+                      }
+                    },
+                    x: {
+                      title: {
+                        display: true,
+                        text: 'Projects'
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
+            
+            {/* Add earnings over time line chart */}
+            <div className="px-6 pb-6 pt-2" style={{ height: '350px' }}>
+              <h4 className="text-md font-medium text-gray-800 mb-4">Earnings Over Time</h4>
+              <Line
+                data={prepareEarningsOverTimeData()}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: function(context) {
+                          return `LKR ${context.parsed.y.toLocaleString()}`;
+                        }
                       }
                     }
                   },
-                  x: {
-                    title: {
-                      display: true,
-                      text: 'Date'
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      title: {
+                        display: true,
+                        text: 'Amount (LKR)'
+                      },
+                      ticks: {
+                        callback: function(value) {
+                          return 'LKR ' + value.toLocaleString();
+                        }
+                      }
+                    },
+                    x: {
+                      title: {
+                        display: true,
+                        text: 'Date'
+                      }
                     }
                   }
-                }
-              }}
-            />
-          </div>
-          
-          {/* Projects Summary */}
-          <div className="px-6 py-5">
-            <h4 className="text-md font-medium text-gray-800 mb-4">Project Earnings</h4>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                    <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Earned</th>
-                    <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {earnings.ongoingWorks.map((work) => (
-                    <tr key={work._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {work.jobId?.title || 'Unnamed Job'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                          ${work.jobStatus === 'Completed' ? 'bg-green-100 text-green-800' : 
-                           work.jobStatus === 'In Progress' ? 'bg-blue-100 text-blue-800' :
-                           work.jobStatus === 'On Hold' ? 'bg-yellow-100 text-yellow-800' : 
-                           'bg-gray-100 text-gray-800'}
-                        `}>
-                          {work.jobStatus}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        LKR {work.totalAmountPaid?.toLocaleString() || '0'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        LKR {work.totalAmountPending?.toLocaleString() || '0'}
-                      </td>
+                }}
+              />
+            </div>
+            
+            {/* Projects Summary */}
+            <div className="px-6 py-5">
+              <h4 className="text-md font-medium text-gray-800 mb-4">Project Earnings</h4>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr>
+                      <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
+                      <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Earned</th>
+                      <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {earnings.ongoingWorks.map((work) => (
+                      <tr key={work._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {work.jobId?.title || 'Unnamed Job'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${work.jobStatus === 'Completed' ? 'bg-green-100 text-green-800' : 
+                             work.jobStatus === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                             work.jobStatus === 'On Hold' ? 'bg-yellow-100 text-yellow-800' : 
+                             'bg-gray-100 text-gray-800'}
+                          `}>
+                            {work.jobStatus}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          LKR {work.totalAmountPaid?.toLocaleString() || '0'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          LKR {work.totalAmountPending?.toLocaleString() || '0'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
-            <h3 className="text-lg font-medium text-gray-900">Milestone Payments</h3>
-          </div>
-          
-          {filteredMilestones().length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Milestone</th>
-                    <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Amount</th>
-                    <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Paid</th>
-                    <th className="px-6 py-3 bg-gray-50 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Completion Date</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredMilestones().map((milestone, idx) => (
-                    <tr key={`${milestone.workId}-${idx}`} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {milestone.jobTitle}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div className="font-medium">{milestone.name}</div>
-                        {milestone.description && (
-                          <div className="text-xs text-gray-500 mt-1">{milestone.description}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        LKR {parseInt(milestone.amount).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                        {milestone.status === 'Completed' ? 
-                          <span className="font-medium text-green-600">
-                            LKR {milestone.actualAmountPaid?.toLocaleString() || '0'}
-                          </span> : 
-                          <span className="text-gray-400">-</span>
-                        }
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                          ${milestone.status === 'Completed' ? 'bg-green-100 text-green-800' : 
-                           milestone.status === 'In Progress' ? 'bg-blue-100 text-blue-800' : 
-                           'bg-yellow-100 text-yellow-800'}
-                        `}>
-                          {milestone.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        {milestone.completedAt ? 
-                          new Date(milestone.completedAt).toLocaleDateString() : 
-                          <span className="text-gray-400">-</span>
-                        }
-                      </td>
+        ) : (
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
+              <h3 className="text-lg font-medium text-gray-900">Milestone Payments</h3>
+            </div>
+            
+            {filteredMilestones().length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr>
+                      <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
+                      <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Milestone</th>
+                      <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Amount</th>
+                      <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Paid</th>
+                      <th className="px-6 py-3 bg-gray-50 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Completion Date</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-6 text-center">
-              <p className="text-gray-500">No milestone payments found for the selected timeframe.</p>
-            </div>
-          )}
-        </div>
-      )}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredMilestones().map((milestone, idx) => (
+                      <tr key={`${milestone.workId}-${idx}`} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {milestone.jobTitle}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <div className="font-medium">{milestone.name}</div>
+                          {milestone.description && (
+                            <div className="text-xs text-gray-500 mt-1">{milestone.description}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          LKR {parseInt(milestone.amount).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                          {milestone.status === 'Completed' ? 
+                            <span className="font-medium text-green-600">
+                              LKR {milestone.actualAmountPaid?.toLocaleString() || '0'}
+                            </span> : 
+                            <span className="text-gray-400">-</span>
+                          }
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${milestone.status === 'Completed' ? 'bg-green-100 text-green-800' : 
+                             milestone.status === 'In Progress' ? 'bg-blue-100 text-blue-800' : 
+                             'bg-yellow-100 text-yellow-800'}
+                          `}>
+                            {milestone.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                          {milestone.completedAt ? 
+                            new Date(milestone.completedAt).toLocaleDateString() : 
+                            <span className="text-gray-400">-</span>
+                          }
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-6 text-center">
+                <p className="text-gray-500">No milestone payments found for the selected timeframe.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {/* Add Footer */}
+      <Footer />
     </div>
-    </>
-
   );
 };
 

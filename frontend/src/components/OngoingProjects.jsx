@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fa';
 import ContractorUserNav from './ContractorUserNav';
 import IssueReportModal from './IssueReportModal';
+import Footer from './Footer'; // Import Footer component
 
 const OngoingProjects = () => {
   const [projects, setProjects] = useState([]);
@@ -46,7 +47,7 @@ const OngoingProjects = () => {
     
         // Log the token (partially) for debugging
         console.log("Found token:", token.substring(0, 15) + "...");
-    
+
         // Decode token and log the structure
         const decoded = jwtDecode(token);
         console.log("Decoded token data:", decoded);
@@ -541,7 +542,7 @@ const stats = {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <ContractorUserNav />
       <br /><br /><br /><br />
       <motion.div 
@@ -556,7 +557,7 @@ const stats = {
         </div>
       </motion.div>
       
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 flex-grow">
         {/* Stats Overview */}
         <motion.div 
           className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
@@ -1167,6 +1168,9 @@ const stats = {
           />
         )}
       </div>
+      
+      {/* Add Footer */}
+      <Footer />
     </div>
   );
 };

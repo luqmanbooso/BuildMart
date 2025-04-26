@@ -6,6 +6,7 @@ import ContractorUserNav from '../components/ContractorUserNav';
 import { jwtDecode } from 'jwt-decode';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Footer from '../components/Footer'; // Import Footer component
 
 // Update the AuctionCard component to better match the Job model
 const AuctionCard = ({ auction }) => {
@@ -511,7 +512,7 @@ const AuctionsPage = () => {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <ToastContainer 
         position="top-right"
         autoClose={5000}
@@ -664,7 +665,7 @@ const AuctionsPage = () => {
       </div>
       
       {/* Auction Cards */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 flex-grow">
         {loading ? (
           // Loading state
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -698,6 +699,7 @@ const AuctionsPage = () => {
                 </div>
               </div>
             ))}
+
           </div>
         ) : filteredAuctions.length > 0 ? (
           <>
@@ -782,6 +784,9 @@ const AuctionsPage = () => {
           </div>
         )}
       </div>
+
+      {/* Add Footer */}
+      <Footer />
     </div>
   );
 };
