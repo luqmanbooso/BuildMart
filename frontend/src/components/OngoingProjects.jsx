@@ -9,6 +9,7 @@ import {
   FaMapMarkerAlt, FaCheck, FaHardHat, FaCamera, FaComment, FaChartLine, FaEnvelope
 } from 'react-icons/fa';
 import ContractorUserNav from './ContractorUserNav';
+import IssueReportModal from './IssueReportModal';
 
 const OngoingProjects = () => {
   const [projects, setProjects] = useState([]);
@@ -26,6 +27,10 @@ const OngoingProjects = () => {
     email: '' // Add email field to the state
   });
   
+  // Add state for IssueReportModal
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [selectedProjectForReport, setSelectedProjectForReport] = useState(null);
+
   const navigate = useNavigate();
 
   // Get contractor ID from token
@@ -228,6 +233,7 @@ const getClientDataFromProject = async (project, token) => {
                             clientResponse.data.userEmail ||
                             '';
               
+
               // Log what we found
               console.log(`Email found: ${email || 'NONE'}`);
               console.log(`Username found: ${clientResponse.data.username || 'NONE'}`);
@@ -508,6 +514,12 @@ const stats = {
   completed: projects.filter(p => p.status === 'Completed').length,
   totalValue: projects.reduce((sum, p) => sum + (p.totalPrice || 0), 0)
 };
+
+  // Add function to handle opening the report modal
+  const handleOpenReportModal = (project) => {
+    setSelectedProjectForReport(project);
+    setIsReportModalOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -876,7 +888,6 @@ const stats = {
                           </div>
                         </div>
                         
-                       
                         <div className="mt-6">
                           <button 
                             onClick={() => {
@@ -1103,9 +1114,33 @@ const stats = {
                     </div>
                   </div>
                 </div>
+
+                {/* Add Report Issue Button */}
+                <div className="mt-4 flex justify-end">
+                  <button 
+                    onClick={() => handleOpenReportModal(activeProject)}
+                    className="inline-flex items-center px-3 py-2 border border-red-300 text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none transition ease-in-out duration-150"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Report an Issue
+                  </button>
+                </div>
               </div>
             )}
           </div>
+        )}
+
+        {/* Add IssueReportModal at the end of component */}
+        {selectedProjectForReport && (
+          <IssueReportModal
+            isOpen={isReportModalOpen}
+            onClose={() => setIsReportModalOpen(false)}
+            projectId={selectedProjectForReport.id}
+            userId={contractorData.id}
+            userRole="Service Provider"
+          />
         )}
       </div>
     </div>
