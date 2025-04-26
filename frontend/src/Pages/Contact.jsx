@@ -1,34 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { FaFacebookF, FaTwitter, FaInstagram, FaPhone, FaMapMarkerAlt, FaAt, FaComments, FaPaperPlane, FaTimes } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { FaFacebookF, FaTwitter, FaInstagram, FaPhone, FaMapMarkerAlt, FaAt, FaPaperPlane } from 'react-icons/fa';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import ClientNavBar from '../components/ClientNavBar';
 import ContractorUserNav from '../components/ContractorUserNav';
-import Footer from '../components/Footer'; // Import the Footer component
+import Footer from '../components/Footer';
+import { motion } from 'framer-motion';
 
 const ContactUs = () => {
-  // Add auth state
+  // Auth state
   const [userRole, setUserRole] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
-  // Existing state
+  // Form state
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     description: '',
   });
-  const [chatOpen, setChatOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { sender: 'bot', message: "Hello! I'm BuildMart AI assistant. How can I help you today?" }
-  ]);
-  const [input, setInput] = useState('');
-  const [isSending, setIsSending] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
-  const chatEndRef = useRef(null);
+  const [formError, setFormError] = useState(null);
 
-  // Add authentication check
+  // Authentication and user data check
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -36,8 +29,17 @@ const ContactUs = () => {
       if (token) {
         try {
           const decoded = jwtDecode(token);
+          console.log("Decoded token:", decoded); // Log to see token structure
+          
           setIsAuthenticated(true);
           setUserRole(decoded.role);
+          
+          // Extract user info directly from token
+          setFormData(prev => ({
+            ...prev,
+            username: decoded.username || decoded.name || '',
+            email: decoded.email || ''
+          }));
         } catch (error) {
           console.error("Error decoding token:", error);
           setIsAuthenticated(false);
@@ -52,13 +54,6 @@ const ContactUs = () => {
     checkAuth();
   }, []);
 
-  // Auto-scroll chat to bottom on new messages
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -69,72 +64,70 @@ const ContactUs = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError(null);
+    
+    // Create data format for contact messages with a title field
+    const contactData = {
+      name: formData.username,
+      email: formData.email,
+      title: `Contact from ${formData.username}`,
+      message: formData.description,
+      createdAt: new Date().toISOString(),
+      isRead: false, // Explicitly mark as unread
+      _id: 'msg_' + Date.now() + Math.random().toString(36).substring(2, 10) // Generate a more unique ID
+    };
+    
+    console.log("Sending contact message data:", contactData);
     
     try {
-      // Here you would typically send the form data to your backend
-      // await axios.post('http://localhost:5000/api/contact', formData);
+      let savedSuccessfully = false;
       
-      // Show success message
-      setFormSubmitted(true);
+      // First attempt to send to backend API
+      try {
+        const response = await axios.post('http://localhost:5000/api/contact-messages', contactData);
+        console.log("Message sent successfully to API:", response.data);
+        savedSuccessfully = true;
+      } catch (apiError) {
+        console.warn("API endpoint not available, using local storage fallback");
+        
+        // Fallback to localStorage if API fails
+        try {
+          const existingMessages = JSON.parse(localStorage.getItem('contactMessages') || '[]');
+          existingMessages.push(contactData);
+          localStorage.setItem('contactMessages', JSON.stringify(existingMessages));
+          console.log("Message saved to local storage");
+          savedSuccessfully = true;
+        } catch (localStorageError) {
+          console.error("Error saving to local storage:", localStorageError);
+          throw new Error("Failed to save message");
+        }
+      }
       
-      // Reset form after 3 seconds
-      setTimeout(() => {
-        setFormData({
-          username: '',
-          email: '',
-          description: '',
-        });
-        setFormSubmitted(false);
-      }, 3000);
+      // Only show success if we managed to save the message somewhere
+      if (savedSuccessfully) {
+        // Show success message
+        setFormSubmitted(true);
+        
+        // Reset form after 3 seconds
+        setTimeout(() => {
+          setFormData(prev => ({
+            ...prev,
+            description: '', // Only clear message, keep user data
+          }));
+          setFormSubmitted(false);
+        }, 3000);
+      } else {
+        throw new Error("Failed to save message");
+      }
     } catch (error) {
-      console.error('Error submitting form:', error);
-    }
-  };
-
-  const handleChatToggle = () => setChatOpen(!chatOpen);
-  
-  const handleInputChange = (e) => setInput(e.target.value);
-
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (input.trim() === '' || isSending) return;
-
-    const userMessage = input.trim();
-    setMessages(prev => [...prev, { sender: 'user', message: userMessage }]);
-    setInput('');
-    setIsSending(true);
-
-    try {
-      // Send request to Python backend
-      const response = await axios.post('http://localhost:5000/api/chatbot', {
-        message: userMessage
-      });
-      
-      // Add bot response to chat
-      setTimeout(() => {
-        setMessages(prev => [...prev, { 
-          sender: 'bot', 
-          message: response.data.response || "I'm sorry, I couldn't process that request."
-        }]);
-        setIsSending(false);
-      }, 600);
-    } catch (error) {
-      console.error('Error getting chatbot response:', error);
-      
-      // Fallback response if API fails
-      setTimeout(() => {
-        setMessages(prev => [...prev, { 
-          sender: 'bot', 
-          message: "I'm sorry, I'm having trouble connecting to my brain right now. Please try again later."
-        }]);
-        setIsSending(false);
-      }, 600);
+      console.error('Error in form submission process:', error);
+      setFormError(`Something went wrong. Please try again or email us directly at support@buildmart.lk`);
     }
   };
 
   return (
     <div className="flex flex-col min-h-screen font-sans bg-gray-50">
-      {/* Use the same conditional navbar as Home component */}
+      {/* Use the conditional navbar */}
       {userRole === 'Service Provider' ? (
         <ContractorUserNav />
       ) : (
@@ -273,6 +266,12 @@ const ContactUs = () => {
                     </motion.div>
                   ) : (
                     <form onSubmit={handleSubmit} className="space-y-6">
+                      {formError && (
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 mb-4">
+                          {formError}
+                        </div>
+                      )}
+                      
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="relative">
                           <label htmlFor="username" className="text-sm font-medium text-gray-700 block mb-2">Your Name</label>
@@ -282,10 +281,17 @@ const ContactUs = () => {
                             name="username"
                             value={formData.username}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm"
+                            className={`w-full px-4 py-3 rounded-lg border border-gray-300 
+                              focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 
+                              transition-colors bg-white shadow-sm 
+                              ${isAuthenticated ? 'bg-gray-50' : ''}`}
                             required
                             placeholder="John Doe"
+                            disabled={isAuthenticated}
                           />
+                          {isAuthenticated && (
+                            <p className="text-xs text-gray-500 mt-1">Using your account name</p>
+                          )}
                         </div>
                         
                         <div className="relative">
@@ -296,10 +302,17 @@ const ContactUs = () => {
                             name="email"
                             value={formData.email}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 transition-colors bg-white shadow-sm"
+                            className={`w-full px-4 py-3 rounded-lg border border-gray-300 
+                              focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 
+                              transition-colors bg-white shadow-sm
+                              ${isAuthenticated ? 'bg-gray-50' : ''}`}
                             required
                             placeholder="john@example.com"
+                            disabled={isAuthenticated}
                           />
+                          {isAuthenticated && (
+                            <p className="text-xs text-gray-500 mt-1">Using your account email</p>
+                          )}
                         </div>
                       </div>
                       
@@ -338,113 +351,23 @@ const ContactUs = () => {
           </div>
         </div>
 
-        {/* Map Section */}
-        <div className="w-full h-96 bg-gray-200 relative">
-          <iframe
-            className="w-full h-full"
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63371.82624954921!2d79.82118336632216!3d6.921922517948811!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ae253d10f7a7003%3A0x320b2e4d32d3838d!2sColombo!5e0!3m2!1sen!2slk!4v1689842276536!5m2!1sen!2slk"
-            style={{ border: 0 }}
-            allowFullScreen=""
-            loading="lazy"
-            title="BuildMart Office Location"
-          ></iframe>
+        {/* Map Section - Use a simple div with background instead to avoid CORS issues */}
+        <div className="w-full h-96 bg-gray-200 relative overflow-hidden">
+          <div
+            className="w-full h-full bg-cover bg-center"
+            style={{ backgroundImage: `url('https://via.placeholder.com/1200x400/e0e0e0/808080?text=BuildMart+Office+Location')` }}
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+            <div className="bg-white p-4 rounded-lg shadow-lg">
+              <h3 className="font-bold text-gray-800">BuildMart Headquarters</h3>
+              <p className="text-gray-600">42 Galle Road, Colombo 03, Sri Lanka</p>
+            </div>
+          </div>
         </div>
 
-        {/* Add Footer component here */}
+        {/* Footer */}
         <Footer />
       </div>
-
-      {/* Chatbot Button - keep outside the pt-[72px] div for proper fixed positioning */}
-      <motion.button
-        onClick={handleChatToggle}
-        className="fixed bottom-8 right-8 bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 rounded-full shadow-xl z-50"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 1, duration: 0.3 }}
-      >
-        {chatOpen ? <FaTimes size={24} /> : <FaComments size={24} />}
-      </motion.button>
-
-      {/* Chatbot Modal - keep this part */}
-      <AnimatePresence>
-        {chatOpen && (
-          <motion.div 
-            className="fixed bottom-24 right-8 w-80 md:w-96 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden border border-gray-200"
-            initial={{ opacity: 0, y: 20, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.8 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* Chat Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-4 text-white">
-              <div className="flex items-center">
-                <div className="p-2 bg-white/20 rounded-full">
-                  <FaComments className="text-white" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="font-medium">BuildMart AI Assistant</h3>
-                  <p className="text-xs text-blue-100">Online | Typically replies instantly</p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Chat Messages */}
-            <div className="h-80 overflow-y-auto p-4 bg-gray-50">
-              {messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`mb-4 flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-3/4 p-3 rounded-2xl ${
-                      msg.sender === 'user' 
-                        ? 'bg-blue-600 text-white rounded-tr-none' 
-                        : 'bg-white text-gray-800 rounded-tl-none shadow-md'
-                    }`}
-                  >
-                    {msg.message}
-                  </div>
-                </div>
-              ))}
-              
-              {isSending && (
-                <div className="flex justify-start mb-4">
-                  <div className="bg-white text-gray-800 p-3 rounded-2xl rounded-tl-none shadow-md flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "600ms" }}></div>
-                  </div>
-                </div>
-              )}
-              
-              <div ref={chatEndRef} />
-            </div>
-            
-            {/* Chat Input */}
-            <form onSubmit={handleSendMessage} className="border-t border-gray-200">
-              <div className="flex p-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={handleInputChange}
-                  className="flex-1 px-4 py-2 bg-gray-100 rounded-l-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Type your message..."
-                />
-                <motion.button
-                  type="submit"
-                  className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 rounded-r-full"
-                  whileTap={{ scale: 0.95 }}
-                  disabled={isSending}
-                >
-                  <FaPaperPlane />
-                </motion.button>
-              </div>
-            </form>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
