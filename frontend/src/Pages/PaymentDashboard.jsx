@@ -64,6 +64,11 @@ function PaymentDashboard() {
   const [incrementType, setIncrementType] = useState('fixed'); // 'fixed' or 'percentage'
   const [salaryChangeType, setSalaryChangeType] = useState('increment'); // Add this for increment/decrement
 
+  // Add search functionality
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  
   // Add these state variables at the top of the component
   const [adminExpenses, setAdminExpenses] = useState([]);
 
@@ -162,6 +167,104 @@ function PaymentDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Add search function to filter data
+  const searchRecords = (query) => {
+    setIsSearching(true);
+    
+    if (!query || query.trim() === '') {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    const lowercaseQuery = query.toLowerCase().trim();
+    
+    // Search through all data sources
+    const results = [
+      ...supplierPayments.filter(payment => 
+        (payment.supplierName && payment.supplierName.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.product && payment.product.toLowerCase().includes(lowercaseQuery)) || 
+        (payment.status && payment.status.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.amount && payment.amount.toString().includes(lowercaseQuery))
+      ).map(payment => ({ ...payment, type: 'Supplier Payment' })),
+      
+      ...serviceProviderPayments.filter(payment => 
+        (payment.providerName && payment.providerName.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.status && payment.status.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.amount && payment.amount.toString().includes(lowercaseQuery))
+      ).map(payment => ({ ...payment, type: 'Service Provider Payment' })),
+      
+      ...itemsPayments.filter(payment => 
+        (payment.itemName && payment.itemName.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.customerName && payment.customerName.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.status && payment.status.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.amount && payment.amount.toString().includes(lowercaseQuery))
+      ).map(payment => ({ ...payment, type: 'Inventory Sale' })),
+      
+      ...commissionPayments.filter(payment => 
+        (payment.commissionAmount && payment.commissionAmount.toString().includes(lowercaseQuery)) ||
+        (payment.originalAmount && payment.originalAmount.toString().includes(lowercaseQuery)) ||
+        (payment.date && payment.date.toLowerCase().includes(lowercaseQuery))
+      ).map(payment => ({ ...payment, type: 'Commission Income' })),
+      
+      ...agreementFeePayments.filter(payment => 
+        (payment.clientName && payment.clientName.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.agreementType && payment.agreementType.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.status && payment.status.toLowerCase().includes(lowercaseQuery)) ||
+        (payment.amount && payment.amount.toString().includes(lowercaseQuery))
+      ).map(payment => ({ ...payment, type: 'Agreement Fee' }))
+    ];
+    
+    setSearchResults(results);
+    setIsSearching(false);
+  };
+
+  // Handle search query change
+  const handleSearchQueryChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    if (query.length > 2) {
+      // Only search if at least 3 characters are entered
+      searchRecords(query);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  // Navigate to record details when search result is clicked
+  const navigateToSearchResult = (result) => {
+    // Set the active page based on result type
+    switch(result.type) {
+      case 'Supplier Payment':
+        setActivePage('Expenses');
+        setExpensesSubPage('Supplier Payments');
+        break;
+      case 'Service Provider Payment':
+        setActivePage('Service Providers');
+        break;
+      case 'Inventory Sale':
+        setActivePage('Inventory Sales');
+        break;
+      case 'Commission Income':
+        setActivePage('Commission Income');
+        break;
+      case 'Agreement Fee':
+        setActivePage('Agreement Fees');
+        break;
+      default:
+        setActivePage('Dashboard');
+    }
+    
+    // Clear the search after navigating
+    clearSearch();
   };
 
   // Fetch supplier payments when expenses tab is selected
@@ -615,6 +718,7 @@ function PaymentDashboard() {
     fetchPayments();
     fetchAdminSalaries();
     fetchAdminExpenses(); // Add this to load expenses on mount
+    fetchSupplierPayments(); // Add this line to load supplier payments on initial mount
   }, []);
 
   // Fetch supplier payments when expenses tab is selected
@@ -1073,7 +1177,8 @@ function PaymentDashboard() {
       value: `Rs. ${(paymentStats?.serviceProviderTotal || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
       icon: <Users className="h-6 w-6 text-blue-600" />,
       trend: "up",
-      isIncome: false // Service Provider payments are not considered income
+      isIncome: false, // Service Provider payments are not considered income
+      isExpense: false // Service Provider payments are not considered expenses
     },
     {
       title: "Inventory Sales",
@@ -1793,11 +1898,11 @@ function PaymentDashboard() {
                       <p className="text-2xl font-bold text-red-800">
                         Rs. {(
                           (totalSalaryPaid || 0) + 
-                          (supplierPayments
+                          ((supplierPayments || [])
                             .filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
-                            .reduce((sum, p) => sum + (p.amount || 0), 0) +
-                          (paymentStats?.serviceProviderTotal || 0)
-                          )).toLocaleString()}
+                            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+                          )
+                        ).toLocaleString()}
                       </p>
                     </div>
                     <div className="p-3 bg-red-200 rounded-lg">
@@ -1806,7 +1911,7 @@ function PaymentDashboard() {
                   </div>
                   <div className="mt-4 flex items-center">
                     <Activity size={16} className="text-red-600 mr-2" />
-                    <span className="text-xs font-medium text-red-700">Service providers, salaries & supplier payments</span>
+                    <span className="text-xs font-medium text-red-700">Salaries & supplier payments</span>
                   </div>
                 </div>
                 
@@ -1821,11 +1926,11 @@ function PaymentDashboard() {
                           (paymentStats?.commissionIncome || 0) + 
                           (paymentStats?.agreementFeeIncome || 0) - 
                           (totalSalaryPaid || 0) - 
-                          (supplierPayments
+                          ((supplierPayments || [])
                             .filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
-                            .reduce((sum, p) => sum + (p.amount || 0), 0)) -
-                          (paymentStats?.serviceProviderTotal || 0)
-                          ).toLocaleString()}
+                            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+                          )
+                        ).toLocaleString()}
                       </p>
                     </div>
                     <div className="p-3 bg-blue-200 rounded-lg">
@@ -1975,19 +2080,17 @@ function PaymentDashboard() {
                   <div className="h-64 transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center">
                     <Doughnut
                       data={{
-                        labels: ['Admin Salaries', 'Supplier Payments', 'Service Providers'],
+                        labels: ['Admin Salaries', 'Supplier Payments'],
                         datasets: [
                           {
                             data: [
                               totalSalaryPaid || 0,
-                              supplierPayments.filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
-                                .reduce((sum, p) => sum + p.amount, 0) || 0,
-                              paymentStats?.serviceProviderTotal || 0
+                              (supplierPayments || []).filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded')
+                                .reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0
                             ],
                             backgroundColor: [
                               'rgba(234, 179, 8, 0.9)',
-                              'rgba(107, 114, 128, 0.9)',
-                              'rgba(37, 99, 235, 0.9)'
+                              'rgba(107, 114, 128, 0.9)'
                             ],
                             borderWidth: 0,
                             hoverOffset: 15,
@@ -2052,11 +2155,10 @@ function PaymentDashboard() {
                       }}
                     />
                   </div>
-                  <div className="mt-6 grid grid-cols-3 gap-4">
+                  <div className="mt-6 grid grid-cols-2 gap-4">
                     {[
                       { label: 'Admin Salaries', color: 'bg-yellow-500', value: totalSalaryPaid || 0 },
-                      { label: 'Supplier Payments', color: 'bg-gray-500', value: supplierPayments.filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded').reduce((sum, p) => sum + p.amount, 0) || 0 },
-                      { label: 'Service Providers', color: 'bg-blue-500', value: paymentStats?.serviceProviderTotal || 0 }
+                      { label: 'Supplier Payments', color: 'bg-gray-500', value: (supplierPayments || []).filter(p => p.status === 'paid' || p.status === 'Success' || p.status === 'Succeeded').reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0 }
                     ].map((item, index) => (
                       <div key={index} className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition-all">
                         <div className={`w-3 h-3 rounded-full ${item.color} mb-2`}></div>
@@ -3197,7 +3299,37 @@ function PaymentDashboard() {
             <div className="flex justify-between items-center">
               {/* Enhanced Search */}
               <div className="relative w-96">
-                
+                <input
+                  type="text"
+                  placeholder="Search records..."
+                  value={searchQuery}
+                  onChange={handleSearchQueryChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={clearSearch}
+                    className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={20} />
+                  </button>
+                )}
+                {searchResults.length > 0 && (
+                  <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-2 z-50">
+                    <ul className="divide-y divide-gray-200">
+                      {searchResults.map((result, index) => (
+                        <li
+                          key={index}
+                          className="px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => navigateToSearchResult(result)}
+                        >
+                          <div className="text-sm font-medium text-gray-900">{result.type}</div>
+                          <div className="text-xs text-gray-500">{result.supplierName || result.providerName || result.itemName || result.clientName}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {/* User Profile Section */}
