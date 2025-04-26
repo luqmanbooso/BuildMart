@@ -981,46 +981,130 @@ const updateOrderStatus = async (orderId, newStatus) => {
     }
   };
 
-  // Supplier management functions
+  // Helper for SQL keyword check
+  const hasSqlKeyword = (str) => {
+    const sqlKeywords = ['select', 'insert', 'delete', 'update', 'drop', 'alter', 'create'];
+    const lower = str.toLowerCase();
+    return sqlKeywords.some(keyword => lower.includes(keyword));
+  };
+
+  // Helper: Disallow forbidden special characters in names
+  const forbiddenNameChars = /[#$@%\^*!_~`\[\]{}:;"'<>?/\\|]/;
+
+  // Helper: Disallow starting with special character or space
+  const startsWithSpecialOrSpace = (str) => /^[^a-zA-Z0-9]/.test(str);
+
   const validateSupplierForm = () => {
     const errors = {};
-    
+    // Supplier Name
     if (!supplierName.trim()) {
       errors.supplierName = "Supplier name is required";
+    } else if (supplierName.trim().length < 2) {
+      errors.supplierName = "Supplier name must be at least 2 characters";
+    } else if (supplierName.trim().length > 100) {
+      errors.supplierName = "Supplier name cannot exceed 100 characters";
+    } else if (startsWithSpecialOrSpace(supplierName.trim())) {
+      errors.supplierName = "Supplier name cannot start with a special character or space";
+    } else if (forbiddenNameChars.test(supplierName)) {
+      errors.supplierName = "Supplier name cannot contain special characters like #, $, @, %, etc.";
+    } else if (hasSqlKeyword(supplierName)) {
+      errors.supplierName = "Supplier name contains prohibited terms";
     }
     
+    // Product
+    if (!selectedProduct) {
+      errors.selectedProduct = "Please select a product";
+    }
+    
+    // Category
+    if (supplierCategory && supplierCategory.length > 50) {
+      errors.supplierCategory = "Category cannot exceed 50 characters";
+    } else if (startsWithSpecialOrSpace(supplierCategory.trim())) {
+      errors.supplierCategory = "Category cannot start with a special character or space";
+    } else if (!/^[a-zA-Z0-9\s]+$/.test(supplierCategory)) {
+      errors.supplierCategory = "Category should contain only letters, numbers, and spaces";
+    }
+    // Price
+    if (!supplierPrice) {
+      errors.supplierPrice = "Price is required";
+    } else {
+      const price = parseFloat(supplierPrice);
+      if (isNaN(price) || price <= 0) {
+        errors.supplierPrice = "Price must be a positive number";
+      } else if (price > 1000000) {
+        errors.supplierPrice = "Price cannot exceed 1,000,000 LKR";
+      } else if (!/^\d+(\.\d{1,2})?$/.test(supplierPrice)) {
+        errors.supplierPrice = "Price can have maximum two decimal places";
+      }
+    }
+    // Website
+    if (supplierWebsite && supplierWebsite.trim()) {
+      if (supplierWebsite.length > 200) {
+        errors.supplierWebsite = "Website URL cannot exceed 200 characters";
+      } else if (!/^https?:\/\/[\w\-]+(\.[\w\-]+)+[\/#?]?.*$/.test(supplierWebsite)) {
+        errors.supplierWebsite = "Please enter a valid website URL";
+      }
+    }
+    // Contact Person
     if (!supplierContact.trim()) {
       errors.supplierContact = "Contact person is required";
+    } else if (supplierContact.trim().length < 2) {
+      errors.supplierContact = "Contact name must be at least 2 characters";
+    } else if (supplierContact.trim().length > 100) {
+      errors.supplierContact = "Contact name cannot exceed 100 characters";
+    } else if (startsWithSpecialOrSpace(supplierContact.trim())) {
+      errors.supplierContact = "Contact name cannot start with a special character or space";
+    } else if (forbiddenNameChars.test(supplierContact)) {
+      errors.supplierContact = "Contact name cannot contain special characters";
+    } else if (!/^[a-zA-Z][a-zA-Z\s.-]*$/.test(supplierContact.trim())) {
+      errors.supplierContact = "Contact name should contain only letters, spaces, dots, and hyphens";
     }
-    
+    // Email
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!supplierEmail.trim()) {
       errors.supplierEmail = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplierEmail)) {
+    } else if (!emailRegex.test(supplierEmail)) {
       errors.supplierEmail = "Please enter a valid email address";
+    } else if (supplierEmail.length > 100) {
+      errors.supplierEmail = "Email cannot exceed 100 characters";
     }
-    
+    // Phone
     if (!supplierPhone.trim()) {
       errors.supplierPhone = "Phone number is required";
     } else if (!/^(?:\+94|0)[0-9]{9,10}$/.test(supplierPhone.replace(/\s+/g, ''))) {
       errors.supplierPhone = "Please enter a valid Sri Lankan phone number";
     }
-    
-    if (!selectedProduct) {
-      errors.selectedProduct = "Please select a product";
-    } else {
-      // Check if this product already has a supplier
-      const existingSupplier = suppliers.find(s => s.productId === selectedProduct._id);
-      
-      if (existingSupplier && (!currentSupplier || currentSupplier.id !== existingSupplier._id)) {
-        // If we're adding a new supplier or editing a different supplier
-        errors.selectedProduct = `This product already has a supplier: ${existingSupplier.name}`;
+    // City
+    if (supplierCity) {
+      if (supplierCity.length > 50) {
+        errors.supplierCity = "City name cannot exceed 50 characters";
+      } else if (startsWithSpecialOrSpace(supplierCity.trim())) {
+        errors.supplierCity = "City name cannot start with a special character or space";
+      } else if (!/^[a-zA-Z\s]+$/.test(supplierCity)) {
+        errors.supplierCity = "City name should contain only letters and spaces";
       }
     }
-    
-    if (!supplierPrice || parseFloat(supplierPrice) <= 0) {
-      errors.supplierPrice = "Please enter a valid price greater than 0";
+    // Address
+    if (supplierAddress && supplierAddress.length > 250) {
+      errors.supplierAddress = "Address cannot exceed 250 characters";
     }
-    
+    // Payment terms
+    if (paymentTerms && paymentTerms.length > 100) {
+      errors.paymentTerms = "Payment terms cannot exceed 100 characters";
+    }
+    // Lead time
+    if (leadTime) {
+      const leadTimeDays = parseInt(leadTime);
+      if (isNaN(leadTimeDays) || leadTimeDays < 0) {
+        errors.leadTime = "Lead time must be a positive number";
+      } else if (leadTimeDays > 365) {
+        errors.leadTime = "Lead time cannot exceed 365 days";
+      }
+    }
+    // Notes
+    if (supplierNotes && supplierNotes.length > 500) {
+      errors.supplierNotes = "Notes cannot exceed 500 characters";
+    }
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -3053,11 +3137,19 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   type="text"
                                   value={supplierName}
                                   onChange={(e) => {
-                                    setSupplierName(e.target.value);
-                                    if (validationErrors.supplierName) {
-                                      const newErrors = {...validationErrors};
-                                      delete newErrors.supplierName;
-                                      setValidationErrors(newErrors);
+                                    const value = e.target.value;
+                                    setSupplierName(value);
+                                    
+                                    // Real-time validation for special characters
+                                    if (/^[^a-zA-Z0-9]/.test(value)) {
+                                      setValidationErrors(prev => ({ ...prev, supplierName: 'Supplier name cannot start with a special character or space' }));
+                                    } else if (/[#$@%\^*!_~`\[\]{}:;"'<>?/\\|]/.test(value)) {
+                                      setValidationErrors(prev => ({ ...prev, supplierName: 'Supplier name cannot contain special characters like #, $, @, %, etc.' }));
+                                    } else if (validationErrors.supplierName && 
+                                      (validationErrors.supplierName === 'Supplier name cannot start with a special character or space' ||
+                                       validationErrors.supplierName === 'Supplier name cannot contain special characters like #, $, @, %, etc.')) {
+                                      // Only clear special character errors
+                                      setValidationErrors(prev => { const n = { ...prev }; delete n.supplierName; return n; });
                                     }
                                   }}
                                   className={`w-full px-3 py-2 bg-gray-50 border ${
@@ -3201,12 +3293,19 @@ const updateOrderStatus = async (orderId, newStatus) => {
                                   type="text"
                                   value={supplierContact}
                                   onChange={(e) => {
-                                    setSupplierContact(e.target.value);
-                                    if (validationErrors.supplierContact) {
-                                      setValidationErrors({
-                                        ...validationErrors,
-                                        supplierContact: null
-                                      });
+                                    const value = e.target.value;
+                                    setSupplierContact(value);
+                                    
+                                    // Real-time validation for special characters
+                                    if (/^[^a-zA-Z]/.test(value)) {
+                                      setValidationErrors(prev => ({ ...prev, supplierContact: 'Contact name cannot start with a special character, number, or space' }));
+                                    } else if (/[#$@%\^*!_~`\[\]{}:;"'<>?/\\|0-9]/.test(value)) {
+                                      setValidationErrors(prev => ({ ...prev, supplierContact: 'Contact name cannot contain special characters or numbers' }));
+                                    } else if (validationErrors.supplierContact && 
+                                      (validationErrors.supplierContact === 'Contact name cannot start with a special character, number, or space' ||
+                                       validationErrors.supplierContact === 'Contact name cannot contain special characters or numbers')) {
+                                      // Only clear special character errors
+                                      setValidationErrors(prev => { const n = { ...prev }; delete n.supplierContact; return n; });
                                     }
                                   }}
                                   className={`w-full px-3 py-2 bg-gray-50 border ${
