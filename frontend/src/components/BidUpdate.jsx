@@ -7,6 +7,7 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
+  const [costBreakdown, setCostBreakdown] = useState(bid.costBreakdown || []);
   const [projectDetails, setProjectDetails] = useState({
     lowestBid: null,
     minDecrement: null,
@@ -23,12 +24,53 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
     defaultValues: {
       price: bid.price,
       timeline: bid.timeline,
-      additionalDetails: ''
     }
   });
 
   // Get the form values for validation
   const watchedPrice = watch('price');
+
+  // Format and sanitize price input
+  const formatPriceInput = (value) => {
+    // Remove any non-numeric characters except first decimal point
+    let formatted = value.replace(/[^\d.]/g, '');
+    
+    // Ensure only one decimal point
+    const parts = formatted.split('.');
+    if (parts.length > 2) {
+      formatted = `${parts[0]}.${parts.slice(1).join('')}`;
+    }
+    
+    // Limit to 2 decimal places
+    if (parts.length > 1) {
+      formatted = `${parts[0]}.${parts[1].substring(0, 2)}`;
+    }
+    
+    return formatted;
+  };
+
+  // Update cost breakdown amounts when price changes
+  useEffect(() => {
+    if (costBreakdown && costBreakdown.length > 0 && watchedPrice) {
+      const originalPrice = bid.price;
+      const newPrice = parseFloat(watchedPrice);
+      
+      // Only calculate if the price has decreased
+      if (newPrice < originalPrice) {
+        const ratio = newPrice / originalPrice;
+        
+        const updatedBreakdown = costBreakdown.map(item => {
+          // Calculate new amount proportionally
+          return {
+            ...item,
+            amount: parseFloat((item.amount * ratio).toFixed(2))
+          };
+        });
+        
+        setCostBreakdown(updatedBreakdown);
+      }
+    }
+  }, [watchedPrice, bid.price]);
 
   // Get user info from token
   useEffect(() => {
@@ -102,9 +144,9 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
       const updateData = {
         price: parseFloat(data.price),
         timeline: parseInt(data.timeline),
-        qualifications: bid.qualifications + (data.additionalDetails ? 
-          `\n[Update ${bid.updateCount + 1}]: ${data.additionalDetails}` : ''),
-        contractorId: userInfo.userId
+        qualifications: bid.qualifications, // Keep existing qualifications
+        contractorId: userInfo.userId,
+        costBreakdown: costBreakdown // Include the updated cost breakdown
       };
 
       const response = await axios.put(
@@ -124,6 +166,9 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
       setLoading(false);
     }
   };
+
+  // Calculate total of cost breakdown
+  const totalBreakdownAmount = costBreakdown.reduce((sum, item) => sum + item.amount, 0);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -244,6 +289,11 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                     }
                   }
                 })}
+                onChange={(e) => {
+                  // Format and sanitize the input in real-time
+                  e.target.value = formatPriceInput(e.target.value);
+                  register('price').onChange(e);
+                }}
                 className={`block w-full pl-10 pr-12 py-2 sm:text-sm rounded-md ${
                   errors.price ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 
                   'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
@@ -254,6 +304,100 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
               <p className="mt-1 text-sm text-red-600">{errors.price.message}</p>
             )}
           </div>
+
+          {costBreakdown && costBreakdown.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Cost Breakdown</label>
+              <div className="bg-gray-50 p-4 rounded-md">
+                <p className="text-sm text-gray-600 mb-2">
+                  These costs will be adjusted proportionally to match your new bid amount.
+                </p>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2">Item</th>
+                      <th className="text-right py-2">Original</th>
+                      <th className="text-right py-2">Adjusted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {costBreakdown.map((item, index) => (
+                      <tr key={index} className="border-b border-gray-100">
+                        <td className="py-2">{item.description}</td>
+                        <td className="text-right py-2">LKR {(bid.costBreakdown && bid.costBreakdown[index]?.amount || 0).toLocaleString()}</td>
+                        <td className="text-right py-2">LKR {item.amount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    <tr className="font-semibold">
+                      <td className="py-2">Total</td>
+                      <td className="text-right py-2">LKR {parseFloat(bid.price).toLocaleString()}</td>
+                      <td className="text-right py-2">LKR {totalBreakdownAmount.toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Timeline section - display only */}
+          {bid.timelineBreakdown && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Project Timeline</label>
+              <div className="bg-gray-50 p-4 rounded-md">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500">Start Date:</p>
+                    <p className="font-medium">
+                      {bid.timelineBreakdown.startDate 
+                        ? new Date(bid.timelineBreakdown.startDate).toLocaleDateString() 
+                        : 'Not specified'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">End Date:</p>
+                    <p className="font-medium">
+                      {bid.timelineBreakdown.endDate 
+                        ? new Date(bid.timelineBreakdown.endDate).toLocaleDateString() 
+                        : 'Not specified'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <p className="text-xs text-gray-500">Total Duration:</p>
+                  <p className="font-medium">{bid.timelineBreakdown.totalDays || bid.timeline} days</p>
+                </div>
+                
+                {bid.timelineBreakdown.workItems && bid.timelineBreakdown.workItems.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium mb-2">Work Items:</p>
+                    <div className="max-h-40 overflow-y-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-2 py-1 text-left text-xs font-medium text-gray-500">Item</th>
+                            <th scope="col" className="px-2 py-1 text-left text-xs font-medium text-gray-500">Duration</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {bid.timelineBreakdown.workItems.map((item, index) => (
+                            <tr key={index}>
+                              <td className="px-2 py-1 text-sm text-gray-900">{item.name}</td>
+                              <td className="px-2 py-1 text-sm text-gray-500">
+                                {item.duration || 
+                                 (item.startDate && item.endDate ? 
+                                  Math.ceil((new Date(item.endDate) - new Date(item.startDate)) / (1000 * 60 * 60 * 24)) + 1 : 
+                                  '?')} days
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Timeline (Days)</label>
@@ -272,16 +416,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
             {errors.timeline && (
               <p className="mt-1 text-sm text-red-600">{errors.timeline.message}</p>
             )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Additional Details (Optional)</label>
-            <textarea
-              {...register('additionalDetails')}
-              rows={3}
-              className="mt-1 block w-full py-2 px-3 sm:text-sm rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Explain why you're adjusting your bid (optional)"
-            ></textarea>
           </div>
 
           <div className="flex justify-end space-x-3 mt-5">
