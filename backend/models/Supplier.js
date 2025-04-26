@@ -5,35 +5,40 @@ const supplierSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
-  value: { 
-    type: Number, 
-    default: 0 
-  },
   contact: String,
   email: String,
-  phone: String, // Added field
+  phone: String,
   address: String,
-  city: String, // Added field
-  country: String, // Added field
+  city: String,
+  country: String,
   category: String,
-  website: String, // Added field
-  paymentTerms: String, // Added field
-  minimumOrder: Number, // Added field
-  leadTime: Number, // Added field
-  taxId: String, // Added field
-  rating: { // Added field
+  website: String,
+  paymentTerms: String,
+  minimumOrder: Number,
+  leadTime: Number,
+  taxId: String,
+  price: {
+    type: Number,
+    default: 0
+  },
+  rating: {
     type: Number,
     min: 1,
     max: 5,
     default: 3
   },
-  preferredPayment: String, // Added field
-  notes: String, // Added field
-  active: { // Added field to mark inactive suppliers
+  preferredPayment: String,
+  notes: String,
+  active: {
     type: Boolean,
     default: true
   },
-  productCategories: [String], // Added field - list of product categories they supply
+  productId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: true,
+    unique: true
+  },
   createdAt: { 
     type: Date, 
     default: Date.now 
