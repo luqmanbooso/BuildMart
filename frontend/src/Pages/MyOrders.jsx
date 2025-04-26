@@ -24,8 +24,9 @@ import {
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ClientNavBar from '../components/ClientNavBar';
-import ContractorUserNav from '../components/ContractorUserNav'; // Import ContractorUserNav
+import ContractorUserNav from '../components/ContractorUserNav';
 import { jwtDecode } from 'jwt-decode';
+import Footer from '../components/Footer'; // Import Footer component
 
 // Add this near the top of your file or in a style tag
 const modalStyles = `
@@ -47,14 +48,6 @@ const modalStyles = `
     animation: slideIn 0.3s ease-out forwards;
   }
 `;
-
-const FooterFallback = () => (
-  <div className="bg-gray-800 p-4 text-center text-white">
-    <div className="container mx-auto">
-      © 2025 BuildMart. All rights reserved.
-    </div>
-  </div>
-);
 
 const MyOrders = () => {
   const navigate = useNavigate();
@@ -827,7 +820,7 @@ const closeModal = () => {
         )}
       </main>
       
-      <FooterFallback />
+      <Footer /> {/* Replace FooterFallback with Footer component */}
       <ToastContainer position="top-right" autoClose={3000} />
       {/* Add this near the top of your render function */}
       <style dangerouslySetInnerHTML={{ __html: modalStyles }} />

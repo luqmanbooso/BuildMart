@@ -21,13 +21,25 @@ const incrementCompletedProjects = async (contractorId) => {
       return false;
     }
     
-    // Increment the completedProjects field
-    contractor.completedProjects += 1;
+    // DON'T directly increment the completedProjects field anymore
+    // as that should be the calculated total (manual + system)
+    
+    // Instead, we'll recalculate the proper total by getting system count
+    const completedWorks = await OngoingWork.countDocuments({
+      contractorId: contractorId,
+      jobStatus: 'Completed'
+    });
+    
+    const manualCount = contractor.manualCompletedProjects || 0;
+    
+    // Set the completedProjects field to the sum of manual + system counts
+    contractor.completedProjects = manualCount + completedWorks;
     
     // Save the updated contractor document
     await contractor.save();
     
     console.log(`Successfully updated completed projects count to ${contractor.completedProjects} for contractor: ${contractorId}`);
+    console.log(`(${manualCount} manual + ${completedWorks} system)`);
     return true;
   } catch (error) {
     console.error('Error incrementing completed projects:', error);

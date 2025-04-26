@@ -3,7 +3,6 @@ const router = express.Router();
 const SupplierPayment = require('../models/SupplierPayment');
 const RestockRequest = require('../models/RestockRequest');
 
-console.log('Initializing supplier payment routes');
 
 // Get all supplier payments
 router.get('/', async (req, res) => {
@@ -57,6 +56,45 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-console.log('Supplier payment routes initialized');
+// Update payment status
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    
+    if (!status || !['pending', 'paid', 'failed'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status value' });
+    }
+    
+    const payment = await SupplierPayment.findById(req.params.id);
+    
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+    
+    payment.status = status;
+    
+    // If payment is marked as paid, update the payment date
+    if (status === 'paid') {
+      payment.paymentDate = new Date();
+      
+      // If there's an associated restock request, update it too
+      if (payment.requestId) {
+        await RestockRequest.findByIdAndUpdate(
+          payment.requestId,
+          {
+            paymentStatus: 'paid',
+            'paymentDetails.paidDate': new Date()
+          }
+        );
+      }
+    }
+    
+    const updatedPayment = await payment.save();
+    res.json(updatedPayment);
+  } catch (error) {
+    console.error('Error updating supplier payment status:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router;

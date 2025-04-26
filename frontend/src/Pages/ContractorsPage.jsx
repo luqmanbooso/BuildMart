@@ -6,6 +6,7 @@ import { FaStar, FaPhone, FaMapMarkerAlt, FaBriefcase, FaTools, FaTimes, FaEnvel
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ClientNavBar from '../components/ClientNavBar';
+import Footer from '../components/Footer';
 
 // Contractor Details Modal Component - Enhanced with better animations
 const ContractorDetailsModal = ({ contractor, onClose }) => {
@@ -494,26 +495,18 @@ const ContractorCard = ({ contractor }) => {
 
           {/* Action Buttons - improved with animations */}
           <motion.div 
-            className="mt-6 grid grid-cols-2 gap-3"
+            className="mt-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
           >
             <motion.button
               onClick={handleViewDetails}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-2 px-4 rounded-lg font-medium transition-all shadow-md flex items-center justify-center"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-2 px-4 rounded-lg font-medium transition-all shadow-md flex items-center justify-center w-full"
               whileHover={{ scale: 1.03, boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.3)" }}
               whileTap={{ scale: 0.97 }}
             >
               <span>View Details</span>
-            </motion.button>
-            <motion.button
-              onClick={() => toast.info('Contact functionality coming soon!')}
-              className="bg-white border border-blue-500 text-blue-600 hover:bg-blue-50 py-2 px-4 rounded-lg font-medium transition-all shadow-sm flex items-center justify-center"
-              whileHover={{ scale: 1.03, boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.1)" }}
-              whileTap={{ scale: 0.97 }}
-            >
-              <span>Contact</span>
             </motion.button>
           </motion.div>
         </div>
@@ -673,7 +666,7 @@ const ContractorsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <ClientNavBar />
+      <ClientNavBar /><br></br><br></br><br></br>
       {/* Hero section with animated particles background */}
       <div className="relative bg-gradient-to-br from-blue-800 via-blue-700 to-indigo-900 text-white overflow-hidden">
         {/* Decorative elements */}
@@ -1089,6 +1082,8 @@ const ContractorsPage = () => {
           )}
         </motion.div>
       </LayoutGroup>
+      
+      <Footer />
     </div>
   );
 };

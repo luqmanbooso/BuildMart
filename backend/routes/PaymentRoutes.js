@@ -313,7 +313,6 @@ router.post('/milestone-payment', async (req, res) => {
 fetch('http://localhost:5000/api/payments/process-payment', {
   method: 'HEAD'
 })
-.then(res => console.log('Server accessible:', res.ok))
 .catch(err => console.error('Server connection error:', err));
 
 module.exports = router;

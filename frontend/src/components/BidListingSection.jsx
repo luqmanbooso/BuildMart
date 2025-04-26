@@ -345,7 +345,10 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
               comparison = (a.contractor?.rating || 0) - (b.contractor?.rating || 0);
               break;
             case 'experience':
-              comparison = (a.contractor?.experience || a.experience || 0) - (b.contractor?.experience || b.experience || 0);
+              comparison = (b.contractor?.experience || b.experience || 0) - (a.contractor?.experience || a.experience || 0);
+              break;
+            case 'projects':
+              comparison = (b.contractor?.completedProjects || b.completedProjects || 0) - (a.contractor?.completedProjects || a.completedProjects || 0);
               break;
             case 'score':
               comparison = parseFloat(b.calculatedScore) - parseFloat(a.calculatedScore);
@@ -354,7 +357,7 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
               comparison = 0;
           }
           
-          return sortDirection === 'asc' ? comparison : -comparison;
+          return sortDirection === 'asc' ? -comparison : comparison;
         });
         
         setSortedBids(sorted);
@@ -607,33 +610,19 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
       )}
 
       <div className="bg-blue-50 p-3 rounded-lg mb-4 flex items-start space-x-3 border border-blue-200">
-  <div className="text-blue-500 mt-0.5">
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
-    </svg>
-  </div>
-  <div className="text-sm text-blue-800">
-    <p className="font-medium">About Bid Scores</p>
-    <p className="mt-1 text-blue-700">
-      Bid scores are calculated based on: price (40%), timeline (30%), contractor experience (15%), 
-      and qualifications (15%). Higher scores indicate bids with better overall value.
-    </p>
-  </div>
-  <button onClick={() => document.getElementById('score-info').classList.toggle('hidden')} 
-    className="text-blue-600 hover:text-blue-800 text-sm font-medium flex-shrink-0">
-    Learn more
-  </button>
-</div>
-
-<div id="score-info" className="hidden bg-white p-4 rounded-lg mb-4 border border-blue-200 text-sm text-gray-700">
-  <p className="mb-2 font-medium">How Scores Are Calculated:</p>
-  <ul className="list-disc pl-5 space-y-1">
-    <li><span className="font-medium">Price (40%):</span> Lower bids receive higher scores</li>
-    <li><span className="font-medium">Timeline (30%):</span> Faster completion times receive higher scores</li>
-    <li><span className="font-medium">Experience (15%):</span> More years of experience receive higher scores</li>
-    <li><span className="font-medium">Qualifications (15%):</span> Verified qualifications improve scores</li>
-  </ul>
-</div>
+        <div className="text-blue-500 mt-0.5">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
+          </svg>
+        </div>
+        <div className="text-sm text-blue-800">
+          <p className="font-medium">About Bid Scores</p>
+          <p className="mt-1 text-blue-700">
+            Bid scores (0-100) are calculated using weighted metrics: price (40%), timeline (30%), ratings (15%), 
+            and experience (15%). Additional points come from verified qualifications. Higher scores indicate better value.
+          </p>
+        </div>
+      </div>
 
       {showCompare && selectedBids.length > 0 && (
         <div className="bg-blue-50 p-4 rounded-lg mb-6 border border-blue-200 animate-fade-in">
@@ -672,6 +661,14 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
                   {getSelectedBidsData().map((bid, index) => (
                     <td key={index} className="py-3 px-4 text-sm text-gray-900">
                       {bid.contractor?.experience || bid.experience || 'N/A'} years
+                    </td>
+                  ))}
+                </tr>
+                <tr className="bg-blue-50">
+                  <td className="py-3 px-4 text-sm font-medium text-gray-700">Projects Completed</td>
+                  {getSelectedBidsData().map((bid, index) => (
+                    <td key={index} className="py-3 px-4 text-sm text-gray-900 font-medium">
+                      {bid.contractor?.completedProjects || bid.completedProjects || '0'}
                     </td>
                   ))}
                 </tr>
@@ -761,6 +758,16 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
                   <div className="flex items-center space-x-1" onClick={() => handleSort('experience')}>
                     <span>Experience</span>
                     {sortField === 'experience' ? (
+                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                    ) : (
+                      <FaSort className="text-gray-400" />
+                    )}
+                  </div>
+                </th>
+                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[12%]">
+                  <div className="flex items-center space-x-1" onClick={() => handleSort('projects')}>
+                    <span>Projects</span>
+                    {sortField === 'projects' ? (
                       sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
                     ) : (
                       <FaSort className="text-gray-400" />
@@ -863,6 +870,12 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {bid.contractor?.completedProjects || bid.completedProjects || '0'}
+                      </div>
+                      <div className="text-xs text-gray-500">Completed</div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-700">
                         {new Date(bid.createdAt).toLocaleDateString()}
                       </div>
@@ -894,11 +907,13 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
                         ${bid.status === 'accepted' ? 'bg-green-50 text-green-800 ring-1 ring-green-200' : 
                           bid.status === 'rejected' ? 'bg-red-50 text-red-800 ring-1 ring-red-200' : 
                           'bg-yellow-50 text-yellow-800 ring-1 ring-yellow-200'}`}
+
                       >
                         <span className={`h-2 w-2 rounded-full mr-1.5 
                           ${bid.status === 'accepted' ? 'bg-green-500' : 
                             bid.status === 'rejected' ? 'bg-red-500' : 
                             'bg-yellow-500'}`}
+
                         ></span>
                         <span className="font-medium">
                         {bid.status === 'accepted' ? 'Accepted' : 
