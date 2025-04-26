@@ -7,6 +7,7 @@ import { jwtDecode } from 'jwt-decode';
 import EnhancedPaymentGateway from '../components/Payment';
 import { X } from 'react-feather'; // or from '@heroicons/react/outline'
 import IssueReportModal from '../components/IssueReportModal'; // Add this import
+import ReviewModal from '../components/ReviewModal'; // Import the review modal component
 
 const COMMISSION_RATE = 0.10; // 10% commission
 
@@ -45,6 +46,41 @@ function Ongoingworks() {
         message
       });
     }, 3000);
+  };
+
+  // Add these state variables for reviews
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [selectedWorkForReview, setSelectedWorkForReview] = useState(null);
+  const [reviewedProjects, setReviewedProjects] = useState([]);
+  
+  // Add function to check if project is complete (100%)
+  const isProjectComplete = (work) => {
+    return work && work.progress === 100 && 
+           work.milestones && 
+           work.milestones.every(m => m.status === 'Completed' || m.status.includes('completed'));
+  };
+  
+  // Add function to check if project has been reviewed already
+  const hasBeenReviewed = (workId) => {
+    return reviewedProjects.includes(workId);
+  };
+  
+  // Fetch user's review history
+  const fetchReviewHistory = async () => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) return;
+      
+      const response = await axios.get('http://localhost:5000/api/reviews/user', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Extract project IDs that have been reviewed
+      const reviewedIds = response.data.map(review => review.projectId);
+      setReviewedProjects(reviewedIds);
+    } catch (err) {
+      console.error('Error fetching review history:', err);
+    }
   };
 
   // Calculate progress for each work based on completed milestones
@@ -279,6 +315,7 @@ function Ongoingworks() {
   // Fetch data when component mounts
   useEffect(() => {
     fetchOngoingWorks();
+    fetchReviewHistory();
   }, []);
 
   // Handle payment for milestone
@@ -375,6 +412,33 @@ function Ongoingworks() {
 
   // Get active work details
   const activeWork = ongoingWorks.find(work => work.id === activeWorkId);
+
+  // Function to handle opening the review modal
+  const handleOpenReviewModal = (work) => {
+    setSelectedWorkForReview(work);
+    setIsReviewModalOpen(true);
+  };
+
+  // Function to handle successful review submission
+  const handleReviewSubmitted = () => {
+    // Add the project ID to the reviewed projects list
+    if (selectedWorkForReview && selectedWorkForReview.id) {
+      setReviewedProjects([...reviewedProjects, selectedWorkForReview.id]);
+    }
+    
+    // Show success notification
+    showNotificationMessage('success', 'Thank you for your review!');
+    
+    // Close the modal
+    setIsReviewModalOpen(false);
+    setSelectedWorkForReview(null);
+  };
+
+  // Manual refresh function (adding the missing function referenced in the return statement)
+  const manualRefresh = () => {
+    fetchOngoingWorks();
+    fetchReviewHistory();
+  };
 
   if (isLoading) {
     return (
@@ -1004,8 +1068,32 @@ const handlePaymentSuccess = async (paymentData) => {
 
                     </div>
                     
-                    {/* Project issues section */}
-                    <div className="mt-8 flex justify-end">
+                    {/* Project actions section - Reviews and Issues */}
+                    <div className="mt-8 flex flex-wrap justify-between">
+                      {/* Add review button if project is complete and not reviewed */}
+                      {isProjectComplete(activeWork) && !hasBeenReviewed(activeWork.id) && (
+                        <button 
+                          onClick={() => handleOpenReviewModal(activeWork)}
+                          className="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center"
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                          </svg>
+                          Rate & Review Contractor
+                        </button>
+                      )}
+                      
+                      {/* Show reviewed badge if already reviewed */}
+                      {isProjectComplete(activeWork) && hasBeenReviewed(activeWork.id) && (
+                        <div className="text-sm text-green-600 flex items-center">
+                          <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                          </svg>
+                          Reviewed
+                        </div>
+                      )}
+                      
+                      {/* Issue reporting button */}
                       <button 
                         onClick={handleReportIssue}
                         className="text-sm text-red-600 hover:text-red-800 hover:underline flex items-center"
@@ -1023,6 +1111,7 @@ const handlePaymentSuccess = async (paymentData) => {
           )}
         </div>
       </div>
+      
       {showPaymentModal && selectedMilestone && (
         <PaymentModal
           milestone={selectedMilestone}
@@ -1047,6 +1136,32 @@ const handlePaymentSuccess = async (paymentData) => {
           category={selectedWorkForReport.category || 'Construction'}
           work={selectedWorkForReport} 
         />
+      )}
+      
+      {/* Add the Review modal */}
+      {isReviewModalOpen && selectedWorkForReview && (
+        <ReviewModal
+          isOpen={isReviewModalOpen}
+          onClose={() => {
+            setIsReviewModalOpen(false);
+            setSelectedWorkForReview(null);
+          }}
+          projectId={selectedWorkForReview.id}
+          contractorId={selectedWorkForReview.contractorId}
+          contractorName={selectedWorkForReview.contractor}
+          onReviewSubmitted={handleReviewSubmitted}
+        />
+      )}
+      
+      {/* Add notification display */}
+      {notification.show && (
+        <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg max-w-md z-50 ${
+          notification.type === 'success' ? 'bg-green-100 text-green-800' :
+          notification.type === 'error' ? 'bg-red-100 text-red-800' :
+          'bg-blue-100 text-blue-800'
+        }`}>
+          {notification.message}
+        </div>
       )}
     </div>
   );
