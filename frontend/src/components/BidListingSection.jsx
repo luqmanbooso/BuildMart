@@ -345,7 +345,10 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
               comparison = (a.contractor?.rating || 0) - (b.contractor?.rating || 0);
               break;
             case 'experience':
-              comparison = (a.contractor?.experience || a.experience || 0) - (b.contractor?.experience || b.experience || 0);
+              comparison = (b.contractor?.experience || b.experience || 0) - (a.contractor?.experience || a.experience || 0);
+              break;
+            case 'projects':
+              comparison = (b.contractor?.completedProjects || b.completedProjects || 0) - (a.contractor?.completedProjects || a.completedProjects || 0);
               break;
             case 'score':
               comparison = parseFloat(b.calculatedScore) - parseFloat(a.calculatedScore);
@@ -354,7 +357,7 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
               comparison = 0;
           }
           
-          return sortDirection === 'asc' ? comparison : -comparison;
+          return sortDirection === 'asc' ? -comparison : comparison;
         });
         
         setSortedBids(sorted);
@@ -675,6 +678,14 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
                     </td>
                   ))}
                 </tr>
+                <tr className="bg-blue-50">
+                  <td className="py-3 px-4 text-sm font-medium text-gray-700">Projects Completed</td>
+                  {getSelectedBidsData().map((bid, index) => (
+                    <td key={index} className="py-3 px-4 text-sm text-gray-900 font-medium">
+                      {bid.contractor?.completedProjects || bid.completedProjects || '0'}
+                    </td>
+                  ))}
+                </tr>
                 <tr className="bg-gradient-to-r from-blue-100 to-indigo-100">
                   <td className="py-3 px-4 text-sm font-medium text-blue-800">Overall Score</td>
                   {getSelectedBidsData().map((bid, index) => (
@@ -761,6 +772,16 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
                   <div className="flex items-center space-x-1" onClick={() => handleSort('experience')}>
                     <span>Experience</span>
                     {sortField === 'experience' ? (
+                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                    ) : (
+                      <FaSort className="text-gray-400" />
+                    )}
+                  </div>
+                </th>
+                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[12%]">
+                  <div className="flex items-center space-x-1" onClick={() => handleSort('projects')}>
+                    <span>Projects</span>
+                    {sortField === 'projects' ? (
                       sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
                     ) : (
                       <FaSort className="text-gray-400" />
@@ -861,6 +882,12 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
                           </span>
                         )}
                       </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {bid.contractor?.completedProjects || bid.completedProjects || '0'}
+                      </div>
+                      <div className="text-xs text-gray-500">Completed</div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-700">
