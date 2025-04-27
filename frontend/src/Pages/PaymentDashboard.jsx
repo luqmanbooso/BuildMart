@@ -2425,13 +2425,6 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Service Provider Payments</h2>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => exportServiceProviderData()}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                  >
-                    <FileText size={16} className="mr-2" />
-                    Export Records
-                  </button>
                 </div>
               </div>
               
@@ -2518,13 +2511,6 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Inventory Sales Records</h2>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => exportInventoryData()}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                  >
-                    <FileText size={16} className="mr-2" />
-                    Export Records
-                  </button>
                 </div>
               </div>
               
@@ -3038,13 +3024,6 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Commission Income</h2>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => exportCommissionData()}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                  >
-                    <FileText size={16} className="mr-2" />
-                    Export Records
-                  </button>
                 </div>
               </div>
               
@@ -3148,13 +3127,6 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Agreement Fee Income</h2>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => exportAgreementFeeData()}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                  >
-                    <FileText size={16} className="mr-2" />
-                    Export Records
-                  </button>
                 </div>
               </div>
               
