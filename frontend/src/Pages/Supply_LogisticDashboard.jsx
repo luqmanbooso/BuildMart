@@ -332,6 +332,8 @@ function Supply_LogisticDashboard() {
   // Add state for wait time filter
   const [waitTimeFilter, setWaitTimeFilter] = useState('all'); // Options: 'all', 'new', 'waiting6h', 'waiting12h', 'waiting24h'
   const [shipmentStatusFilter, setShipmentStatusFilter] = useState("all"); // Added for shipment status filtering
+  const [supplierCategoryFilter, setSupplierCategoryFilter] = useState("all"); // Added for supplier category filtering
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState(""); // Added for supplier search
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
@@ -2144,6 +2146,38 @@ const handleUpdateSupplier = async () => {
     return categories;
   };
 
+  // Get supplier categories for filtering
+  const getSupplierCategories = () => {
+    const categories = ["all"];
+    
+    // Add categories from our suppliers
+    suppliers.forEach(supplier => {
+      if (supplier.category && !categories.includes(supplier.category)) {
+        categories.push(supplier.category);
+      }
+    });
+    
+    // Add predefined categories if they're not already included
+    const predefinedCategories = [
+      "Safety Gear & Accessories",
+      "Tools & Equipment",
+      "Construction Materials", 
+      "Plumbing & Electrical Supplies",
+      "General Supplier",
+      "Specialized Supplier",
+      "Local Vendor",
+      "International Vendor"
+    ];
+    
+    predefinedCategories.forEach(category => {
+      if (!categories.includes(category)) {
+        categories.push(category);
+      }
+    });
+    
+    return categories;
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -2360,14 +2394,6 @@ const handleUpdateSupplier = async () => {
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
-          {/* Supplier Management Gradient Header */}
-          {activeTab === "suppliers" && (
-            <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg p-6 mb-8">
-              <h2 className="text-3xl font-bold text-white">Supplier Management</h2>
-              <p className="text-blue-100 mt-1">Manage your suppliers, add new ones, and keep your supply chain strong</p>
-            </div>
-          )}
-
           {activeTab === "dashboard" && (
   <div className="space-y-8">
     {/* Dashboard Header */}
@@ -3532,6 +3558,77 @@ const handleUpdateSupplier = async () => {
 
           {activeTab === "suppliers" && (
             <div className="space-y-6">
+              {/* Supplier Management Header - styled like inventory dashboard */}
+              <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg p-5 mb-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-3xl font-bold text-white">
+                      Supplier Management
+                    </h2>
+                    <p className="text-blue-100 mt-1">
+                      Manage your suppliers, add new ones, and keep your supply chain strong
+                    </p>
+                  </div>
+                  <div className="mt-4 md:mt-0 flex items-center space-x-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search suppliers..."
+                        className="py-2 pl-10 pr-4 bg-white/10 border border-white/20 text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/50 rounded-lg"
+                        value={supplierSearchTerm}
+                        onChange={(e) => setSupplierSearchTerm(e.target.value)}
+                      />
+                      <div className="absolute left-3 top-2.5">
+                        <Search className="h-5 w-5 text-blue-100" />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={fetchSuppliers}
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                      title="Refresh data"
+                    >
+                      <RefreshCw size={20} className="text-white" />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        // Create CSV content
+                        const headers = ["Supplier Name", "Category", "Contact", "Email", "Phone", "Address", "City", "Country"];
+                        const data = suppliers.map(s => [
+                          s.name || "",
+                          s.category || "",
+                          s.contact || "",
+                          s.email || "",
+                          s.phone || "",
+                          s.address || "",
+                          s.city || "",
+                          s.country || ""
+                        ]);
+                        
+                        // Generate CSV
+                        const csvContent = [
+                          headers.join(','),
+                          ...data.map(row => row.join(','))
+                        ].join('\n');
+                        
+                        // Download CSV
+                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.setAttribute('href', url);
+                        link.setAttribute('download', `suppliers_${new Date().toISOString().split('T')[0]}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                      title="Download supplier data"
+                    >
+                      <Download size={20} className="text-white" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Show error messages if any */}
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
@@ -3539,11 +3636,22 @@ const handleUpdateSupplier = async () => {
                 </div>
               )}
 
-              {/* Add Supplier Button */}
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Supplier Management
-                </h2>
+              {/* Add Supplier Button and Category Filter */}
+              <div className="flex justify-end items-center gap-4">
+                <div className="w-auto">
+                  <select
+                    value={supplierCategoryFilter}
+                    onChange={(e) => setSupplierCategoryFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Categories</option>
+                    {getSupplierCategories().filter(cat => cat !== "all").map(category => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <button
                   onClick={() => setShowSupplierForm(true)}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -4005,16 +4113,24 @@ const handleUpdateSupplier = async () => {
                       <tbody className="divide-y divide-gray-200">
                         {suppliers.filter(
                           (supplier) =>
-                            supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                            (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                            (supplierSearchTerm === "" || 
+                            supplier.name?.toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
+                            (supplier.category && supplier.category.toLowerCase().includes(supplierSearchTerm.toLowerCase())) ||
+                            (supplier.contact && supplier.contact.toLowerCase().includes(supplierSearchTerm.toLowerCase())) ||
+                            (supplier.email && supplier.email.toLowerCase().includes(supplierSearchTerm.toLowerCase())) ||
+                            (supplier.phone && supplier.phone.toLowerCase().includes(supplierSearchTerm.toLowerCase()))) &&
+                            (supplierCategoryFilter === "all" || supplier.category === supplierCategoryFilter)
                         ).length > 0 ? (
                           suppliers
                             .filter(
                               (supplier) =>
-                                supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                                (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                                (supplierSearchTerm === "" || 
+                                supplier.name?.toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
+                                (supplier.category && supplier.category.toLowerCase().includes(supplierSearchTerm.toLowerCase())) ||
+                                (supplier.contact && supplier.contact.toLowerCase().includes(supplierSearchTerm.toLowerCase())) ||
+                                (supplier.email && supplier.email.toLowerCase().includes(supplierSearchTerm.toLowerCase())) ||
+                                (supplier.phone && supplier.phone.toLowerCase().includes(supplierSearchTerm.toLowerCase()))) &&
+                                (supplierCategoryFilter === "all" || supplier.category === supplierCategoryFilter)
                             )
                             .map((supplier) => (
                               <tr
@@ -4094,9 +4210,13 @@ const handleUpdateSupplier = async () => {
                   <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
                     Showing {suppliers.filter(
                       (supplier) =>
-                        supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                        (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                        (supplierSearchTerm === "" || 
+                        supplier.name?.toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
+                        (supplier.category && supplier.category.toLowerCase().includes(supplierSearchTerm.toLowerCase())) ||
+                        (supplier.contact && supplier.contact.toLowerCase().includes(supplierSearchTerm.toLowerCase())) ||
+                        (supplier.email && supplier.email.toLowerCase().includes(supplierSearchTerm.toLowerCase())) ||
+                        (supplier.phone && supplier.phone.toLowerCase().includes(supplierSearchTerm.toLowerCase()))) &&
+                        (supplierCategoryFilter === "all" || supplier.category === supplierCategoryFilter)
                     ).length} of {suppliers.length} suppliers
                   </div>
                     )}
