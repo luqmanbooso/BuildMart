@@ -20,7 +20,8 @@ import {
   AlertOctagon,
   ChevronDown,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  Search
 } from 'lucide-react';
 
 const ShippingManager = ({ 
@@ -53,6 +54,7 @@ const ShippingManager = ({
   const [expandedShipmentId, setExpandedShipmentId] = useState(null); // Add this state for tracking expanded rows
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false); // Add this state for toggling additional details
   const [searchTerm, setSearchTerm] = useState(''); // Add state for search term
+  const [statusFilter, setStatusFilter] = useState('all'); // Add state for status filtering
   
   // Add this function at the top of your component
   const mockUpdateOrderStatus = (orderId, status) => {
@@ -296,6 +298,14 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
     fetchActiveShipments();
     fetchCompletedShipments();
     fetchReturnedShipments();
+    
+    // Check if there's a saved filter in sessionStorage
+    const savedFilter = sessionStorage.getItem('shipmentFilter');
+    if (savedFilter) {
+      setStatusFilter(savedFilter);
+      // Clear it after reading to avoid persisting between different page visits
+      sessionStorage.removeItem('shipmentFilter');
+    }
   }, []);
   
   // Handle when a new order is selected for shipment from the dashboard
@@ -931,11 +941,20 @@ const handleDelete = async (id) => {
     }
   };
 
-  // Filter shipments based on search term
+  // Filter shipments based on search term and status filter
   const filterShipmentsBySearch = (shipments) => {
-    if (!searchTerm) return shipments;
+    if (!shipments) return [];
     
-    return shipments.filter(shipment => 
+    // First filter by status if needed
+    let filtered = shipments;
+    if (statusFilter !== 'all') {
+      filtered = shipments.filter(shipment => shipment.status === statusFilter);
+    }
+    
+    // Then filter by search term if provided
+    if (!searchTerm) return filtered;
+    
+    return filtered.filter(shipment => 
       (shipment.orderId && shipment.orderId.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (shipment.destination && shipment.destination.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (shipment.driver && shipment.driver.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -1054,7 +1073,23 @@ const handleDelete = async (id) => {
           </button>
         </div>
         
-        <div className="flex justify-end mb-4">
+        {/* Remove existing button div and replace with combined filter and button row */}
+        <div className="flex justify-end items-center mb-4 space-x-3">
+          {viewMode === 'active' && (
+            <div className="w-auto">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Loading">Loading</option>
+                <option value="In Transit">In Transit</option>
+                <option value="Out for Delivery">Out for Delivery</option>
+              </select>
+            </div>
+          )}
           <button
             onClick={() => {
               resetForm();
@@ -1100,16 +1135,36 @@ const handleDelete = async (id) => {
         {viewMode === 'active' && !loading && (
           <>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-800">Active Shipments</h3>
+              <h3 className="text-lg font-medium text-gray-800">
+                {statusFilter === 'all' ? 'Active Shipments' : `${statusFilter} Shipments`}
+              </h3>
             </div>
             
-            {activeShipments.length === 0 ? (
+            {filterShipmentsBySearch(activeShipments).length === 0 ? (
               <div className="bg-gray-50 rounded-lg p-8 text-center">
                 <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-4">
                   <Truck className="h-8 w-8 text-blue-600" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-1">No active shipments</h3>
-                <p className="text-gray-500 mb-4">There are no active shipments at the moment.</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                  {statusFilter !== 'all' 
+                    ? `No ${statusFilter} shipments found` 
+                    : "No active shipments"
+                  }
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  {statusFilter !== 'all' 
+                    ? `There are no shipments with status "${statusFilter}".` 
+                    : "There are no active shipments at the moment."
+                  }
+                  {statusFilter !== 'all' && (
+                    <button 
+                      onClick={() => setStatusFilter('all')}
+                      className="text-blue-600 ml-1 hover:underline"
+                    >
+                      Show all instead
+                    </button>
+                  )}
+                </p>
                 <button
                   onClick={() => {
                     resetForm();
