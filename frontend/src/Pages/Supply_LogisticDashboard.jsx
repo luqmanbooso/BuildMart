@@ -545,6 +545,7 @@ const mapOrderStatus = (status) => {
         if (response.data && response.data.success) {
           const apiOrders = response.data.orders;
           console.log('Successfully loaded orders from API:', apiOrders.length);
+          console.log('Sample order data:', apiOrders.length > 0 ? apiOrders[0] : 'No orders available');
           
           // Map API orders to the format expected by the UI
           const formattedOrders = apiOrders.map(order => ({
@@ -554,7 +555,10 @@ const mapOrderStatus = (status) => {
             items: Array.isArray(order.items) ? order.items.length : 0,
             value: order.totalAmount || 0,
             status: mapOrderStatus(order.orderStatus), // Use your existing mapping function
-            date: new Date(order.orderDate || order.createdAt).toISOString().split('T')[0],
+            // Store the raw date string from the database for accurate time calculations
+            rawDate: order.orderDate || order.createdAt,
+            // Also store as a formatted date string for display purposes
+            date: new Date(order.orderDate || order.createdAt).toISOString(),
             shippingAddress: order.shippingAddress || null,
             paymentStatus: order.paymentDetails?.method ? 'Paid' : 'Pending'
           }));
@@ -1505,19 +1509,23 @@ const handleUpdateSupplier = async () => {
       
       // Check if the string might be in a format that needs special handling
       if (typeof dateString === 'string') {
-        // For MySQL/ISO format (convert to local time)
-        if (dateString.includes('T') || dateString.includes('Z')) {
+        // For ISO format with timezone (likely from database)
+        if (dateString.includes('T') && (dateString.includes('Z') || dateString.includes('+'))) {
+          // Create date in browser's local timezone (which correctly interprets ISO dates)
+          // Don't explicitly set timezone here - let the browser handle it
           date = new Date(dateString);
-        }
-        // For YYYY-MM-DD format without time (add current time)
-        else if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-          const today = new Date();
-          date = new Date(`${dateString}T00:00:00`);
           
-          // If date parsing resulted in previous day due to timezone, adjust
-          if (date.getDate() !== parseInt(dateString.split('-')[2], 10)) {
-            date = new Date(`${dateString}T12:00:00`);
-          }
+          // For debugging
+          console.log('ISO Date Debug:');
+          console.log('Original:', dateString);
+          console.log('Parsed Date:', date);
+          console.log('Local ISO:', date.toISOString());
+          console.log('Timezone offset:', date.getTimezoneOffset());
+        }
+        // For YYYY-MM-DD format without time
+        else if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+          // Use noon in Sri Lanka time to avoid timezone issues
+          date = new Date(`${dateString}T12:00:00+05:30`);
         }
         // For any other format
         else {
@@ -1554,41 +1562,94 @@ const handleUpdateSupplier = async () => {
     return null; // Return null so it doesn't affect the UI
   };
   
-  // Function to calculate time elapsed since order date with timezone handling
+  // Function to get the current time in Sri Lanka (UTC+5:30)
+  const getSriLankaTime = () => {
+    const now = new Date();
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const sriLankaTime = new Date(utcTime + (5.5 * 3600000)); // UTC+5:30
+    return sriLankaTime;
+  };
+
+  // Function to parse database date to Sri Lanka time (UTC+5:30)
+  const parseDatabaseDate = (dateString) => {
+    try {
+      if (!dateString) return null;
+      
+      // Create a date object from the string (this will be in UTC if the string has timezone info)
+      const date = new Date(dateString);
+      
+      // Check if it's a valid date
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid date:", dateString);
+        return null;
+      }
+      
+      // If the date string is a raw ISO string from MongoDB (which is in UTC),
+      // convert it to Sri Lanka time by adding the offset
+      const utcTime = date.getTime();
+      const sriLankaTime = new Date(utcTime + (5.5 * 3600000)); // UTC+5:30
+      
+      return sriLankaTime;
+    } catch (error) {
+      console.error("Error parsing date:", error, dateString);
+      return null;
+    }
+  };
+  
+  // Completely rewritten time elapsed function
   const getTimeElapsed = (orderDate) => {
     try {
-      // Get the timestamp for the order and current time
-      const orderDateTime = formatOrderDate(orderDate);
-      const orderTime = orderDateTime.getTime();
-      const currentTime = new Date().getTime();
+      // Use the raw date from the database if available
+      const rawDate = typeof orderDate === 'object' && orderDate.rawDate 
+        ? orderDate.rawDate 
+        : orderDate;
       
-      // If the date is missing or invalid, show 'New'
-      if (!orderDate || isNaN(orderTime)) {
+      // Parse the order date to Sri Lanka time
+      const orderDateTime = parseDatabaseDate(rawDate);
+      
+      // Debug
+      console.log("Date calculation:", {
+        original: rawDate,
+        parsed: orderDateTime,
+        now: getSriLankaTime(),
+        diff_ms: getSriLankaTime() - orderDateTime
+      });
+      
+      // If we couldn't parse the date or it's invalid
+      if (!orderDateTime) {
         return 'New';
       }
       
-      // Calculate the difference in milliseconds
-      const diffInMs = currentTime - orderTime;
+      // Get current time in Sri Lanka
+      const currentTime = getSriLankaTime();
       
-      // If the difference is negative or very small, it's a new order
-      if (diffInMs < 60 * 1000) { // Less than one minute
+      // Calculate difference in milliseconds
+      const diffInMs = currentTime - orderDateTime;
+      
+      // Handle future dates (server/client time mismatch)
+      if (diffInMs < 0) {
         return 'Just now';
       }
       
-      // Convert to useful time units - use Math.floor to avoid rounding issues
-      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-      const diffInHours = Math.floor((diffInMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const diffInMinutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
-      
-      // Format based on the time difference
-      if (diffInDays > 0) {
-        return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-      } else if (diffInHours > 0) {
-        return `${diffInHours}h ${diffInMinutes}m ago`;
-      } else if (diffInMinutes > 0) {
-        return `${diffInMinutes}m ago`;
-      } else {
+      // If it's less than a minute
+      if (diffInMs < 60 * 1000) {
         return 'Just now';
+      }
+      
+      // Calculate time units
+      const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+      const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      
+      // Format the output based on elapsed time
+      if (diffInDays > 0) {
+        const remainingHours = Math.floor((diffInMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        return `${diffInDays}d ${remainingHours}h ago`;
+      } else if (diffInHours > 0) {
+        const remainingMinutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
+        return `${diffInHours}h ${remainingMinutes}m ago`;
+      } else {
+        return `${diffInMinutes}m ago`;
       }
     } catch (error) {
       console.error("Error calculating time elapsed:", error);
@@ -1596,27 +1657,34 @@ const handleUpdateSupplier = async () => {
     }
   };
   
-  // Function to determine priority class based on wait time
+  // Updated priority class function to match the new date handling
   const getPriorityClass = (orderDate) => {
     try {
-      // Get the timestamp for the order and current time
-      const orderDateTime = formatOrderDate(orderDate);
-      const orderTime = orderDateTime.getTime();
-      const currentTime = new Date().getTime();
+      // Use the raw date from the database if available
+      const rawDate = typeof orderDate === 'object' && orderDate.rawDate 
+        ? orderDate.rawDate 
+        : orderDate;
       
-      // If the date is missing or invalid, default to normal priority
-      if (!orderDate || isNaN(orderTime)) {
+      // Parse the order date to Sri Lanka time
+      const orderDateTime = parseDatabaseDate(rawDate);
+      
+      // If we couldn't parse the date or it's invalid
+      if (!orderDateTime) {
         return "bg-green-100 text-green-800 border-green-300";
       }
       
-      // Calculate the difference in milliseconds
-      const diffInMs = currentTime - orderTime;
+      // Get current time in Sri Lanka
+      const currentTime = getSriLankaTime();
       
-      // If the difference is negative or very small, it's a new order
-      if (diffInMs < 60 * 1000) { // Less than one minute
+      // Calculate difference in milliseconds
+      const diffInMs = currentTime - orderDateTime;
+      
+      // Handle future dates (server/client time mismatch)
+      if (diffInMs < 0) {
         return "bg-green-100 text-green-800 border-green-300";
       }
       
+      // Calculate hours
       const diffInHours = diffInMs / (1000 * 60 * 60);
       
       if (diffInHours >= 24) {
@@ -1657,8 +1725,8 @@ const handleUpdateSupplier = async () => {
         <div className="flex justify-center items-center py-12">
           <RefreshCw className="animate-spin h-8 w-8 text-blue-600 mr-3" />
           <span className="text-lg text-gray-700 font-medium">Loading orders...</span>
-      </div>
-    );
+        </div>
+      );
     }
 
     if (ordersError) {
@@ -1686,10 +1754,13 @@ const handleUpdateSupplier = async () => {
       
       // Apply wait time filter
       if (waitTimeFilter === 'all') return true;
+
+      // Use the raw date from the database
+      const orderDateTime = parseDatabaseDate(order.rawDate);
+      if (!orderDateTime) return true;
       
-      const orderDate = new Date(order.date);
-      const now = new Date();
-      const hoursDiff = (now - orderDate) / (1000 * 60 * 60); // Convert to hours
+      const now = getSriLankaTime();
+      const hoursDiff = (now - orderDateTime) / (1000 * 60 * 60); // Convert to hours
       
       switch (waitTimeFilter) {
         case 'new':
@@ -1707,8 +1778,8 @@ const handleUpdateSupplier = async () => {
     
     // Sort by date (oldest first) to emphasize first-come-first-serve
     const sortedPendingOrders = [...filteredPendingOrders].sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
+      const dateA = parseDatabaseDate(a.rawDate)?.getTime() || 0;
+      const dateB = parseDatabaseDate(b.rawDate)?.getTime() || 0;
       return dateA - dateB;
     });
     
@@ -1729,7 +1800,7 @@ const handleUpdateSupplier = async () => {
         </div>
       );
     }
-
+    
     // Handle row click to toggle expanded state
     const handleRowClick = (orderId) => {
       if (expandedOrderId === orderId) {
@@ -1738,12 +1809,12 @@ const handleUpdateSupplier = async () => {
         setExpandedOrderId(orderId); // Expand
       }
     };
-
+    
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center flex-wrap gap-4">
-              <div>
+        <div>
               <h2 className="text-2xl font-bold text-gray-800">New Orders</h2>
               <p className="text-gray-500 mt-1">First come, first serve processing queue</p>
               </div>
@@ -1799,11 +1870,11 @@ const handleUpdateSupplier = async () => {
                 >
                   Waiting &gt;24h
                 </button>
-                </div>
             </div>
           </div>
-      </div>
-        
+                    </div>
+                    </div>
+                    
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -1844,23 +1915,23 @@ const handleUpdateSupplier = async () => {
                     onClick={() => handleRowClick(order.id)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`px-3 py-1 rounded-md border ${getPriorityClass(order.date)} text-xs font-medium flex items-center`}>
+                      <div className={`px-3 py-1 rounded-md border ${getPriorityClass(order)} text-xs font-medium flex items-center`}>
                         <Clock className="h-3 w-3 mr-1" />
                         {index === 0 ? 'NEXT' : `#${index + 1}`}
-        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
             <div className="flex items-center">
                         <span className="bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-md text-sm font-medium">
                           #{order.orderNumber || order.id.substring(0, 6)}
                         </span>
-              </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{order.customer}</div>
                       <div className="text-sm text-gray-500">
                         {order.shippingAddress ? `${order.shippingAddress.city || ''}, ${order.shippingAddress.postalCode || order.shippingAddress.zip || ''}` : 'No address'}
-              </div>
+                    </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900 font-medium">{order.items}</div>
@@ -1872,33 +1943,35 @@ const handleUpdateSupplier = async () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <span className={`text-sm font-medium flex items-center ${
-                          new Date(order.date).getTime() < new Date().getTime() - (24 * 60 * 60 * 1000) 
+                          parseDatabaseDate(order.rawDate) && 
+                          getSriLankaTime().getTime() - parseDatabaseDate(order.rawDate).getTime() > (24 * 60 * 60 * 1000) 
                             ? 'text-red-600' 
-                            : new Date(order.date).getTime() < new Date().getTime() - (12 * 60 * 60 * 1000)
+                            : parseDatabaseDate(order.rawDate) && 
+                              getSriLankaTime().getTime() - parseDatabaseDate(order.rawDate).getTime() > (12 * 60 * 60 * 1000)
                               ? 'text-orange-600'
                               : 'text-gray-600'
                         }`}>
                           <Clock className="h-4 w-4 mr-1.5" />
-                          {getTimeElapsed(order.date)}
+                          {getTimeElapsed(order)}
                         </span>
                         <span className="ml-2 text-xs text-gray-500">
-                          {order.date ? new Date(order.date).toLocaleDateString() : 'No date'}
-            </span>
-          </div>
+                          {order.rawDate ? getLocalTimeFromDatabase(order.rawDate) : 'No date'}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end items-center">
-                        <button
+                    <button
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent row toggle
-                            setSelectedOrderForShipment(order);
-                            setActiveTab("shipments");
-                          }}
+                        setSelectedOrderForShipment(order);
+                        setActiveTab("shipments");
+                      }}
                           className="flex items-center text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors"
-                        >
+                    >
                           <Truck className="mr-1.5 h-4 w-4" /> 
                           Ship
-                        </button>
+                    </button>
                         
                         <ChevronDown 
                           className={`ml-3 h-5 w-5 text-gray-400 transform transition-transform duration-200 ${
@@ -1932,8 +2005,8 @@ const handleUpdateSupplier = async () => {
                                   <p className="flex justify-between">
                                     <span className="text-sm text-gray-500">Order Date:</span>
                                     <span className="text-sm font-medium text-gray-900">
-                                      {order.date ? new Date(order.date).toLocaleString() : 'Not available'}
-                      </span>
+                                      {order.rawDate ? getLocalTimeFromDatabase(order.rawDate) + ' (Local)' : 'Not available'}
+                    </span>
                                   </p>
                                   <p className="flex justify-between">
                                     <span className="text-sm text-gray-500">Status:</span>
@@ -1946,8 +2019,8 @@ const handleUpdateSupplier = async () => {
                                     <span className="text-sm font-medium text-gray-900">Rs. {order.value ? order.value.toLocaleString() : '0'}</span>
                                   </p>
                     </div>
-                    </div>
-                    
+                  </div>
+                  
                               {/* Customer Info */}
                               <div className="bg-gray-50 p-4 rounded-lg">
                                 <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
@@ -2030,15 +2103,15 @@ const handleUpdateSupplier = async () => {
                                     </tbody>
                                   </table>
                       </div>
-                      </div>
-                            ) : (
+                          </div>
+                        ) : (
                               <div className="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-center">
                                 <div className="text-center">
                                   <Box className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                    </div>
-                    </div>
-                            )}
-                    
+                          </div>
+            </div>
+          )}
+        
                             {/* Actions */}
                             <div className="mt-4 flex justify-end">
                     <button
@@ -2052,9 +2125,9 @@ const handleUpdateSupplier = async () => {
                       <Truck className="mr-2 h-4 w-4" />
                       Arrange Shipment
                     </button>
-                  </div>
                 </div>
-            </div>
+                </div>
+              </div>
                       </td>
                     </tr>
                   )}
@@ -2062,27 +2135,27 @@ const handleUpdateSupplier = async () => {
               ))}
             </tbody>
           </table>
-        </div>
-        
+            </div>
+            
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-700">
               <span className="font-medium">{sortedPendingOrders.length}</span> new orders in queue
-            </div>
-            
+                  </div>
+                  
             <div className="flex items-center space-x-5">
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <span className="text-xs text-gray-600">New</span>
-                    </div>
+                      </div>
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 rounded-full bg-amber-500"></div>
                 <span className="text-xs text-gray-600">Waiting {'>'}6h</span>
-                    </div>
+                      </div>
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 rounded-full bg-orange-500"></div>
                 <span className="text-xs text-gray-600">Waiting {'>'}12h</span>
-                  </div>
+                    </div>
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
                 <span className="text-xs text-gray-600">Waiting {'>'}24h</span>
@@ -2198,6 +2271,34 @@ const handleUpdateSupplier = async () => {
     });
     
     return categories;
+  };
+
+  // Function to get the local formatted time from a database date
+  const getLocalTimeFromDatabase = (dateString) => {
+    if (!dateString) return 'No date';
+    
+    try {
+      // Create a date object directly from the string - browsers handle this correctly
+      const date = new Date(dateString);
+      
+      // Check if it's a valid date
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid date for local display:", dateString);
+        return 'Invalid date';
+      }
+      
+      // Format using the browser's locale settings
+      return date.toLocaleString('en-US', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      console.error("Error formatting local time:", error, dateString);
+      return 'Error';
+    }
   };
 
   return (
@@ -4398,12 +4499,12 @@ const handleUpdateSupplier = async () => {
               {/* Charts Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Inventory Status Chart */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-medium text-gray-800">
+                  <h3 className="text-lg font-medium text-gray-800">
                       Inventory Status
-                    </h3>
-                    <div className="flex items-center space-x-2">
+                  </h3>
+                  <div className="flex items-center space-x-2">
                       <select className="text-sm border border-gray-300 rounded-md px-2 py-1">
                         <option>Last 3 Months</option>
                         <option>Last 6 Months</option>
