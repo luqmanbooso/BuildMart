@@ -3025,11 +3025,17 @@ const handleUpdateSupplier = async () => {
                         {!item.restockRequested && (
                           <button
                             onClick={() => handleRestockRequest(item.name)}
-                            className="mt-2 text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded inline-flex items-center"
+                            className="mt-2 text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm transition-all duration-200 hover:shadow-md flex items-center gap-2 group"
                           >
-                            <RefreshCw className="h-3 w-3 mr-1" />
-                            Request Restock
+                            <RefreshCw className="h-3.5 w-3.5 group-hover:rotate-180 transition-transform duration-300" />
+                            <span>Request Restock</span>
                           </button>
+                        )}
+                        {item.restockRequested && (
+                          <div className="mt-2 flex items-center gap-2 text-xs text-green-600 bg-green-50 px-3 py-1.5 rounded-md border border-green-100">
+                            <CheckCircle className="h-3.5 w-3.5 animate-pulse" />
+                            <span className="font-medium">Restock Requested</span>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -3661,15 +3667,16 @@ const handleUpdateSupplier = async () => {
                                 {(item.status === "Critical" || item.status === "Low Stock") && !item.restockRequested && (
                                   <button
                                     onClick={() => handleRestockRequest(item.name)}
-                                    className="mt-2 text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded inline-flex items-center"
+                                    className="mt-2 text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm transition-all duration-200 hover:shadow-md flex items-center gap-2 group"
                                   >
-                                    <RefreshCw className="h-3 w-3 mr-1" />
-                                    Request Restock
+                                    <RefreshCw className="h-3.5 w-3.5 group-hover:rotate-180 transition-transform duration-300" />
+                                    <span>Request Restock</span>
                                   </button>
                                 )}
                                 {item.restockRequested && (
-                                  <div className="mt-2 text-xs text-blue-600 inline-flex items-center">
-                                    Restock Requested
+                                  <div className="mt-2 flex items-center gap-2 text-xs text-green-600 bg-green-50 px-3 py-1.5 rounded-md border border-green-100">
+                                    <CheckCircle className="h-3.5 w-3.5 animate-pulse" />
+                                    <span className="font-medium">Restock Requested</span>
                                   </div>
                                 )}
                               </td>
