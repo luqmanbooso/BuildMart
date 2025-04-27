@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Truck,
@@ -53,6 +54,7 @@ import { supplierService } from "../services/supplierService";
 import { restockService } from "../services/restockService";
 import RestockRequests from '../components/RestockRequests';
 import ShippingManager from '../components/ShippingManager';
+
 
 // Mock data for the dashboard
 const inventoryData = [
@@ -200,7 +202,6 @@ const topSuppliers = [
 ];
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
-
 const activeShipments = [
   {
     id: "SHP-4231",
@@ -268,6 +269,10 @@ const notifications = [
 ];
 
 function Supply_LogisticDashboard() {
+
+  const navigate = useNavigate();
+
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -343,6 +348,20 @@ const mapOrderStatus = (status) => {
   }
 };
 
+  useEffect(() => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  // Add logout handler function
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    navigate('/login');
+  };
+
   // Fetch inventory data from the API
   useEffect(() => {
     const fetchInventory = async () => {
@@ -383,6 +402,8 @@ const mapOrderStatus = (status) => {
         setLoading(false);
       }
     };
+
+
 
     // Helper function to determine stock status based on stock level and threshold
     const getStockStatus = (stock, threshold) => {
@@ -2075,14 +2096,10 @@ const handleUpdateSupplier = async () => {
             className="flex items-center px-4 py-2 w-full text-blue-200 hover:bg-blue-800 rounded-lg transition-colors"
             onClick={() => {
               // Clear authentication data from localStorage
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              
+             
               // Show success message
               toast.success('Logged out successfully');
-              
-              // Redirect to login page
-              window.location.href = '/login';
+              handleLogout();
             }}
           >
             <LogOut className="mr-3 h-5 w-5" />
