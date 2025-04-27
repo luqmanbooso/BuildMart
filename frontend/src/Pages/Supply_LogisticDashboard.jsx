@@ -331,7 +331,6 @@ function Supply_LogisticDashboard() {
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   // Add state for wait time filter
   const [waitTimeFilter, setWaitTimeFilter] = useState('all'); // Options: 'all', 'new', 'waiting6h', 'waiting12h', 'waiting24h'
-  const [shipmentStatusFilter, setShipmentStatusFilter] = useState("all"); // Added for shipment status filtering
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
@@ -415,20 +414,20 @@ const mapOrderStatus = (status) => {
             );
             
             return {
-            name: product.name,
-            stock: product.stock,
-            threshold: product.threshold,
-            status: getStockStatus(product.stock, product.threshold),
+              name: product.name,
+              stock: product.stock,
+              threshold: product.threshold,
+              status: getStockStatus(product.stock, product.threshold),
               supplier: assignedSupplier ? assignedSupplier.name : "No Supplier Assigned",
               supplierId: assignedSupplier ? assignedSupplier._id : null,
               restockRequested: hasRestockRequest, // Set based on existing restock requests
-            paymentStatus: "Pending", // This would need to come from a payment API
-            deliveryStatus: "Pending", // This would need to come from a delivery API
-            _id: product._id, // Keep the MongoDB ID for reference
-            sku: product.sku,
-            category: product.category,
-            price: product.price,
-            image: product.image,
+              paymentStatus: "Pending", // This would need to come from a payment API
+              deliveryStatus: "Pending", // This would need to come from a delivery API
+              _id: product._id, // Keep the MongoDB ID for reference
+              sku: product.sku,
+              category: product.category,
+              price: product.price,
+              image: product.image,
             };
           });
 
@@ -937,27 +936,27 @@ const handleRestockRequest = async (itemName) => {
       return;
     }
 
-      // Find the specific supplier for this product based on productId
-      const productSupplier = suppliers.find(sup => sup.productId === product._id);
+    // Find the specific supplier for this product based on productId
+    const productSupplier = suppliers.find(sup => sup.productId === product._id);
       
-      if (!productSupplier) {
+    if (!productSupplier) {
       // Change behavior: Switch to suppliers tab and show notification
       setActiveTab("suppliers");
       toast.warning(`No supplier found for ${itemName}. Please add a supplier first by clicking "Add New Supplier" and selecting ${itemName} from the product dropdown.`);
-        return;
-      }
+      return;
+    }
 
-      // Calculate quantity needed based on threshold
-      const quantityToOrder = product.threshold - product.stock + 10; // Order enough to be above threshold plus buffer
+    // Calculate quantity needed based on threshold
+    const quantityToOrder = product.threshold - product.stock + 10; // Order enough to be above threshold plus buffer
       
-      // Always use the supplier's price for calculation
-      if (!productSupplier.price || productSupplier.price <= 0) {
-        toast.error(`Supplier for ${itemName} has no valid price set. Please update the supplier information.`);
-        return;
-      }
+    // Always use the supplier's price for calculation
+    if (!productSupplier.price || productSupplier.price <= 0) {
+      toast.error(`Supplier for ${itemName} has no valid price set. Please update the supplier information.`);
+      return;
+    }
       
-      // Calculate total amount to pay using supplier price
-      const totalAmount = quantityToOrder * productSupplier.price;
+    // Calculate total amount to pay using supplier price
+    const totalAmount = quantityToOrder * productSupplier.price;
 
     // Optimistically update UI
     setInventory((prevInventory) =>
@@ -970,24 +969,24 @@ const handleRestockRequest = async (itemName) => {
     const restockData = {
       productId: product._id,
       productName: product.name,
-        quantity: quantityToOrder,
-        unitPrice: productSupplier.price,
-        totalAmount: totalAmount,
+      quantity: quantityToOrder,
+      unitPrice: productSupplier.price,
+      totalAmount: totalAmount,
       priority:
         product.stock === 0
           ? "urgent"
           : product.stock < product.threshold / 2
           ? "high"
           : "medium",
-        supplierId: productSupplier._id,
-        supplierName: productSupplier.name,
-        notes: `Automatic restock request for ${product.name}. Total amount: Rs. ${totalAmount.toLocaleString()}`,
+      supplierId: productSupplier._id,
+      supplierName: productSupplier.name,
+      notes: `Automatic restock request for ${product.name}. Total amount: Rs. ${totalAmount.toLocaleString()}`,
     };
 
     // Create the restock request
     const newRequest = await restockService.createRequest(restockData);
     
-      // Add to restock requests list
+    // Add to restock requests list
     setRestockRequests(prevRequests => {
       // First filter out any existing requests for this product to avoid duplicates
       const filteredRequests = prevRequests.filter(req => req.productId !== product._id);
@@ -996,10 +995,10 @@ const handleRestockRequest = async (itemName) => {
       
     // Switch to the restock tab after creating the request
     setActiveTab("restock");
-      toast.success(`Restock request created for ${product.name}. Amount: Rs. ${totalAmount.toLocaleString()}`);
+    toast.success(`Restock request created for ${product.name}. Amount: Rs. ${totalAmount.toLocaleString()}`);
   } catch (error) {
-      console.error("Error creating restock request:", error);
-      toast.error(`Failed to create restock request: ${error.message || 'Server error'}`);
+    console.error("Error creating restock request:", error);
+    toast.error(`Failed to create restock request: ${error.message || 'Server error'}`);
   }
 };
 
@@ -1629,14 +1628,14 @@ const handleUpdateSupplier = async () => {
   // Completely rewrite the renderPendingOrdersTable function
   const renderPendingOrdersTable = () => {
     if (ordersLoading) {
-    return (
+      return (
         <div className="flex justify-center items-center py-12">
           <RefreshCw className="animate-spin h-8 w-8 text-blue-600 mr-3" />
           <span className="text-lg text-gray-700 font-medium">Loading orders...</span>
-      </div>
-    );
+        </div>
+      );
     }
-
+    
     if (ordersError) {
       return (
         <div className="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
@@ -1645,7 +1644,7 @@ const handleUpdateSupplier = async () => {
         </div>
       );
     }
-
+    
     // Filter to only show pending orders
     const pendingOrders = orders.filter(order => order.status === 'Pending');
     
@@ -1696,12 +1695,7 @@ const handleUpdateSupplier = async () => {
           <p className="text-gray-500 mb-4">
             {orderSearchTerm ? "No orders match your search criteria." : "All orders have been processed or are in transit."}
           </p>
-          <button 
-            onClick={() => setActiveTab("inventory")}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            View Inventory
-          </button>
+          
         </div>
       );
     }
@@ -1714,15 +1708,15 @@ const handleUpdateSupplier = async () => {
         setExpandedOrderId(orderId); // Expand
       }
     };
-
+    
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center flex-wrap gap-4">
-              <div>
+            <div>
               <h2 className="text-2xl font-bold text-gray-800">New Orders</h2>
               <p className="text-gray-500 mt-1">First come, first serve processing queue</p>
-              </div>
+            </div>
             <div className="flex items-center gap-2">
               <div className="flex rounded-lg overflow-hidden border border-gray-300 bg-white">
                 <button
@@ -1775,10 +1769,10 @@ const handleUpdateSupplier = async () => {
                 >
                   Waiting &gt;24h
                 </button>
-                </div>
+              </div>
             </div>
           </div>
-      </div>
+        </div>
         
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -1823,20 +1817,20 @@ const handleUpdateSupplier = async () => {
                       <div className={`px-3 py-1 rounded-md border ${getPriorityClass(order.date)} text-xs font-medium flex items-center`}>
                         <Clock className="h-3 w-3 mr-1" />
                         {index === 0 ? 'NEXT' : `#${index + 1}`}
-        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-            <div className="flex items-center">
+                      <div className="flex items-center">
                         <span className="bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-md text-sm font-medium">
                           #{order.orderNumber || order.id.substring(0, 6)}
                         </span>
-              </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{order.customer}</div>
                       <div className="text-sm text-gray-500">
                         {order.shippingAddress ? `${order.shippingAddress.city || ''}, ${order.shippingAddress.postalCode || order.shippingAddress.zip || ''}` : 'No address'}
-              </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900 font-medium">{order.items}</div>
@@ -1859,8 +1853,8 @@ const handleUpdateSupplier = async () => {
                         </span>
                         <span className="ml-2 text-xs text-gray-500">
                           {order.date ? new Date(order.date).toLocaleDateString() : 'No date'}
-            </span>
-          </div>
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end items-center">
@@ -1881,7 +1875,7 @@ const handleUpdateSupplier = async () => {
                             expandedOrderId === order.id ? 'rotate-180' : ''
                           }`}
                         />
-              </div>
+                      </div>
                     </td>
                   </tr>
                   
@@ -1909,7 +1903,7 @@ const handleUpdateSupplier = async () => {
                                     <span className="text-sm text-gray-500">Order Date:</span>
                                     <span className="text-sm font-medium text-gray-900">
                                       {order.date ? new Date(order.date).toLocaleString() : 'Not available'}
-                      </span>
+                                    </span>
                                   </p>
                                   <p className="flex justify-between">
                                     <span className="text-sm text-gray-500">Status:</span>
@@ -1921,9 +1915,9 @@ const handleUpdateSupplier = async () => {
                                     <span className="text-sm text-gray-500">Total Amount:</span>
                                     <span className="text-sm font-medium text-gray-900">Rs. {order.value ? order.value.toLocaleString() : '0'}</span>
                                   </p>
-                    </div>
-                    </div>
-                    
+                                </div>
+                              </div>
+                              
                               {/* Customer Info */}
                               <div className="bg-gray-50 p-4 rounded-lg">
                                 <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
@@ -1957,10 +1951,10 @@ const handleUpdateSupplier = async () => {
                                       </p>
                                     </>
                                   )}
-                      </div>
-                      </div>
-                    </div>
-                    
+                                </div>
+                              </div>
+                            </div>
+                            
                             {/* Order Items - Only show if we have detailed item info */}
                             {Array.isArray(order.items) && order.items.length > 0 && typeof order.items[0] === 'object' ? (
                               <div className="mt-4">
@@ -2005,32 +1999,32 @@ const handleUpdateSupplier = async () => {
                                       ))}
                                     </tbody>
                                   </table>
-                      </div>
-                      </div>
+                                </div>
+                              </div>
                             ) : (
                               <div className="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-center">
                                 <div className="text-center">
                                   <Box className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                    </div>
-                    </div>
+                                </div>
+                              </div>
                             )}
-                    
+                            
                             {/* Actions */}
                             <div className="mt-4 flex justify-end">
-                    <button
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                        setSelectedOrderForShipment(order);
-                        setActiveTab("shipments");
-                      }}
+                                  setSelectedOrderForShipment(order);
+                                  setActiveTab("shipments");
+                                }}
                                 className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      <Truck className="mr-2 h-4 w-4" />
-                      Arrange Shipment
-                    </button>
-                  </div>
-                </div>
-            </div>
+                              >
+                                <Truck className="mr-2 h-4 w-4" />
+                                Arrange Shipment
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -2050,22 +2044,22 @@ const handleUpdateSupplier = async () => {
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <span className="text-xs text-gray-600">New</span>
-                    </div>
+              </div>
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 rounded-full bg-amber-500"></div>
                 <span className="text-xs text-gray-600">Waiting {'>'}6h</span>
-                    </div>
+              </div>
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 rounded-full bg-orange-500"></div>
                 <span className="text-xs text-gray-600">Waiting {'>'}12h</span>
-                  </div>
+              </div>
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
                 <span className="text-xs text-gray-600">Waiting {'>'}24h</span>
-                      </div>
-                      </div>
-                    </div>
-                      </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -2662,13 +2656,9 @@ const handleUpdateSupplier = async () => {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">
-                    {shipmentStatusFilter === "all" ? 
-                      activeShipments.length : 
-                      activeShipments.filter(s => s.status === shipmentStatusFilter).length}
+                    {activeShipments.length}
                   </p>
-                  <p className="text-sm text-gray-500">
-                    {shipmentStatusFilter === "all" ? "active shipments" : `${shipmentStatusFilter} shipments`}
-                  </p>
+                  <p className="text-sm text-gray-500">active shipments</p>
                 </div>
               </div>
               <div className="space-y-3">
@@ -2696,10 +2686,7 @@ const handleUpdateSupplier = async () => {
               </div>
               <div className="mt-4">
                 <button
-                  onClick={() => {
-                    sessionStorage.setItem('shipmentFilter', shipmentStatusFilter);
-                    setActiveTab("shipments");
-                  }}
+                  onClick={() => setActiveTab("shipments")}
                   className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
                 >
                   Manage Shipments
@@ -2717,26 +2704,9 @@ const handleUpdateSupplier = async () => {
       <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold text-gray-800">Active Shipments</h3>
-          <p className="text-sm text-gray-500">
-            {shipmentStatusFilter === "all" 
-              ? "Track ongoing deliveries & shipments" 
-              : `Showing only ${shipmentStatusFilter} shipments`}
-          </p>
+          <p className="text-sm text-gray-500">Track ongoing deliveries & shipments</p>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="relative">
-            <select
-              value={shipmentStatusFilter}
-              onChange={(e) => setShipmentStatusFilter(e.target.value)}
-              className="pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-            >
-              <option value="all">All Statuses</option>
-              <option value="In Transit">In Transit</option>
-              <option value="Loading">Loading</option>
-              <option value="Pending">Pending</option>
-              <option value="Out for Delivery">Out for Delivery</option>
-            </select>
-          </div>
           <button 
             onClick={() => {
               const fetchShipmentData = async () => {
@@ -2760,10 +2730,7 @@ const handleUpdateSupplier = async () => {
             <RefreshCw className="h-5 w-5 text-gray-600" />
           </button>
           <button 
-            onClick={() => {
-              sessionStorage.setItem('shipmentFilter', shipmentStatusFilter);
-              setActiveTab("shipments");
-            }}
+            onClick={() => setActiveTab("shipments")}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
           >
             All Shipments
@@ -2791,26 +2758,9 @@ const handleUpdateSupplier = async () => {
             <h3 className="text-lg font-medium text-gray-900">No active shipments</h3>
             <p className="text-gray-500 mt-1">There are no ongoing shipments at the moment</p>
           </div>
-        ) : activeShipments.filter(shipment => shipmentStatusFilter === "all" || shipment.status === shipmentStatusFilter).length === 0 ? (
-          <div className="text-center py-10">
-            <Truck className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-gray-900">No {shipmentStatusFilter} shipments</h3>
-            <p className="text-gray-500 mt-1">
-              There are no shipments with status "{shipmentStatusFilter}"
-              <button 
-                onClick={() => setShipmentStatusFilter("all")}
-                className="text-blue-600 ml-1 hover:underline"
-              >
-                Show all instead
-              </button>
-            </p>
-          </div>
         ) : (
           <div className="space-y-6">
-            {activeShipments
-              .filter(shipment => shipmentStatusFilter === "all" || shipment.status === shipmentStatusFilter)
-              .slice(0, 3)
-              .map((shipment) => (
+            {activeShipments.slice(0, 3).map((shipment) => (
               <div key={shipment.id || shipment._id} className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -2889,15 +2839,10 @@ const handleUpdateSupplier = async () => {
             {activeShipments.length > 3 && (
               <div className="text-center mt-4">
                 <button
-                  onClick={() => {
-                    sessionStorage.setItem('shipmentFilter', shipmentStatusFilter);
-                    setActiveTab("shipments");
-                  }}
+                  onClick={() => setActiveTab("shipments")}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium inline-flex items-center"
                 >
-                  View All {shipmentStatusFilter === "all" ? 
-                    activeShipments.length : 
-                    activeShipments.filter(s => s.status === shipmentStatusFilter).length} Shipments
+                  View All {activeShipments.length} Shipments
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </button>
               </div>
@@ -3277,15 +3222,15 @@ const handleUpdateSupplier = async () => {
                                 <div className="flex items-center">
                                   {item.supplier !== "No Supplier Assigned" ? (
                                     <>
-                                  <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3 text-blue-700 font-medium">
-                                    {item.supplier?.charAt(0) || 'S'}
-                                  </div>
-                                  <div>
-                                    <div className="text-sm font-medium">{item.supplier}</div>
-                                    <div className="text-xs text-gray-500">
-                                      {item.leadTime ? `${item.leadTime} days lead time` : 'Standard delivery'}
-                                    </div>
-                                  </div>
+                                      <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3 text-blue-700 font-medium">
+                                        {item.supplier?.charAt(0) || 'S'}
+                                      </div>
+                                      <div>
+                                        <div className="text-sm font-medium">{item.supplier}</div>
+                                        <div className="text-xs text-gray-500">
+                                          {item.leadTime ? `${item.leadTime} days lead time` : 'Standard delivery'}
+                                        </div>
+                                      </div>
                                     </>
                                   ) : (
                                     <>
@@ -3981,124 +3926,124 @@ const handleUpdateSupplier = async () => {
                   </div>
                 ) : (
                   <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-gray-50">
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Supplier
-                          </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Product
-                          </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Category
-                          </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Contact Details
-                          </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {suppliers.filter(
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Supplier
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Product
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Category
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Contact Details
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {suppliers.filter(
+                            (supplier) =>
+                              supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                              (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                          ).length > 0 ? (
+                            suppliers
+                              .filter(
+                                (supplier) =>
+                                  supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                  (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                                  (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                              )
+                              .map((supplier) => (
+                                <tr
+                                  key={supplier._id || supplier.id || supplier.name}
+                                  className="hover:bg-gray-50 transition-colors"
+                                >
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center">
+                                      <div className="h-10 w-10 flex-shrink-0 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                                        <Users className="h-5 w-5 text-blue-600" />
+                                      </div>
+                                      <div>
+                                        <div className="font-medium text-gray-900">{supplier.name}</div>
+                                        <div className="text-sm text-gray-500">{supplier.website}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="text-sm text-gray-900">
+                                      {inventory.find(p => p._id === supplier.productId)?.name || 'N/A'}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                                      supplier.category?.toLowerCase().includes("safety") 
+                                        ? "bg-green-100 text-green-800" 
+                                        : supplier.category?.toLowerCase().includes("tools") 
+                                        ? "bg-blue-100 text-blue-800"
+                                        : supplier.category?.toLowerCase().includes("construction") 
+                                        ? "bg-amber-100 text-amber-800"
+                                        : supplier.category?.toLowerCase().includes("plumbing") 
+                                        ? "bg-indigo-100 text-indigo-800"
+                                        : "bg-gray-100 text-gray-800"
+                                    }`}>
+                                      {supplier.category || "General"}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="text-sm text-gray-900">{supplier.contact}</div>
+                                    <div className="text-sm text-gray-500">{supplier.email}</div>
+                                    <div className="text-sm text-gray-500">{supplier.phone}</div>
+                                  </td>
+                                  <td className="px-6 py-4 text-right text-sm font-medium">
+                                    <div className="flex justify-end space-x-2">
+                                      <button
+                                        onClick={() => editSupplier(supplier)}
+                                        className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                        title="Edit Supplier"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteSupplier(supplier._id)}
+                                        className="p-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                        title="Delete Supplier"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                          ) : (
+                            <tr>
+                              <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
+                                <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                                <p className="text-lg font-medium">No suppliers found</p>
+                                <p className="text-sm">Try adjusting your search criteria or add a new supplier</p>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    {suppliers.length > 0 && (
+                      <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
+                        Showing {suppliers.filter(
                           (supplier) =>
                             supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
                             (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
-                        ).length > 0 ? (
-                          suppliers
-                            .filter(
-                              (supplier) =>
-                                supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                                (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
-                            )
-                            .map((supplier) => (
-                              <tr
-                                key={supplier._id || supplier.id || supplier.name}
-                                className="hover:bg-gray-50 transition-colors"
-                              >
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center">
-                                    <div className="h-10 w-10 flex-shrink-0 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                                      <Users className="h-5 w-5 text-blue-600" />
-                                    </div>
-                                    <div>
-                                      <div className="font-medium text-gray-900">{supplier.name}</div>
-                                      <div className="text-sm text-gray-500">{supplier.website}</div>
-                                      </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm text-gray-900">
-                                    {inventory.find(p => p._id === supplier.productId)?.name || 'N/A'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                                    supplier.category?.toLowerCase().includes("safety") 
-                                      ? "bg-green-100 text-green-800" 
-                                      : supplier.category?.toLowerCase().includes("tools") 
-                                      ? "bg-blue-100 text-blue-800"
-                                      : supplier.category?.toLowerCase().includes("construction") 
-                                      ? "bg-amber-100 text-amber-800"
-                                      : supplier.category?.toLowerCase().includes("plumbing") 
-                                      ? "bg-indigo-100 text-indigo-800"
-                                      : "bg-gray-100 text-gray-800"
-                                  }`}>
-                                    {supplier.category || "General"}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm text-gray-900">{supplier.contact}</div>
-                                  <div className="text-sm text-gray-500">{supplier.email}</div>
-                                  <div className="text-sm text-gray-500">{supplier.phone}</div>
-                                </td>
-                                <td className="px-6 py-4 text-right text-sm font-medium">
-                                  <div className="flex justify-end space-x-2">
-                                    <button
-                                      onClick={() => editSupplier(supplier)}
-                                      className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                                      title="Edit Supplier"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteSupplier(supplier._id)}
-                                      className="p-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                                      title="Delete Supplier"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                      </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))
-                        ) : (
-                          <tr>
-                            <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
-                              <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                              <p className="text-lg font-medium">No suppliers found</p>
-                              <p className="text-sm">Try adjusting your search criteria or add a new supplier</p>
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                
-                    {suppliers.length > 0 && (
-                  <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
-                    Showing {suppliers.filter(
-                      (supplier) =>
-                        supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                        (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
-                    ).length} of {suppliers.length} suppliers
-                  </div>
+                        ).length} of {suppliers.length} suppliers
+                      </div>
                     )}
                   </>
                 )}

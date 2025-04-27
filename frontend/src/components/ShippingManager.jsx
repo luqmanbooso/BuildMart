@@ -1178,131 +1178,235 @@ const handleDelete = async (id) => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filterShipmentsBySearch(activeShipments).map((shipment) => (
-                  <div key={shipment._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="p-4">
-                      {/* Header with order ID and status badge */}
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <span className="text-xs font-medium text-gray-500">ORDER ID</span>
-                          <h4 className="text-base font-bold text-gray-800">#{shipment.orderId}</h4>
-                        </div>
-                        {getStatusBadge(shipment.status)}
-                      </div>
+                {filterShipmentsBySearch(activeShipments).map((shipment) => {
+                  // Dynamic styles based on status
+                  const styles = {
+                    inTransit: shipment.status === 'In Transit',
+                    loading: shipment.status === 'Loading',
+                    pending: shipment.status === 'Pending',
+                    outForDelivery: shipment.status === 'Out for Delivery'
+                  };
+                  
+                  return (
+                    <div 
+                      key={shipment._id} 
+                      className={`bg-gradient-to-r rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 group relative
+                        ${styles.inTransit ? 'from-blue-100 to-white border border-blue-200' : ''}
+                        ${styles.loading ? 'from-amber-100 to-white border border-amber-200' : ''}
+                        ${styles.pending ? 'from-gray-100 to-white border border-gray-200' : ''}
+                        ${styles.outForDelivery ? 'from-purple-100 to-white border border-purple-200' : ''}
+                      `}
+                      style={{
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.1)",
+                        transform: "translateZ(0)"
+                      }}
+                    >
+                      {/* Status indicator line at top */}
+                      <div 
+                        className={`h-2 w-full absolute top-0 left-0 right-0 shadow-sm
+                          ${styles.inTransit ? 'bg-blue-500' : ''}
+                          ${styles.loading ? 'bg-amber-500' : ''}
+                          ${styles.pending ? 'bg-gray-500' : ''}
+                          ${styles.outForDelivery ? 'bg-purple-500' : ''}
+                        `}
+                      ></div>
                       
-                      {/* Origin and destination - condensed */}
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div className="flex items-center">
-                          <MapPin className="h-4 w-4 text-gray-400 mr-1.5 flex-shrink-0" />
-                          <div className="overflow-hidden">
-                            <p className="text-xs text-gray-500">FROM</p>
-                            <p className="text-xs font-medium text-gray-700 truncate">{shipment.origin}</p>
+                      <div className="p-3">
+                        {/* Header with order ID and status badge */}
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">ORDER ID</span>
+                            <h4 className="text-base font-semibold text-gray-700 mt-0.5">#{shipment.orderId}</h4>
                           </div>
-                        </div>
-                        
-                        <div className="flex items-center">
-                          <MapPin className="h-4 w-4 text-blue-500 mr-1.5 flex-shrink-0" />
-                          <div className="overflow-hidden">
-                            <p className="text-xs text-gray-500">TO</p>
-                            <p className="text-xs font-medium text-gray-700 truncate">{shipment.destination}</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Driver, vehicle and ETA - condensed */}
-                      <div className="grid grid-cols-3 gap-3 mb-3">
-                        <div className="overflow-hidden">
-                          <p className="text-xs text-gray-500">DRIVER</p>
-                          <p className="text-xs font-medium text-gray-700 truncate">{shipment.driver}</p>
-                        </div>
-                        
-                        <div className="overflow-hidden">
-                          <p className="text-xs text-gray-500">VEHICLE</p>
-                          <p className="text-xs font-medium text-gray-700 truncate">{shipment.vehicle}</p>
-                        </div>
-                        
-                        <div className="overflow-hidden">
-                          <p className="text-xs text-gray-500">ETA</p>
-                          <p className="text-xs font-medium text-gray-700 truncate">{shipment.eta || "Unknown"}</p>
-                        </div>
-                      </div>
-                      
-                      {/* Progress bar */}
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-gray-500">SHIPMENT PROGRESS</span>
-                          <span className="text-xs font-medium text-blue-600">{shipment.progress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
                           <div 
-                            className="bg-blue-600 h-1.5 rounded-full" 
-                            style={{ width: `${shipment.progress}%` }}
-                          ></div>
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center
+                              ${styles.inTransit ? 'bg-blue-200 text-blue-800' : ''}
+                              ${styles.loading ? 'bg-amber-200 text-amber-800' : ''}
+                              ${styles.pending ? 'bg-gray-200 text-gray-800' : ''}
+                              ${styles.outForDelivery ? 'bg-purple-200 text-purple-800' : ''}
+                            `}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full mr-1.5
+                              ${styles.inTransit ? 'bg-blue-600' : ''}
+                              ${styles.loading ? 'bg-amber-600' : ''}
+                              ${styles.pending ? 'bg-gray-600' : ''}
+                              ${styles.outForDelivery ? 'bg-purple-600' : ''}
+                            `}></span>
+                            {shipment.status}
+                          </div>
+                        </div>
+                        
+                        {/* Origin and destination - with improved icons */}
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <div className="flex items-start">
+                            <div className={`h-6 w-6 rounded-full flex items-center justify-center mr-2 flex-shrink-0
+                              ${styles.inTransit ? 'bg-blue-100' : ''}
+                              ${styles.loading ? 'bg-amber-100' : ''}
+                              ${styles.pending ? 'bg-gray-100' : ''}
+                              ${styles.outForDelivery ? 'bg-purple-100' : ''}
+                            `}>
+                              <MapPin className={`h-3 w-3
+                                ${styles.inTransit ? 'text-blue-500' : ''}
+                                ${styles.loading ? 'text-amber-500' : ''}
+                                ${styles.pending ? 'text-gray-500' : ''}
+                                ${styles.outForDelivery ? 'text-purple-500' : ''}
+                              `} />
+                            </div>
+                            <div className="overflow-hidden">
+                              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">FROM</p>
+                              <p className="text-sm font-medium text-gray-700 truncate">{shipment.origin}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start">
+                            <div className={`h-6 w-6 rounded-full flex items-center justify-center mr-2 flex-shrink-0
+                              ${styles.inTransit ? 'bg-blue-100' : ''}
+                              ${styles.loading ? 'bg-amber-100' : ''}
+                              ${styles.pending ? 'bg-gray-100' : ''}
+                              ${styles.outForDelivery ? 'bg-purple-100' : ''}
+                            `}>
+                              <MapPin className={`h-3 w-3
+                                ${styles.inTransit ? 'text-blue-600' : ''}
+                                ${styles.loading ? 'text-amber-600' : ''}
+                                ${styles.pending ? 'text-gray-600' : ''}
+                                ${styles.outForDelivery ? 'text-purple-600' : ''}
+                              `} />
+                            </div>
+                            <div className="overflow-hidden">
+                              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">TO</p>
+                              <p className="text-sm font-medium text-gray-700 truncate">{shipment.destination}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Driver, vehicle and ETA - with improved styling */}
+                        <div className="grid grid-cols-3 gap-2 mb-2 bg-gray-50 p-2 rounded-lg">
+                          <div className="overflow-hidden">
+                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">DRIVER</p>
+                            <p className="text-sm font-medium text-gray-700 truncate">{shipment.driver}</p>
+                          </div>
+                          
+                          <div className="overflow-hidden">
+                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">VEHICLE</p>
+                            <p className="text-sm font-medium text-gray-700 truncate">{shipment.vehicle}</p>
+                          </div>
+                          
+                          <div className="overflow-hidden">
+                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">ETA</p>
+                            <p className="text-sm font-medium text-gray-700 truncate">{shipment.eta || "Unknown"}</p>
+                          </div>
+                        </div>
+                        
+                        {/* Progress bar with enhanced styling */}
+                        <div className="mb-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center">
+                              <span className={`w-2 h-2 rounded-full mr-1.5
+                                ${styles.inTransit ? 'bg-blue-500' : ''}
+                                ${styles.loading ? 'bg-amber-500' : ''}
+                                ${styles.pending ? 'bg-gray-500' : ''}
+                                ${styles.outForDelivery ? 'bg-purple-500' : ''}
+                              `}></span>
+                              <span className="text-xs font-medium text-gray-500">PROGRESS</span>
+                            </div>
+                            <span className={`text-xs font-semibold
+                              ${styles.inTransit ? 'text-blue-600' : ''}
+                              ${styles.loading ? 'text-amber-600' : ''}
+                              ${styles.pending ? 'text-gray-600' : ''}
+                              ${styles.outForDelivery ? 'text-purple-600' : ''}
+                            `}>{shipment.progress}%</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                            <div 
+                              className={`h-1.5 rounded-full bg-gradient-to-r 
+                                ${styles.inTransit ? 'from-blue-400 to-blue-500' : ''}
+                                ${styles.loading ? 'from-amber-400 to-amber-500' : ''}
+                                ${styles.pending ? 'from-gray-400 to-gray-500' : ''}
+                                ${styles.outForDelivery ? 'from-purple-400 to-purple-500' : ''}
+                              `}
+                              style={{ width: `${shipment.progress}%`, transition: "width 1s ease-in-out" }}
+                            ></div>
+                          </div>
+                        </div>
+                        
+                        {/* Delivery date and last updated - with enhanced styling */}
+                        <div className="flex justify-between items-center text-xs mb-2">
+                          <div className="flex items-center text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md">
+                            <Calendar className="h-3 w-3 mr-1 text-gray-400" />
+                            <span>Delivery: {shipment.estimatedDeliveryDate ? new Date(shipment.estimatedDeliveryDate).toLocaleDateString() : "Not set"}</span>
+                          </div>
+                          <div className="text-gray-400 italic text-[10px]">
+                            Updated: {shipment.updatedAt ? new Date(shipment.updatedAt).toLocaleTimeString() : new Date(shipment.createdAt).toLocaleTimeString()}
+                          </div>
+                        </div>
+                        
+                        {/* Status update dropdown with enhanced styling */}
+                        <div>
+                          <select
+                            className={`w-full text-xs py-1 px-2 border rounded-lg text-gray-700 focus:outline-none focus:ring-1 focus:border-transparent bg-white hover:bg-gray-50 transition-colors
+                              ${styles.inTransit ? 'border-blue-200 focus:ring-blue-500' : ''}
+                              ${styles.loading ? 'border-amber-200 focus:ring-amber-500' : ''}
+                              ${styles.pending ? 'border-gray-200 focus:ring-gray-500' : ''}
+                              ${styles.outForDelivery ? 'border-purple-200 focus:ring-purple-500' : ''}
+                            `}
+                            value="" // Always reset to placeholder after selection
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                const statusProgress = {
+                                  'Pending': 10,
+                                  'Loading': 25,
+                                  'In Transit': 50,
+                                  'Out for Delivery': 75,
+                                  'Delivered': 100,
+                                  'Failed': 0
+                                };
+                                const newStatus = e.target.value;
+                                const newProgress = statusProgress[newStatus] ?? shipment.progress;
+                                
+                                handleStatusUpdate(shipment._id, newStatus, newProgress);
+                                e.target.value = "";
+                              }
+                            }}
+                          >
+                            <option value="" disabled>Update status...</option>
+                            {shipment.status !== 'Pending' && shipment.status !== 'Loading' && <option value="Loading">Mark as Processing</option>}
+                            {shipment.status !== 'In Transit' && <option value="In Transit">Mark as In Transit</option>}
+                            {shipment.status !== 'Out for Delivery' && shipment.status !== 'Pending' && <option value="Out for Delivery">Mark as Out for Delivery</option>}
+                            {shipment.status !== 'Delivered' && shipment.status !== 'Pending' && <option value="Delivered">Mark as Delivered</option>}
+                            {/* Only show Failed option for shipments already in transit */}
+                            {(shipment.status === 'In Transit' || shipment.status === 'Out for Delivery') && 
+                              <option value="Failed">Mark as Failed</option>}
+                          </select>
                         </div>
                       </div>
                       
-                      {/* Delivery date and last updated */}
-                      <div className="flex justify-between items-center text-xs mb-3">
-                        <div className="flex items-center text-gray-500">
-                          <Calendar className="h-3.5 w-3.5 mr-1" />
-                          <span>Delivery: {shipment.estimatedDeliveryDate ? new Date(shipment.estimatedDeliveryDate).toLocaleDateString() : "Not set"}</span>
-                        </div>
-                        <div className="text-gray-400">
-                          Updated: {shipment.updatedAt ? new Date(shipment.updatedAt).toLocaleTimeString() : new Date(shipment.createdAt).toLocaleTimeString()}
-                        </div>
-                      </div>
-                      
-                      {/* Status update buttons */}
-                      <div>
-                        <select
-                          className="w-full text-sm py-1.5 px-3 bg-gray-50 border border-gray-300 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          value="" // Always reset to placeholder after selection
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              const statusProgress = {
-                                'Pending': 10,
-                                'Loading': 25,
-                                'In Transit': 50,
-                                'Out for Delivery': 75,
-                                'Delivered': 100,
-                                'Failed': 0
-                              };
-                              const newStatus = e.target.value;
-                              const newProgress = statusProgress[newStatus] ?? shipment.progress;
-                              
-                              handleStatusUpdate(shipment._id, newStatus, newProgress);
-                              e.target.value = "";
-                            }
-                          }}
+                      <div className={`px-3 py-2 flex justify-end space-x-2 border-t bg-gradient-to-r 
+                        ${styles.inTransit ? 'border-blue-200 from-blue-50 to-blue-100' : ''}
+                        ${styles.loading ? 'border-amber-200 from-amber-50 to-amber-100' : ''}
+                        ${styles.pending ? 'border-gray-200 from-gray-50 to-gray-100' : ''}
+                        ${styles.outForDelivery ? 'border-purple-200 from-purple-50 to-purple-100' : ''}
+                      `}>
+                        <button
+                          onClick={() => handleEdit(shipment)}
+                          className={`inline-flex items-center py-1 px-2 border rounded-md bg-white text-xs font-medium text-gray-700 transition-colors
+                            ${styles.inTransit ? 'border-blue-200 hover:bg-blue-50' : ''}
+                            ${styles.loading ? 'border-amber-200 hover:bg-amber-50' : ''}
+                            ${styles.pending ? 'border-gray-200 hover:bg-gray-50' : ''}
+                            ${styles.outForDelivery ? 'border-purple-200 hover:bg-purple-50' : ''}
+                          `}
                         >
-                          <option value="" disabled>Update status...</option>
-                          {shipment.status !== 'Pending' && shipment.status !== 'Loading' && <option value="Loading">Mark as Processing</option>}
-                          {shipment.status !== 'In Transit' && <option value="In Transit">Mark as In Transit</option>}
-                          {shipment.status !== 'Out for Delivery' && shipment.status !== 'Pending' && <option value="Out for Delivery">Mark as Out for Delivery</option>}
-                          {shipment.status !== 'Delivered' && shipment.status !== 'Pending' && <option value="Delivered">Mark as Delivered</option>}
-                          {/* Only show Failed option for shipments already in transit */}
-                          {(shipment.status === 'In Transit' || shipment.status === 'Out for Delivery') && 
-                            <option value="Failed">Mark as Failed</option>}
-                        </select>
+                          <Edit size={11} className="mr-1" /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(shipment._id)}
+                          className="inline-flex items-center py-1 px-2 border border-gray-200 rounded-md bg-white text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash size={11} className="mr-1" /> Delete
+                        </button>
                       </div>
                     </div>
-                    
-                    <div className="bg-gray-50 px-4 py-2 flex justify-end space-x-2 border-t border-gray-200">
-                      <button
-                        onClick={() => handleEdit(shipment)}
-                        className="inline-flex items-center py-1 px-2 border border-gray-300 rounded-md bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
-                      >
-                        <Edit size={12} className="mr-1" /> Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(shipment._id)}
-                        className="inline-flex items-center py-1 px-2 border border-gray-300 rounded-md bg-white text-xs font-medium text-red-700 hover:bg-red-50 focus:outline-none"
-                      >
-                        <Trash size={12} className="mr-1" /> Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>
