@@ -375,26 +375,59 @@ const mapOrderStatus = (status) => {
     const fetchInventory = async () => {
       setInventoryLoading(true);
       try {
+        // Fetch restock requests first to check which items already have requests
+        let existingRestockRequests = [];
+        try {
+          const restockResponse = await restockService.getAllRequests();
+          existingRestockRequests = restockResponse;
+          console.log("Fetched existing restock requests:", existingRestockRequests.length);
+        } catch (error) {
+          console.error("Error fetching restock requests:", error);
+        }
+
         const response = await axios.get(
           "http://localhost:5000/product/products"
         );
         if (response.data.success) {
+          // First get suppliers if we don't have them yet
+          let currentSuppliers = suppliers;
+          if (currentSuppliers.length === 0) {
+            try {
+              const suppliersResponse = await supplierService.getAllSuppliers();
+              currentSuppliers = suppliersResponse;
+            } catch (error) {
+              console.error("Error fetching suppliers during inventory load:", error);
+            }
+          }
+
           // Map the product data to match our frontend structure
-          const mappedInventory = response.data.products.map((product) => ({
-            name: product.name,
-            stock: product.stock,
-            threshold: product.threshold,
-            status: getStockStatus(product.stock, product.threshold),
-            supplier: getSupplierForProduct(product.category),
-            restockRequested: false, // This would need to come from a restock request API
-            paymentStatus: "Pending", // This would need to come from a payment API
-            deliveryStatus: "Pending", // This would need to come from a delivery API
-            _id: product._id, // Keep the MongoDB ID for reference
-            sku: product.sku,
-            category: product.category,
-            price: product.price,
-            image: product.image,
-          }));
+          const mappedInventory = response.data.products.map((product) => {
+            // Find if this product has an assigned supplier
+            const assignedSupplier = currentSuppliers.find(s => s.productId === product._id);
+            
+            // Check if this product has a pending restock request
+            const hasRestockRequest = existingRestockRequests.some(
+              request => request.productId === product._id && 
+              ['requested', 'approved', 'ordered'].includes(request.status?.toLowerCase())
+            );
+            
+            return {
+              name: product.name,
+              stock: product.stock,
+              threshold: product.threshold,
+              status: getStockStatus(product.stock, product.threshold),
+              supplier: assignedSupplier ? assignedSupplier.name : "No Supplier Assigned",
+              supplierId: assignedSupplier ? assignedSupplier._id : null,
+              restockRequested: hasRestockRequest, // Set based on existing restock requests
+              paymentStatus: "Pending", // This would need to come from a payment API
+              deliveryStatus: "Pending", // This would need to come from a delivery API
+              _id: product._id, // Keep the MongoDB ID for reference
+              sku: product.sku,
+              category: product.category,
+              price: product.price,
+              image: product.image,
+            };
+          });
 
           setInventory(mappedInventory);
           setInventoryError(null);
@@ -411,8 +444,6 @@ const mapOrderStatus = (status) => {
       }
     };
 
-
-
     // Helper function to determine stock status based on stock level and threshold
     const getStockStatus = (stock, threshold) => {
       if (stock <= 0) return "Critical";
@@ -420,44 +451,8 @@ const mapOrderStatus = (status) => {
       return "In Stock";
     };
 
-    // Update getSupplierForProduct function inside the fetchInventory useEffect
-    const getSupplierForProduct = (category) => {
-      const supplierMap = {
-        // More specific mappings based on category
-        "Cement": "Lanka Cement Ltd",
-        "Steel": "Melwa Steel",
-        "Bricks": "Clay Masters",
-        "Sand": "Ceylon Aggregates",
-        "Concrete": "Ready Mix Ltd",
-        "Wood": "Timber Lanka",
-        "PVC": "PVC Solutions",
-        "Roofing": "Roof Masters",
-        "Building Materials": "Jayasekara Suppliers",
-        "Hardware": "Tool Masters",
-        "Plumbing": "Water Systems Ltd",
-        "Electrical": "Power Solutions",
-        "Safety Gear": "Safety Plus",
-        "Tools": "Premium Tools Ltd",
-        "Paint": "Color World",
-        "Glass": "Crystal Glass"
-      };
-
-      // Find supplier from available suppliers list if possible
-      const matchingSupplier = suppliers.find(supplier => 
-        supplier.category && category && 
-        (supplier.category.toLowerCase().includes(category.toLowerCase()) || 
-         category.toLowerCase().includes(supplier.category.toLowerCase()))
-      );
-
-      if (matchingSupplier) {
-        return matchingSupplier.name;
-      }
-
-      return supplierMap[category] || "General Supplier";
-    };
-
     fetchInventory();
-  }, []);
+  }, [suppliers]); // Add suppliers as a dependency to refresh inventory when suppliers change
 
   // Simulating data loading
   useEffect(() => {
@@ -578,26 +573,26 @@ const mapOrderStatus = (status) => {
           }
         } catch (apiError) {
           console.log('API fetch failed, using order-based shipments:', apiError);
-          // Fallback: extract shipment info from orders
-          const shipmentData = orders
-            .filter(
-              (order) =>
-                order.status === "In Transit" || order.status === "Processing"
-            )
-            .map((order) => ({
-              id: `SHP-${order.id.substring(order.id.length - 5)}`,
-              origin: "Colombo Warehouse",
-              destination: `${order.shippingAddress?.city || "Customer"} Site`,
-              driver: "Assigned Driver",
-              vehicle: "Pending Assignment",
-              status: order.status === "In Transit" ? "In Transit" : "Preparing",
-              progress: order.status === "In Transit" ? 50 : 10,
-              eta: "24 hours",
-              orderId: order.id,
-              createdAt: new Date().toISOString(),
-            }));
+        // Fallback: extract shipment info from orders
+        const shipmentData = orders
+          .filter(
+            (order) =>
+              order.status === "In Transit" || order.status === "Processing"
+          )
+          .map((order) => ({
+            id: `SHP-${order.id.substring(order.id.length - 5)}`,
+            origin: "Colombo Warehouse",
+            destination: `${order.shippingAddress?.city || "Customer"} Site`,
+            driver: "Assigned Driver",
+            vehicle: "Pending Assignment",
+            status: order.status === "In Transit" ? "In Transit" : "Preparing",
+            progress: order.status === "In Transit" ? 50 : 10,
+            eta: "24 hours",
+            orderId: order.id,
+            createdAt: new Date().toISOString(),
+          }));
 
-          setActiveShipments(shipmentData);
+        setActiveShipments(shipmentData);
         }
         
         // Try to fetch completed shipments
@@ -925,25 +920,41 @@ const handleRestockRequest = async (itemName) => {
       return;
     }
 
-      // Find the specific supplier for this product based on productId
-      const productSupplier = suppliers.find(sup => sup.productId === product._id);
-      
-      if (!productSupplier) {
-        toast.error(`No supplier found for ${itemName}. Please add a supplier first.`);
-        return;
-      }
+    // Check if there's already a restock request for this product
+    if (product.restockRequested) {
+      toast.info(`A restock request for ${itemName} already exists`);
+      setActiveTab("restock"); // Take user to the restock page to see existing request
+      return;
+    }
 
-      // Calculate quantity needed based on threshold
-      const quantityToOrder = product.threshold - product.stock + 10; // Order enough to be above threshold plus buffer
+    // Check if product has a supplier assigned
+    if (product.supplier === "No Supplier Assigned") {
+      setActiveTab("suppliers");
+      toast.error(`${itemName} has no supplier assigned. Please add a supplier first before requesting restock.`);
+      return;
+    }
+
+    // Find the specific supplier for this product based on productId
+    const productSupplier = suppliers.find(sup => sup.productId === product._id);
       
-      // Always use the supplier's price for calculation
-      if (!productSupplier.price || productSupplier.price <= 0) {
-        toast.error(`Supplier for ${itemName} has no valid price set. Please update the supplier information.`);
-        return;
-      }
+    if (!productSupplier) {
+      // Change behavior: Switch to suppliers tab and show notification
+      setActiveTab("suppliers");
+      toast.warning(`No supplier found for ${itemName}. Please add a supplier first by clicking "Add New Supplier" and selecting ${itemName} from the product dropdown.`);
+      return;
+    }
+
+    // Calculate quantity needed based on threshold
+    const quantityToOrder = product.threshold - product.stock + 10; // Order enough to be above threshold plus buffer
       
-      // Calculate total amount to pay using supplier price
-      const totalAmount = quantityToOrder * productSupplier.price;
+    // Always use the supplier's price for calculation
+    if (!productSupplier.price || productSupplier.price <= 0) {
+      toast.error(`Supplier for ${itemName} has no valid price set. Please update the supplier information.`);
+      return;
+    }
+      
+    // Calculate total amount to pay using supplier price
+    const totalAmount = quantityToOrder * productSupplier.price;
 
     // Optimistically update UI
     setInventory((prevInventory) =>
@@ -956,29 +967,36 @@ const handleRestockRequest = async (itemName) => {
     const restockData = {
       productId: product._id,
       productName: product.name,
-        quantity: quantityToOrder,
-        unitPrice: productSupplier.price,
-        totalAmount: totalAmount,
+      quantity: quantityToOrder,
+      unitPrice: productSupplier.price,
+      totalAmount: totalAmount,
       priority:
         product.stock === 0
           ? "urgent"
           : product.stock < product.threshold / 2
           ? "high"
           : "medium",
-        supplierId: productSupplier._id,
-        supplierName: productSupplier.name,
-        notes: `Automatic restock request for ${product.name}. Total amount: Rs. ${totalAmount.toLocaleString()}`,
+      supplierId: productSupplier._id,
+      supplierName: productSupplier.name,
+      notes: `Automatic restock request for ${product.name}. Total amount: Rs. ${totalAmount.toLocaleString()}`,
     };
 
+    // Create the restock request
     const newRequest = await restockService.createRequest(restockData);
     
-      // Add to restock requests list
-      setRestockRequests(prevRequests => [...prevRequests, newRequest]);
+    // Add to restock requests list
+    setRestockRequests(prevRequests => {
+      // First filter out any existing requests for this product to avoid duplicates
+      const filteredRequests = prevRequests.filter(req => req.productId !== product._id);
+      return [...filteredRequests, newRequest];
+    });
       
-      toast.success(`Restock request created for ${product.name}. Amount: Rs. ${totalAmount.toLocaleString()}`);
+    // Switch to the restock tab after creating the request
+    setActiveTab("restock");
+    toast.success(`Restock request created for ${product.name}. Amount: Rs. ${totalAmount.toLocaleString()}`);
   } catch (error) {
-      console.error("Error creating restock request:", error);
-      toast.error(`Failed to create restock request: ${error.message || 'Server error'}`);
+    console.error("Error creating restock request:", error);
+    toast.error(`Failed to create restock request: ${error.message || 'Server error'}`);
   }
 };
 
@@ -3431,17 +3449,17 @@ const handleUpdateSupplier = async () => {
                     </p>
                   </div>
                   <div className="mt-4 md:mt-0 flex items-center space-x-2">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Search inventory..."
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search inventory..."
                         className="py-2 pl-10 pr-4 bg-white/10 border border-white/20 text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/50 rounded-lg"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                       <div className="absolute left-3 top-2.5">
                         <Search className="h-5 w-5 text-blue-100" />
-                      </div>
+                  </div>
                     </div>
                     <button 
                       onClick={() => {
@@ -3491,17 +3509,17 @@ const handleUpdateSupplier = async () => {
               <div className="bg-white shadow-sm rounded-lg p-4 flex flex-wrap items-center gap-4">
                 <div className="flex-grow">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
-                  <select
+                    <select
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={inventoryFilter}
-                    onChange={(e) => setInventoryFilter(e.target.value)}
-                  >
+                      value={inventoryFilter}
+                      onChange={(e) => setInventoryFilter(e.target.value)}
+                    >
                     <option value="all">All Items</option>
-                    <option value="In Stock">In Stock</option>
-                    <option value="Low Stock">Low Stock</option>
-                    <option value="Critical">Critical</option>
-                  </select>
-                </div>
+                      <option value="In Stock">In Stock</option>
+                      <option value="Low Stock">Low Stock</option>
+                      <option value="Critical">Critical</option>
+                    </select>
+                  </div>
 
                 <div className="flex-grow">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Category Filter</label>
@@ -3657,15 +3675,39 @@ const handleUpdateSupplier = async () => {
                               </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center">
-                                  <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3 text-blue-700 font-medium">
-                                    {item.supplier?.charAt(0) || 'S'}
-                                  </div>
-                                  <div>
-                                    <div className="text-sm font-medium">{item.supplier}</div>
-                                    <div className="text-xs text-gray-500">
-                                      {item.leadTime ? `${item.leadTime} days lead time` : 'Standard delivery'}
-                                    </div>
-                                  </div>
+                                  {item.supplier !== "No Supplier Assigned" ? (
+                                    <>
+                                      <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3 text-blue-700 font-medium">
+                                        {item.supplier?.charAt(0) || 'S'}
+                                      </div>
+                                      <div>
+                                        <div className="text-sm font-medium">{item.supplier}</div>
+                                        <div className="text-xs text-gray-500">
+                                          {item.leadTime ? `${item.leadTime} days lead time` : 'Standard delivery'}
+                                        </div>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="h-8 w-8 bg-red-100 rounded-full flex items-center justify-center mr-3 text-red-700 font-medium">
+                                        <AlertTriangle className="h-4 w-4" />
+                                      </div>
+                                      <div>
+                                        <div className="text-sm font-medium text-red-600">No Supplier Assigned</div>
+                                        <button
+                                          onClick={() => {
+                                            setActiveTab("suppliers");
+                                            setShowSupplierForm(true);
+                                            setSelectedProduct(item);
+                                          }}
+                                          className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded inline-flex items-center mt-1"
+                                        >
+                                          <Users className="h-3 w-3 mr-1" />
+                                          Add Supplier
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               </td>
                               {/* Removed Supply Chain column */}
@@ -4338,125 +4380,127 @@ const handleUpdateSupplier = async () => {
                     </button>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-gray-50">
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Supplier
-                          </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Product
-                          </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Category
-                          </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Contact Details
-                          </th>
-                          <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {suppliers.filter(
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Supplier
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Product
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Category
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Contact Details
+                            </th>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {suppliers.filter(
+                            (supplier) =>
+                              supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                              (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                          ).length > 0 ? (
+                            suppliers
+                              .filter(
+                                (supplier) =>
+                                  supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                  (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                                  (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
+                              )
+                              .map((supplier) => (
+                                <tr
+                                  key={supplier._id || supplier.id || supplier.name}
+                                  className="hover:bg-gray-50 transition-colors"
+                                >
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center">
+                                      <div className="h-10 w-10 flex-shrink-0 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                                        <Users className="h-5 w-5 text-blue-600" />
+                                      </div>
+                                      <div>
+                                        <div className="font-medium text-gray-900">{supplier.name}</div>
+                                        <div className="text-sm text-gray-500">{supplier.website}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="text-sm text-gray-900">
+                                      {inventory.find(p => p._id === supplier.productId)?.name || 'N/A'}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                                      supplier.category?.toLowerCase().includes("safety") 
+                                        ? "bg-green-100 text-green-800" 
+                                        : supplier.category?.toLowerCase().includes("tools") 
+                                        ? "bg-blue-100 text-blue-800"
+                                        : supplier.category?.toLowerCase().includes("construction") 
+                                        ? "bg-amber-100 text-amber-800"
+                                        : supplier.category?.toLowerCase().includes("plumbing") 
+                                        ? "bg-indigo-100 text-indigo-800"
+                                        : "bg-gray-100 text-gray-800"
+                                    }`}>
+                                      {supplier.category || "General"}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="text-sm text-gray-900">{supplier.contact}</div>
+                                    <div className="text-sm text-gray-500">{supplier.email}</div>
+                                    <div className="text-sm text-gray-500">{supplier.phone}</div>
+                                  </td>
+                                  <td className="px-6 py-4 text-right text-sm font-medium">
+                                    <div className="flex justify-end space-x-2">
+                                      <button
+                                        onClick={() => editSupplier(supplier)}
+                                        className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                        title="Edit Supplier"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteSupplier(supplier._id)}
+                                        className="p-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                        title="Delete Supplier"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                          ) : (
+                            <tr>
+                              <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
+                                <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                                <p className="text-lg font-medium">No suppliers found</p>
+                                <p className="text-sm">Try adjusting your search criteria or add a new supplier</p>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    {suppliers.length > 0 && (
+                      <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
+                        Showing {suppliers.filter(
                           (supplier) =>
                             supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
                             (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
-                        ).length > 0 ? (
-                          suppliers
-                            .filter(
-                              (supplier) =>
-                                supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                                (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
-                            )
-                            .map((supplier) => (
-                              <tr
-                                key={supplier._id || supplier.id || supplier.name}
-                                className="hover:bg-gray-50 transition-colors"
-                              >
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center">
-                                    <div className="h-10 w-10 flex-shrink-0 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                                      <Users className="h-5 w-5 text-blue-600" />
-                                    </div>
-                                    <div>
-                                      <div className="font-medium text-gray-900">{supplier.name}</div>
-                                      <div className="text-sm text-gray-500">{supplier.website}</div>
-                                      </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm text-gray-900">
-                                    {inventory.find(p => p._id === supplier.productId)?.name || 'N/A'}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                                    supplier.category?.toLowerCase().includes("safety") 
-                                      ? "bg-green-100 text-green-800" 
-                                      : supplier.category?.toLowerCase().includes("tools") 
-                                      ? "bg-blue-100 text-blue-800"
-                                      : supplier.category?.toLowerCase().includes("construction") 
-                                      ? "bg-amber-100 text-amber-800"
-                                      : supplier.category?.toLowerCase().includes("plumbing") 
-                                      ? "bg-indigo-100 text-indigo-800"
-                                      : "bg-gray-100 text-gray-800"
-                                  }`}>
-                                    {supplier.category || "General"}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm text-gray-900">{supplier.contact}</div>
-                                  <div className="text-sm text-gray-500">{supplier.email}</div>
-                                  <div className="text-sm text-gray-500">{supplier.phone}</div>
-                                </td>
-                                <td className="px-6 py-4 text-right text-sm font-medium">
-                                  <div className="flex justify-end space-x-2">
-                                    <button
-                                      onClick={() => editSupplier(supplier)}
-                                      className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                                      title="Edit Supplier"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteSupplier(supplier._id)}
-                                      className="p-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                                      title="Delete Supplier"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                      </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))
-                        ) : (
-                          <tr>
-                            <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
-                              <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                              <p className="text-lg font-medium">No suppliers found</p>
-                              <p className="text-sm">Try adjusting your search criteria or add a new supplier</p>
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                
-                {!isLoading && !error && suppliers.length > 0 && (
-                  <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
-                    Showing {suppliers.filter(
-                      (supplier) =>
-                        supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (supplier.category && supplier.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                        (supplier.contact && supplier.contact.toLowerCase().includes(searchTerm.toLowerCase()))
-                    ).length} of {suppliers.length} suppliers
-                  </div>
+                        ).length} of {suppliers.length} suppliers
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

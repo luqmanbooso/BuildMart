@@ -205,19 +205,38 @@ const RestockRequests = ({ inventory, setInventory }) => {
         } : req)
       );
       
-      // Special handling for delivered status - update inventory
-      if (newStatus === 'delivered' && request && setInventory) {
-        setInventory(prev => 
-          prev.map(item => 
-            item._id === request.productId ? 
-            {
-              ...item,
-              stock: item.stock + request.quantity,
-              status: getStockStatus(item.stock + request.quantity, item.threshold),
-              deliveryStatus: "Delivered"
-            } : item
-          )
-        );
+      // Special handling for terminal statuses (delivered or cancelled)
+      const isTerminalStatus = ['delivered', 'cancelled'].includes(newStatus.toLowerCase());
+      
+      if (request && setInventory) {
+        // Update inventory based on status
+        if (newStatus.toLowerCase() === 'delivered') {
+          // For delivered: increase stock and update status
+          setInventory(prev => 
+            prev.map(item => 
+              item._id === request.productId ? 
+              {
+                ...item,
+                stock: item.stock + request.quantity,
+                status: getStockStatus(item.stock + request.quantity, item.threshold),
+                deliveryStatus: "Delivered",
+                // Clear the restock requested flag since request is complete
+                restockRequested: false
+              } : item
+            )
+          );
+        } else if (newStatus.toLowerCase() === 'cancelled') {
+          // For cancelled: just clear the restock requested flag
+          setInventory(prev => 
+            prev.map(item => 
+              item._id === request.productId ? 
+              {
+                ...item,
+                restockRequested: false
+              } : item
+            )
+          );
+        }
       }
       
       toast.success(`Request status updated to ${newStatus}`);
