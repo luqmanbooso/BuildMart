@@ -40,7 +40,8 @@ import {
   MapPin,
   User,
   Plus,
-  RotateCw
+  RotateCw,
+  Eye
 } from "lucide-react";
 import axios from "axios"; // Add axios import
 import { toast, ToastContainer } from "react-toastify"; // Add toast for notifications
@@ -321,6 +322,11 @@ function Supply_LogisticDashboard() {
   const [supplierValue, setSupplierValue] = useState("");
   // Add a new state for order search
   const [orderSearchTerm, setOrderSearchTerm] = useState("");
+  // Add state for order details modal
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+  const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
+  // Add state for expanded order row
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
@@ -1412,6 +1418,152 @@ const handleUpdateSupplier = async () => {
     setSupplierCategory(product ? product.category : "");
   };
 
+  // Function to format date properly for display and calculations
+  const formatOrderDate = (dateString) => {
+    // Handle missing date values
+    if (!dateString) {
+      console.warn("Missing date value");
+      return new Date();
+    }
+    
+    try {
+      // If it's already a Date object
+      if (dateString instanceof Date) return dateString;
+      
+      // If it's a string, parse it
+      let date;
+      
+      // Check if the string might be in a format that needs special handling
+      if (typeof dateString === 'string') {
+        // For MySQL/ISO format (convert to local time)
+        if (dateString.includes('T') || dateString.includes('Z')) {
+          date = new Date(dateString);
+        }
+        // For YYYY-MM-DD format without time (add current time)
+        else if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+          const today = new Date();
+          date = new Date(`${dateString}T00:00:00`);
+          
+          // If date parsing resulted in previous day due to timezone, adjust
+          if (date.getDate() !== parseInt(dateString.split('-')[2], 10)) {
+            date = new Date(`${dateString}T12:00:00`);
+          }
+        }
+        // For any other format
+        else {
+          date = new Date(dateString);
+        }
+      } else {
+        // For numeric timestamps
+        date = new Date(dateString);
+      }
+      
+      // Check if valid date
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid date string:", dateString);
+        return new Date();
+      }
+      
+      return date;
+    } catch (error) {
+      console.error("Error parsing date:", error, dateString);
+      return new Date(); // Fallback to current date
+    }
+  };
+
+  // Function to log the order and date debugging info
+  const logOrderDateInfo = (order) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.group(`Order Date Debug: ${order.id}`);
+      console.log("Original date string:", order.date);
+      console.log("Parsed date:", formatOrderDate(order.date));
+      console.log("Current date:", new Date());
+      console.log("Difference in ms:", new Date().getTime() - formatOrderDate(order.date).getTime());
+      console.groupEnd();
+    }
+    return null; // Return null so it doesn't affect the UI
+  };
+  
+  // Function to calculate time elapsed since order date with timezone handling
+  const getTimeElapsed = (orderDate) => {
+    try {
+      // Get the timestamp for the order and current time
+      const orderDateTime = formatOrderDate(orderDate);
+      const orderTime = orderDateTime.getTime();
+      const currentTime = new Date().getTime();
+      
+      // If the date is missing or invalid, show 'New'
+      if (!orderDate || isNaN(orderTime)) {
+        return 'New';
+      }
+      
+      // Calculate the difference in milliseconds
+      const diffInMs = currentTime - orderTime;
+      
+      // If the difference is negative or very small, it's a new order
+      if (diffInMs < 60 * 1000) { // Less than one minute
+        return 'Just now';
+      }
+      
+      // Convert to useful time units - use Math.floor to avoid rounding issues
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      const diffInHours = Math.floor((diffInMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const diffInMinutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      // Format based on the time difference
+      if (diffInDays > 0) {
+        return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+      } else if (diffInHours > 0) {
+        return `${diffInHours}h ${diffInMinutes}m ago`;
+      } else if (diffInMinutes > 0) {
+        return `${diffInMinutes}m ago`;
+      } else {
+        return 'Just now';
+      }
+    } catch (error) {
+      console.error("Error calculating time elapsed:", error);
+      return 'New';
+    }
+  };
+  
+  // Function to determine priority class based on wait time
+  const getPriorityClass = (orderDate) => {
+    try {
+      // Get the timestamp for the order and current time
+      const orderDateTime = formatOrderDate(orderDate);
+      const orderTime = orderDateTime.getTime();
+      const currentTime = new Date().getTime();
+      
+      // If the date is missing or invalid, default to normal priority
+      if (!orderDate || isNaN(orderTime)) {
+        return "bg-green-100 text-green-800 border-green-300";
+      }
+      
+      // Calculate the difference in milliseconds
+      const diffInMs = currentTime - orderTime;
+      
+      // If the difference is negative or very small, it's a new order
+      if (diffInMs < 60 * 1000) { // Less than one minute
+        return "bg-green-100 text-green-800 border-green-300";
+      }
+      
+      const diffInHours = diffInMs / (1000 * 60 * 60);
+      
+      if (diffInHours >= 24) {
+        return "bg-red-100 text-red-800 border-red-300"; // Critical priority
+      } else if (diffInHours >= 12) {
+        return "bg-orange-100 text-orange-800 border-orange-300"; // High priority
+      } else if (diffInHours >= 6) {
+        return "bg-amber-100 text-amber-800 border-amber-300"; // Medium priority
+      } else {
+        return "bg-green-100 text-green-800 border-green-300"; // Normal priority
+      }
+    } catch (error) {
+      console.error("Error determining priority class:", error);
+      return "bg-gray-100 text-gray-800 border-gray-300"; // Fallback
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -1428,7 +1580,379 @@ const handleUpdateSupplier = async () => {
     );
   }
 
-  // Rendering the orders table component
+  // Completely rewrite the renderPendingOrdersTable function
+  const renderPendingOrdersTable = () => {
+    if (ordersLoading) {
+      return (
+        <div className="flex justify-center items-center py-12">
+          <RefreshCw className="animate-spin h-8 w-8 text-blue-600 mr-3" />
+          <span className="text-lg text-gray-700 font-medium">Loading orders...</span>
+        </div>
+      );
+    }
+    
+    if (ordersError) {
+      return (
+        <div className="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
+          <div className="text-red-600 mb-2 text-xl">Error Loading Orders</div>
+          <p className="text-gray-700">{ordersError}</p>
+        </div>
+      );
+    }
+    
+    // Filter to only show pending orders
+    const pendingOrders = orders.filter(order => order.status === 'Pending');
+    
+    // Sort by date (oldest first) to emphasize first-come-first-serve
+    const sortedPendingOrders = [...pendingOrders].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateA - dateB;
+    });
+    
+    if (sortedPendingOrders.length === 0) {
+      return (
+        <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 text-center">
+          <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">No Pending Orders</h3>
+          <p className="text-gray-500 mb-4">All orders have been processed or are in transit.</p>
+          <button 
+            onClick={() => setActiveTab("inventory")}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            View Inventory
+          </button>
+        </div>
+      );
+    }
+
+    // Handle row click to toggle expanded state
+    const handleRowClick = (orderId) => {
+      if (expandedOrderId === orderId) {
+        setExpandedOrderId(null); // Collapse
+      } else {
+        setExpandedOrderId(orderId); // Expand
+      }
+    };
+    
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">Pending Orders</h2>
+              <p className="text-gray-500 mt-1">First come, first serve processing queue</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input 
+                  type="text"
+                  placeholder="Search orders..."
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-64"
+                />
+              </div>
+              
+              <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                <Filter className="h-5 w-5 text-gray-500" />
+              </button>
+              
+              <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                <Download className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Priority
+                </th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Order ID
+                </th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Customer
+                </th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Items
+                </th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Value
+                </th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Waiting Time
+                </th>
+                <th scope="col" className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {sortedPendingOrders.map((order, index) => (
+                <React.Fragment key={order.id}>
+                  {/* Main Order Row */}
+                  <tr 
+                    className={`hover:bg-gray-50 transition-colors cursor-pointer ${
+                      index === 0 ? 'bg-amber-50' : ''
+                    } ${
+                      expandedOrderId === order.id ? 'border-b-0 bg-blue-50' : ''
+                    }`}
+                    onClick={() => handleRowClick(order.id)}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`px-3 py-1 rounded-md border ${getPriorityClass(order.date)} text-xs font-medium flex items-center`}>
+                        <Clock className="h-3 w-3 mr-1" />
+                        {index === 0 ? 'NEXT' : `#${index + 1}`}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span className="bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-md text-sm font-medium">
+                          #{order.orderNumber || order.id.substring(0, 6)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{order.customer}</div>
+                      <div className="text-sm text-gray-500">
+                        {order.shippingAddress ? `${order.shippingAddress.city || ''}, ${order.shippingAddress.country || ''}` : 'No address'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 font-medium">{order.items}</div>
+                      <div className="text-xs text-gray-500">items</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-gray-900">Rs. {order.value ? order.value.toLocaleString() : '0'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span className={`text-sm font-medium flex items-center ${
+                          new Date(order.date).getTime() < new Date().getTime() - (24 * 60 * 60 * 1000) 
+                            ? 'text-red-600' 
+                            : new Date(order.date).getTime() < new Date().getTime() - (12 * 60 * 60 * 1000)
+                              ? 'text-orange-600'
+                              : 'text-gray-600'
+                        }`}>
+                          <Clock className="h-4 w-4 mr-1.5" />
+                          {getTimeElapsed(order.date)}
+                        </span>
+                        <span className="ml-2 text-xs text-gray-500">
+                          {order.date ? new Date(order.date).toLocaleDateString() : 'No date'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end items-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent row toggle
+                            setSelectedOrderForShipment(order);
+                            setActiveTab("shipments");
+                          }}
+                          className="flex items-center text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors"
+                        >
+                          <Truck className="mr-1.5 h-4 w-4" /> 
+                          Ship
+                        </button>
+                        
+                        <ChevronDown 
+                          className={`ml-3 h-5 w-5 text-gray-400 transform transition-transform duration-200 ${
+                            expandedOrderId === order.id ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                  
+                  {/* Expanded Details Row - Only render when expanded */}
+                  {expandedOrderId === order.id && (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-4 border-t-0 bg-blue-50">
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                          <div className="p-4">
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4">Order Details</h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                              {/* Order Info */}
+                              <div className="bg-gray-50 p-4 rounded-lg">
+                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
+                                  <ShoppingCart className="h-4 w-4 mr-2 text-blue-600" />
+                                  Order Information
+                                </h4>
+                                <div className="space-y-2">
+                                  <p className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Order ID:</span>
+                                    <span className="text-sm font-medium text-gray-900">{order.id}</span>
+                                  </p>
+                                  <p className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Order Date:</span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {order.date ? new Date(order.date).toLocaleString() : 'Not available'}
+                                    </span>
+                                  </p>
+                                  <p className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Status:</span>
+                                    <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                                      {order.status}
+                                    </span>
+                                  </p>
+                                  <p className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Total Amount:</span>
+                                    <span className="text-sm font-medium text-gray-900">Rs. {order.value ? order.value.toLocaleString() : '0'}</span>
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Customer Info */}
+                              <div className="bg-gray-50 p-4 rounded-lg">
+                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
+                                  <User className="h-4 w-4 mr-2 text-blue-600" />
+                                  Customer Information
+                                </h4>
+                                <div className="space-y-2">
+                                  <p className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Name:</span>
+                                    <span className="text-sm font-medium text-gray-900">{order.customer}</span>
+                                  </p>
+                                  {order.shippingAddress && (
+                                    <>
+                                      <p className="flex justify-between">
+                                        <span className="text-sm text-gray-500">Address:</span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {order.shippingAddress.street || 'N/A'}
+                                        </span>
+                                      </p>
+                                      <p className="flex justify-between">
+                                        <span className="text-sm text-gray-500">City:</span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {order.shippingAddress.city || 'N/A'}
+                                        </span>
+                                      </p>
+                                      <p className="flex justify-between">
+                                        <span className="text-sm text-gray-500">Country:</span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {order.shippingAddress.country || 'N/A'}
+                                        </span>
+                                      </p>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Order Items - Only show if we have detailed item info */}
+                            {Array.isArray(order.items) && order.items.length > 0 && typeof order.items[0] === 'object' ? (
+                              <div className="mt-4">
+                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
+                                  <Box className="h-4 w-4 mr-2 text-blue-600" />
+                                  Order Items
+                                </h4>
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                      <tr>
+                                        <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Product
+                                        </th>
+                                        <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Quantity
+                                        </th>
+                                        <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Price
+                                        </th>
+                                        <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Total
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                      {order.items.map((item, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50">
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                            {item.product?.name || item.name || 'Unknown Product'}
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                                            {item.quantity || 1}
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                                            Rs. {(item.price || 0).toLocaleString()}
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
+                                            Rs. {((item.price || 0) * (item.quantity || 1)).toLocaleString()}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                <p className="text-center text-gray-500">Item details not available</p>
+                              </div>
+                            )}
+                            
+                            {/* Actions */}
+                            <div className="mt-4 flex justify-end">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOrderForShipment(order);
+                                  setActiveTab("shipments");
+                                }}
+                                className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                              >
+                                <Truck className="mr-2 h-4 w-4" />
+                                Arrange Shipment
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              <span className="font-medium">{sortedPendingOrders.length}</span> pending orders in queue
+            </div>
+            
+            <div className="flex items-center space-x-5">
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-xs text-gray-600">New</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                <span className="text-xs text-gray-600">Waiting {'>'}6h</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                <span className="text-xs text-gray-600">Waiting {'>'}12h</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <span className="text-xs text-gray-600">Waiting {'>'}24h</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Original orders table component (keeping for reference)
   const renderOrdersTable = () => {
     if (ordersLoading) {
       return <div className="loading-spinner">Loading orders...</div>;
@@ -3191,16 +3715,17 @@ const handleUpdateSupplier = async () => {
                   </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-xl shadow-sm border-2 border-amber-300 hover:shadow-md transition-all duration-200 transform hover:-translate-y-1">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Pending</p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                      <p className="text-sm font-medium text-amber-700">Pending Orders</p>
+                      <h3 className="text-2xl font-bold text-amber-900 mt-1">
                         {orders.filter(order => order.status === "Pending").length}
                       </h3>
+                      <p className="text-xs text-amber-700 mt-1">Awaiting processing</p>
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
-                      <Clock className="h-6 w-6 text-amber-600" />
+                    <div className="h-14 w-14 rounded-full bg-amber-200 flex items-center justify-center">
+                      <Clock className="h-7 w-7 text-amber-700" />
                     </div>
                   </div>
                 </div>
@@ -3235,7 +3760,7 @@ const handleUpdateSupplier = async () => {
               </div>
 
               {/* Orders Section */}
-              {renderOrdersCards()}
+              {renderPendingOrdersTable()}
             </div>
           )}
 
