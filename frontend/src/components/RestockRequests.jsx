@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios'; // Add axios import
 import {
-  RefreshCw, Search, Loader, CheckCircle, Clock, DollarSign, X
+  RefreshCw, Search, Loader, CheckCircle, Clock, DollarSign, X, Download, Filter
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useSupplierPayments } from '../context/SupplierPaymentContext';
 import { restockService } from "../services/restockService";
 import { supplierPaymentService } from '../services/supplierPaymentService';
 
-const RestockRequests = ({ inventory, setInventory }) => {
+const RestockRequests = ({ inventory, setInventory, searchTerm, setSearchTerm }) => {
   const [restockRequests, setRestockRequests] = useState([]);
   const [restockLoading, setRestockLoading] = useState(true);
   const [restockError, setRestockError] = useState(null);
   const [showRestockPaymentModal, setShowRestockPaymentModal] = useState(false);
   const [selectedRestockRequest, setSelectedRestockRequest] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [localSearchTerm, setLocalSearchTerm] = useState('');
   const { addSupplierPayment } = useSupplierPayments();
   
   // Add state for status types
@@ -115,6 +115,20 @@ const RestockRequests = ({ inventory, setInventory }) => {
 
     fetchRestockRequests();
   }, []);
+
+  // Use parent search term if provided
+  useEffect(() => {
+    if (searchTerm !== undefined) {
+      setLocalSearchTerm(searchTerm);
+    }
+  }, [searchTerm]);
+
+  // Update parent search term if provided
+  useEffect(() => {
+    if (setSearchTerm && localSearchTerm !== searchTerm) {
+      setSearchTerm(localSearchTerm);
+    }
+  }, [localSearchTerm, setSearchTerm, searchTerm]);
 
   // Process payment to supplier
   const processRestockPayment = async (requestId, paymentDetails) => {
@@ -394,6 +408,146 @@ const RestockRequests = ({ inventory, setInventory }) => {
 
   return (
     <div className="space-y-6">
+      {/* Enhanced Header with search, refresh, and download */}
+      <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg p-5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-white">Restock Management</h2>
+            <p className="text-blue-100 mt-1">
+              Manage your inventory restocking process efficiently
+            </p>
+          </div>
+          <div className="mt-4 md:mt-0 flex items-center space-x-2">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search restock requests..."
+                className="py-2 pl-10 pr-4 bg-white/10 border border-white/20 text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/50 rounded-lg"
+                value={localSearchTerm}
+                onChange={(e) => setLocalSearchTerm(e.target.value)}
+              />
+              <div className="absolute left-3 top-2.5">
+                <Search className="h-5 w-5 text-blue-100" />
+              </div>
+            </div>
+            <button 
+              onClick={() => {
+                setRestockLoading(true);
+                restockService.getAllRequests()
+                  .then(data => {
+                    setRestockRequests(data);
+                    toast.success("Restock data refreshed");
+                  })
+                  .catch(error => {
+                    console.error("Error refreshing restock data:", error);
+                    toast.error("Failed to refresh restock data");
+                  })
+                  .finally(() => {
+                    setRestockLoading(false);
+                  });
+              }}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              title="Refresh data"
+            >
+              <RefreshCw size={20} className="text-white" />
+            </button>
+            <button 
+              onClick={() => {
+                // Create CSV content
+                const headers = ["Product", "SKU", "Quantity", "Status", "Supplier", "Price", "Total Amount", "Created"];
+                const data = restockRequests.map(req => [
+                  req.productName || "",
+                  req.sku || "",
+                  req.quantity?.toString() || "",
+                  req.status || "",
+                  req.supplierName || "",
+                  req.unitPrice ? `Rs. ${req.unitPrice}` : "",
+                  req.totalAmount ? `Rs. ${req.totalAmount}` : "",
+                  req.createdAt ? new Date(req.createdAt).toLocaleDateString() : ""
+                ]);
+                
+                // Generate CSV
+                const csvContent = [
+                  headers.join(','),
+                  ...data.map(row => row.join(','))
+                ].join('\n');
+                
+                // Download CSV
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', `restock_requests_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              title="Download restock data"
+            >
+              <Download size={20} className="text-white" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total Requests</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">{restockRequests.length}</h3>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+              <RefreshCw className="h-6 w-6 text-blue-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">In Process</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                {restockRequests.filter(req => ['requested', 'approved', 'ordered', 'shipped'].includes(req.status)).length}
+              </h3>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
+              <Clock className="h-6 w-6 text-amber-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Delivered</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                {restockRequests.filter(req => req.status === 'delivered').length}
+              </h3>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Pending Payment</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                {restockRequests.filter(req => req.status === 'delivered' && req.paymentStatus === 'pending').length}
+              </h3>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
+              <DollarSign className="h-6 w-6 text-purple-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Payment Modal */}
       {showRestockPaymentModal && (
         <div className="fixed inset-0 overflow-y-auto z-50">
@@ -495,109 +649,21 @@ const RestockRequests = ({ inventory, setInventory }) => {
         </div>
       )}
 
-      {/* Gradient Header */}
-      <div className="bg-gradient-to-r from-[#1e40af] to-[#1d4ed8] rounded-xl shadow-lg p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Restock Management</h1>
-            <p className="text-blue-100 mt-1">Manage your inventory restocking process efficiently</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              onClick={() => {
-                setRestockLoading(true);
-                restockService.getAllRequests()
-                  .then(data => {
-                    setRestockRequests(data);
-                    toast.success("Restock data refreshed");
-                  })
-                  .catch(error => {
-                    console.error("Error refreshing restock data:", error);
-                    toast.error("Failed to refresh restock data");
-                  })
-                  .finally(() => {
-                    setRestockLoading(false);
-                  });
-              }}
-            >
-              <RefreshCw className="h-5 w-5 text-white" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Requests</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">{restockRequests.length}</h3>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-              <RefreshCw className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">In Process</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {restockRequests.filter(req => ['requested', 'approved', 'ordered', 'shipped'].includes(req.status)).length}
-              </h3>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
-              <Clock className="h-6 w-6 text-amber-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Delivered</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {restockRequests.filter(req => req.status === 'delivered').length}
-              </h3>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Pending Payment</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {restockRequests.filter(req => req.status === 'delivered' && req.paymentStatus === 'pending').length}
-              </h3>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
-              <DollarSign className="h-6 w-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Restock Requests Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium text-gray-800">Restock Requests</h3>
-            <div className="relative">
-              <input
-                type="text"
-                className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                placeholder="Search requests..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => setLocalSearchTerm('')}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  localSearchTerm ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'text-gray-400 cursor-default'
+                }`}
+                disabled={!localSearchTerm}
+              >
+                Clear Filter
+              </button>
             </div>
           </div>
         </div>
@@ -648,9 +714,9 @@ const RestockRequests = ({ inventory, setInventory }) => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {restockRequests
                   .filter(req => 
-                    req.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    req.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    req.status?.toLowerCase().includes(searchTerm.toLowerCase())
+                    req.productName?.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
+                    req.supplierName?.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
+                    req.status?.toLowerCase().includes(localSearchTerm.toLowerCase())
                   )
                   .map(request => (
                     <tr key={request._id} className="hover:bg-gray-50 transition-colors">

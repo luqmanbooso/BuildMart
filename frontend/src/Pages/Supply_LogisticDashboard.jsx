@@ -334,6 +334,7 @@ function Supply_LogisticDashboard() {
   const [shipmentStatusFilter, setShipmentStatusFilter] = useState("all"); // Added for shipment status filtering
   const [supplierCategoryFilter, setSupplierCategoryFilter] = useState("all"); // Added for supplier category filtering
   const [supplierSearchTerm, setSupplierSearchTerm] = useState(""); // Added for supplier search
+  const [restockSearchTerm, setRestockSearchTerm] = useState(""); // Added for restock management search
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
@@ -4263,6 +4264,8 @@ const handleUpdateSupplier = async () => {
               addSupplierPayment={addSupplierPayment}
               inventory={inventory}
               setInventory={setInventory}
+              searchTerm={restockSearchTerm}
+              setSearchTerm={setRestockSearchTerm}
             />
           )}
         </main>
