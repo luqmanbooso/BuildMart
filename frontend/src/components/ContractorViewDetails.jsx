@@ -10,9 +10,7 @@ const ContractorViewDetails = () => {
   const [bid, setBid] = useState(null);
   const [error, setError] = useState(null);
   const [contractorUser, setContractorUser] = useState(null);
-  // New state for qualifications
   const [qualifications, setQualifications] = useState([]);
-  // New state for reviews
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
@@ -21,18 +19,15 @@ const ContractorViewDetails = () => {
       try {
         setLoading(true);
         
-        // First, try to get all bids for the project and find the matching bid
         const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${projectId}`);
         
         if (bidsResponse.data) {
-          // Find the bid that matches our bidId
           const matchingBid = bidsResponse.data.find(b => b._id === bidId);
           
           if (matchingBid) {
             console.log("Found matching bid:", matchingBid);
             setBid(matchingBid);
             
-            // Try to get user details from auth endpoint
             try {
               const userResponse = await axios.get(`http://localhost:5000/auth/user/${contractorId}`);
               if (userResponse.data && userResponse.data.user) {
@@ -42,7 +37,6 @@ const ContractorViewDetails = () => {
               console.log('Could not fetch user details:', userError);
             }
             
-            // Fetch contractor qualifications
             try {
               const qualificationsResponse = await axios.get(`http://localhost:5000/qualify/user/${contractorId}`);
               if (qualificationsResponse.data) {
@@ -53,10 +47,8 @@ const ContractorViewDetails = () => {
               console.log('Could not fetch qualifications:', qualError);
             }
             
-            // Fetch contractor reviews - Updated endpoint path
             try {
               setReviewsLoading(true);
-              // Try with /api/reviews path first
               try {
                 const reviewsResponse = await axios.get(`http://localhost:5000/api/reviews/contractor/${contractorId}`);
                 if (reviewsResponse.data) {
@@ -65,7 +57,6 @@ const ContractorViewDetails = () => {
                 }
               } catch (firstAttemptError) {
                 console.log('First attempt failed, trying alternate path:', firstAttemptError);
-                // If that fails, try with just /reviews path
                 const reviewsResponse = await axios.get(`http://localhost:5000/reviews/contractor/${contractorId}`);
                 if (reviewsResponse.data) {
                   setReviews(reviewsResponse.data);
@@ -74,20 +65,17 @@ const ContractorViewDetails = () => {
               }
             } catch (reviewError) {
               console.log('Could not fetch reviews:', reviewError);
-              // Set to empty array to prevent undefined errors
               setReviews([]);
             } finally {
               setReviewsLoading(false);
             }
             
-            // Extract contractor details from bid
             const extractedContractor = {
               _id: matchingBid.contractorId,
               name: matchingBid.contractorname || 'Unknown Contractor',
               rating: matchingBid.rating || 0,
               completedProjects: matchingBid.completedProjects || 0,
               qualifications: matchingBid.qualifications || 'No qualifications provided',
-              // Extract experience from qualifications if possible
               experience: extractExperienceFromQualifications(matchingBid.qualifications)
             };
             
@@ -110,7 +98,6 @@ const ContractorViewDetails = () => {
     fetchContractorDetails();
   }, [contractorId, bidId, projectId]);
 
-  // Calculate average rating from reviews
   const calculateAverageRating = () => {
     if (reviews && reviews.length > 0) {
       const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
@@ -119,11 +106,9 @@ const ContractorViewDetails = () => {
     return contractor?.rating || "0";
   };
 
-  // Helper function to extract experience from qualifications text
   const extractExperienceFromQualifications = (qualifications) => {
     if (!qualifications) return null;
     
-    // Look for patterns like "Experience: X years" in the qualifications text
     const experienceMatch = qualifications.match(/Experience:\s*(\d+)\s*years/i);
     if (experienceMatch && experienceMatch[1]) {
       return parseInt(experienceMatch[1]);
@@ -136,11 +121,9 @@ const ContractorViewDetails = () => {
   };
 
   const handleAcceptBid = () => {
-    // Navigate to agreement form instead of directly updating the bid status
     navigate(`/agreement/${projectId}/${bidId}`);
   };
 
-  // Function to get the icon for a qualification type
   const getQualificationIcon = (type) => {
     switch (type) {
       case 'Certification':
@@ -216,7 +199,6 @@ const ContractorViewDetails = () => {
     );
   }
 
-  // Calculate actual rating from reviews
   const averageRating = calculateAverageRating();
   const reviewCount = reviews.length;
 
@@ -236,14 +218,12 @@ const ContractorViewDetails = () => {
         </div>
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          {/* Contractor Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4">
             <h1 className="text-xl font-bold text-white">Contractor Details</h1>
           </div>
 
           <div className="p-6">
             <div className="flex flex-col md:flex-row">
-              {/* Contractor Profile */}
               <div className="md:w-1/3 mb-6 md:mb-0 md:pr-6">
                 <div className="bg-blue-50 p-6 rounded-lg border border-blue-100">
                   <div className="flex items-center mb-4">
@@ -289,7 +269,6 @@ const ContractorViewDetails = () => {
                   </div>
                 </div>
                 
-                {/* Qualifications Display Section */}
                 <div className="mt-4 bg-white p-4 rounded-lg border border-gray-200">
                   <h3 className="font-medium text-gray-700 mb-3 flex items-center">
                     <svg className="h-5 w-5 mr-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -352,7 +331,6 @@ const ContractorViewDetails = () => {
                   )}
                 </div>
 
-                {/* Reviews Section - NEW */}
                 <div className="mt-4 bg-white p-4 rounded-lg border border-gray-200">
                   <h3 className="font-medium text-gray-700 mb-3 flex items-center">
                     <svg className="h-5 w-5 mr-2 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -396,12 +374,12 @@ const ContractorViewDetails = () => {
                             ))}
                           </div>
                           
-                          <p className="text-sm text-gray-700">{review.comment}</p>
+                          <p className="text-sm text-gray-700 break-words whitespace-normal">{review.comment}</p>
 
                           {review.contractorResponse && (
                             <div className="mt-2 pt-2 border-t border-gray-200">
                               <p className="text-xs font-medium text-gray-500">Contractor Response:</p>
-                              <p className="text-xs text-gray-600 mt-1">{review.contractorResponse.comment}</p>
+                              <p className="text-xs text-gray-600 mt-1 break-words whitespace-normal">{review.contractorResponse.comment}</p>
                             </div>
                           )}
                           
@@ -431,7 +409,7 @@ const ContractorViewDetails = () => {
                     <div className="text-sm">
                       <p className="flex items-center text-gray-600 mb-2">
                         <svg className="h-4 w-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         {contractorUser.email}
                       </p>
@@ -440,7 +418,6 @@ const ContractorViewDetails = () => {
                 )}
               </div>
 
-              {/* Bid Details */}
               <div className="md:w-2/3">
                 <div className="bg-white p-6 rounded-lg border border-gray-200">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Bid Details</h3>
@@ -456,7 +433,6 @@ const ContractorViewDetails = () => {
                     </div>
                   </div>
 
-                  {/* Cost Breakdown Section - New Addition */}
                   {bid?.costBreakdown && bid.costBreakdown.length > 0 && (
                     <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
                       <h4 className="font-medium text-gray-700 mb-3 flex items-center">
@@ -492,7 +468,6 @@ const ContractorViewDetails = () => {
                     </div>
                   )}
 
-                  {/* Timeline Details Section - New Addition */}
                   {bid?.timelineBreakdown && (
                     <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
                       <h4 className="font-medium text-gray-700 mb-3 flex items-center">
@@ -520,7 +495,6 @@ const ContractorViewDetails = () => {
                         </div>
                       </div>
                       
-                      {/* Work Items Timeline */}
                       {bid.timelineBreakdown.workItems && bid.timelineBreakdown.workItems.length > 0 && (
                         <div className="mt-4">
                           <h5 className="text-sm font-medium text-gray-700 mb-2">Work Schedule</h5>
@@ -562,7 +536,6 @@ const ContractorViewDetails = () => {
                     </p>
                   </div>
 
-                  {/* Special Requests Section - New Addition */}
                   {bid?.specialRequests && (
                     <div className="mt-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
                       <h4 className="font-medium text-gray-700 mb-2 flex items-center">
@@ -643,18 +616,15 @@ const ContractorViewDetails = () => {
   );
 };
 
-// Helper function to extract specialization from qualifications
 function extractSpecializationFromQualifications(qualifications) {
   if (!qualifications) return null;
   
-  // Common specializations in construction
   const specializations = [
     'Residential', 'Commercial', 'Industrial', 'Renovation', 
     'Plumbing', 'Electrical', 'Carpentry', 'Masonry', 
     'Roofing', 'Flooring', 'Painting', 'Interior Design'
   ];
   
-  // Check if any specialization is mentioned in the qualifications
   for (const spec of specializations) {
     if (qualifications.includes(spec)) {
       return spec;

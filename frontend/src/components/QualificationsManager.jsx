@@ -4,9 +4,8 @@ import { FaEdit, FaTrashAlt, FaPlusCircle, FaCheckCircle, FaTimesCircle,
          FaUniversity, FaCertificate, FaAward, FaTools, FaCalendarAlt } from 'react-icons/fa';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { motion, AnimatePresence } from 'framer-motion'; // Add framer-motion
+import { motion, AnimatePresence } from 'framer-motion'; 
 
-// Type to icon mapping for qualification types
 const typeIcons = {
   'Certification': <FaCertificate className="mr-2 text-blue-600" />,
   'Education': <FaUniversity className="mr-2 text-indigo-600" />,
@@ -16,14 +15,12 @@ const typeIcons = {
 };
 
 const QualificationsManager = ({ userId }) => {
-  // Qualifications state
   const [qualifications, setQualifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingQualification, setEditingQualification] = useState(null);
   
-  // Form validation state
   const [formErrors, setFormErrors] = useState({
     name: '',
     issuer: '',
@@ -32,7 +29,6 @@ const QualificationsManager = ({ userId }) => {
     documentFile: ''
   });
   
-  // New qualification state with image
   const [newQualification, setNewQualification] = useState({
     type: 'Certification',
     name: '',
@@ -42,10 +38,8 @@ const QualificationsManager = ({ userId }) => {
     documentFile: null
   });
   
-  // Preview image state
   const [previewImage, setPreviewImage] = useState(null);
 
-  // Max lengths for fields
   const MAX_LENGTHS = {
     name: 100,
     issuer: 100,
@@ -53,17 +47,14 @@ const QualificationsManager = ({ userId }) => {
     expiry: 5
   };
   
-  // File size limit in bytes (1MB)
   const MAX_FILE_SIZE = 1024 * 1024;
 
-  // Add this helper function near the top of your component
   const ensureFullImagePath = (imagePath) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
     return `http://localhost:5000${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
-  // Fetch qualifications from API
   const fetchQualifications = async () => {
     if (!userId) return;
     
@@ -73,7 +64,6 @@ const QualificationsManager = ({ userId }) => {
     try {
       const response = await axios.get(`http://localhost:5000/qualify/user/${userId}`);
       
-      // Process image URLs to ensure they're complete
       const processedQualifications = response.data.map(qual => {
         if (qual.documentImage) {
           qual.documentImage = ensureFullImagePath(qual.documentImage);
@@ -91,12 +81,10 @@ const QualificationsManager = ({ userId }) => {
     }
   };
 
-  // Effect to fetch data on mount
   useEffect(() => {
     fetchQualifications();
   }, [userId]);
   
-  // Validate individual fields
   const validateField = (name, value) => {
     let errorMessage = '';
     
@@ -142,32 +130,26 @@ const QualificationsManager = ({ userId }) => {
           if (value.length > MAX_LENGTHS.expiry) {
             errorMessage = `Expiry must be ${MAX_LENGTHS.expiry} characters or less`;
           }
-          // Additional validation for date format could be added here
         }
         break;
         
       case 'documentFile':
         if (value) {
-          // Check file size
           if (value.size > MAX_FILE_SIZE) {
             errorMessage = `File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`;
           }
           
-          // Check file type
           const acceptedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
           if (!acceptedTypes.includes(value.type)) {
             errorMessage = 'Only JPEG and PNG image formats are allowed';
           }
           
-          // Additional validation: check image dimensions
           if (!errorMessage && (value.type === 'image/jpeg' || value.type === 'image/png' || value.type === 'image/jpg')) {
-            // We'll create a promise to check the dimensions before uploading
             const checkDimensions = () => {
               return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
                   URL.revokeObjectURL(img.src);
-                  // Check if image is too small
                   if (img.width < 200 || img.height < 200) {
                     resolve('Image is too small. Minimum dimensions: 200x200 pixels');
                   } else {
@@ -182,7 +164,6 @@ const QualificationsManager = ({ userId }) => {
               });
             };
             
-            // Store the promise for later validation in handleFileChange
             value._dimensionCheck = checkDimensions;
           }
         }
@@ -195,20 +176,16 @@ const QualificationsManager = ({ userId }) => {
     return errorMessage;
   };
   
-  // Check if the form is valid
   const isFormValid = () => {
     return !Object.values(formErrors).some(error => error !== '');
   };
 
-  // Handle file selection and validation
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     
     if (file) {
-      // Validate file size and type first
       const fileError = validateField('documentFile', file);
       
-      // If there's already an error, don't continue with dimension check
       if (fileError) {
         setFormErrors({
           ...formErrors,
@@ -217,7 +194,6 @@ const QualificationsManager = ({ userId }) => {
         return;
       }
       
-      // Now check dimensions if applicable
       if (file._dimensionCheck) {
         const dimensionError = await file._dimensionCheck();
         if (dimensionError) {
@@ -229,19 +205,16 @@ const QualificationsManager = ({ userId }) => {
         }
       }
       
-      // If we got here, file is valid
       setFormErrors({
         ...formErrors,
         documentFile: ''
       });
       
-      // Store the File object directly for FormData if valid
       setNewQualification({
         ...newQualification,
         documentFile: file
       });
       
-      // Create preview URL for display
       const reader = new FileReader();
       reader.onload = () => {
         setPreviewImage(reader.result);
@@ -250,47 +223,34 @@ const QualificationsManager = ({ userId }) => {
     }
   };
 
-  // Handle form input changes with validation
   const handleNewQualificationChange = (e) => {
     const { name, value } = e.target;
     
-    // Apply maxLength restrictions
     let finalValue = value;
     if (MAX_LENGTHS[name] && value.length > MAX_LENGTHS[name]) {
       finalValue = value.slice(0, MAX_LENGTHS[name]);
     }
     
-    // Special case for year to ensure only numbers
     if (name === 'year') {
       finalValue = finalValue.replace(/[^0-9]/g, '').slice(0, 4);
     }
     
-    // Special case for expiry to auto-format as MM/YYYY
     if (name === 'expiry' && value.trim() && value.toLowerCase() !== 'n/a') {
-      // Remove any non-numeric characters except the forward slash
       finalValue = value.replace(/[^0-9/]/g, '');
       
-      // Handle the format MM/YYYY
       if (finalValue.length > 0) {
-        // Extract digits only for processing
         const digits = finalValue.replace(/\D/g, '');
         
-        // Format as MM/YYYY
         if (digits.length <= 2) {
-          // Just the month part
           finalValue = digits;
         } else {
-          // Format with the slash after the month part
           const month = digits.substring(0, 2);
           const year = digits.substring(2, 6);
           
-          // Validate month (01-12)
           const monthNum = parseInt(month);
           if (monthNum > 12) {
-            // If month > 12, correct it to 12
             finalValue = '12/' + year;
           } else if (monthNum < 1 && month.length === 2) {
-            // If month < 01 but has 2 digits, correct to 01
             finalValue = '01/' + year;
           } else {
             finalValue = month + '/' + year;
@@ -298,17 +258,15 @@ const QualificationsManager = ({ userId }) => {
         }
       }
       
-      // Maximum length for MM/YYYY is 7 characters
       finalValue = finalValue.slice(0, 7);
     }
     
-    // Update form data
+    
     setNewQualification({
       ...newQualification,
       [name]: finalValue
     });
     
-    // Validate and set errors
     const errorMessage = validateField(name, finalValue);
     setFormErrors({
       ...formErrors,
@@ -316,11 +274,9 @@ const QualificationsManager = ({ userId }) => {
     });
   };
 
-  // Add new qualification with validation
   const handleAddQualification = async (e) => {
     e.preventDefault();
     
-    // Check for input that's just spaces
     if (!newQualification.name.trim()) {
       setFormErrors({
         ...formErrors,
@@ -339,7 +295,6 @@ const QualificationsManager = ({ userId }) => {
       return;
     }
     
-    // Validate all fields before submission
     const errors = {
       name: validateField('name', newQualification.name),
       issuer: validateField('issuer', newQualification.issuer),
@@ -350,7 +305,6 @@ const QualificationsManager = ({ userId }) => {
     
     setFormErrors(errors);
     
-    // Check if there are any validation errors
     if (Object.values(errors).some(error => error !== '')) {
       toast.error('Please correct the form errors before submitting');
       return;
@@ -362,7 +316,6 @@ const QualificationsManager = ({ userId }) => {
     try {
       const formData = new FormData();
       
-      // Add text fields
       formData.append('userId', userId);
       formData.append('type', newQualification.type);
       formData.append('name', newQualification.name);
@@ -370,7 +323,6 @@ const QualificationsManager = ({ userId }) => {
       formData.append('year', newQualification.year);
       formData.append('expiry', newQualification.expiry || 'N/A');
       
-      // Add file if available
       if (newQualification.documentFile) {
         formData.append('documentImage', newQualification.documentFile);
       }
@@ -409,13 +361,11 @@ const QualificationsManager = ({ userId }) => {
     }
   };
 
-  // Update qualification with validation
   const handleUpdateQualification = async (e) => {
     e.preventDefault();
     
     if (!editingQualification) return;
     
-    // Check for input that's just spaces
     if (!newQualification.name.trim()) {
       setFormErrors({
         ...formErrors,
@@ -434,7 +384,6 @@ const QualificationsManager = ({ userId }) => {
       return;
     }
     
-    // Validate all fields before submission
     const errors = {
       name: validateField('name', newQualification.name),
       issuer: validateField('issuer', newQualification.issuer),
@@ -445,7 +394,6 @@ const QualificationsManager = ({ userId }) => {
     
     setFormErrors(errors);
     
-    // Check if there are any validation errors
     if (Object.values(errors).some(error => error !== '')) {
       toast.error('Please correct the form errors before submitting');
       return;
@@ -457,14 +405,12 @@ const QualificationsManager = ({ userId }) => {
     try {
       const formData = new FormData();
       
-      // Add text fields
       formData.append('type', newQualification.type);
       formData.append('name', newQualification.name);
       formData.append('issuer', newQualification.issuer);
       formData.append('year', newQualification.year);
       formData.append('expiry', newQualification.expiry || 'N/A');
       
-      // Add file if available and changed
       if (newQualification.documentFile) {
         formData.append('documentImage', newQualification.documentFile);
       }
@@ -511,7 +457,6 @@ const QualificationsManager = ({ userId }) => {
     }
   };
 
-  // Delete qualification
   const handleDeleteQualification = async (id) => {
     if (!window.confirm('Are you sure you want to delete this qualification?')) {
       return;
@@ -523,7 +468,6 @@ const QualificationsManager = ({ userId }) => {
     try {
       await axios.delete(`http://localhost:5000/qualify/${id}`);
       
-      // Remove from state
       setQualifications(qualifications.filter(q => q._id !== id));
       toast.success('Qualification deleted successfully!');
     } catch (error) {
@@ -535,7 +479,6 @@ const QualificationsManager = ({ userId }) => {
     }
   };
 
-  // Setup for editing a qualification
   const handleEditQualification = (qualification) => {
     setEditingQualification(qualification);
     setNewQualification({
@@ -546,7 +489,7 @@ const QualificationsManager = ({ userId }) => {
       expiry: qualification.expiry || '',
       documentFile: null
     });
-    // Reset form errors when starting to edit
+  
     setFormErrors({
       name: '',
       issuer: '',
@@ -555,12 +498,10 @@ const QualificationsManager = ({ userId }) => {
       documentFile: ''
     });
     
-    // Make sure image preview has full path
     setPreviewImage(ensureFullImagePath(qualification.documentImage) || null);
     setShowAddForm(true);
   };
 
-  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -581,7 +522,6 @@ const QualificationsManager = ({ userId }) => {
     visible: { opacity: 1, transition: { duration: 0.4 } }
   };
 
-  // Format input field with enhanced styling and animations
   const renderInputField = (label, name, placeholder, required = true, icon = null) => (
     <motion.div 
       variants={fadeVariants}
@@ -628,7 +568,7 @@ const QualificationsManager = ({ userId }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
-      {/* Header with enhanced styling */}
+  
       <div className="flex justify-between items-center border-b border-blue-100 pb-4 mb-8">
         <div className="flex items-center space-x-2">
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-2 rounded-lg shadow-md">
@@ -690,7 +630,6 @@ const QualificationsManager = ({ userId }) => {
         </motion.div>
       )}
 
-      {/* Qualification Add/Edit Form with enhanced styling and animations */}
       <AnimatePresence mode="wait">
         {showAddForm && (
           <motion.div 
@@ -715,7 +654,6 @@ const QualificationsManager = ({ userId }) => {
             
             <form onSubmit={editingQualification ? handleUpdateQualification : handleAddQualification}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Type field with icons */}
                 <motion.div variants={itemVariants}>
                   <label className="block text-gray-700 font-medium mb-1">Type<span className="text-red-500 ml-1">*</span></label>
                   <div className="relative">
@@ -744,21 +682,16 @@ const QualificationsManager = ({ userId }) => {
                   </div>
                 </motion.div>
                 
-                {/* Name field */}
                 {renderInputField('Qualification Name', 'name', 'e.g. Licensed Contractor', true, <FaCertificate className="mr-2 text-blue-600" />)}
                 
-                {/* Issuer field */}
                 {renderInputField('Issuing Organization', 'issuer', 'e.g. National Construction Authority', true, <FaUniversity className="mr-2 text-indigo-600" />)}
                 
-                {/* Year field */}
                 {renderInputField('Year', 'year', 'e.g. 2022', true, <FaCalendarAlt className="mr-2 text-green-600" />)}
                 
-                {/* Expiry field (optional) */}
                 {renderInputField('Expiry (if applicable)', 'expiry', 'MM/YYYY or N/A', false, <FaCalendarAlt className="mr-2 text-amber-600" />)}
                 
               </div>
               
-              {/* Image upload field with enhanced UI */}
               <motion.div variants={itemVariants} className="mb-8">
                 <label className="block text-gray-700 font-medium mb-2 flex items-center">
                   <FaFileUpload className="mr-2 text-purple-600" />
@@ -836,7 +769,6 @@ const QualificationsManager = ({ userId }) => {
                 )}
               </motion.div>
               
-              {/* Form validation warning */}
               {!isFormValid() && (
                 <motion.div 
                   variants={itemVariants}
@@ -909,7 +841,6 @@ const QualificationsManager = ({ userId }) => {
         )}
       </AnimatePresence>
 
-      {/* Loading State */}
       {isLoading && !showAddForm && (
         <motion.div 
           initial={{ opacity: 0 }}
@@ -921,7 +852,6 @@ const QualificationsManager = ({ userId }) => {
         </motion.div>
       )}
 
-      {/* Qualifications List with enhanced styling and animations */}
       <AnimatePresence>
         {!isLoading && qualifications.length > 0 ? (
           <motion.div 
@@ -938,7 +868,6 @@ const QualificationsManager = ({ userId }) => {
                 className="bg-gradient-to-br from-white to-blue-50 border border-blue-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group"
               >
                 <div className="flex flex-col md:flex-row">
-                  {/* If there's an image, show it on the left */}
                   {qualification.documentImage && (
                     <div className="md:w-1/4 overflow-hidden md:border-r border-blue-100 relative">
                       <div className="aspect-w-4 aspect-h-3 bg-gray-100 relative flex items-center justify-center h-full">
@@ -954,7 +883,6 @@ const QualificationsManager = ({ userId }) => {
                           }}
                         />
                         
-                        {/* Overlay with view details button */}
                         <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                           <button 
                             onClick={() => handleEditQualification(qualification)}
@@ -967,24 +895,20 @@ const QualificationsManager = ({ userId }) => {
                     </div>
                   )}
                   
-                  {/* Qualification details */}
                   <div className={`p-6 ${qualification.documentImage ? 'md:w-3/4' : 'w-full'}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex-grow">
                         <div className="flex items-center flex-wrap gap-2 mb-3">
-                          {/* Qualification type badge */}
                           <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-sm">
                             {typeIcons[qualification.type] || <FaCertificate className="mr-1" />}
                             {qualification.type}
                           </div>
                           
-                          {/* Year badge */}
                           <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             <FaCalendarAlt className="mr-1" />
                             {qualification.year}
                           </div>
                           
-                          {/* Expiry badge, if applicable */}
                           {qualification.expiry && qualification.expiry !== 'N/A' && (
                             <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1007,7 +931,6 @@ const QualificationsManager = ({ userId }) => {
                         </p>
                       </div>
                       
-                      {/* Action buttons */}
                       <div className="flex space-x-1">
                         <motion.button 
                           whileHover={{ scale: 1.1, backgroundColor: "#e6f7ff" }}
@@ -1032,7 +955,6 @@ const QualificationsManager = ({ userId }) => {
                       </div>
                     </div>
                     
-                    {/* If no image, show document preview here */}
                     {!qualification.documentImage && (
                       <div className="mt-4 px-4 py-6 border border-dashed border-blue-200 rounded-lg bg-blue-50 bg-opacity-50 flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">

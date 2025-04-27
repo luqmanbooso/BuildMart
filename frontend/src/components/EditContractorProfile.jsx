@@ -51,23 +51,18 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
     username: { valid: true, message: '' }
   });
 
-  // Check if this is an existing contractor (already onboarded)
   const isExistingContractor = Boolean(contractorData?._id);
 
-  // Validation functions
   const validatePhone = (phone) => {
     if (!phone) return { valid: false, message: 'Phone number is required' };
     
-    // Check for the correct format: either +94... or 07...
     const validFormat = /^(\+94|0)[7][0-9\s]*$/.test(phone);
     if (!validFormat) {
       return { valid: false, message: 'Phone number must start with +94 or 07' };
     }
     
-    // Remove all non-digit characters except the leading '+' if present
     const cleanedPhone = phone.replace(/[^\d+]/g, '');
     
-    // Check length - should be 11 digits with +94 or 10 digits with 0
     const correctLength = cleanedPhone.startsWith('+') 
       ? cleanedPhone.length === 12 
       : cleanedPhone.length === 10;
@@ -95,11 +90,9 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
     return { valid: true, message: '' };
   };
 
-  // Add username validation and sanitization
   const validateUsername = (username) => {
     if (!username) return { valid: false, message: 'Username is required' };
     
-    // Check for minimum and maximum length
     if (username.length < 3) {
       return { valid: false, message: 'Username should be at least 3 characters' };
     }
@@ -107,18 +100,15 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
       return { valid: false, message: 'Username should not exceed 30 characters' };
     }
     
-    // Check for allowed characters (only alphanumeric, hyphens, and underscores)
     const validChars = /^[a-zA-Z0-9_-]+$/;
     if (!validChars.test(username)) {
       return { valid: false, message: 'Username can only contain letters, numbers, hyphens, and underscores' };
     }
     
-    // Check for consecutive special characters
     if (/([-_]){2,}/.test(username)) {
       return { valid: false, message: 'Username cannot contain consecutive special characters' };
     }
     
-    // Check for start/end with special characters
     if (/^[-_]|[-_]$/.test(username)) {
       return { valid: false, message: 'Username cannot start or end with special characters' };
     }
@@ -129,51 +119,38 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
   const sanitizeUsername = (username) => {
     if (!username) return '';
     
-    // Remove all special characters except hyphens and underscores
     let sanitized = username.replace(/[^a-zA-Z0-9_-]/g, '');
     
-    // Remove consecutive special characters
     sanitized = sanitized.replace(/([-_]){2,}/g, '$1');
     
-    // Remove special characters from start and end
     sanitized = sanitized.replace(/^[-_]+|[-_]+$/g, '');
     
-    // Limit length
     sanitized = sanitized.slice(0, 30);
     
     return sanitized;
   };
 
-  // Add these new helper functions after the existing validation functions
   const sanitizeCompanyName = (name) => {
     if (!name) return '';
-    // Remove all special characters except spaces and basic punctuation
     let sanitized = name.replace(/[^a-zA-Z0-9\s.,&'-]/g, '');
-    // Remove multiple spaces
     sanitized = sanitized.replace(/\s+/g, ' ');
-    // Trim whitespace
     sanitized = sanitized.trim();
     return sanitized;
   };
 
   const sanitizeBio = (bio) => {
     if (!bio) return '';
-    // Allow basic punctuation and newlines, but remove other special characters
     let sanitized = bio.replace(/[^a-zA-Z0-9\s.,!?&'-()\n]/g, '');
-    // Remove multiple spaces
     sanitized = sanitized.replace(/\s+/g, ' ');
-    // Remove multiple newlines
     sanitized = sanitized.replace(/\n+/g, '\n');
     return sanitized;
   };
 
   const validateCompanyName = (name) => {
-    // If no name is provided, it's valid (optional field)
     if (!name || name.trim() === '') {
       return { valid: true, message: '' };
     }
     
-    // If name is provided, validate it
     if (name.length < 2) {
       return { valid: false, message: 'Company name should be at least 2 characters' };
     }
@@ -183,16 +160,14 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
     return { valid: true, message: '' };
   };
 
-  // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
     if (name === 'phone') {
-      // Only allow valid phone number inputs
-      // Allow digits, spaces, and + only at the beginning
+      
       const sanitizedValue = value
-        .replace(/[^\d\s+]/g, '') // Remove anything that's not a digit, space, or +
-        .replace(/(?!^)\+/g, ''); // Remove any + that's not at the beginning
+        .replace(/[^\d\s+]/g, '') 
+        .replace(/(?!^)\+/g, ''); 
       
       setFormData(prev => ({
         ...prev,
@@ -213,7 +188,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
         username: validateUsername(sanitizedValue)
       }));
     } else if (name === 'companyName') {
-      // If the input is empty, set it to empty string
       if (!value || value.trim() === '') {
         setFormData(prev => ({
           ...prev,
@@ -224,7 +198,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
           companyName: { valid: true, message: '' }
         }));
       } else {
-        // If there's a value, sanitize and validate it
         const sanitizedValue = sanitizeCompanyName(value);
         setFormData(prev => ({
           ...prev,
@@ -251,7 +224,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
         [name]: value
       }));
 
-      // Perform validation for other fields
       if (name === 'bio') {
         setValidation(prev => ({
           ...prev,
@@ -263,7 +235,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
 
   const handleNumericChange = (e) => {
     const { name, value } = e.target;
-    // Only allow changes if this is a new contractor (not yet onboarded)
     if (!isExistingContractor) {
       setFormData({
         ...formData,
@@ -272,7 +243,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
     }
   };
 
-  // Handle specialization toggle
   const toggleSpecialization = (spec) => {
     if (formData.specialization.includes(spec)) {
       setFormData({
@@ -289,7 +259,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
     }
   };
 
-  // Check if form is valid
   const isFormValid = () => {
     return (
       validation.username.valid &&
@@ -301,7 +270,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
     );
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -322,21 +290,17 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
         return;
       }
 
-      // Get user ID from token
       const decoded = jwtDecode(token);
       const userId = decoded.userId || decoded.id;
       
-      // Prepare the data to be sent
       const submitData = {
         ...formData,
-        // Ensure companyName is empty string if not provided
         companyName: formData.companyName || '',
         userId: userId
       };
       
       let response;
       
-      // Update existing profile
       if (contractorData?._id) {
         response = await axios.put(
           `http://localhost:5000/api/contractors/${contractorData._id}`,
@@ -349,7 +313,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
           }
         );
       } 
-      // Create new profile if doesn't exist
       else {
         response = await axios.post(
           'http://localhost:5000/api/contractors',
@@ -363,15 +326,12 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
         );
       }
       
-      // Show success message
       toast.success('Profile updated successfully!');
       
-      // Call the parent callback with updated data
       if (onProfileUpdate) {
         onProfileUpdate(response.data);
       }
       
-      // Close the edit form
       if (onClose) {
         onClose();
       }
@@ -418,7 +378,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Contact Information */}
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
           <h3 className="text-md font-semibold text-gray-700 mb-3 flex items-center">
             <FaMapMarkerAlt className="text-blue-600 mr-2" />
@@ -466,7 +425,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
           </div>
         </div>
 
-        {/* Business Information */}
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
           <h3 className="text-md font-semibold text-gray-700 mb-3 flex items-center">
             <FaBriefcase className="text-blue-600 mr-2" />
@@ -555,7 +513,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
           </div>
         </div>
 
-        {/* Specializations */}
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-md font-semibold text-gray-700 flex items-center">
@@ -567,7 +524,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
             </div>
           </div>
           
-          {/* Progress bar */}
           <div className="w-full bg-gray-200 rounded-full h-1.5 mb-4">
             <div 
               className="bg-blue-600 h-1.5 rounded-full" 
@@ -601,7 +557,6 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
           </p>
         </div>
 
-        {/* Bio / Description */}
         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
           <h3 className="text-md font-semibold text-gray-700 mb-3">
             Bio / Description <span className="text-red-500">*</span>

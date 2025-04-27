@@ -39,7 +39,6 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
   const [isLoadingBids, setIsLoadingBids] = useState(false);
 
   const [bidScores, setBidScores] = useState({});
-  // New state for contractor ratings
   const [contractorRatings, setContractorRatings] = useState({});
 
   const handleBidSelection = (bidId) => {
@@ -134,7 +133,6 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
     setFilteredBids(bids);
   };
 
-  // Fetch ratings for contractors
   useEffect(() => {
     const fetchContractorRatings = async () => {
       if (!bids || bids.length === 0) return;
@@ -146,7 +144,6 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
         if (!contractorId || ratings[contractorId]) continue;
         
         try {
-          // Try with /api/reviews path first
           try {
             const response = await axios.get(`http://localhost:5000/api/reviews/contractor/${contractorId}`);
             const reviews = response.data;
@@ -167,7 +164,6 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
             }
           } catch (firstAttemptError) {
             console.log(`First attempt failed for ${contractorId}, trying alternate path`);
-            // If that fails, try with just /reviews path
             const response = await axios.get(`http://localhost:5000/reviews/contractor/${contractorId}`);
             const reviews = response.data;
             
@@ -201,7 +197,6 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
     fetchContractorRatings();
   }, [bids]);
 
-  // Get rating for a bid
   const getBidRating = (bid) => {
     const contractorId = bid.contractorId;
     if (contractorRatings[contractorId]) {
@@ -210,7 +205,6 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
     return bid.contractor?.rating || 0;
   };
 
-  // Get review count for a bid
   const getBidReviewCount = (bid) => {
     const contractorId = bid.contractorId;
     if (contractorRatings[contractorId]) {
@@ -238,7 +232,6 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
       ? 100 
       : 20 + 80 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
     
-    // Use actual rating from reviews if available
     const rating = getBidRating(bid);
     const ratingScore = 20 + (rating / 5) * 80;
     
@@ -403,7 +396,6 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
             ? 100 
             : 20 + 80 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
           
-          // Use actual rating from fetched data
           const rating = getBidRating(bid);
           const ratingScore = 20 + (rating / 5) * 80;
           
@@ -713,256 +705,242 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
       )}
       
       {bids && bids.length > 0 ? (
-        <div className="rounded-xl border border-gray-200 shadow-lg bg-white">
-          <table className="min-w-full divide-y divide-gray-100 table-fixed">
-            <thead>
-              <tr className="bg-gradient-to-r from-blue-50 to-indigo-50">
-                <th scope="col" className="px-3 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[5%]">
-                  <span className="sr-only">Select</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-                  </svg>
-                </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[18%]">
-                  <div className="flex items-center space-x-1">
-                    <span>Contractor</span>
-                    {sortField === 'contractor' ? (
-                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
-                    ) : (
-                      <FaSort className="text-gray-400" />
-                    )}
-                  </div>
-                </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[13%]">
-                  <div className="flex items-center space-x-1" onClick={() => handleSort('price')}>
-                    <span>Bid Amount</span>
-                    {sortField === 'price' ? (
-                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
-                    ) : (
-                      <FaSort className="text-gray-400" />
-                    )}
-                  </div>
-                </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[10%]">
-                  <div className="flex items-center space-x-1" onClick={() => handleSort('timeline')}>
-                    <span>Timeline</span>
-                    {sortField === 'timeline' ? (
-                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
-                    ) : (
-                      <FaSort className="text-gray-400" />
-                    )}
-                  </div>
-                </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[12%]">
-                  <div className="flex items-center space-x-1" onClick={() => handleSort('experience')}>
-                    <span>Experience</span>
-                    {sortField === 'experience' ? (
-                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
-                    ) : (
-                      <FaSort className="text-gray-400" />
-                    )}
-                  </div>
-                </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[12%]">
-                  <div className="flex items-center space-x-1" onClick={() => handleSort('projects')}>
-                    <span>Projects</span>
-                    {sortField === 'projects' ? (
-                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
-                    ) : (
-                      <FaSort className="text-gray-400" />
-                    )}
-                  </div>
-                </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[10%]">
-                  <div className="flex items-center space-x-1" onClick={() => handleSort('date')}>
-                    <span>Date</span>
-                    {sortField === 'date' ? (
-                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
-                    ) : (
-                      <FaSort className="text-gray-400" />
-                    )}
-                  </div>
-                </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[10%]">
-                  <div className="flex items-center space-x-1" onClick={() => handleSort('score')}>
-                    <span>Score</span>
-                    {sortField === 'score' ? (
-                      sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
-                    ) : (
-                      <FaSort className="text-gray-400" />
-                    )}
-                  </div>
-                </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[10%]">
-                  <span>Status</span>
-                </th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[12%]">
-                  <span>Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-50">
-              {isLoadingBids ? (
-                <tr><td colSpan="9" className="px-6 py-8 text-center">
-                  <div className="flex items-center justify-center">
-                    <div className="w-6 h-6 border-2 border-blue-600 rounded-full border-t-transparent animate-spin mr-2"></div>
-                    <span className="text-gray-500 text-sm">Calculating scores...</span>
-                  </div>
-                </td></tr>
-              ) : sortedBids.map((bid) => {
-                const bidId = bid.id || bid._id;
-                const isSelected = selectedBids.includes(bidId);
-                const isShortlisted = shortlistedBids.includes(bidId);
-                const bidScore = getBidScore(bid);
-                // Use actual rating and review count
-                const rating = getBidRating(bid);
-                const reviewCount = getBidReviewCount(bid);
-                
-                return (
-                  <tr key={bidId} className={`group transition-all duration-200 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'} ${isShortlisted ? 'border-l-4 border-green-400' : ''}`}>
-                    {/* Keep the column widths matching the headers */}
-                    <td className="px-3 py-4 whitespace-nowrap">
-                      <div className="flex items-center justify-center">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleBidSelection(bid)}
-                          className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full flex items-center justify-center shadow-sm border border-blue-200">
-                          <span className="text-blue-800 font-semibold text-lg">
-                            {(bid.contractor?.name || bid.contractorname || 'Unknown').charAt(0)}
-                          </span>
+        <div className="rounded-xl border border-gray-200 shadow-lg bg-white overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead>
+                <tr className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                  <th scope="col" className="px-2 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-10">
+                    <span className="sr-only">Select</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                      <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                    </svg>
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <div className="flex items-center space-x-1">
+                      <span>Contractor</span>
+                      {sortField === 'contractor' ? (
+                        sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                      ) : (
+                        <FaSort className="text-gray-400" />
+                      )}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <div className="flex items-center space-x-1" onClick={() => handleSort('price')}>
+                      <span>Bid Amount</span>
+                      {sortField === 'price' ? (
+                        sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                      ) : (
+                        <FaSort className="text-gray-400" />
+                      )}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <div className="flex items-center space-x-1" onClick={() => handleSort('timeline')}>
+                      <span>Timeline</span>
+                      {sortField === 'timeline' ? (
+                        sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                      ) : (
+                        <FaSort className="text-gray-400" />
+                      )}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <div className="flex items-center space-x-1" onClick={() => handleSort('experience')}>
+                      <span>Exp.</span>
+                      {sortField === 'experience' ? (
+                        sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                      ) : (
+                        <FaSort className="text-gray-400" />
+                      )}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <div className="flex items-center space-x-1" onClick={() => handleSort('projects')}>
+                      <span>Projects</span>
+                      {sortField === 'projects' ? (
+                        sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                      ) : (
+                        <FaSort className="text-gray-400" />
+                      )}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <div className="flex items-center space-x-1" onClick={() => handleSort('date')}>
+                      <span>Date</span>
+                      {sortField === 'date' ? (
+                        sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                      ) : (
+                        <FaSort className="text-gray-400" />
+                      )}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <div className="flex items-center space-x-1" onClick={() => handleSort('score')}>
+                      <span>Score</span>
+                      {sortField === 'score' ? (
+                        sortDirection === 'asc' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />
+                      ) : (
+                        <FaSort className="text-gray-400" />
+                      )}
+                    </div>
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <span>Status</span>
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <span>Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-50">
+                {isLoadingBids ? (
+                  <tr><td colSpan="10" className="px-6 py-8 text-center">
+                    <div className="flex items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-blue-600 rounded-full border-t-transparent animate-spin mr-2"></div>
+                      <span className="text-gray-500 text-sm">Calculating scores...</span>
+                    </div>
+                  </td></tr>
+                ) : sortedBids.map((bid) => {
+                  const bidId = bid.id || bid._id;
+                  const isSelected = selectedBids.includes(bidId);
+                  const isShortlisted = shortlistedBids.includes(bidId);
+                  const bidScore = getBidScore(bid);
+                  const rating = getBidRating(bid);
+                  const reviewCount = getBidReviewCount(bid);
+                  
+                  return (
+                    <tr key={bidId} className={`group transition-all duration-200 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'} ${isShortlisted ? 'border-l-4 border-green-400' : ''}`}>
+                      <td className="px-2 py-3 whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleBidSelection(bid)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                          />
                         </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900 flex items-center">
-                            {bid.contractor?.name || bid.contractorname || 'Unknown'}
-                            {isShortlisted && (
-                              <span className="ml-1 text-xs px-1.5 py-0.5 bg-green-100 text-green-800 rounded-full">Shortlisted</span>
-                            )}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-8 w-8 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full flex items-center justify-center shadow-sm border border-blue-200">
+                            <span className="text-blue-800 font-semibold text-sm">
+                              {(bid.contractor?.name || bid.contractorname || 'Unknown').charAt(0)}
+                            </span>
+                          </div>
+                          <div className="ml-2">
+                            <div className="text-xs font-medium text-gray-900 flex items-center">
+                              {bid.contractor?.name || bid.contractorname || 'Unknown'}
+                              {isShortlisted && (
+                                <span className="ml-1 text-xs px-1 py-0.5 bg-green-100 text-green-800 rounded-full text-[10px]">✓</span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">LKR {parseFloat(bid.price).toLocaleString()}</div>
-                      <div className="text-xs text-gray-500">Bid amount</div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-800">{bid.timeline} days</div>
-                      <div className="text-xs text-gray-500">Completion time</div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="text-sm font-medium text-gray-900">
-                          {bid.contractor?.experience || bid.experience || '2'} years
-                        </div>
-                        {(parseInt(bid.contractor?.experience || bid.experience || 0) > 5) && (
-                          <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
-                            Senior
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {bid.contractor?.completedProjects || bid.completedProjects || '0'}
-                      </div>
-                      <div className="text-xs text-gray-500">Completed</div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-700">
-                        {new Date(bid.createdAt).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center text-xs text-gray-500">
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="text-xs font-medium text-gray-900">LKR {parseFloat(bid.price).toLocaleString()}</div>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="text-xs font-medium text-gray-800">{bid.timeline} days</div>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
                         <div className="flex items-center">
+                          <div className="text-xs font-medium text-gray-900">
+                            {bid.contractor?.experience || bid.experience || '2'} yrs
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="text-xs font-medium text-gray-900">
+                          {bid.contractor?.completedProjects || bid.completedProjects || '0'}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="text-xs text-gray-700">
+                          {new Date(bid.createdAt).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center text-xs text-gray-500">
                           <svg className="h-3 w-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                           </svg>
                           <span className="ml-1">{rating}</span>
-                          {reviewCount > 0 && <span className="ml-1">({reviewCount})</span>}
                         </div>
-                      </div>
-                    </td>
-                    {/* Add back the bid score cell */}
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
-                          parseFloat(bidScore) >= 80 ? 'bg-gradient-to-br from-green-50 to-green-100 text-green-800 ring-1 ring-green-200' : 
-                          parseFloat(bidScore) >= 60 ? 'bg-gradient-to-br from-blue-50 to-blue-100 text-blue-800 ring-1 ring-blue-200' : 
-                          parseFloat(bidScore) >= 40 ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 text-yellow-800 ring-1 ring-yellow-200' : 
-                          'bg-gradient-to-br from-red-50 to-red-100 text-red-800 ring-1 ring-red-200'
-                        }`}>
-                          <div className="text-lg font-bold">{bidScore}</div>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                            parseFloat(bidScore) >= 80 ? 'bg-gradient-to-br from-green-50 to-green-100 text-green-800 ring-1 ring-green-200' : 
+                            parseFloat(bidScore) >= 60 ? 'bg-gradient-to-br from-blue-50 to-blue-100 text-blue-800 ring-1 ring-blue-200' : 
+                            parseFloat(bidScore) >= 40 ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 text-yellow-800 ring-1 ring-yellow-200' : 
+                            'bg-gradient-to-br from-red-50 to-red-100 text-red-800 ring-1 ring-red-200'
+                          }`}>
+                            <div className="text-xs font-bold">{bidScore}</div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs
-                        ${bid.status === 'accepted' ? 'bg-green-50 text-green-800 ring-1 ring-green-200' : 
-                          bid.status === 'rejected' ? 'bg-red-50 text-red-800 ring-1 ring-red-200' : 
-                          'bg-yellow-50 text-yellow-800 ring-1 ring-yellow-200'}`}
-
-                      >
-                        <span className={`h-2 w-2 rounded-full mr-1.5 
-                          ${bid.status === 'accepted' ? 'bg-green-500' : 
-                            bid.status === 'rejected' ? 'bg-red-500' : 
-                            'bg-yellow-500'}`}
-
-                        ></span>
-                        <span className="font-medium">
-                        {bid.status === 'accepted' ? 'Accepted' : 
-                         bid.status === 'rejected' ? 'Rejected' : 
-                         'Pending'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm">
-                      <div className="flex space-x-1">
-                        <button 
-                          className={`inline-flex items-center px-2 py-1 border text-xs font-medium rounded-full transition-all duration-200 ${
-                            isShortlisted 
-                              ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100' 
-                              : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-                          }`}
-                          onClick={() => toggleShortlisted(bid)}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px]
+                          ${bid.status === 'accepted' ? 'bg-green-50 text-green-800 ring-1 ring-green-200' : 
+                            bid.status === 'rejected' ? 'bg-red-50 text-red-800 ring-1 ring-red-200' : 
+                            'bg-yellow-50 text-yellow-800 ring-1 ring-yellow-200'}`}
                         >
-                          {isShortlisted ? (
-                            <>
-                              <FaCheck className="mr-1" size={10} /> Shortlisted
-                            </>
-                          ) : (
-                            'Shortlist'
-                          )}
-                        </button>
-                        
-                        <button 
-                          className="inline-flex items-center px-2 py-1 border border-blue-300 text-xs font-medium rounded-full text-blue-700 bg-white hover:bg-blue-50 transition-all duration-200"
-                          onClick={() => navigate(`/contractor/${bid.contractorId}/bid/${bidId}/project/${jobId}`)}
-                        >
-                          Details
-                        </button>
-                        
-                        {bid.status === 'pending' && (
+                          <span className={`h-1.5 w-1.5 rounded-full mr-1
+                            ${bid.status === 'accepted' ? 'bg-green-500' : 
+                              bid.status === 'rejected' ? 'bg-red-500' : 
+                              'bg-yellow-500'}`}
+                          ></span>
+                          <span className="font-medium">
+                          {bid.status === 'accepted' ? 'Accepted' : 
+                           bid.status === 'rejected' ? 'Rejected' : 
+                           'Pending'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="flex space-x-1">
                           <button 
-                            className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-full text-green-700 bg-green-100 hover:bg-green-200 transition-all duration-200"
-                            onClick={() => handleBidSelection(bidId)}
+                            className={`inline-flex items-center px-2 py-0.5 border text-[10px] font-medium rounded-full transition-all duration-200 ${
+                              isShortlisted 
+                                ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100' 
+                                : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                            }`}
+                            onClick={() => toggleShortlisted(bid)}
                           >
-                            Accept
+                            {isShortlisted ? (
+                              <>
+                                <FaCheck className="mr-1" size={8} /> Short
+                              </>
+                            ) : (
+                              'Short'
+                            )}
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          
+                          <button 
+                            className="inline-flex items-center px-2 py-0.5 border border-blue-300 text-[10px] font-medium rounded-full text-blue-700 bg-white hover:bg-blue-50 transition-all duration-200"
+                            onClick={() => navigate(`/contractor/${bid.contractorId}/bid/${bidId}/project/${jobId}`)}
+                          >
+                            Detail
+                          </button>
+                          
+                          {bid.status === 'pending' && (
+                            <button 
+                              className="inline-flex items-center px-2 py-0.5 border border-transparent text-[10px] font-medium rounded-full text-green-700 bg-green-100 hover:bg-green-200 transition-all duration-200"
+                              onClick={() => handleBidSelection(bidId)}
+                            >
+                              Accept
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">

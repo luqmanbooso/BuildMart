@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -10,6 +10,12 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
     priority: 'medium',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Add validation state
+  const [validation, setValidation] = useState({
+    title: { valid: true, message: '' },
+    description: { valid: true, message: '' }
+  });
   
   // Define issue categories
   const categories = [
@@ -29,19 +35,124 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
     { value: 'critical', label: 'Critical' },
   ];
   
+  // Title validation function
+  const validateTitle = (title) => {
+    if (!title || title.trim().length === 0) {
+      return { valid: false, message: 'Title is required' };
+    }
+    
+    if (title.trim().length < 5) {
+      return { valid: false, message: 'Title must be at least 5 characters' };
+    }
+    
+    if (title.length > 100) {
+      return { valid: false, message: 'Title must not exceed 100 characters' };
+    }
+    
+    // Check for invalid characters - only allow alphanumeric, spaces and basic punctuation
+    const validTitleRegex = /^[a-zA-Z0-9\s,.?!()-]+$/;
+    if (!validTitleRegex.test(title)) {
+      return { valid: false, message: 'Title contains invalid characters' };
+    }
+    
+    return { valid: true, message: '' };
+  };
+  
+  // Description validation function
+  const validateDescription = (description) => {
+    if (!description || description.trim().length === 0) {
+      return { valid: false, message: 'Description is required' };
+    }
+    
+    if (description.trim().length < 20) {
+      return { valid: false, message: 'Description should be at least 20 characters' };
+    }
+    
+    if (description.length > 1000) {
+      return { valid: false, message: 'Description cannot exceed 1000 characters' };
+    }
+    
+    // Check for excessive special characters
+    const specialChars = description.match(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/g) || [];
+    if (specialChars.length > description.length * 0.3) {
+      return { valid: false, message: 'Description contains too many special characters' };
+    }
+    
+    return { valid: true, message: '' };
+  };
+  
+  // Sanitize title input to prevent special characters
+  const sanitizeTitle = (input) => {
+    // Remove disallowed special characters, keeping only alphanumeric, spaces and basic punctuation
+    return input.replace(/[^a-zA-Z0-9\s,.?!()-]/g, '');
+  };
+  
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setIssueData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    if (name === 'title') {
+      // Sanitize title input
+      const sanitizedValue = sanitizeTitle(value);
+      setIssueData(prev => ({
+        ...prev,
+        [name]: sanitizedValue
+      }));
+      
+      // Validate the sanitized input
+      setValidation(prev => ({
+        ...prev,
+        title: validateTitle(sanitizedValue)
+      }));
+    } else if (name === 'description') {
+      setIssueData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      
+      // Validate description
+      setValidation(prev => ({
+        ...prev,
+        description: validateDescription(value)
+      }));
+    } else {
+      // For other fields, just update without validation
+      setIssueData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
+  
+  // Check if form is valid
+  const isFormValid = () => {
+    return validation.title.valid && validation.description.valid && 
+           issueData.title.trim() !== '' && issueData.description.trim() !== '';
+  };
+  
+  // Reset validation when modal closes or opens
+  useEffect(() => {
+    if (isOpen) {
+      setValidation({
+        title: { valid: true, message: '' },
+        description: { valid: true, message: '' }
+      });
+    }
+  }, [isOpen]);
   
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!issueData.title.trim() || !issueData.description.trim()) {
-      toast.error("Please provide both a title and description for your issue");
+    // Validate all fields before submission
+    const titleValidation = validateTitle(issueData.title);
+    const descriptionValidation = validateDescription(issueData.description);
+    
+    setValidation({
+      title: titleValidation,
+      description: descriptionValidation
+    });
+    
+    if (!titleValidation.valid || !descriptionValidation.valid) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     
@@ -156,9 +267,18 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
               value={issueData.title}
               onChange={handleChange}
               placeholder="Brief description of the issue"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className={`w-full px-3 py-2 border ${
+                !validation.title.valid ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+              } rounded-md focus:outline-none focus:border-blue-500`}
               required
+              maxLength={100}
             />
+            {!validation.title.valid && (
+              <p className="mt-1 text-sm text-red-600">{validation.title.message}</p>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Only letters, numbers, spaces, and basic punctuation allowed (5-100 characters)
+            </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -205,9 +325,26 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
               onChange={handleChange}
               rows="5"
               placeholder="Please describe the issue in detail, including any steps to reproduce it"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className={`w-full px-3 py-2 border ${
+                !validation.description.valid ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+              } rounded-md focus:outline-none focus:border-blue-500`}
               required
+              maxLength={1000}
             ></textarea>
+            {!validation.description.valid && (
+              <p className="mt-1 text-sm text-red-600">{validation.description.message}</p>
+            )}
+            <div className="mt-1 flex justify-between items-center">
+              <p className="text-xs text-gray-500">
+                Minimum 20 characters, maximum 1000
+              </p>
+              <p className={`text-xs ${
+                issueData.description.length > 1000 ? 'text-red-500' : 
+                issueData.description.length < 20 ? 'text-yellow-500' : 'text-gray-500'
+              }`}>
+                {issueData.description.length}/1000 characters
+              </p>
+            </div>
           </div>
           
           <div className="mt-6 flex justify-end space-x-3">
@@ -220,8 +357,10 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none ${isSubmitting ? 'opacity-75 cursor-not-allowed' : ''}`}
+              disabled={isSubmitting || !isFormValid()}
+              className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none ${
+                isSubmitting || !isFormValid() ? 'opacity-75 cursor-not-allowed' : ''
+              }`}
             >
               {isSubmitting ? (
                 <span className="flex items-center">

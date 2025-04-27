@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
+import { toast } from "react-toastify";
 
 const BidForm = ({ sampleData }) => {
   const navigate = useNavigate();
@@ -22,19 +23,16 @@ const BidForm = ({ sampleData }) => {
     timeUp: false
   });
   
-  // Cost Breakdown state
   const [costBreakdown, setCostBreakdown] = useState([]);
   const [newCostItem, setNewCostItem] = useState({ description: '', amount: '' });
   const [costTotal, setCostTotal] = useState(0);
   
-  // Timeline Breakdown state - modified to have fixed start date
   const [timelineBreakdown, setTimelineBreakdown] = useState({
     startDate: '',
     endDate: '',
     totalDays: 0
   });
   
-  // New state for work item function
   const [newWorkItem, setNewWorkItem] = useState({
     name: '',
     startDate: '',
@@ -44,18 +42,14 @@ const BidForm = ({ sampleData }) => {
   const [workItems, setWorkItems] = useState([]);
   const [workItemError, setWorkItemError] = useState(null);
   
-  // Special Requests state
   const [specialRequests, setSpecialRequests] = useState('');
   const [specialRequestsError, setSpecialRequestsError] = useState(null);
   
-  // Validation error states
   const [costBreakdownError, setCostBreakdownError] = useState(null);
   const [timelineBreakdownError, setTimelineBreakdownError] = useState(null);
   
-  // Maximum project duration (1 year)
   const MAX_PROJECT_DURATION = 365;
   
-  // Maximum word count for special requests
   const MAX_SPECIAL_REQUESTS_WORDS = 300;
 
   const {
@@ -74,10 +68,8 @@ const BidForm = ({ sampleData }) => {
     }
   });
   
-  // Watch for changes in the bid amount
   const watchBidAmount = watch("yourBid");
 
-  // Calculate cost total whenever costBreakdown changes with enhanced validation
   useEffect(() => {
     const total = costBreakdown.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
     setCostTotal(total);
@@ -98,18 +90,14 @@ const BidForm = ({ sampleData }) => {
     }
   }, [costBreakdown, watchBidAmount]);
 
-  // Add utility function to validate and format decimal input
   const formatDecimalInput = (value) => {
-    // Remove any non-numeric characters except decimal point
     let formattedValue = value.replace(/[^0-9.]/g, '');
     
-    // Ensure only one decimal point
     const parts = formattedValue.split('.');
     if (parts.length > 2) {
       formattedValue = parts[0] + '.' + parts.slice(1).join('');
     }
     
-    // Ensure max 2 decimal places
     if (parts.length > 1) {
       formattedValue = parts[0] + '.' + parts[1].slice(0, 2);
     }
@@ -117,16 +105,12 @@ const BidForm = ({ sampleData }) => {
     return formattedValue;
   };
   
-  // Check if a value is a valid decimal with up to 2 decimal places
   const isValidDecimal = (value) => {
     if (!value) return false;
-    // Allow empty string for intermediate states
     if (value === '') return true;
-    // Check for valid decimal format with max 2 decimal places
     return /^[0-9]+(\.[0-9]{1,2})?$/.test(value);
   };
 
-  // Simplified cost breakdown validation
   const validateCostItem = (item) => {
     if (!item.description) {
       return "Description is required";
@@ -141,7 +125,6 @@ const BidForm = ({ sampleData }) => {
     return null;
   };
 
-  // Modified validateCostBreakdown function to enforce bid amount requirement
   const validateCostBreakdown = () => {
     if (!watchBidAmount || parseFloat(watchBidAmount) <= 0) {
       return "Please enter a valid bid amount first";
@@ -154,7 +137,6 @@ const BidForm = ({ sampleData }) => {
     const total = costBreakdown.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
     const bidAmount = parseFloat(watchBidAmount);
     
-    // Allow small floating point difference (0.01)
     if (Math.abs(total - bidAmount) > 0.01) {
       return `Cost breakdown total (${total.toFixed(2)}) must match bid amount (${bidAmount.toFixed(2)})`;
     }
@@ -162,9 +144,7 @@ const BidForm = ({ sampleData }) => {
     return null;
   };
 
-  // Simplified handler for adding cost items with improved bid amount check
   const handleAddCostItem = () => {
-    // First check if bid amount is entered
     if (!watchBidAmount || parseFloat(watchBidAmount) <= 0) {
       setCostBreakdownError("Please enter a valid bid amount first before adding cost items");
       return;
@@ -175,58 +155,49 @@ const BidForm = ({ sampleData }) => {
       return;
     }
     
-    // Validate amount is a number
     if (!isValidDecimal(newCostItem.amount)) {
       setCostBreakdownError("Amount must be a valid number with up to 2 decimal places");
       return;
     }
     
-    // Enhanced validation for description field
     if (!newCostItem.description.trim()) {
       setCostBreakdownError("Description cannot be empty");
       return;
     }
     
-    // Validate no special characters in description and enforce word limit
     const descriptionRegex = /^[a-zA-Z0-9\s,.-]+$/;
     if (!descriptionRegex.test(newCostItem.description)) {
       setCostBreakdownError("Description can only contain letters, numbers, commas, periods, and hyphens");
       return;
     }
     
-    // Check word limit (max 10 words)
     const wordCount = newCostItem.description.trim().split(/\s+/).length;
     if (wordCount > 10) {
       setCostBreakdownError("Description cannot exceed 10 words");
       return;
     }
     
-    // Enhanced validation for amount
     const amountValue = parseFloat(newCostItem.amount);
     if (isNaN(amountValue) || amountValue <= 0) {
       setCostBreakdownError("Amount must be greater than zero");
       return;
     }
     
-    // Maximum amount validation
-    if (amountValue > 10000000) {  // 10 million limit
+    if (amountValue > 10000000) {  
       setCostBreakdownError("Amount cannot exceed 10,000,000");
       return;
     }
     
-    // Calculate new total to validate against bid amount
     const currentTotal = costBreakdown.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
     const newTotal = currentTotal + amountValue;
     const bidAmount = parseFloat(watchBidAmount);
     
-    // Check if adding this item would exceed the bid amount
     if (newTotal > bidAmount) {
       const remaining = bidAmount - currentTotal;
       setCostBreakdownError(`Adding this item would exceed your bid amount. You can add up to ${remaining.toFixed(2)} more.`);
       return;
     }
     
-    // Format description to include cost part
     const formattedDescription = newCostItem.description.trim();
     
     setCostBreakdown([...costBreakdown, {
@@ -234,23 +205,19 @@ const BidForm = ({ sampleData }) => {
       amount: amountValue
     }]);
     
-    // Reset form fields after successful addition
     setNewCostItem({ description: '', amount: '' });
     setCostBreakdownError(null);
   };
 
-  // Handler for removing cost items
   const handleRemoveCostItem = (index) => {
     const updatedBreakdown = [...costBreakdown];
     updatedBreakdown.splice(index, 1);
     setCostBreakdown(updatedBreakdown);
   };
   
-  // Set auction end date as start date for timeline
   useEffect(() => {
     if (jobDetails?.biddingEndTime) {
       const auctionEndDate = new Date(jobDetails.biddingEndTime);
-      // Format date to YYYY-MM-DD for input[type="date"]
       const formattedDate = auctionEndDate.toISOString().split('T')[0];
       setTimelineBreakdown(prev => ({
         ...prev,
@@ -322,7 +289,6 @@ const BidForm = ({ sampleData }) => {
         if (jobId) {
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           
-          // Fix API endpoint - use the working endpoint directly instead of trying multiple ones
           try {
             const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
               headers: {
@@ -396,7 +362,6 @@ const BidForm = ({ sampleData }) => {
     }
   };
   
-  // Helper function for creating default qualification
   const createDefaultQualification = (contractorData) => {
     if (contractorData?.experienceYears) {
       const defaultQualifications = [{
@@ -457,7 +422,6 @@ const projectDescription = jobDetails?.description || "";
     navigate(jobId ? `/project/${jobId}` : `/project-details`);
   };
 
-  // Enhanced validation for bid amount
   const validateBidAmount = (value) => {
     if (!value) return "Bid amount is required";
     if (!isValidDecimal(value)) return "Please enter a valid number with up to 2 decimal places";
@@ -474,7 +438,6 @@ const projectDescription = jobDetails?.description || "";
     return null;
   };
 
-  // Simplified timeline validation
   const validateTimeline = () => {
     if (!timelineBreakdown.startDate) {
       return "Start date is required";
@@ -486,7 +449,6 @@ const projectDescription = jobDetails?.description || "";
     const start = new Date(timelineBreakdown.startDate);
     const end = new Date(timelineBreakdown.endDate);
     
-    // Calculate days difference
     const diffTime = Math.abs(end - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     
@@ -497,7 +459,6 @@ const projectDescription = jobDetails?.description || "";
     return null;
   };
 
-  // Calculate max end date (1 year from start date)
   const getMaxEndDate = () => {
     if (!timelineBreakdown.startDate) return '';
     const startDate = new Date(timelineBreakdown.startDate);
@@ -506,7 +467,6 @@ const projectDescription = jobDetails?.description || "";
     return maxDate.toISOString().split('T')[0];
   };
 
-  // Simplified end date handler
   const handleEndDateChange = (value) => {
     if (!value) {
       setTimelineBreakdownError("End date is required");
@@ -521,7 +481,6 @@ const projectDescription = jobDetails?.description || "";
     const start = new Date(timelineBreakdown.startDate);
     const end = new Date(value);
     
-    // Calculate days difference
     const diffTime = Math.abs(end - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     
@@ -534,7 +493,6 @@ const projectDescription = jobDetails?.description || "";
     setTimelineBreakdownError(null);
   };
 
-  // Enhanced validation for work items
   const validateWorkItem = (item) => {
     if (!item.name.trim()) return "Work item name is required";
     if (!item.startDate) return "Start date is required";
@@ -554,12 +512,10 @@ const projectDescription = jobDetails?.description || "";
     return null;
   };
 
-  // Add missing handleWorkItemChange function - currently referenced but not fully implemented
   const handleWorkItemChange = (e) => {
     const { name, value } = e.target;
     setNewWorkItem(prev => ({ ...prev, [name]: value }));
     
-    // Calculate duration if both dates are set
     if (name === 'startDate' || name === 'endDate') {
       const startDate = name === 'startDate' ? value : newWorkItem.startDate;
       const endDate = name === 'endDate' ? value : newWorkItem.endDate;
@@ -568,7 +524,6 @@ const projectDescription = jobDetails?.description || "";
         const start = new Date(startDate);
         const end = new Date(endDate);
         
-        // Validate with project timeline
         if (timelineBreakdown.startDate) {
           const projectStart = new Date(timelineBreakdown.startDate);
           if (start < projectStart) {
@@ -598,9 +553,7 @@ const projectDescription = jobDetails?.description || "";
     }
   };
 
-  // Add missing handleAddWorkItem function
   const handleAddWorkItem = () => {
-    // Validate input
     if (!newWorkItem.name.trim()) {
       setWorkItemError("Work item name is required");
       return;
@@ -616,7 +569,6 @@ const projectDescription = jobDetails?.description || "";
       return;
     }
     
-    // Validate that work item is within project timeline
     const itemStartDate = new Date(newWorkItem.startDate);
     const itemEndDate = new Date(newWorkItem.endDate);
     const projectStartDate = new Date(timelineBreakdown.startDate);
@@ -632,10 +584,8 @@ const projectDescription = jobDetails?.description || "";
       return;
     }
     
-    // Add item to work items
     setWorkItems([...workItems, { ...newWorkItem }]);
     
-    // Reset form
     setNewWorkItem({
       name: '',
       startDate: '',
@@ -645,22 +595,18 @@ const projectDescription = jobDetails?.description || "";
     setWorkItemError(null);
   };
 
-  // Add missing handleRemoveWorkItem function
   const handleRemoveWorkItem = (index) => {
     const updatedItems = [...workItems];
     updatedItems.splice(index, 1);
     setWorkItems(updatedItems);
   };
 
-  // Add function to filter out invalid characters from description
   const sanitizeDescription = (input) => {
-    // Only allow letters, numbers, spaces, commas, periods, and hyphens
     return input.replace(/[^a-zA-Z0-9\s,.-]/g, '');
   };
 
-  // Function to validate special requests word count
   const validateSpecialRequests = (text) => {
-    if (!text) return null; // Empty is valid
+    if (!text) return null; 
     
     const wordCount = text.trim().split(/\s+/).length;
     
@@ -671,35 +617,30 @@ const projectDescription = jobDetails?.description || "";
     return null;
   };
 
-  // Update the onSubmit function to include special requests validation
   const onSubmit = async (data) => {
     if (timeLeft.timeUp) {
       setSubmissionError("Auction has ended. You can no longer submit bids.");
       return;
     }
     
-    // Validate bid amount
     const bidAmountError = validateBidAmount(data.yourBid);
     if (bidAmountError) {
       setSubmissionError(bidAmountError);
       return;
     }
     
-    // Validate cost breakdown
     const costBreakdownError = validateCostBreakdown();
     if (costBreakdownError) {
       setCostBreakdownError(costBreakdownError);
       return;
     }
     
-    // Validate timeline
     const timelineError = validateTimeline();
     if (timelineError) {
       setTimelineBreakdownError(timelineError);
       return;
     }
     
-    // Validate work items
     for (const item of workItems) {
       const workItemError = validateWorkItem(item);
       if (workItemError) {
@@ -708,7 +649,6 @@ const projectDescription = jobDetails?.description || "";
       }
     }
     
-    // Validate special requests
     const specialRequestsError = validateSpecialRequests(data.specialRequests);
     if (specialRequestsError) {
       setSpecialRequestsError(specialRequestsError);
@@ -742,11 +682,17 @@ const projectDescription = jobDetails?.description || "";
 
       console.log("Sending bid data:", bidData);
 
-      // Fix API endpoint URL - change from /api/bids/submit to /bids/submit
       const response = await axios.post("http://localhost:5000/bids/submit", bidData);
 
       if (response.status === 201) {
-        alert("Bid Submitted Successfully!");
+        toast.success("Bid submitted successfully! You'll be notified when the project owner responds.", {
+          position: "top-center",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
         navigate(`/project/${jobId}`);
       }
     } catch (error) {
@@ -791,7 +737,6 @@ const projectDescription = jobDetails?.description || "";
 
   return (
     <div className="max-w-4xl mx-auto p-3">
-      {/* Form header with project info */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-t-xl shadow-md mb-1">
         <h1 className="text-2xl font-semibold mb-1">
           Submit Bid: {jobDetails?.title || "Project"}
@@ -807,7 +752,6 @@ const projectDescription = jobDetails?.description || "";
         </div>
       </div>
       
-      {/* Main form container with form design */}
       <div className="bg-gray-50 p-6 rounded-b-xl shadow-md border border-gray-200">
         {submissionError && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
@@ -833,7 +777,6 @@ const projectDescription = jobDetails?.description || "";
             <input type="hidden" {...register("experience")} value={contractorInfo?.experienceYears || "0"} />
           </div>
 
-          {/* Form sections with visual separation */}
           <fieldset>
             <legend className="relative">
               <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -847,9 +790,7 @@ const projectDescription = jobDetails?.description || "";
               </div>
             </legend>
 
-            {/* Improved grid layout for Bid Amount & Profile - keep existing styling */}
             <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
-              {/* Bid Amount Section - Enhanced with form elements */}
               <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
                 
@@ -902,7 +843,6 @@ const projectDescription = jobDetails?.description || "";
                         }`}
                         onBlur={() => trigger("yourBid")}
                         onChange={(e) => {
-                          // Format the input value before setting it
                           const rawValue = e.target.value;
                           const formattedValue = formatDecimalInput(rawValue);
                           
@@ -910,7 +850,6 @@ const projectDescription = jobDetails?.description || "";
                             e.target.value = formattedValue;
                           }
                           
-                          // Call the regular onChange handler
                           register("yourBid").onChange(e);
                         }}
                       />
@@ -930,7 +869,6 @@ const projectDescription = jobDetails?.description || "";
                 </div>
               </div>
 
-              {/* Contractor Profile Preview - Enhanced with form elements */}
               <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-green-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
                 
@@ -971,7 +909,6 @@ const projectDescription = jobDetails?.description || "";
             </div>
           </fieldset>
 
-          {/* Cost Breakdown Section - Enhanced with form elements */}
           <fieldset>
             <legend className="relative">
               <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -997,7 +934,6 @@ const projectDescription = jobDetails?.description || "";
                 Cost Breakdown <span className="text-red-500 ml-1">*</span>
               </h3>
               
-              {/* Progress bar showing completion toward bid amount */}
               {parseFloat(watchBidAmount) > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-1">
@@ -1023,7 +959,6 @@ const projectDescription = jobDetails?.description || "";
                 </div>
               )}
               
-              {/* Table of cost items - styled as form element */}
               {costBreakdown.length > 0 ? (
                 <div className="mb-4 border border-gray-200 rounded-lg p-0.5">
                   <div className="overflow-x-auto">
@@ -1077,7 +1012,6 @@ const projectDescription = jobDetails?.description || "";
                 )
               )}
               
-              {/* Add cost item form with improved form styling */}
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <div className="text-sm font-medium text-gray-700 mb-3">Add New Cost Item</div>
                 <div className="grid md:grid-cols-12 gap-4 items-end">
@@ -1090,7 +1024,6 @@ const projectDescription = jobDetails?.description || "";
                       type="text"
                       value={newCostItem.description}
                       onChange={(e) => {
-                        // Apply sanitization to filter out invalid characters in real-time
                         const sanitizedValue = sanitizeDescription(e.target.value);
                         setNewCostItem({...newCostItem, description: sanitizedValue});
                       }}
@@ -1111,11 +1044,9 @@ const projectDescription = jobDetails?.description || "";
                         min="0"
                         value={newCostItem.amount}
                         onChange={(e) => {
-                          // Apply decimal formatting constraints in real time
                           const rawValue = e.target.value;
                           const formattedValue = formatDecimalInput(rawValue);
                           
-                          // Only update if it's a valid decimal or empty
                           if (formattedValue === '' || isValidDecimal(formattedValue) || formattedValue === '.') {
                             setNewCostItem({...newCostItem, amount: formattedValue});
                           }
@@ -1158,7 +1089,6 @@ const projectDescription = jobDetails?.description || "";
             </div>
           </fieldset>
 
-          {/* Project Timeline Section - Enhanced with form elements */}
           <fieldset>
             <legend className="relative">
               <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -1184,7 +1114,6 @@ const projectDescription = jobDetails?.description || "";
                 Project Timeline <span className="text-red-500 ml-1">*</span>
               </h3>
               
-              {/* Overall project timeline section - form style */}
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 mb-6">
                 <div className="text-sm font-medium text-gray-700 mb-3">Project Duration</div>
                 <div className="grid md:grid-cols-3 gap-6">
@@ -1242,19 +1171,16 @@ const projectDescription = jobDetails?.description || "";
                 )}
               </div>
               
-              {/* Work Breakdown Timeline - only show if project timeline is set */}
               {timelineBreakdown.startDate && timelineBreakdown.endDate && (
                 <div className="border border-gray-200 rounded-lg p-4">
                   <h4 className="font-semibold text-md mb-3 text-gray-700 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                      <path fillRule="evenodd" d="M4 5a2 2 0 002-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
-                      <path d="M10 14a1 1 0 100-2 1 1 0 000 2z" />
+                      <path fillRule="evenodd" d="M4 5a2 2 0 002-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     Work Breakdown Schedule
                   </h4>
                   
-                  {/* Timeline visualization - keep as-is */}
                   {workItems.length > 0 && (
                     <div className="mb-6 mt-4">
                       <div className="relative bg-gray-100 rounded-lg p-4 overflow-x-auto">
@@ -1265,12 +1191,10 @@ const projectDescription = jobDetails?.description || "";
                           </div>
                           
                           <div className="h-6 bg-gray-200 rounded-full mb-6 relative">
-                            {/* Timeline markers */}
                             <div className="absolute left-0 top-0 h-full w-1 bg-blue-600 rounded-l-full"></div>
                             <div className="absolute right-0 top-0 h-full w-1 bg-blue-600 rounded-r-full"></div>
                           </div>
 
-                          {/* Work items */}
                           <div className="space-y-3">
                             {workItems.map((item, index) => {
                               const projectStart = new Date(timelineBreakdown.startDate).getTime();
@@ -1278,7 +1202,6 @@ const projectDescription = jobDetails?.description || "";
                               const itemStart = new Date(item.startDate).getTime();
                               const itemEnd = new Date(item.endDate).getTime();
                               
-                              // Calculate positioning percentages
                               const leftPos = ((itemStart - projectStart) / (projectEnd - projectStart)) * 100;
                               const width = ((itemEnd - itemStart) / (projectEnd - projectStart)) * 100;
                               
@@ -1299,7 +1222,6 @@ const projectDescription = jobDetails?.description || "";
                     </div>
                   )}
                   
-                  {/* Table of work items - make more form-like */}
                   {workItems.length > 0 && (
                     <div className="mb-4 border border-gray-200 rounded-lg">
                       <div className="p-3 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-700">
@@ -1340,7 +1262,6 @@ const projectDescription = jobDetails?.description || "";
                     </div>
                   )}
                   
-                  {/* Add work item form - enhanced with better form styling */}
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4">
                     <div className="text-sm font-medium text-gray-700 mb-3">Add New Work Item</div>
                     <div className="grid md:grid-cols-12 gap-4 items-end">
@@ -1423,7 +1344,6 @@ const projectDescription = jobDetails?.description || "";
             </div>
           </fieldset>
 
-          {/* Special Requests Section - Enhanced with form elements */}
           <fieldset>
             <legend className="relative">
               <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -1513,7 +1433,6 @@ const projectDescription = jobDetails?.description || "";
             </div>
           </fieldset>
 
-          {/* Form submission section - improved with better form actions */}
           <div className="border-t border-gray-200 pt-6">
             <div className="p-4 mb-6 border border-blue-100 rounded-lg bg-blue-50/50">
               <div className="flex items-start">
@@ -1566,7 +1485,6 @@ const projectDescription = jobDetails?.description || "";
           </div>
         </form>
 
-        {/* Confirmation modal - enhanced with form styling */}
         {showConfirmation && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg max-w-md w-full shadow-xl">

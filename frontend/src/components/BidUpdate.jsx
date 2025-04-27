@@ -30,22 +30,17 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
     }
   });
 
-  // Get the form values for validation
   const watchedPrice = watch('price');
   const watchedTimeline = watch('timeline');
 
-  // Format and sanitize price input
   const formatPriceInput = (value) => {
-    // Remove any non-numeric characters except first decimal point
     let formatted = value.replace(/[^\d.]/g, '');
     
-    // Ensure only one decimal point
     const parts = formatted.split('.');
     if (parts.length > 2) {
       formatted = `${parts[0]}.${parts.slice(1).join('')}`;
     }
     
-    // Limit to 2 decimal places
     if (parts.length > 1) {
       formatted = `${parts[0]}.${parts[1].substring(0, 2)}`;
     }
@@ -53,18 +48,15 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
     return formatted;
   };
 
-  // Update cost breakdown amounts when price changes
   useEffect(() => {
     if (costBreakdown && costBreakdown.length > 0 && watchedPrice) {
       const originalPrice = bid.price;
       const newPrice = parseFloat(watchedPrice);
       
-      // Only calculate if the price has decreased
       if (newPrice < originalPrice) {
         const ratio = newPrice / originalPrice;
         
         const updatedBreakdown = costBreakdown.map(item => {
-          // Calculate new amount proportionally
           return {
             ...item,
             amount: parseFloat((item.amount * ratio).toFixed(2))
@@ -76,55 +68,44 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
     }
   }, [watchedPrice, bid.price]);
 
-  // Update timeline breakdown when timeline changes
   useEffect(() => {
     if (timelineBreakdown && watchedTimeline) {
       const originalTimeline = bid.timeline;
       const newTimeline = parseInt(watchedTimeline);
       
-      // Only calculate if timeline has changed
       if (newTimeline !== originalTimeline) {
-        // Calculate time ratio for adjustment
         const ratio = newTimeline / originalTimeline;
         
-        // Create a deep copy of the current timelineBreakdown
         const updatedTimelineBreakdown = JSON.parse(JSON.stringify(timelineBreakdown));
         
-        // Keep the start date the same, but adjust end date
         if (updatedTimelineBreakdown.startDate) {
           const startDate = new Date(updatedTimelineBreakdown.startDate);
           const newEndDate = new Date(startDate);
-          newEndDate.setDate(startDate.getDate() + newTimeline - 1); // -1 because we count the start day
+          newEndDate.setDate(startDate.getDate() + newTimeline - 1); 
           
           updatedTimelineBreakdown.endDate = newEndDate.toISOString().split('T')[0];
           updatedTimelineBreakdown.totalDays = newTimeline;
         }
         
-        // Adjust work items if they exist
         if (updatedTimelineBreakdown.workItems && updatedTimelineBreakdown.workItems.length > 0) {
           const startDate = new Date(updatedTimelineBreakdown.startDate);
           
           updatedTimelineBreakdown.workItems = updatedTimelineBreakdown.workItems.map(item => {
-            // Calculate the item's position relative to the timeline start
             const itemStartDate = new Date(item.startDate);
             const itemEndDate = new Date(item.endDate);
             
-            // Calculate days from project start (positions)
             const daysFromStart = Math.round((itemStartDate - startDate) / (1000 * 60 * 60 * 24));
             const originalDuration = Math.round((itemEndDate - itemStartDate) / (1000 * 60 * 60 * 24)) + 1;
             
-            // Apply the ratio to get new item position and duration 
             const newDaysFromStart = Math.round(daysFromStart * ratio);
             const newDuration = Math.max(1, Math.round(originalDuration * ratio));
             
-            // Calculate new start and end dates
             const newItemStartDate = new Date(startDate);
             newItemStartDate.setDate(startDate.getDate() + newDaysFromStart);
             
             const newItemEndDate = new Date(newItemStartDate);
             newItemEndDate.setDate(newItemStartDate.getDate() + newDuration - 1);
             
-            // Ensure new end date doesn't exceed project end date
             const projectEndDate = new Date(updatedTimelineBreakdown.endDate);
             if (newItemEndDate > projectEndDate) {
               newItemEndDate.setTime(projectEndDate.getTime());
@@ -144,7 +125,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
     }
   }, [watchedTimeline, bid.timeline]);
 
-  // Get user info from token
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (token) {
@@ -161,15 +141,12 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
     }
   }, []);
 
-  // Fetch the current lowest bid info
   useEffect(() => {
     const fetchLowestBid = async () => {
       try {
-        // Get the lowest bid for this project
         const lowestBidResponse = await axios.get(`http://localhost:5000/bids/project/${bid.projectId}/lowest`);
         
         if (lowestBidResponse.data.exists) {
-          // Calculate min decrement based on the same rules as backend
           const lowestBidPrice = lowestBidResponse.data.price;
           const minDecrement = lowestBidPrice <= 15000 ? 200 : 
                               lowestBidPrice <= 100000 ? 1000 : 2000;
@@ -181,7 +158,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
           }));
         }
         
-        // Get the project details for min budget
         const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${bid.projectId}`);
         if (jobResponse.data && jobResponse.data.minBudget) {
           setProjectDetails(prev => ({
@@ -203,7 +179,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
       return;
     }
 
-    // Validate that user owns this bid
     if (userInfo.userId !== bid.contractorId) {
       setError('You can only update your own bids');
       return;
@@ -216,10 +191,10 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
       const updateData = {
         price: parseFloat(data.price),
         timeline: parseInt(data.timeline),
-        qualifications: bid.qualifications, // Keep existing qualifications
+        qualifications: bid.qualifications, 
         contractorId: userInfo.userId,
-        costBreakdown: costBreakdown, // Include the updated cost breakdown
-        timelineBreakdown: timelineBreakdown // Include the updated timeline breakdown
+        costBreakdown: costBreakdown, 
+        timelineBreakdown: timelineBreakdown 
       };
 
       const response = await axios.put(
@@ -240,22 +215,17 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
     }
   };
 
-  // Calculate total of cost breakdown
   const totalBreakdownAmount = costBreakdown.reduce((sum, item) => sum + item.amount, 0);
 
-  // Add a function to handle timeline input changes with direct validation
   const handleTimelineChange = (e) => {
     const value = e.target.value;
     
-    // First prevent non-numeric and decimal inputs
     if (!/^\d*$/.test(value)) {
-      return; // Don't update if not a whole number
+      return; 
     }
     
-    // Hard limit on maximum days
     if (value > MAX_TIMELINE_DAYS) {
       setTimelineError(`Timeline cannot exceed ${MAX_TIMELINE_DAYS} days (1 year)`);
-      // Optionally, force the value to 365
       e.target.value = MAX_TIMELINE_DAYS.toString();
     } else if (value < 1) {
       setTimelineError("Timeline must be at least 1 day");
@@ -263,17 +233,14 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
       setTimelineError(null);
     }
     
-    // Update the form value
     register('timeline').onChange(e);
   };
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      {/* Enhanced backdrop with blur effect */}
       <div className="absolute inset-0 bg-gray-900 bg-opacity-70 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
       
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-xl w-full p-0 overflow-hidden animate-modalFadeIn transform transition-all">
-        {/* Top gradient decoration */}
         <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500 rounded-t-2xl"></div>
         
         <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center">
@@ -312,7 +279,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
               </div>
             </div>
             
-            {/* Progress bar for update count */}
             <div className="mt-3">
               <div className="flex justify-between mb-1 text-xs text-blue-800">
                 <span>First Update</span>
@@ -402,7 +368,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                         lowerThanCurrent: v => parseFloat(v) < parseFloat(bid.price) || 
                           'New bid must be lower than your current bid',
                         minDecrementFromCurrentBid: v => {
-                          // Enforce minimum decrement from user's current bid
                           if (!projectDetails.minDecrement) return true;
                           
                           const newBid = parseFloat(v);
@@ -413,17 +378,14 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                             `Your new bid must be at least LKR ${minDecrement.toLocaleString()} less than your current bid`;
                         },
                         minDecrement: v => {
-                          // Only validate if we have lowestBid data
                           if (!projectDetails.lowestBid || !projectDetails.minDecrement) return true;
                           
                           const newBid = parseFloat(v);
                           const lowestBid = projectDetails.lowestBid;
                           const minDecrement = projectDetails.minDecrement;
                           
-                          // If this is the current lowest bid, we've already validated the min decrement from current bid
                           if (parseFloat(bid.price) <= lowestBid) return true;
                           
-                          // Otherwise, check if new bid meets the decrement requirement from lowest bid
                           return newBid <= (lowestBid - minDecrement) || 
                             `To beat the lowest bid, you must bid at least LKR ${minDecrement.toLocaleString()} less than LKR ${lowestBid.toLocaleString()}`;
                         },
@@ -435,7 +397,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                       }
                     })}
                     onChange={(e) => {
-                      // Format and sanitize the input in real-time
                       e.target.value = formatPriceInput(e.target.value);
                       register('price').onChange(e);
                     }}
@@ -455,7 +416,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                   </p>
                 )}
                 
-                {/* Price change visualization */}
                 {watchedPrice && parseFloat(watchedPrice) < parseFloat(bid.price) && (
                   <div className="mt-3">
                     <div className="bg-green-50 rounded-lg p-2 flex items-center">
@@ -531,7 +491,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
               </div>
             )}
 
-            {/* Timeline section - enhanced to show changes */}
             {timelineBreakdown && (
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm transition-all hover:shadow-md">
                 <div className="p-4 border-b border-gray-200 flex items-center">
@@ -592,7 +551,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                     </div>
                   </div>
                   
-                  {/* Display notice when timeline is adjusted */}
                   {watchedTimeline && parseInt(watchedTimeline) !== bid.timeline && (
                     <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200 text-sm text-blue-700 flex items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -610,7 +568,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                     <div className="mt-4">
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Work Breakdown</h4>
                       
-                      {/* Visual timeline - augmented to show changes */}
                       <div className="relative pb-12">
                         <div className="absolute h-full w-0.5 bg-purple-200 left-4 top-0"></div>
                         
@@ -620,12 +577,10 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                           
                           return (
                             <div key={index} className="mb-4 pl-12 relative">
-                              {/* Timeline dot */}
                               <div className="absolute left-2.5 transform -translate-x-1/2 bg-purple-500 h-6 w-6 rounded-full flex items-center justify-center border-4 border-purple-100">
                                 <span className="text-white text-xs font-bold">{index + 1}</span>
                               </div>
                               
-                              {/* Content card */}
                               <div className={`bg-white border rounded-lg p-3 shadow-sm ${
                                 durationChanged ? "border-blue-200" : "border-gray-200"
                               }`}>
@@ -678,7 +633,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                     validate: {
                       isInteger: v => Number.isInteger(Number(v)) || 'Timeline must be a whole number',
                       withinRange: v => {
-                        // Allow reasonable adjustments of timeline (between 50% and 200% of original)
                         const minAllowed = Math.floor(bid.timeline * 0.5);
                         const maxAllowed = Math.min(Math.ceil(bid.timeline * 2), MAX_TIMELINE_DAYS);
                         
@@ -696,7 +650,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                   })}
                   onChange={handleTimelineChange}
                   onKeyPress={(e) => {
-                    // Prevent decimal point and non-numeric input
                     if (!/[0-9]/.test(e.key)) {
                       e.preventDefault();
                     }
@@ -741,7 +694,6 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
                 </span>
               </div>
               
-              {/* Notice about timeline breakdown adjustment */}
               {watchedTimeline && parseInt(watchedTimeline) !== bid.timeline && (
                 <p className="mt-2 text-sm text-blue-600 flex items-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
