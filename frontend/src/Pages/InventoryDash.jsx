@@ -22,7 +22,8 @@ import {
   FiDollarSign,
   FiDownload,
   FiPieChart,
-  FiTrendingUp
+  FiTrendingUp,
+  FiFileText
 } from "react-icons/fi";
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
@@ -79,6 +80,21 @@ const InventoryDash = () => {
     notes: ""
   });
   const [showCharts, setShowCharts] = useState(false);
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
+  const [reportCriteria, setReportCriteria] = useState({
+    categories: [],
+    stockLevel: 'all', // 'all', 'low', 'normal', 'out'
+    dateRange: {
+      start: '',
+      end: ''
+    },
+    includeImages: false,
+    includeDescription: true,
+    includePrice: true,
+    includeStock: true,
+    includeThreshold: true,
+    includeLastUpdated: true
+  });
   
   // Extract unique categories for filter dropdown
   const categories = ["All", ...new Set(inventory.map(item => item.category))];
@@ -588,47 +604,324 @@ const InventoryDash = () => {
     navigate('/login');
   };
 
+  // Function to generate report data based on criteria
+  const generateReportData = () => {
+    let reportData = [...inventory];
+
+    // Filter by categories if selected
+    if (reportCriteria.categories.length > 0) {
+      reportData = reportData.filter(item => reportCriteria.categories.includes(item.category));
+    }
+
+    // Filter by stock level
+    switch (reportCriteria.stockLevel) {
+      case 'low':
+        reportData = reportData.filter(item => item.stock < item.threshold);
+        break;
+      case 'normal':
+        reportData = reportData.filter(item => item.stock >= item.threshold);
+        break;
+      case 'out':
+        reportData = reportData.filter(item => item.stock === 0);
+        break;
+    }
+
+    // Filter by date range if specified
+    if (reportCriteria.dateRange.start && reportCriteria.dateRange.end) {
+      const startDate = new Date(reportCriteria.dateRange.start);
+      const endDate = new Date(reportCriteria.dateRange.end);
+      reportData = reportData.filter(item => {
+        const itemDate = new Date(item.lastUpdated);
+        return itemDate >= startDate && itemDate <= endDate;
+      });
+    }
+
+    // Map to include only selected fields
+    return reportData.map(item => {
+      const reportItem = {
+        name: item.name,
+        sku: item.sku,
+        category: item.category
+      };
+
+      if (reportCriteria.includeDescription) reportItem.description = item.description;
+      if (reportCriteria.includePrice) reportItem.price = item.price;
+      if (reportCriteria.includeStock) reportItem.stock = item.stock;
+      if (reportCriteria.includeThreshold) reportItem.threshold = item.threshold;
+      if (reportCriteria.includeLastUpdated) reportItem.lastUpdated = item.lastUpdated;
+      if (reportCriteria.includeImages && item.image) reportItem.image = item.image;
+
+      return reportItem;
+    });
+  };
+
+  // Function to export report as CSV
+  const exportReportAsCSV = () => {
+    const reportData = generateReportData();
+    if (reportData.length === 0) {
+      toast.error('No data available for the selected criteria');
+      return;
+    }
+
+    const headers = Object.keys(reportData[0]);
+    const csvContent = [
+      headers.join(','),
+      ...reportData.map(item => 
+        headers.map(header => {
+          const value = item[header];
+          return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
+        }).join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `inventory-report-${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Report exported successfully');
+  };
+
+  // Add this section before the return statement
+  const renderReportGenerator = () => (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.2 }}
+        className="bg-white rounded-2xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100"
+      >
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900">Generate Inventory Report</h3>
+            <p className="text-gray-500 mt-1">Customize and export your inventory data</p>
+          </div>
+          <button
+            onClick={() => setShowReportGenerator(false)}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <FiX size={24} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="space-y-8">
+          {/* Categories Selection */}
+          <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">Categories</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {predefinedCategories.map(category => (
+                <label key={category} className="relative flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={reportCriteria.categories.includes(category)}
+                    onChange={(e) => {
+                      const newCategories = e.target.checked
+                        ? [...reportCriteria.categories, category]
+                        : reportCriteria.categories.filter(c => c !== category);
+                      setReportCriteria({ ...reportCriteria, categories: newCategories });
+                    }}
+                    className="sr-only"
+                  />
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mr-3 transition-colors ${
+                    reportCriteria.categories.includes(category)
+                      ? 'border-indigo-600 bg-indigo-600'
+                      : 'border-gray-300'
+                  }`}>
+                    {reportCriteria.categories.includes(category) && (
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className="text-gray-700 font-medium">{category}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Stock Level Filter */}
+          <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">Stock Level</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { value: 'all', label: 'All Stock', color: 'gray' },
+                { value: 'low', label: 'Low Stock', color: 'amber' },
+                { value: 'normal', label: 'Normal', color: 'emerald' },
+                { value: 'out', label: 'Out of Stock', color: 'red' }
+              ].map(option => (
+                <label key={option.value} className="relative">
+                  <input
+                    type="radio"
+                    value={option.value}
+                    checked={reportCriteria.stockLevel === option.value}
+                    onChange={(e) => setReportCriteria({ ...reportCriteria, stockLevel: e.target.value })}
+                    className="sr-only"
+                  />
+                  <div className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                    reportCriteria.stockLevel === option.value
+                      ? `border-${option.color}-500 bg-${option.color}-50`
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mb-2 ${
+                      reportCriteria.stockLevel === option.value
+                        ? `border-${option.color}-500 bg-${option.color}-500`
+                        : 'border-gray-300'
+                    }`}>
+                      {reportCriteria.stockLevel === option.value && (
+                        <div className="w-2 h-2 rounded-full bg-white"></div>
+                      )}
+                    </div>
+                    <span className="text-gray-700 font-medium">{option.label}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Date Range */}
+          <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">Date Range</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={reportCriteria.dateRange.start}
+                  onChange={(e) => setReportCriteria({
+                    ...reportCriteria,
+                    dateRange: { ...reportCriteria.dateRange, start: e.target.value }
+                  })}
+                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={reportCriteria.dateRange.end}
+                  onChange={(e) => setReportCriteria({
+                    ...reportCriteria,
+                    dateRange: { ...reportCriteria.dateRange, end: e.target.value }
+                  })}
+                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Report Fields Selection */}
+          <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">Report Fields</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {[
+                { key: 'includeDescription', label: 'Description', icon: <FiFileText className="w-5 h-5" /> },
+                { key: 'includePrice', label: 'Price', icon: <FiDollarSign className="w-5 h-5" /> },
+                { key: 'includeStock', label: 'Stock', icon: <FiPackage className="w-5 h-5" /> },
+                { key: 'includeThreshold', label: 'Threshold', icon: <FiAlertTriangle className="w-5 h-5" /> },
+                { key: 'includeLastUpdated', label: 'Last Updated', icon: <FiRefreshCw className="w-5 h-5" /> },
+                { key: 'includeImages', label: 'Images', icon: <FiImage className="w-5 h-5" /> }
+              ].map(field => (
+                <label key={field.key} className="relative flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={reportCriteria[field.key]}
+                    onChange={(e) => setReportCriteria({
+                      ...reportCriteria,
+                      [field.key]: e.target.checked
+                    })}
+                    className="sr-only"
+                  />
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mr-3 transition-colors ${
+                    reportCriteria[field.key]
+                      ? 'border-indigo-600 bg-indigo-600'
+                      : 'border-gray-300'
+                  }`}>
+                    {reportCriteria[field.key] && (
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-500">{field.icon}</span>
+                    <span className="text-gray-700 font-medium">{field.label}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-4">
+            <button
+              onClick={() => setShowReportGenerator(false)}
+              className="px-5 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={exportReportAsCSV}
+              className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-colors flex items-center space-x-2 font-medium"
+            >
+              <FiFileText className="w-5 h-5" />
+              <span>Export Report</span>
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+
+  // Update the Generate Report button in the header
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Modern Dashboard Header */}
       <motion.header
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-white shadow-sm relative"
+        className="bg-white shadow-sm relative border-b border-gray-100"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Inventory Management</h1>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
+                Inventory Management
+              </h1>
               <p className="text-gray-500 mt-1">Manage your construction materials and equipment</p>
             </div>
             <div className="flex items-center space-x-4">
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={downloadInventoryCSV}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-md flex items-center space-x-2 shadow-sm transition-colors"
+                onClick={() => setShowReportGenerator(true)}
+                className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white px-5 py-2.5 rounded-lg flex items-center space-x-2 shadow-lg transition-all duration-200"
               >
-                <FiDownload />
-                <span>Export CSV</span>
+                <FiFileText className="w-5 h-5" />
+                <span>Generate Report</span>
               </motion.button>
-              
-              
               
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setIsFormOpen(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md flex items-center space-x-2 shadow-sm transition-colors"
+                className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-5 py-2.5 rounded-lg flex items-center space-x-2 shadow-lg transition-all duration-200"
               >
-                <FiPlusCircle />
+                <FiPlusCircle className="w-5 h-5" />
                 <span>Add Item</span>
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleLogout}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md flex items-center space-x-2 text-sm transition-colors"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center space-x-2 text-sm transition-colors"
               >
                 <FiLogOut size={16} />
                 <span>Logout</span>
@@ -648,45 +941,45 @@ const InventoryDash = () => {
         >
           <motion.div 
             variants={itemVariants} 
-            className="bg-gradient-to-br from-white to-indigo-50 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-300"
+            className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300 group"
           >
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-indigo-100 text-indigo-600">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-100 to-blue-100 text-indigo-600 group-hover:from-indigo-200 group-hover:to-blue-200 transition-colors">
                 <FiPackage size={24} />
               </div>
               <div className="ml-5">
                 <p className="text-gray-500 text-sm font-medium">Total Inventory</p>
-                <h3 className="text-2xl font-semibold text-gray-900">{totalItems.toLocaleString()} units</h3>
+                <h3 className="text-2xl font-bold text-gray-900">{totalItems.toLocaleString()} units</h3>
               </div>
             </div>
           </motion.div>
           
           <motion.div 
             variants={itemVariants} 
-            className="bg-gradient-to-br from-white to-emerald-50 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-300"
+            className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300 group"
           >
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-emerald-100 text-emerald-600">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 group-hover:from-emerald-200 group-hover:to-teal-200 transition-colors">
                 <FiDollarSign size={24} />
               </div>
               <div className="ml-5">
                 <p className="text-gray-500 text-sm font-medium">Inventory Value</p>
-                <h3 className="text-2xl font-semibold text-gray-900">LKR {totalValue.toLocaleString()}</h3>
+                <h3 className="text-2xl font-bold text-gray-900">LKR {totalValue.toLocaleString()}</h3>
               </div>
             </div>
           </motion.div>
           
           <motion.div 
             variants={itemVariants} 
-            className="bg-gradient-to-br from-white to-amber-50 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-300"
+            className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300 group"
           >
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-amber-100 text-amber-600">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 text-amber-600 group-hover:from-amber-200 group-hover:to-orange-200 transition-colors">
                 <FiAlertTriangle size={24} />
               </div>
               <div className="ml-5">
                 <p className="text-gray-500 text-sm font-medium">Low Stock Items</p>
-                <h3 className="text-2xl font-semibold text-gray-900">{lowStockItems} products</h3>
+                <h3 className="text-2xl font-bold text-gray-900">{lowStockItems} products</h3>
               </div>
             </div>
           </motion.div>
@@ -699,10 +992,10 @@ const InventoryDash = () => {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setShowCharts(!showCharts)}
-          className="mb-4 flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50 transition-colors"
+          className="mb-4 flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50 transition-all duration-200"
         >
-          {showCharts ? <FiBarChart2 /> : <FiPieChart />}
-          <span>{showCharts ? "Hide Analytics Charts" : "Show Analytics Charts"}</span>
+          {showCharts ? <FiBarChart2 className="text-indigo-600" /> : <FiPieChart className="text-indigo-600" />}
+          <span className="text-gray-700 font-medium">{showCharts ? "Hide Analytics Charts" : "Show Analytics Charts"}</span>
         </motion.button>
       </div>
 
@@ -718,7 +1011,7 @@ const InventoryDash = () => {
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Category Distribution Chart */}
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+              <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
                 <h3 className="text-base font-medium text-gray-700 mb-4 flex items-center">
                   <FiPieChart className="mr-2 text-indigo-500" /> 
                   Product Category Distribution
@@ -748,7 +1041,7 @@ const InventoryDash = () => {
               </div>
 
               {/* Inventory Value by Category */}
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+              <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
                 <h3 className="text-base font-medium text-gray-700 mb-4 flex items-center">
                   <FiDollarSign className="mr-2 text-emerald-500" /> 
                   Inventory Value by Category (LKR)
@@ -774,7 +1067,7 @@ const InventoryDash = () => {
               </div>
 
               {/* Stock Levels Chart */}
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
+              <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 lg:col-span-2">
                 <h3 className="text-base font-medium text-gray-700 mb-4 flex items-center">
                   <FiTrendingUp className="mr-2 text-blue-500" /> 
                   Top 10 Products by Stock Level
@@ -807,7 +1100,7 @@ const InventoryDash = () => {
           variants={fadeIn}
           initial="hidden"
           animate="visible"
-          className="bg-white shadow-sm rounded-xl p-6 border border-gray-100"
+          className="bg-white shadow-lg rounded-2xl p-6 border border-gray-100"
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div className="w-full md:w-96 relative">
@@ -817,16 +1110,26 @@ const InventoryDash = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by name or SKU..."
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
               />
             </div>
             <div className="flex space-x-4">
+            <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={downloadInventoryCSV}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-5 py-2.5 rounded-lg flex items-center space-x-2 shadow-lg transition-all duration-200"
+              >
+                <FiDownload className="w-5 h-5" />
+                <span>Export CSV</span>
+              </motion.button>
               <div className="relative">
+              
                 <FiFilter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none"
+                  className="pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none"
                   style={{ backgroundImage: "url(\"data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 0.75rem center", backgroundSize: "1rem" }}
                 >
                   {categories.map(category => (
@@ -842,7 +1145,7 @@ const InventoryDash = () => {
                   setCategoryFilter("All");
                   setSortConfig({ key: null, direction: null });
                 }}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center space-x-2 transition-colors"
+                className="px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 hover:bg-gray-100 flex items-center space-x-2 transition-colors"
               >
                 <FiRefreshCw size={16} />
                 <span>Reset</span>
@@ -858,7 +1161,7 @@ const InventoryDash = () => {
           variants={fadeIn}
           initial="hidden"
           animate="visible"
-          className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100"
+          className="bg-white shadow-lg rounded-2xl overflow-hidden border border-gray-100"
         >
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -960,7 +1263,7 @@ const InventoryDash = () => {
                               setStockUpdateItem(item);
                               setUpdateQuantity(0);
                             }}
-                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50 transition-colors"
+                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
                             title="Add Stock"
                           >
                             <FiPlusCircle size={18} />
@@ -970,21 +1273,21 @@ const InventoryDash = () => {
                               setStockUpdateItem({...item, type: 'remove'});
                               setUpdateQuantity(0);
                             }}
-                            className="text-orange-600 hover:text-orange-900 p-1 rounded hover:bg-orange-50 transition-colors"
+                            className="text-orange-600 hover:text-orange-900 p-1.5 rounded-lg hover:bg-orange-50 transition-colors"
                             title="Remove Stock"
                           >
                             <FiMinusCircle size={18} />
                           </button>
                           <button
                             onClick={() => setEditingItem(item)}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
+                            className="text-blue-600 hover:text-blue-900 p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
                             title="Edit Product"
                           >
                             <FiEdit size={18} />
                           </button>
                           <button
                             onClick={() => handleDeleteItem(item._id || item.id)}
-                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
+                            className="text-red-600 hover:text-red-900 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
                             title="Delete Product"
                           >
                             <FiTrash2 size={18} />
@@ -998,7 +1301,7 @@ const InventoryDash = () => {
                                   quantity: Math.max(item.threshold - item.stock, 10)
                                 });
                               }}
-                              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
+                              className="text-blue-600 hover:text-blue-900 p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
                               title="Request Restock"
                             >
                               <FiRefreshCw size={18} />
@@ -1007,7 +1310,7 @@ const InventoryDash = () => {
                           {item.stock < item.threshold && pendingOrderItems.includes(item._id || item.id) && (
                             <button
                               disabled
-                              className="text-gray-400 p-1 rounded"
+                              className="text-gray-400 p-1.5 rounded-lg"
                               title="Order Already Requested"
                             >
                               <FiCheckCircle size={18} />
@@ -1538,6 +1841,10 @@ const InventoryDash = () => {
           </motion.div>
         </div>
       )}
+
+      {/* Add the report generator modal */}
+      {showReportGenerator && renderReportGenerator()}
+
       <ToastContainer position="bottom-right" theme="colored" />
     </div>
   );
