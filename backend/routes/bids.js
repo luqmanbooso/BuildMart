@@ -4,7 +4,6 @@ const Job = require('../models/Job');
 
 const router = express.Router();
 
-// 1. Submit a new bid
 router.post('/submit', async (req, res) => {
   try {
     const { 
@@ -16,7 +15,6 @@ router.post('/submit', async (req, res) => {
       qualifications, 
       rating, 
       completedProjects,
-      // Add the new enhanced proposal data fields
       costBreakdown,
       timelineBreakdown,
       specialRequests
@@ -47,7 +45,6 @@ router.post('/submit', async (req, res) => {
       .sort({ price: 1 })
       .limit(1);
       
-    // If there's an existing bid, apply dynamic minimum decrement rule
     if (lowestBid) {
       let minDecrement;
       const currentMinPrice = lowestBid.price;
@@ -75,7 +72,6 @@ router.post('/submit', async (req, res) => {
       }
     }
 
-    // Add this after the minimum decrement check in POST route
     // Check if bid is below project minimum budget
     const job = await Job.findOne({ _id: projectId });
       
@@ -87,7 +83,7 @@ router.post('/submit', async (req, res) => {
       });
     }
 
-    // Check for duplicate price (still needed as a fallback)
+    // Check for duplicate price 
     const duplicatePriceBid = await Bid.findOne({
       projectId: projectId,
       price: price
@@ -110,7 +106,6 @@ router.post('/submit', async (req, res) => {
       qualifications,
       rating: rating || 0,
       completedProjects: completedProjects || 0,
-      // Add the optional enhanced proposal fields if they exist
       ...(costBreakdown && { costBreakdown }),
       ...(timelineBreakdown && { timelineBreakdown }),
       ...(specialRequests && { specialRequests })
@@ -129,7 +124,6 @@ router.post('/submit', async (req, res) => {
   }
 });
 
-// 2. Get all bids
 router.get('/', async (req, res) => {
   try {
     const bids = await Bid.find();
@@ -139,7 +133,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// 3. Get bids for a specific project
 router.get('/project/:projectId', async (req, res) => {
   try {
     const bids = await Bid.find({ projectId: req.params.projectId });
@@ -149,7 +142,6 @@ router.get('/project/:projectId', async (req, res) => {
   }
 });
 
-// 4. Accept or reject a bid
 router.put('/:bidId/status', async (req, res) => {
   try {
     const { status } = req.body;
@@ -177,7 +169,6 @@ router.put('/:bidId/status', async (req, res) => {
   }
 });
 
-// Update an existing bid with limits and price uniqueness check
 router.put('/update/:bidId', async (req, res) => {
   try {
     const { bidId } = req.params;
@@ -195,34 +186,28 @@ router.put('/update/:bidId', async (req, res) => {
       return res.status(403).json({ error: 'You can only update your own bids' });
     }
     
-    // Check if bid is still pending (can't update accepted/rejected bids)
     if (bid.status !== 'pending') {
       return res.status(400).json({ 
         error: 'This bid can no longer be updated as it has been ' + bid.status 
       });
     }
     
-    // Check if update limit reached (3 updates max)
     if (bid.updateCount >= 3) {
       return res.status(400).json({ 
         error: 'You have reached the maximum number of updates (3) for this bid' 
       });
     }
     
-    // NEW CODE: If new price provided, check against current lowest bid
     if (price && price !== bid.price) {
-      // Find the current lowest bid, excluding this one
       const lowestBid = await Bid.findOne({ 
         projectId: bid.projectId,
-        _id: { $ne: bidId } // Exclude the current bid
+        _id: { $ne: bidId } 
       }).sort({ price: 1 }).limit(1);
       
       if (lowestBid) {
-        // Apply the same dynamic decrement rules
         let minDecrement;
         const currentMinPrice = lowestBid.price;
         
-        // Determine minimum decrement based on price range
         if (currentMinPrice <= 15000) {
           minDecrement = 200;
         } else if (currentMinPrice <= 100000) {
@@ -233,7 +218,6 @@ router.put('/update/:bidId', async (req, res) => {
         
         const requiredPrice = currentMinPrice - minDecrement;
         
-        // Check if updated bid meets minimum decrement requirement
         if (price > requiredPrice) {
           return res.status(400).json({
             error: 'insufficient_decrement',
@@ -245,7 +229,6 @@ router.put('/update/:bidId', async (req, res) => {
         }
       }
       
-      // Add this check for minimum budget
       const job = await Job.findOne({ _id: bid.projectId });
       
       if (job && job.minBudget && price < job.minBudget) {
@@ -256,7 +239,6 @@ router.put('/update/:bidId', async (req, res) => {
         });
       }
       
-      // Check for duplicate price (skip if it's the same as before)
       const duplicatePriceBid = await Bid.findOne({
         projectId: bid.projectId,
         price: price,
@@ -267,7 +249,7 @@ router.put('/update/:bidId', async (req, res) => {
         return res.status(400).json({
           error: 'Duplicate price',
           message: 'Another bid with this exact price already exists. Please adjust your price slightly.',
-          suggestedPrice: price + 1 // Suggest a slightly different price
+          suggestedPrice: price + 1 
         });
       }
     }
@@ -325,7 +307,7 @@ router.get('/contractor/:contractorId', async (req, res) => {
   }
 });
 
-// Add a new endpoint to get the lowest bid
+// get the lowest bid
 router.get('/project/:projectId/lowest', async (req, res) => {
   try {
     const lowestBid = await Bid.findOne({ projectId: req.params.projectId })

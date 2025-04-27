@@ -137,7 +137,7 @@ function Admindashboard() {
         try {
           let messagesData = [];
           
-          // First try API endpoint
+          // API endpoint
           try {
             const response = await axios.get('http://localhost:5000/api/contact-messages');
             console.log("Successfully fetched contact messages from API");
@@ -187,7 +187,7 @@ function Admindashboard() {
     fetchMessages();
   }, [activeMenu]);
 
-  // Function to handle viewing message details
+  // Handle viewing message details
   const handleViewMessage = async (message) => {
     setSelectedMessage(message);
     
@@ -203,7 +203,6 @@ function Admindashboard() {
           localStorage.setItem('contactMessages', JSON.stringify(updatedMessages));
           console.log("Marked local message as read:", message._id);
         } else {
-          // This is an API message, update on server
           try {
             await axios.put(`http://localhost:5000/api/contact-messages/${message._id}/read`);
             console.log("Marked API message as read:", message._id);
@@ -240,13 +239,13 @@ function Admindashboard() {
   const handleDeleteMessage = async (messageId) => {
     try {
       if (messageId.startsWith('msg_')) {
-        // This is a local message, delete from localStorage
+
         const localMessages = JSON.parse(localStorage.getItem('contactMessages') || '[]');
         const updatedMessages = localMessages.filter(msg => msg._id !== messageId);
         localStorage.setItem('contactMessages', JSON.stringify(updatedMessages));
         console.log("Deleted local message");
       } else {
-        // This is an API message, delete from server
+
         await axios.delete(`http://localhost:5000/api/contact-messages/${messageId}`);
         console.log("Deleted API message");
       }
@@ -292,7 +291,6 @@ function Admindashboard() {
         localStorage.setItem('contactMessages', JSON.stringify(updatedMessages));
         console.log(`Toggled read status for local message ${messageId} to ${!currentStatus}`);
       } else {
-        // This is an API message, update on server
         try {
           if (currentStatus) {
             await axios.put(`http://localhost:5000/api/contact-messages/${messageId}/unread`);
@@ -561,7 +559,7 @@ function Admindashboard() {
     navigate('/login');
   };
 
-  // Add this function to render content based on active menu
+  // function to render content based on active menu
   const renderContent = () => {
     switch (activeMenu) {
       case 'Dashboard':
