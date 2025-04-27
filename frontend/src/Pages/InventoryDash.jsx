@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from "framer-motion";
 import { 
   FiPlusCircle, 
@@ -58,6 +59,7 @@ const getImageUrl = (imagePath) => {
 };
 
 const InventoryDash = () => {
+  const navigate = useNavigate();
   const [inventory, setInventory] = useState([]);
   const [filteredInventory, setFilteredInventory] = useState([]);  // Start with empty array
   const [searchTerm, setSearchTerm] = useState("");
@@ -571,6 +573,21 @@ const InventoryDash = () => {
     visible: { opacity: 1, transition: { duration: 0.4 } }
   };
 
+  // Add token validation effect
+  useEffect(() => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  // Add logout handler function
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    navigate('/login');
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Modern Dashboard Header */}
@@ -596,19 +613,7 @@ const InventoryDash = () => {
                 <span>Export CSV</span>
               </motion.button>
               
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('user');
-                  window.location.href = '/login';
-                }}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md flex items-center space-x-2 text-sm transition-colors"
-              >
-                <FiLogOut size={16} />
-                <span>Logout</span>
-              </motion.button>
+              
               
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -618,6 +623,15 @@ const InventoryDash = () => {
               >
                 <FiPlusCircle />
                 <span>Add Item</span>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleLogout}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md flex items-center space-x-2 text-sm transition-colors"
+              >
+                <FiLogOut size={16} />
+                <span>Logout</span>
               </motion.button>
             </div>
           </div>
@@ -1203,7 +1217,7 @@ const InventoryDash = () => {
                       className="flex justify-center items-center h-28 w-full border-2 border-gray-300 border-dashed rounded-lg hover:border-indigo-400 transition-colors"
                     >
                       <div className="text-center">
-                        <FiUpload className="mx-auto h-8 w-8 text-gray-400" />
+                        <FiImage className="mx-auto h-8 w-8 text-gray-400" />
                         <span className="mt-1 text-sm text-gray-500">Upload image</span>
                       </div>
                     </button>

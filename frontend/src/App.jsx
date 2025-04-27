@@ -32,9 +32,9 @@ import AcceptedAgreementView from './components/AcceptedAgreementView';
 import { SupplierPaymentProvider } from './context/SupplierPaymentContext';
 import EnhancedPaymentGateway from './components/Payment';
 import InitialPayment from './components/InitialPayment'
-import MyEarningsPage from './pages/MyEarningsPage'
 import MyOrders from './Pages/MyOrders'
 import ContractorsPage from './Pages/ContractorsPage'
+import MyEarningsPage from './Pages/MyEarningsPage'
 
 function App() {
   const location = useLocation();
