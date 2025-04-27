@@ -13,6 +13,7 @@ import { useSupplierPayments } from '../context/SupplierPaymentContext';
 import { supplierPaymentService } from '../services/supplierPaymentService'; // Add this import
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { useNavigate } from 'react-router-dom';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
@@ -30,7 +31,7 @@ function PaymentDashboard() {
   const [agreementFeePayments, setAgreementFeePayments] = useState([]); // Add this line
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+  const navigate = useNavigate();
   // Add new state variables for filtering and advanced features
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -220,6 +221,20 @@ function PaymentDashboard() {
     setSearchResults(results);
     setIsSearching(false);
   };
+
+    useEffect(() => {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+      }
+    }, [navigate]);
+
+
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
+      navigate('/login');
+    };
 
   // Handle search query change
   const handleSearchQueryChange = (e) => {
@@ -3278,9 +3293,7 @@ function PaymentDashboard() {
           <div className="px-6 py-4">
             <button className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
             onClick={() => {
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              window.location.href = '/login';
+              handleLogout();
             }}
           >
               <LogOut size={18} className="mr-2 text-gray-500" />
