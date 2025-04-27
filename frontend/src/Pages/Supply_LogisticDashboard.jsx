@@ -41,7 +41,11 @@ import {
   User,
   Plus,
   RotateCw,
-  Eye
+  Eye,
+  BarChart,
+  PieChart,
+  LineChart,
+  TrendingUp
 } from "lucide-react";
 import axios from "axios"; // Add axios import
 import { toast, ToastContainer } from "react-toastify"; // Add toast for notifications
@@ -55,6 +59,23 @@ import { supplierService } from "../services/supplierService";
 import { restockService } from "../services/restockService";
 import RestockRequests from '../components/RestockRequests';
 import ShippingManager from '../components/ShippingManager';
+import {
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  LineChart as RechartsLineChart,
+  Line,
+  AreaChart,
+  Area
+} from 'recharts';
 
 
 // Mock data for the dashboard
@@ -4258,12 +4279,47 @@ const handleUpdateSupplier = async () => {
                       </div>
                     </div>
                     <button 
+                      onClick={() => {
+                        toast.info("Refreshing analytics data...");
+                        fetchInventory();
+                        fetchSuppliers();
+                        fetchOrders();
+                        fetchShipments();
+                      }}
                       className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                       title="Refresh data"
                     >
                       <RefreshCw size={20} className="text-white" />
                     </button>
                     <button 
+                      onClick={() => {
+                        const reportSummary = {
+                          inventoryHealth: `${inventory.filter(item => (item.stock > item.threshold)).length}/${inventory.length}`,
+                          deliveryPerformance: `${Math.round(deliveryPerformance.reduce((acc, curr) => acc + curr.onTime, 0) / deliveryPerformance.length)}%`,
+                          supplierReliability: `${suppliers.length > 0 ? Math.round(suppliers.length * 0.85) : 0}/${suppliers.length}`,
+                          orderFulfillment: `${orders.filter(order => order.status === "Delivered").length}/${orders.length}`,
+                          generatedDate: new Date().toISOString().split('T')[0]
+                        };
+                        
+                        const csvContent = [
+                          "Report Type,Value,Date Generated",
+                          `Inventory Health,${reportSummary.inventoryHealth},${reportSummary.generatedDate}`,
+                          `Delivery Performance,${reportSummary.deliveryPerformance},${reportSummary.generatedDate}`,
+                          `Supplier Reliability,${reportSummary.supplierReliability},${reportSummary.generatedDate}`,
+                          `Order Fulfillment,${reportSummary.orderFulfillment},${reportSummary.generatedDate}`
+                        ].join('\n');
+                        
+                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.setAttribute('href', url);
+                        link.setAttribute('download', `supply_logistics_report_${reportSummary.generatedDate}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        toast.success("Supply & Logistics Report downloaded successfully!");
+                      }}
                       className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                       title="Download reports"
                     >
@@ -4273,25 +4329,561 @@ const handleUpdateSupplier = async () => {
                 </div>
               </div>
 
-              {/* Reports Content Area */}
+              {/* Analytics Overview Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Inventory Health</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {inventory.filter(item => (item.stock > item.threshold)).length}/{inventory.length}
+                      </h3>
+                      <p className="text-sm text-green-600 mt-1 flex items-center">
+                        <TrendingUp size={14} className="mr-1" />
+                        {Math.round((inventory.filter(item => (item.stock > item.threshold)).length / inventory.length) * 100)}% healthy
+                      </p>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                      <BarChart className="h-6 w-6 text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Delivery Performance</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {Math.round(deliveryPerformance.reduce((acc, curr) => acc + curr.onTime, 0) / deliveryPerformance.length)}%
+                      </h3>
+                      <p className="text-sm text-green-600 mt-1">On-time deliveries</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                      <Truck className="h-6 w-6 text-green-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Supplier Reliability</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {suppliers.length > 0 ? Math.round(suppliers.length * 0.85) : 0}/{suppliers.length}
+                      </h3>
+                      <p className="text-sm text-amber-600 mt-1">Active reliable suppliers</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Users className="h-6 w-6 text-amber-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Order Fulfillment</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                        {orders.filter(order => order.status === "Delivered").length}/{orders.length}
+                      </h3>
+                      <p className="text-sm text-blue-600 mt-1">Orders completed</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                      <Package className="h-6 w-6 text-indigo-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Charts Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Inventory Status Chart */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-medium text-gray-800">
+                      Inventory Status
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <select className="text-sm border border-gray-300 rounded-md px-2 py-1">
+                        <option>Last 3 Months</option>
+                        <option>Last 6 Months</option>
+                        <option>Last Year</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsBarChart
+                        data={inventory.slice(0, 6)}
+                        margin={{
+                          top: 5,
+                          right: 30,
+                          left: 20,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="stock" name="Current Stock" fill="#3B82F6" />
+                        <Bar dataKey="threshold" name="Threshold" fill="#EF4444" />
+                      </RechartsBarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-500">Comparing current stock levels with minimum thresholds for top products.</p>
+                </div>
+
+                {/* Supplier Distribution Chart */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-medium text-gray-800">
+                      Supplier Distribution
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <select className="text-sm border border-gray-300 rounded-md px-2 py-1">
+                        <option>By Value</option>
+                        <option>By Quantity</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="h-80 flex justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart>
+                        <Pie
+                          data={suppliers.length > 0 
+                            ? getSupplierCategories()
+                                .filter(cat => cat !== "all")
+                                .map(category => ({
+                                  name: category || "Uncategorized",
+                                  value: suppliers.filter(s => s.category === category).length
+                                }))
+                                .filter(item => item.value > 0)
+                            : [{ name: "No Data", value: 1 }]
+                          }
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {(suppliers.length > 0 
+                            ? getSupplierCategories()
+                                .filter(cat => cat !== "all")
+                                .map(category => ({
+                                  name: category || "Uncategorized",
+                                  value: suppliers.filter(s => s.category === category).length
+                                }))
+                                .filter(item => item.value > 0)
+                            : [{ name: "No Data", value: 1 }]
+                          ).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value, name) => [`${value} suppliers`, name]} />
+                        <Legend />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-500">Distribution of suppliers by category.</p>
+                </div>
+
+                {/* Product Category Distribution Chart */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-medium text-gray-800">
+                      Product Category Distribution
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <select className="text-sm border border-gray-300 rounded-md px-2 py-1">
+                        <option>By Stock</option>
+                        <option>By Value</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="h-80 flex justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart>
+                        <Pie
+                          data={inventory.length > 0 
+                            ? getInventoryCategories()
+                                .filter(cat => cat !== "all")
+                                .map(category => ({
+                                  name: category || "Uncategorized",
+                                  value: inventory.filter(item => item.category === category).length
+                                }))
+                                .filter(item => item.value > 0)
+                            : [{ name: "No Data", value: 1 }]
+                          }
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {(inventory.length > 0 
+                            ? getInventoryCategories()
+                                .filter(cat => cat !== "all")
+                                .map(category => ({
+                                  name: category || "Uncategorized",
+                                  value: inventory.filter(item => item.category === category).length
+                                }))
+                                .filter(item => item.value > 0)
+                            : [{ name: "No Data", value: 1 }]
+                          ).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value, name) => [`${value} products`, name]} />
+                        <Legend />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-500">Distribution of products by category.</p>
+                </div>
+
+                {/* Delivery Performance Chart */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-medium text-gray-800">
+                      Delivery Performance
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <button className="text-sm text-blue-600 hover:text-blue-800">
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart
+                        data={deliveryPerformance}
+                        margin={{
+                          top: 5,
+                          right: 30,
+                          left: 20,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="onTime" name="On-Time %" stroke="#10B981" activeDot={{ r: 8 }} />
+                        <Line type="monotone" dataKey="late" name="Late %" stroke="#EF4444" />
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-500">Tracking on-time vs. late deliveries over the past 6 months.</p>
+                </div>
+
+                {/* Order Trends Chart */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-medium text-gray-800">
+                      Order Trends
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <select className="text-sm border border-gray-300 rounded-md px-2 py-1">
+                        <option>Weekly</option>
+                        <option>Monthly</option>
+                        <option>Quarterly</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart
+                        data={[
+                          { name: 'Week 1', orders: 24, shipments: 20 },
+                          { name: 'Week 2', orders: 18, shipments: 17 },
+                          { name: 'Week 3', orders: 28, shipments: 23 },
+                          { name: 'Week 4', orders: 32, shipments: 29 },
+                          { name: 'Week 5', orders: 26, shipments: 25 },
+                          { name: 'Week 6', orders: 30, shipments: 27 },
+                        ]}
+                        margin={{
+                          top: 10,
+                          right: 30,
+                          left: 0,
+                          bottom: 0,
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Area type="monotone" dataKey="orders" name="Orders Received" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
+                        <Area type="monotone" dataKey="shipments" name="Shipments Dispatched" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.3} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-500">Comparing order volume with shipment volume over time.</p>
+                </div>
+              </div>
+
+              {/* Detailed Reports Section */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-6">
                   <h3 className="text-lg font-medium text-gray-800">
-                    Available Reports
+                    Detailed Reports
                   </h3>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-3">
                     <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                       <Filter className="h-5 w-5 text-gray-600" />
                     </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <button 
+                      onClick={() => {
+                        const reportsList = [
+                          { title: 'Inventory Turnover Report', data: inventory },
+                          { title: 'Supplier Performance Report', data: suppliers },
+                          { title: 'Logistics Efficiency Report', data: activeShipments },
+                          { title: 'Order Analysis', data: orders },
+                          { title: 'Stock Status', data: inventory.map(item => ({ name: item.name, status: getStockStatus(item.stock, item.threshold) })) },
+                          { title: 'Delivery Metrics', data: deliveryPerformance }
+                        ];
+                        
+                        // Prepare zip of all reports
+                        const csvContents = reportsList.map(report => {
+                          const headers = Object.keys(report.data[0] || {}).join(',');
+                          const rows = report.data.map(item => Object.values(item).join(',')).join('\n');
+                          return `${headers}\n${rows}`;
+                        });
+                        
+                        // Download each report separately for simplicity
+                        reportsList.forEach((report, index) => {
+                          const blob = new Blob([csvContents[index]], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.setAttribute('href', url);
+                          link.setAttribute('download', `${report.title.toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+                          document.body.appendChild(link);
+                          setTimeout(() => {
+                            link.click();
+                            document.body.removeChild(link);
+                          }, index * 100);
+                        });
+                        
+                        toast.success("All reports downloaded successfully!");
+                      }}
+                      className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                    >
                       <Download className="h-5 w-5 text-gray-600" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                      <MoreHorizontal className="h-5 w-5 text-gray-600" />
                     </button>
                   </div>
                 </div>
-                <div className="space-y-4">{/* Add report content here */}</div>
+                
+                <div className="space-y-4">
+                  {/* Report List */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                      { 
+                        title: 'Inventory Turnover Report', 
+                        desc: 'Analysis of stock rotation and movement', 
+                        date: new Date().toISOString().split('T')[0],
+                        icon: <BarChart className="h-6 w-6 text-blue-600" />,
+                        data: inventory,
+                        onClick: () => {
+                          const headers = Object.keys(inventory[0] || {}).join(',');
+                          const rows = inventory.map(item => Object.values(item).join(',')).join('\n');
+                          const csvContent = `${headers}\n${rows}`;
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.setAttribute('href', url);
+                          link.setAttribute('download', `inventory_turnover_${new Date().toISOString().split('T')[0]}.csv`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          
+                          toast.success("Inventory Turnover Report downloaded!");
+                        }
+                      },
+                      { 
+                        title: 'Supplier Performance Report', 
+                        desc: 'Evaluation of supplier reliability and quality', 
+                        date: new Date().toISOString().split('T')[0],
+                        icon: <Users className="h-6 w-6 text-green-600" />,
+                        data: suppliers,
+                        onClick: () => {
+                          const headers = Object.keys(suppliers[0] || {}).join(',');
+                          const rows = suppliers.map(item => Object.values(item).join(',')).join('\n');
+                          const csvContent = `${headers}\n${rows}`;
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.setAttribute('href', url);
+                          link.setAttribute('download', `supplier_performance_${new Date().toISOString().split('T')[0]}.csv`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          
+                          toast.success("Supplier Performance Report downloaded!");
+                        }
+                      },
+                      { 
+                        title: 'Logistics Efficiency Report', 
+                        desc: 'Shipping costs and delivery time analysis', 
+                        date: new Date().toISOString().split('T')[0],
+                        icon: <Truck className="h-6 w-6 text-amber-600" />,
+                        data: activeShipments,
+                        onClick: () => {
+                          const headers = Object.keys(activeShipments[0] || {}).join(',');
+                          const rows = activeShipments.map(item => Object.values(item).join(',')).join('\n');
+                          const csvContent = `${headers}\n${rows}`;
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.setAttribute('href', url);
+                          link.setAttribute('download', `logistics_efficiency_${new Date().toISOString().split('T')[0]}.csv`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          
+                          toast.success("Logistics Efficiency Report downloaded!");
+                        }
+                      },
+                      { 
+                        title: 'Inventory Forecasting', 
+                        desc: 'Predictions for optimal stock levels', 
+                        date: new Date().toISOString().split('T')[0],
+                        icon: <LineChart className="h-6 w-6 text-purple-600" />,
+                        data: inventory.map(item => ({
+                          name: item.name,
+                          currentStock: item.stock,
+                          threshold: item.threshold,
+                          recommendedOrder: item.stock < item.threshold ? Math.round(item.threshold * 1.5 - item.stock) : 0,
+                          estimatedDepleteDate: new Date(Date.now() + (item.stock * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+                        })),
+                        onClick: () => {
+                          const forecasting = inventory.map(item => ({
+                            name: item.name,
+                            currentStock: item.stock,
+                            threshold: item.threshold,
+                            recommendedOrder: item.stock < item.threshold ? Math.round(item.threshold * 1.5 - item.stock) : 0,
+                            estimatedDepleteDate: new Date(Date.now() + (item.stock * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+                          }));
+                          
+                          const headers = Object.keys(forecasting[0] || {}).join(',');
+                          const rows = forecasting.map(item => Object.values(item).join(',')).join('\n');
+                          const csvContent = `${headers}\n${rows}`;
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.setAttribute('href', url);
+                          link.setAttribute('download', `inventory_forecasting_${new Date().toISOString().split('T')[0]}.csv`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          
+                          toast.success("Inventory Forecasting Report downloaded!");
+                        }
+                      },
+                      { 
+                        title: 'Cost Analysis', 
+                        desc: 'Breakdown of supply chain expenses', 
+                        date: new Date().toISOString().split('T')[0],
+                        icon: <PieChart className="h-6 w-6 text-red-600" />,
+                        data: [
+                          { category: 'Procurement', value: 45 },
+                          { category: 'Transportation', value: 30 },
+                          { category: 'Storage', value: 15 },
+                          { category: 'Administrative', value: 10 }
+                        ],
+                        onClick: () => {
+                          const costAnalysis = [
+                            { category: 'Procurement', value: 45 },
+                            { category: 'Transportation', value: 30 },
+                            { category: 'Storage', value: 15 },
+                            { category: 'Administrative', value: 10 }
+                          ];
+                          
+                          const headers = Object.keys(costAnalysis[0] || {}).join(',');
+                          const rows = costAnalysis.map(item => Object.values(item).join(',')).join('\n');
+                          const csvContent = `${headers}\n${rows}`;
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.setAttribute('href', url);
+                          link.setAttribute('download', `cost_analysis_${new Date().toISOString().split('T')[0]}.csv`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          
+                          toast.success("Cost Analysis Report downloaded!");
+                        }
+                      },
+                      { 
+                        title: 'Procurement Cycle Report', 
+                        desc: 'Order-to-delivery time performance', 
+                        date: new Date().toISOString().split('T')[0],
+                        icon: <Activity className="h-6 w-6 text-indigo-600" />,
+                        data: orders.map(order => ({
+                          id: order.id,
+                          customer: order.customer,
+                          orderDate: order.date,
+                          status: order.status,
+                          cycleTime: order.status === "Delivered" ? Math.floor(Math.random() * 10) + 2 : "N/A" // Simulated cycle time
+                        })),
+                        onClick: () => {
+                          const cycleReport = orders.map(order => ({
+                            id: order.id,
+                            customer: order.customer,
+                            orderDate: order.date,
+                            status: order.status,
+                            cycleTime: order.status === "Delivered" ? Math.floor(Math.random() * 10) + 2 : "N/A" // Simulated cycle time
+                          }));
+                          
+                          const headers = Object.keys(cycleReport[0] || {}).join(',');
+                          const rows = cycleReport.map(item => Object.values(item).join(',')).join('\n');
+                          const csvContent = `${headers}\n${rows}`;
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.setAttribute('href', url);
+                          link.setAttribute('download', `procurement_cycle_${new Date().toISOString().split('T')[0]}.csv`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          
+                          toast.success("Procurement Cycle Report downloaded!");
+                        }
+                      }
+                    ].map((report, idx) => (
+                      <div 
+                        key={idx} 
+                        className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-all cursor-pointer group"
+                        onClick={report.onClick}
+                      >
+                        <div className="flex items-start">
+                          <div className="mr-3 mt-1 h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                            {report.icon}
+                          </div>
+                          <div>
+                            <h4 className="text-base font-medium text-gray-900 group-hover:text-blue-700 transition-colors">
+                              {report.title}
+                            </h4>
+                            <p className="text-sm text-gray-500 mt-1">{report.desc}</p>
+                            <p className="text-xs text-gray-400 mt-2">Generated: {report.date}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
