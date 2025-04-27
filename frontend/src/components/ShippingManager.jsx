@@ -1084,7 +1084,7 @@ const handleDelete = async (id) => {
               >
                 <option value="all">All Statuses</option>
                 <option value="Pending">Pending</option>
-                <option value="Loading">Loading</option>
+                <option value="Loading">Processing</option>
                 <option value="In Transit">In Transit</option>
                 <option value="Out for Delivery">Out for Delivery</option>
               </select>
