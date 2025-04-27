@@ -2425,13 +2425,6 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Service Provider Payments</h2>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => exportServiceProviderData()}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                  >
-                    <FileText size={16} className="mr-2" />
-                    Export Records
-                  </button>
                 </div>
               </div>
               
@@ -2518,13 +2511,6 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Inventory Sales Records</h2>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => exportInventoryData()}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                  >
-                    <FileText size={16} className="mr-2" />
-                    Export Records
-                  </button>
                 </div>
               </div>
               
@@ -2970,8 +2956,8 @@ function PaymentDashboard() {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee Name</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -3038,13 +3024,6 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Commission Income</h2>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => exportCommissionData()}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                  >
-                    <FileText size={16} className="mr-2" />
-                    Export Records
-                  </button>
                 </div>
               </div>
               
@@ -3148,13 +3127,6 @@ function PaymentDashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold">Agreement Fee Income</h2>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => exportAgreementFeeData()}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                  >
-                    <FileText size={16} className="mr-2" />
-                    Export Records
-                  </button>
                 </div>
               </div>
               
@@ -3293,6 +3265,56 @@ function PaymentDashboard() {
             ...agreementFeePayments.filter(p => isDateInRange(p.date) && isStatusMatch(p.status))
           ];
           break;
+        case 'wages':
+          // Filter admin salaries based on date range and status
+          filteredData = adminSalaries
+            .filter(admin => {
+              // Filter by status
+              if (reportStatus !== 'all' && admin.status !== reportStatus) {
+                return false;
+              }
+
+              // Filter by date range
+              if (reportDateRange === 'custom' && reportStartDate && reportEndDate) {
+                const lastPaidDate = admin.lastPaid ? new Date(admin.lastPaid) : null;
+                const startDate = new Date(reportStartDate);
+                const endDate = new Date(reportEndDate);
+                
+                // If there's no last paid date and we're filtering by date range, exclude it
+                if (!lastPaidDate) {
+                  return false;
+                }
+                
+                // Check if the last paid date falls within the selected range
+                return lastPaidDate >= startDate && lastPaidDate <= endDate;
+              }
+              
+              return true;
+            })
+            .map(admin => {
+              const basicSalary = admin.salary || 30000;
+              const epfEmployee = basicSalary * 0.08;
+              const epfEmployer = basicSalary * 0.12;
+              const etf = basicSalary * 0.03;
+              const netSalary = basicSalary - epfEmployee;
+              
+              return {
+                type: 'Salary Payment',
+                id: admin.id,
+                name: admin.name,
+                email: admin.email,
+                basicSalary,
+                epfEmployee,
+                epfEmployer,
+                etf,
+                netSalary,
+                status: admin.status,
+                lastPaid: admin.lastPaid,
+                currentMonth: admin.currentMonth,
+                isCurrentMonthPaid: admin.isCurrentMonthPaid
+              };
+            });
+          break;
         case 'payments':
           filteredData = payments.filter(p => isDateInRange(p.createdAt) && isStatusMatch(p.status) && isPaymentMethodMatch(p.cardType));
           break;
@@ -3313,7 +3335,21 @@ function PaymentDashboard() {
       }
       
       // Generate CSV content
-      const headers = [
+      const headers = reportType === 'wages' ? [
+        'Type',
+        'Employee ID',
+        'Employee Name',
+        'Email',
+        'Basic Salary',
+        'EPF (Employee)',
+        'EPF (Employer)',
+        'ETF',
+        'Net Salary',
+        'Status',
+        'Last Paid Date',
+        'Current Month',
+        'Payment Status'
+      ] : [
         'Type',
         'ID',
         'Name/Description',
@@ -3325,34 +3361,51 @@ function PaymentDashboard() {
       ];
       
       const csvData = filteredData.map(record => {
-        const baseRecord = {
-          type: record.paymentType || 'Payment',
-          id: record._id || record.id,
-          name: record.cardholderName || record.providerName || record.itemName || record.clientName || 'N/A',
-          amount: record.amount || record.commissionAmount || 0,
-          status: record.status || 'N/A',
-          paymentMethod: record.cardType || 'N/A',
-          date: new Date(record.createdAt || record.date).toLocaleString(),
-          additionalInfo: ''
-        };
-        
-        // Add type-specific information
-        if (record.commissionRate) {
-          baseRecord.additionalInfo = `Commission Rate: ${(record.commissionRate * 100).toFixed(1)}%`;
-        } else if (record.quantity) {
-          baseRecord.additionalInfo = `Quantity: ${record.quantity}`;
+        if (reportType === 'wages') {
+          return [
+            record.type,
+            record.id,
+            record.name,
+            record.email,
+            record.basicSalary,
+            record.epfEmployee,
+            record.epfEmployer,
+            record.etf,
+            record.netSalary,
+            record.status,
+            record.lastPaid,
+            record.currentMonth,
+            record.isCurrentMonthPaid ? 'Paid' : 'Pending'
+          ];
+        } else {
+          const baseRecord = {
+            type: record.paymentType || 'Payment',
+            id: record._id || record.id,
+            name: record.cardholderName || record.providerName || record.itemName || record.clientName || 'N/A',
+            amount: record.amount || record.commissionAmount || 0,
+            status: record.status || 'N/A',
+            paymentMethod: record.cardType || 'N/A',
+            date: new Date(record.createdAt || record.date).toLocaleString(),
+            additionalInfo: ''
+          };
+          
+          if (record.commissionRate) {
+            baseRecord.additionalInfo = `Commission Rate: ${(record.commissionRate * 100).toFixed(1)}%`;
+          } else if (record.quantity) {
+            baseRecord.additionalInfo = `Quantity: ${record.quantity}`;
+          }
+          
+          return [
+            baseRecord.type,
+            baseRecord.id,
+            baseRecord.name,
+            baseRecord.amount,
+            baseRecord.status,
+            baseRecord.paymentMethod,
+            baseRecord.date,
+            baseRecord.additionalInfo
+          ];
         }
-        
-        return [
-          baseRecord.type,
-          baseRecord.id,
-          baseRecord.name,
-          baseRecord.amount,
-          baseRecord.status,
-          baseRecord.paymentMethod,
-          baseRecord.date,
-          baseRecord.additionalInfo
-        ];
       });
       
       // Create and trigger download
@@ -3361,7 +3414,7 @@ function PaymentDashboard() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `payment_report_${new Date().toISOString()}.csv`);
+      link.setAttribute('download', `${reportType}_report_${new Date().toISOString()}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -3402,6 +3455,7 @@ function PaymentDashboard() {
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
               >
                 <option value="all">All Payments</option>
+                <option value="wages">Wages & Salaries</option>
                 <option value="payments">Customer Payments</option>
                 <option value="service-providers">Service Provider Payments</option>
                 <option value="inventory">Inventory Sales</option>
@@ -3431,7 +3485,7 @@ function PaymentDashboard() {
                   type="date"
                   value={reportStartDate}
                   onChange={(e) => setReportStartDate(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
               </div>
               <div className="space-y-2">
@@ -3440,7 +3494,7 @@ function PaymentDashboard() {
                   type="date"
                   value={reportEndDate}
                   onChange={(e) => setReportEndDate(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
@@ -3455,25 +3509,26 @@ function PaymentDashboard() {
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
               >
                 <option value="all">All Statuses</option>
-                <option value="completed">Completed</option>
-                <option value="pending">Pending</option>
-                <option value="failed">Failed</option>
+                <option value="Paid">Paid</option>
+                <option value="Pending">Pending</option>
               </select>
             </div>
             
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700">Payment Method</label>
-              <select
-                value={reportPaymentMethod}
-                onChange={(e) => setReportPaymentMethod(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
-              >
-                <option value="all">All Methods</option>
-                <option value="visa">Visa</option>
-                <option value="mastercard">Mastercard</option>
-                <option value="amex">American Express</option>
-              </select>
-            </div>
+            {reportType !== 'wages' && (
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">Payment Method</label>
+                <select
+                  value={reportPaymentMethod}
+                  onChange={(e) => setReportPaymentMethod(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+                >
+                  <option value="all">All Methods</option>
+                  <option value="visa">Visa</option>
+                  <option value="mastercard">Mastercard</option>
+                  <option value="amex">American Express</option>
+                </select>
+              </div>
+            )}
           </div>
         </div>
         
