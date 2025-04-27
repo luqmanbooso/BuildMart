@@ -140,7 +140,7 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
 
   const sanitizeBio = (bio) => {
     if (!bio) return '';
-    let sanitized = bio.replace(/[^a-zA-Z0-9\s.,!?&'-()\n]/g, '');
+    let sanitized = bio.replace(/[^a-zA-Z0-9\s.,!,+,@,?&'-()\n]/g, '');
     sanitized = sanitized.replace(/\s+/g, ' ');
     sanitized = sanitized.replace(/\n+/g, '\n');
     return sanitized;
