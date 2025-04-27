@@ -7,23 +7,21 @@ import ClientNavBar from '../components/ClientNavBar';
 import AddJobForm from '../components/AddJobForm';
 import EditUserDetails from '../components/EditUserDetails'; // Add this import
 
-// Enhanced ProfileImage component with larger size options
 
 function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
-  // Check if the path is a full URL or just a relative path
   const imgSrc = profilePicPath
     ? profilePicPath.startsWith('http') 
       ? profilePicPath 
       : `http://localhost:5000${profilePicPath}`
-    : '/default-profile.png'; // Fallback image
+    : '/default-profile.png';
 
   // Size map with expanded options
   const sizeMap = {
     small: "h-10 w-10",
     medium: "h-16 w-16", 
     large: "h-20 w-20",
-    xlarge: "h-24 w-24",  // New larger size (96px)
-    xxlarge: "h-32 w-32"  // New extra large size (128px)
+    xlarge: "h-24 w-24", 
+    xxlarge: "h-32 w-32" 
   };
   
   // Get size class or default to passed dimensions
@@ -159,7 +157,7 @@ const UserProfilePage = () => {
     }
   }, []);
 
-  //new function to fetch complete user profile
+  //fetch complete user profile
   const fetchUserProfile = async (userId, token) => {
     try {
       const response = await axios.get(`http://localhost:5000/auth/user/${userId}`, {
@@ -181,16 +179,14 @@ const UserProfilePage = () => {
     }
   };
 
-  // Function to fetch jobs
+  //fetch jobs
   const fetchJobs = async () => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      // Decode token to get userId
       const decoded = jwtDecode(token);
       const userId = decoded.userId;
       
-      // Include userId as query parameter
       const response = await axios.get(`http://localhost:5000/api/jobs?userid=${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}` 
@@ -203,7 +199,6 @@ const UserProfilePage = () => {
       
       const jobs = response.data;
       
-      // Format jobs for display
       const formattedJobs = jobs.map(job => ({
         id: job._id,
         title: job.title,
@@ -217,7 +212,6 @@ const UserProfilePage = () => {
         bids: job.bids
       }));
       
-      // Update user state with fetched jobs
       setUser(prevUser => ({
         ...prevUser,
         requests: formattedJobs
@@ -262,10 +256,8 @@ const UserProfilePage = () => {
     e.preventDefault();
     
     try {
-      // Get the token from storage
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      // Decode token to get userId
       const decoded = jwtDecode(token);
       const userId = decoded.userId;
       
@@ -297,7 +289,6 @@ const UserProfilePage = () => {
         milestones: newJob.milestones 
       };
       
-      // Make the API request using axios
       const response = await axios.post('http://localhost:5000/api/jobs', jobData, {
         headers: {
           'Content-Type': 'application/json',
@@ -308,7 +299,6 @@ const UserProfilePage = () => {
       // Extract data from axios response
       const data = response.data;
       
-      // Update UI with the new job from API response
       const newJobRequest = {
         id: data.job._id || (user.requests.length + 1).toString().padStart(2, '0'),
         title: data.job.title,
@@ -322,13 +312,11 @@ const UserProfilePage = () => {
         bids: data.job.bids || 0
       };
       
-      // Update local state with the new job
       setUser({
         ...user,
         requests: [...user.requests, newJobRequest]
       });
       
-      // Reset form and close modal
       setShowAddJobForm(false);
       setNewJob({
         title: '',
@@ -339,10 +327,9 @@ const UserProfilePage = () => {
         description: '',
         biddingStartTime: new Date().toISOString().substr(0, 16),
         biddingEndTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substr(0, 16),
-        milestones: [] // empty array for milestones
+        milestones: [] 
       });
       
-      // Show success message
       alert('Job created successfully! You can set up milestones after accepting a bid.');
       
     } catch (error) {
@@ -351,13 +338,11 @@ const UserProfilePage = () => {
     }
   };
 
-  //functions to handle user actions
+  // handle user actions
   const handleLogout = () => {
-    // Clear tokens from storage
     localStorage.removeItem('token');
     sessionStorage.removeItem('token');
     
-    // Redirect to login page
     navigate('/login');
   };
 
@@ -369,18 +354,15 @@ const UserProfilePage = () => {
     try {
       setIsLoading(true);
       
-      // Get the authentication token
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) {
         setError("You must be logged in to delete your account");
         return;
       }
       
-      // Get user ID from token
       const decoded = jwtDecode(token);
       const userId = decoded.userId;
       
-      // Make the API call to delete the account
       const response = await axios.delete(
         `http://localhost:5000/auth/users/${userId}`,
         {
@@ -390,27 +372,21 @@ const UserProfilePage = () => {
         }
       );
       
-      // Handle successful deletion
       if (response.status === 200) {
-        // Clear tokens from storage
         localStorage.removeItem('token');
         sessionStorage.removeItem('token');
         
-        // Show success message (could use a more subtle approach like toast)
         alert('Your account has been deleted successfully.');
         
-        // Redirect to login page
         navigate('/login');
       }
     } catch (error) {
       console.error('Error deleting account:', error);
       
-      // Show a meaningful error message
       const errorMessage = error.response?.data?.error || 
                           'Failed to delete account. Please try again.';
       setError(errorMessage);
       
-      // Hide the error message after a few seconds
       setTimeout(() => setError(""), 5000);
     } finally {
       setIsLoading(false);
@@ -419,24 +395,20 @@ const UserProfilePage = () => {
   };
 
   const handleJobClick = (jobId) => {
-    navigate(`/job/${jobId}`); // Navigate to the ActiveJob page with the job ID
+    navigate(`/job/${jobId}`); 
   };
 
   const handleTabClick = (tab) => {
     if (tab === 'ongoing') {
-      // Navigate to the ongoing works page
       navigate('/ongoing-works');
     } else {
-      // For other tabs, just update the active tab state
       setActiveTab(tab);
     }
   };
 
   const validateBudgetInput = (value) => {
-    // Remove any non-digit characters except decimal point
     const sanitized = value.replace(/[^\d.]/g, '');
     
-    // Ensure only one decimal point
     const parts = sanitized.split('.');
     if (parts.length > 2) {
       return parts[0] + '.' + parts.slice(1).join('');
@@ -450,7 +422,6 @@ const UserProfilePage = () => {
     setNewJob({ ...newJob, [field]: validValue });
   };
 
-  // Add these navigation functions
   const nextStep = () => {
     setFormStep(formStep + 1);
   };
@@ -470,7 +441,6 @@ const UserProfilePage = () => {
     { id: 'PMT003', description: 'Advance Payment - Bathroom Plumbing', amount: 'LKR 8,000', date: '1 Mar 2025', status: 'Pending' }
   ];
 
-  // Add this function to fetch payment history
 const fetchPaymentHistory = async () => {
   const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   if (!token) return;
@@ -482,10 +452,9 @@ const fetchPaymentHistory = async () => {
     const decoded = jwtDecode(token);
     const userId = decoded.userId;
     
-    // Fetch payments for this user - ensure userId is properly passed
     const response = await axios.get(`http://localhost:5000/api/payments`, {
       headers: { 'Authorization': `Bearer ${token}` },
-      params: { userId: userId } // This will properly include userId as a query param
+      params: { userId: userId } 
     });
     
     // Check if response contains payments data
