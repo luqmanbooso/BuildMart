@@ -29,10 +29,11 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
   });
   
   const [weightings, setWeightings] = useState({
-    price: 40,
-    timeline: 30,
-    rating: 15,
-    experience: 15
+    price: 30,
+    timeline: 25,
+    rating: 20,
+    experience: 15,
+    projects: 10
   });
 
   const [sortedBids, setSortedBids] = useState([]);
@@ -222,21 +223,32 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
     const minTimeline = Math.min(...allTimelines);
     const maxTimeline = Math.max(...allTimelines);
     
+    // Price calculation with diminishing returns for small differences
     const priceRange = maxPrice - minPrice;
-    const priceScore = priceRange === 0 
+    let priceScore = priceRange === 0 
       ? 100 
-      : 20 + 80 * (1 - ((parseFloat(bid.price) - minPrice) / priceRange));
+      : 30 + 70 * (1 - ((parseFloat(bid.price) - minPrice) / priceRange));
     
+    // Timeline calculation with diminishing returns for small differences
     const timelineRange = maxTimeline - minTimeline;
-    const timelineScore = timelineRange === 0 
+    let timelineScore = timelineRange === 0 
       ? 100 
-      : 20 + 80 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
+      : 30 + 70 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
+    
+    // Don't let small timeline differences have too big an impact
+    if (timelineRange > 0 && timelineRange <= 5) {
+      timelineScore = Math.min(timelineScore + 15, 100);
+    }
     
     const rating = getBidRating(bid);
-    const ratingScore = 20 + (rating / 5) * 80;
+    const ratingScore = 20 + (rating / 5) * 80; // Rating has more weight
     
     const experience = bid.contractor?.experience || bid.experience || 0;
-    const experienceScore = 20 + Math.min(experience * 8, 80);
+    const experienceScore = 20 + Math.min(experience * 10, 80); // Experience has more impact
+    
+    // Add specific points for completed projects
+    const completedProjects = bid.contractor?.completedProjects || bid.completedProjects || 0;
+    const projectsScore = 20 + Math.min(completedProjects * 8, 80);
     
     let qualificationScore = 0;
     
@@ -246,7 +258,6 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
         const qualifications = response.data;
         
         if (qualifications && qualifications.length > 0) {
-         
           const qualCount = Math.min(qualifications.length, 5); 
           const countScore = qualCount * 10; 
           
@@ -279,6 +290,7 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
       timeline: weightings.timeline * 0.8,
       rating: weightings.rating * 0.8,
       experience: weightings.experience * 0.8,
+      projects: weightings.projects * 0.8,
       qualification: 20 
     };
     
@@ -287,6 +299,7 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
       (timelineScore * (adjustedWeightings.timeline / 100)) +
       (ratingScore * (adjustedWeightings.rating / 100)) +
       (experienceScore * (adjustedWeightings.experience / 100)) +
+      (projectsScore * (adjustedWeightings.projects / 100)) +
       (qualificationScore)
     );
     
@@ -387,26 +400,36 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
           const maxTimeline = Math.max(...allTimelines);
           
           const priceRange = maxPrice - minPrice;
-          const priceScore = priceRange === 0 
+          let priceScore = priceRange === 0 
             ? 100 
-            : 20 + 80 * (1 - ((parseFloat(bid.price) - minPrice) / priceRange));
+            : 30 + 70 * (1 - ((parseFloat(bid.price) - minPrice) / priceRange));
           
           const timelineRange = maxTimeline - minTimeline;
-          const timelineScore = timelineRange === 0 
+          let timelineScore = timelineRange === 0 
             ? 100 
-            : 20 + 80 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
+            : 30 + 70 * (1 - ((parseInt(bid.timeline) - minTimeline) / timelineRange));
+          
+          // Less penalty for small timeline differences
+          if (timelineRange > 0 && timelineRange <= 5) {
+            timelineScore = Math.min(timelineScore + 15, 100);
+          }
           
           const rating = getBidRating(bid);
           const ratingScore = 20 + (rating / 5) * 80;
           
           const experience = bid.contractor?.experience || bid.experience || 0;
-          const experienceScore = 20 + Math.min(experience * 8, 80);
+          const experienceScore = 20 + Math.min(experience * 10, 80);
+          
+          // Add specific points for completed projects
+          const completedProjects = bid.contractor?.completedProjects || bid.completedProjects || 0;
+          const projectsScore = 20 + Math.min(completedProjects * 8, 80);
           
           const weightedScore = (
             (priceScore * (weightings.price / 100)) +
             (timelineScore * (weightings.timeline / 100)) +
             (ratingScore * (weightings.rating / 100)) +
-            (experienceScore * (weightings.experience / 100))
+            (experienceScore * (weightings.experience / 100)) +
+            (projectsScore * (weightings.projects / 100))
           );
           
           scores[bidId] = weightedScore.toFixed(1);
@@ -610,8 +633,9 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
         <div className="text-sm text-blue-800">
           <p className="font-medium">About Bid Scores</p>
           <p className="mt-1 text-blue-700">
-            Bid scores (0-100) are calculated using weighted metrics: price (40%), timeline (30%), ratings (15%), 
-            and experience (15%). Additional points come from verified qualifications. Higher scores indicate better value.
+            Bid scores (0-100) balance multiple factors: price (30%), timeline (25%), ratings (20%), 
+            experience (15%), and completed projects (10%). Additional points come from verified qualifications. 
+            This system ensures contractors with strong track records receive fair consideration.
           </p>
         </div>
       </div>

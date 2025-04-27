@@ -50,16 +50,24 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
 
   useEffect(() => {
     if (costBreakdown && costBreakdown.length > 0 && watchedPrice) {
-      const originalPrice = bid.price;
+      const originalPrice = parseFloat(bid.price);
       const newPrice = parseFloat(watchedPrice);
       
-      if (newPrice < originalPrice) {
-        const ratio = newPrice / originalPrice;
+      if (!isNaN(newPrice) && newPrice > 0 && !isNaN(originalPrice) && originalPrice > 0) {
+        // Calculate the sum of original cost breakdown amounts
+        const totalOriginal = bid.costBreakdown.reduce((sum, item) => sum + item.amount, 0);
         
-        const updatedBreakdown = costBreakdown.map(item => {
+        // Calculate new breakdown based on percentages of the original
+        const updatedBreakdown = costBreakdown.map((item, index) => {
+          const originalAmount = bid.costBreakdown[index].amount;
+          // Calculate what percentage this item was of the original total
+          const percentage = originalAmount / totalOriginal;
+          // Apply that percentage to the new price
+          const newAmount = parseFloat((newPrice * percentage).toFixed(2));
+          
           return {
             ...item,
-            amount: parseFloat((item.amount * ratio).toFixed(2))
+            amount: Math.max(0.01, newAmount) // Ensure at least 1 cent
           };
         });
         
