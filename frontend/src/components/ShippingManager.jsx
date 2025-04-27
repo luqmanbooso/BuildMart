@@ -14,7 +14,13 @@ import {
   Trash, 
   Plus, 
   RefreshCw,
-  Phone
+  Phone,
+  Activity,
+  X,
+  AlertOctagon,
+  ChevronDown,
+  ChevronRight,
+  AlertTriangle
 } from 'lucide-react';
 
 const ShippingManager = ({ 
@@ -147,7 +153,11 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
     try {
       setLoading(true);
       const response = await axios.get('http://localhost:5000/api/shipping/active');
-      setActiveShipments(response.data);
+      // Client-side filter to make sure no failed/returned shipments appear in active view
+      const filteredShipments = response.data.filter(
+        shipment => !['Failed', 'Returned', 'Delivered'].includes(shipment.status)
+      );
+      setActiveShipments(filteredShipments);
       setError(null);
     } catch (error) {
       console.error('Error fetching shipments:', error);
@@ -228,6 +238,58 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
     }
   };
   
+  // Add new function to handle rearranging a shipment
+  const handleRearrangeShipment = async (shipment) => {
+    try {
+      setLoading(true);
+      
+      // Create update data with Pending status and reset progress
+      const updateData = {
+        status: 'Pending',
+        progress: 10,
+        completedAt: null // Clear the completed timestamp
+      };
+      
+      // Update on the server first
+      const response = await axios.put(
+        `http://localhost:5000/api/shipping/${shipment._id}/status`, 
+        updateData
+      );
+      
+      const rearrangedShipment = response.data;
+      
+      // Remove from returned shipments
+      setReturnedShipments(prev => prev.filter(s => s._id !== shipment._id));
+      
+      // Add to active shipments
+      setActiveShipments(prev => [
+        {
+          ...rearrangedShipment,
+          status: 'Pending',
+          progress: 10
+        },
+        ...prev
+      ]);
+      
+      toast.success(`Shipment #${shipment._id} rearranged for delivery`);
+      
+      // Update order status if applicable
+      if (shipment.orderId) {
+        try {
+          await safeUpdateOrderStatus(shipment.orderId, 'Pending');
+        } catch (orderError) {
+          console.error('Failed to update order status:', orderError);
+          toast.warning(`Shipment rearranged, but order status update failed`);
+        }
+      }
+    } catch (error) {
+      console.error('Error rearranging shipment:', error);
+      toast.error('Failed to rearrange shipment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Initial load
   useEffect(() => {
     fetchActiveShipments();
@@ -547,18 +609,17 @@ const handleSubmit = async (e) => {
   }
 };
   
-  // Update the handleStatusUpdate function to move shipments to completed
+  // Update the handleStatusUpdate function to properly handle status changes
   const handleStatusUpdate = async (id, newStatus, newProgress) => {
     try {
       setLoading(true);
       
-      // First, update UI optimistically
-      const updatedShipments = activeShipments.map(s => 
-        s._id === id 
-          ? {...s, status: newStatus, progress: newProgress} 
-          : s
-      );
-      setActiveShipments(updatedShipments);
+      // Store a reference to the shipment before any updates
+      const shipment = activeShipments.find(s => s._id === id);
+      if (!shipment) {
+        toast.error("Shipment not found");
+        return;
+      }
       
       // Include completedAt timestamp when marking as delivered or failed
       const updateData = {
@@ -570,92 +631,62 @@ const handleSubmit = async (e) => {
         updateData.completedAt = new Date().toISOString();
       }
       
+      // Update on the server first
       const response = await axios.put(`http://localhost:5000/api/shipping/${id}/status`, updateData);
-      
-      // Find the shipment to get order ID for order status update
       const updatedShipment = response.data;
-      const orderIdForUpdate = updatedShipment.orderId;
       
-      toast.success(`Status updated to ${newStatus}`);
-      
-      // Update order status based on shipment status
-      if (updateOrderStatus && orderIdForUpdate) {
+      // Then update order status if applicable
+      if (shipment.orderId) {
         try {
-          let orderStatus = 'processing';
-          
-          if (newStatus === 'In Transit') {
-            orderStatus = 'shipped';
-          } else if (newStatus === 'Out for Delivery') {
-            orderStatus = 'shipped';
-          } else if (newStatus === 'Delivered') {
-            orderStatus = 'delivered';
-          } else if (newStatus === 'Failed') {
-            orderStatus = 'processing'; // Need to retry
-          } else if (newStatus === 'Returned') {
-            orderStatus = 'cancelled';
-          }
-          
-          await updateOrderStatus(orderIdForUpdate, orderStatus);
+          await safeUpdateOrderStatus(shipment.orderId, newStatus);
         } catch (orderError) {
           console.error('Failed to update order status:', orderError);
-          toast.warning(`Shipment updated, but couldn't update order status. The order API may need configuration.`);
-        }
-      }
-      
-      // Update the terminal status handling in handleStatusUpdate
-      const shipment = activeShipments.find(s => s._id === id);
-      if (shipment) {
-        setActiveShipments(prev => prev.filter(s => s._id !== id));
-        
-        // Move to the correct section based on status
-        if (newStatus === 'Delivered') {
-          // Move to completed shipments
-          setCompletedShipments(prev => [
-            {
-              ...shipment, 
-              status: newStatus, 
-              progress: newProgress, 
-              completedAt: new Date().toISOString()
-            },
-            ...prev
-          ]);
-        } else if (newStatus === 'Failed' || newStatus === 'Returned') {
-          // Move to returned shipments
-          setReturnedShipments(prev => [
-            {
-              ...shipment, 
-              status: newStatus, 
-              progress: newProgress, 
-              completedAt: new Date().toISOString()
-            },
-            ...prev
-          ]);
+          toast.warning(`Shipment updated, but couldn't update order status`);
         }
       }
       
       toast.success(`Shipment marked as ${newStatus}`);
+      
+      // Remove from active shipments if terminal status
+      if (newStatus === 'Delivered' || newStatus === 'Failed' || newStatus === 'Returned') {
+        setActiveShipments(prev => prev.filter(s => s._id !== id));
+        
+        // Add to appropriate list based on status
+        if (newStatus === 'Delivered') {
+          setCompletedShipments(prev => [
+            {
+              ...updatedShipment,
+              completedAt: updateData.completedAt
+            },
+            ...prev
+          ]);
+        } else {
+          setReturnedShipments(prev => [
+            {
+              ...updatedShipment,
+              completedAt: updateData.completedAt
+            },
+            ...prev
+          ]);
+        }
+      } else {
+        // Just update in the active shipments list
+        setActiveShipments(prev => 
+          prev.map(s => s._id === id ? {
+            ...s,
+            status: newStatus,
+            progress: newProgress,
+            updatedAt: new Date().toISOString()
+          } : s)
+        );
+      }
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error('Failed to update status');
-      
-      // Revert the optimistic UI update
-      fetchActiveShipments(); 
     } finally {
       setLoading(false);
-    }
-    
-    // Update this section in your handleStatusUpdate function
-    // Replace the try/catch block for order status update with this code
-    if (shipment.orderId) {
-      // Use our safer function that maps statuses correctly
-      safeUpdateOrderStatus(shipment.orderId, newStatus)
-        .then(success => {
-          if (success) {
-            console.log(`Order ${shipment.orderId} status updated successfully`);
-          } else {
-            console.log(`Order ${shipment.orderId} status update handled gracefully`);
-          }
-        });
+      // Refresh to ensure UI is in sync with server state
+      fetchActiveShipments();
     }
   };
   
@@ -793,908 +824,961 @@ const handleDelete = async (id) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex justify-between items-center border-b pb-4 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800">Shipment Management</h2>
-        <div className="flex items-center space-x-3">
-          <button 
-            onClick={() => setShowShipmentForm(!showShipmentForm)}
-            className={`flex items-center px-4 py-2 rounded-lg transition-all ${
-              showShipmentForm 
-                ? "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300" 
-                : "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-sm"
-            }`}
-          >
-            {showShipmentForm ? (
-              <>Cancel</>
-            ) : (
-              <>
-                <Plus size={18} className="mr-1.5" /> New Shipment
-              </>
-            )}
-          </button>
-          <button 
-            onClick={fetchActiveShipments}
-            className="flex items-center px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 transition-all"
-            disabled={loading}
-          >
-            <RefreshCw size={18} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
-        </div>
-      </div>
-      
-      {error && (
-        <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
-          {error}
-        </div>
-      )}
-      
-      {/* Display notification when order is selected */}
-      {selectedOrderForShipment && !showShipmentForm && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 p-3 rounded mb-4 flex items-center">
-          <Truck className="mr-2" />
+    <div className="overflow-hidden">
+      {/* Header Section - Updated with download option */}
+      <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg p-5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="font-medium">Creating shipment for order #{selectedOrderForShipment.id}</p>
-            <p className="text-sm mt-1">Customer: {selectedOrderForShipment.customer}, Items: {selectedOrderForShipment.items}</p>
+            <h2 className="text-3xl font-bold text-white">
+              Shipment Dashboard
+            </h2>
+            <p className="text-blue-100 mt-1">
+              Track, process and arrange deliveries for customer orders
+            </p>
           </div>
-          <button 
-            onClick={() => setShowShipmentForm(true)}
-            className="ml-auto bg-blue-700 text-white px-3 py-1 rounded hover:bg-blue-800"
-          >
-            Fill Details
-          </button>
-        </div>
-      )}
-      
-      {/* Shipment Form */}
-      {showShipmentForm && (
-  <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center">
-    {/* Blurred backdrop */}
-    <div className="fixed inset-0 bg-gray-500/30 backdrop-filter backdrop-blur-md" onClick={resetForm}></div>
-    
-    {/* Modal content */}
-    <div className="relative bg-white rounded-xl shadow-xl w-full max-w-4xl mx-4 my-6 z-10 animate-fade-in-up">
-      <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center bg-gradient-to-r from-blue-50 to-white">
-        <h3 className="text-lg font-semibold text-gray-800">
-          {selectedShipment ? 'Edit Shipment' : (selectedOrderForShipment ? `Create Shipment for Order #${selectedOrderForShipment.id}` : 'Create New Shipment')}
-        </h3>
-        <button 
-          onClick={resetForm} 
-          className="text-gray-500 hover:text-gray-700 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-      
-      <div className="p-6 overflow-y-auto max-h-[80vh]">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Hidden Status field */}
-          <input 
-            type="hidden"
-            name="status"
-            value="Pending" 
-          />
-          
-          {/* Order Details Section */}
-          <div className="border-b border-gray-100 pb-5">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Order Information</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
-                  Order ID<span className="text-red-500">*</span>
-                  {selectedOrderForShipment && <span className="text-xs text-blue-600 ml-2">(From order)</span>}
-                </label>
-                <input 
-                  type="text"
-                  name="orderId"
-                  value={formData.orderId}
-                  onChange={handleInputChange}
-                  onBlur={() => {
-                    if (!formData.orderId.trim()) {
-                      setFormErrors({...formErrors, orderId: 'Order ID is required'});
-                    }
-                  }}
-                  maxLength={50}
-                  className={`w-full h-10 border ${formErrors.orderId ? 'border-red-500' : (selectedOrderForShipment ? 'bg-gray-100 border-gray-300 text-gray-700' : 'border-gray-300')} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                  required
-                  readOnly={selectedOrderForShipment !== null}
-                />
-                {formErrors.orderId && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.orderId}</p>
-                )}
+          <div className="mt-4 md:mt-0 flex items-center space-x-2">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search shipments..."
+                className="py-2 pl-10 pr-4 bg-white/10 border border-white/20 text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/50 rounded-lg"
+              />
+              <div className="absolute left-3 top-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-100" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
               </div>
             </div>
-          </div>
-          
-          {/* Locations Section */}
-          <div className="border-b border-gray-100 pb-5">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Shipment Locations</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
-                  Origin<span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text"
-                  name="origin"
-                  value={formData.origin}
-                  onChange={(e) => {
-                    handleInputChange(e);
-                    // Check if origin and destination are the same
-                    if (e.target.value.trim() && e.target.value.trim().toLowerCase() === formData.destination.toLowerCase()) {
-                      setFormErrors({...formErrors, origin: 'Origin and destination cannot be the same'});
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!formData.origin.trim()) {
-                      setFormErrors({...formErrors, origin: 'Origin is required'});
-                    }
-                  }}
-                  maxLength={100}
-                  className={`w-full h-10 border ${formErrors.origin ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                  required
-                  placeholder="Warehouse or pickup location"
-                />
-                {formErrors.origin && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.origin}</p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
-                  Destination<span className="text-red-500">*</span>
-                  {selectedOrderForShipment && <span className="text-xs text-blue-600 ml-2">(From order)</span>}
-                </label>
-                <input 
-                  type="text"
-                  name="destination"
-                  value={formData.destination}
-                  onChange={(e) => {
-                    handleInputChange(e);
-                    // Check if origin and destination are the same
-                    if (e.target.value.trim() && e.target.value.trim().toLowerCase() === formData.origin.toLowerCase()) {
-                      setFormErrors({...formErrors, destination: 'Origin and destination cannot be the same'});
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!formData.destination.trim()) {
-                      setFormErrors({...formErrors, destination: 'Destination is required'});
-                    }
-                  }}
-                  maxLength={100}
-                  className={`w-full h-10 border ${formErrors.destination ? 'border-red-500' : (selectedOrderForShipment ? 'bg-gray-100 border-gray-300' : 'border-gray-300')} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                  required
-                  readOnly={selectedOrderForShipment !== null}
-                  placeholder="Delivery address"
-                />
-                {formErrors.destination && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.destination}</p>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Driver & Vehicle Section */}
-          <div className="border-b border-gray-100 pb-5">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Transport Details</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div>
-                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
-                  Driver Name<span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text"
-                  name="driver"
-                  value={formData.driver}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    handleInputChange(e);
-                    // Only allow letters, spaces and periods for driver names
-                    if (value && !/^[A-Za-z\s.]+$/.test(value)) {
-                      setFormErrors({...formErrors, driver: 'Driver name should only contain letters'});
-                    } else {
-                      setFormErrors({...formErrors, driver: ''});
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!formData.driver.trim()) {
-                      setFormErrors({...formErrors, driver: 'Driver name is required'});
-                    }
-                  }}
-                  maxLength={50}
-                  className={`w-full h-10 border ${formErrors.driver ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                  required
-                  placeholder="Full name of driver"
-                />
-                {formErrors.driver && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.driver}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
-                  Vehicle Number<span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text"
-                  name="vehicle"
-                  value={formData.vehicle}
-                  onChange={handleInputChange}
-                  onBlur={() => {
-                    if (!formData.vehicle.trim()) {
-                      setFormErrors({...formErrors, vehicle: 'Vehicle number is required'});
-                    }
-                  }}
-                  maxLength={30}
-                  className={`w-full h-10 border ${formErrors.vehicle ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                  placeholder="KA-1234 or WP-CAB-1234"
-                  required
-                />
-                {formErrors.vehicle && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.vehicle}</p>
-                )}
-                <p className="text-xs text-gray-500 mt-1">Valid formats: KA-1234, CAB-1234, WP-CAB-1234</p>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
-                  Contact Number<span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input 
-                    type="text"
-                    name="contactNumber"
-                    value={formData.contactNumber}
-                    onChange={handleInputChange}
-                    onBlur={() => {
-                      if (!formData.contactNumber.trim()) {
-                        setFormErrors({...formErrors, contactNumber: 'Contact number is required'});
-                      }
-                    }}
-                    maxLength={12}
-                    className={`w-full h-10 border ${formErrors.contactNumber ? 'border-red-500' : 'border-gray-300'} rounded-md pl-10 pr-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                    placeholder="0771234567 or +94771234567"
-                    required
-                  />
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Phone size={16} className="text-gray-400" />
-                  </div>
-                </div>
-                {formErrors.contactNumber && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.contactNumber}</p>
-                )}
-                <p className="text-xs text-gray-500 mt-1">Sri Lankan format (e.g., 0771234567 or +94771234567)</p>
-              </div>
-            </div>
-          </div>
-          
-          {/* Delivery Timeline Section */}
-          <div className="border-b border-gray-100 pb-5">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Delivery Timeline</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div>
-                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
-                  Progress (%)
-                </label>
-                <input 
-                  type="number"
-                  name="progress"
-                  value={formData.progress}
-                  onChange={handleInputChange}
-                  onBlur={(e) => {
-                    const value = parseInt(e.target.value);
-                    if (isNaN(value) || value < 0 || value > 100) {
-                      setFormErrors({...formErrors, progress: 'Progress must be between 0 and 100'});
-                    } else {
-                      setFormErrors({...formErrors, progress: ''});
-                    }
-                  }}
-                  min="0"
-                  max="100"
-                  className={`w-full h-10 border ${formErrors.progress ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                />
-                {formErrors.progress && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.progress}</p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
-                  ETA (hours)
-                </label>
-                <input 
-                  type="number"
-                  name="eta"
-                  value={formData.eta}
-                  onChange={handleInputChange}
-                  onBlur={(e) => {
-                    const value = parseInt(e.target.value);
-                    if (value !== undefined && value !== null && (isNaN(value) || value <= 0 || value > 240)) {
-                      setFormErrors({...formErrors, eta: 'ETA must be between 1 and 240 hours'});
-                    } else {
-                      setFormErrors({...formErrors, eta: ''});
-                    }
-                  }}
-                  min="1"
-                  max="240"
-                  className={`w-full h-10 border ${formErrors.eta ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                  placeholder="24"
-                />
-                {formErrors.eta && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.eta}</p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-1.5 text-sm font-medium">
-                  Estimated Delivery Date
-                </label>
-                <input 
-                  type="date"
-                  name="estimatedDeliveryDate"
-                  value={formData.estimatedDeliveryDate}
-                  onChange={handleInputChange}
-                  onBlur={(e) => {
-                    const selectedDate = new Date(e.target.value);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    
-                    if (e.target.value && selectedDate < today) {
-                      setFormErrors({...formErrors, estimatedDeliveryDate: 'Delivery date cannot be in the past'});
-                    } else {
-                      setFormErrors({...formErrors, estimatedDeliveryDate: ''});
-                    }
-                  }}
-                  min={new Date().toISOString().split('T')[0]} // Today as minimum date
-                  className={`w-full h-10 border ${formErrors.estimatedDeliveryDate ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all`}
-                />
-                {formErrors.estimatedDeliveryDate && (
-                  <p className="text-red-500 text-xs mt-1">{formErrors.estimatedDeliveryDate}</p>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Notes Section */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Additional Information</h4>
-            <div>
-              <label className="block text-gray-700 mb-1.5 text-sm font-medium">
-                Notes
-                {selectedOrderForShipment && <span className="text-xs text-blue-600 ml-2">(Pre-filled with order details)</span>}
-              </label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={(e) => {
-                  handleInputChange(e);
-                  if (e.target.value.length > 500) {
-                    setFormErrors({...formErrors, notes: 'Notes cannot exceed 500 characters'});
-                  } else {
-                    setFormErrors({...formErrors, notes: ''});
-                  }
-                }}
-                maxLength={500}
-                className={`w-full border ${formErrors.notes ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none`}
-                rows="3"
-                placeholder="Additional delivery instructions or information"
-              ></textarea>
-              {formErrors.notes && (
-                <p className="text-red-500 text-xs mt-1">{formErrors.notes}</p>
-              )}
-              <p className="text-xs text-gray-500 mt-1">
-                <span className={formData.notes.length > 450 ? 'text-orange-500 font-medium' : ''}>
-                  {formData.notes.length}
-                </span>/500 characters
-              </p>
-            </div>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 mt-6 pt-2">
             <button 
-              type="button"
-              onClick={resetForm}
-              className="h-10 px-5 border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              onClick={fetchActiveShipments} 
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              title="Refresh data"
             >
-              Cancel
+              <RefreshCw size={20} className="text-white" />
             </button>
             <button 
-              type="submit"
-              className="h-10 px-5 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              disabled={loading || Object.keys(formErrors).some(key => formErrors[key])}
+              onClick={() => {
+                // Download shipments data as CSV
+                const headers = ["Order ID", "Origin", "Destination", "Driver", "Vehicle", "Status", "Progress", "ETA", "Updated"];
+                const data = activeShipments.map(s => [
+                  s.orderId, s.origin, s.destination, s.driver, s.vehicle, s.status, 
+                  s.progress + '%', s.eta, new Date(s.updatedAt || s.createdAt).toLocaleString()
+                ]);
+                
+                // Create CSV content
+                const csvContent = [
+                  headers.join(','),
+                  ...data.map(row => row.join(','))
+                ].join('\n');
+                
+                // Create download link
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', `shipments_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              title="Download data"
             >
-              {loading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Saving...
-                </span>
-              ) : (selectedShipment ? 'Update' : 'Create Shipment')}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
             </button>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
-  </div>
-)}
-      
-      {/* Shipment Tabs */}
-      <div className="border-b mb-4 pb-1">
-        <div className="flex space-x-4">
+
+      {/* Content Section */}
+      <div className="bg-white shadow-sm rounded-lg p-6 overflow-hidden">
+        {/* Tabs */}
+        <div className="bg-gray-100 rounded-lg p-1 flex mb-6">
           <button
-            className={`px-4 py-2 font-medium ${viewMode === 'active' 
-              ? 'border-b-2 border-blue-500 text-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 flex items-center justify-center ${
+              viewMode === 'active'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
             onClick={() => handleViewModeChange('active')}
           >
+            <Activity size={16} className="mr-1.5" />
             Active Shipments
           </button>
           <button
-            className={`px-4 py-2 font-medium ${viewMode === 'completed' 
-              ? 'border-b-2 border-blue-500 text-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 flex items-center justify-center ${
+              viewMode === 'completed'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
             onClick={() => handleViewModeChange('completed')}
           >
-            Completed Shipments
+            <CheckCircle size={16} className="mr-1.5" />
+            Completed
           </button>
           <button
-            className={`px-4 py-2 font-medium ${viewMode === 'returned' 
-              ? 'border-b-2 border-red-500 text-red-600' 
-              : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors duration-200 flex items-center justify-center ${
+              viewMode === 'returned'
+                ? 'bg-white text-red-600 shadow-sm'
+                : 'text-gray-600 hover:bg-gray-200'
+            }`}
             onClick={() => handleViewModeChange('returned')}
           >
-            Returned Shipments
+            <AlertCircle size={16} className="mr-1.5" />
+            Failed & Returned
           </button>
         </div>
-      </div>
-
-      {loading && !showShipmentForm && (
-        <div className="flex justify-center my-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => {
+              resetForm();
+              setSelectedOrderForShipment(null);
+              setShowShipmentForm(true);
+            }}
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+          >
+            <Plus size={18} className="mr-1" /> New Shipment
+          </button>
         </div>
-      )}
-
-      {/* Active Shipments View */}
-      {viewMode === 'active' && !loading && (
-        <>
-          {activeShipments.length === 0 ? (
-            <div className="bg-gray-50 rounded-md p-6 text-center">
-              <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500">No active shipments found.</p>
-              <button 
-                onClick={() => setShowShipmentForm(true)} 
-                className="mt-3 px-4 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800"
-              >
-                Create New Shipment
-              </button>
+      
+        {error && (
+          <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+        
+        {/* Display notification when order is selected */}
+        {selectedOrderForShipment && !showShipmentForm && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 p-3 rounded mb-4 flex items-center">
+            <Truck className="mr-2" />
+            <div>
+              <p className="font-medium">Creating shipment for order #{selectedOrderForShipment.id}</p>
+              <p className="text-sm mt-1">Customer: {selectedOrderForShipment.customer}, Items: {selectedOrderForShipment.items}</p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeShipments.map(shipment => (
-                <div key={shipment._id} className="border rounded-md p-4 bg-white shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <span className="text-xs text-gray-500">Order #{shipment.orderId}</span>
-                      <h4 className="font-medium">{shipment.destination}</h4>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      {getStatusBadge(shipment.status)}
-                      <span className="text-xs text-gray-500 mt-1">
-                        Updated: {new Date(shipment.updatedAt).toLocaleTimeString()}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Progress bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3">
-                    <div 
-                      className="bg-blue-600 h-2.5 rounded-full" 
-                      style={{ width: `${shipment.progress}%` }}
-                    ></div>
-                  </div>
-                  
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center">
-                      <MapPin size={16} className="text-gray-500 mr-2" />
-                      <span className="text-gray-600">{shipment.origin} → {shipment.destination}</span>
-                    </div>
-                    
-                    <div className="flex items-center">
-                      <User size={16} className="text-gray-500 mr-2" />
-                      <span className="text-gray-600">{shipment.driver}</span>
-                    </div>
-                    
-                    <div className="flex items-center">
-                      <Truck size={16} className="text-gray-500 mr-2" />
-                      <span className="text-gray-600">{shipment.vehicle}</span>
-                    </div>
-                    
-                    <div className="flex items-center">
-                      <Phone size={16} className="text-gray-500 mr-2" />
-                      <span className="text-gray-600">{shipment.contactNumber}</span>
-                    </div>
-                    
-                    {shipment.estimatedDeliveryDate && (
-                      <div className="flex items-center">
-                        <Calendar size={16} className="text-gray-500 mr-2" />
-                        <span className="text-gray-600">
-                          {new Date(shipment.estimatedDeliveryDate).toLocaleDateString()}
-                        </span>
+            <button 
+              onClick={() => setShowShipmentForm(true)}
+              className="ml-auto bg-blue-700 text-white px-3 py-1 rounded hover:bg-blue-800"
+            >
+              Fill Details
+            </button>
+          </div>
+        )}
+        
+        {loading && !showShipmentForm && (
+          <div className="flex justify-center my-10">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          </div>
+        )}
+
+        {/* Active Shipments View - More compact cards with last update time */}
+        {viewMode === 'active' && !loading && (
+          <>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-800">Active Shipments</h3>
+            </div>
+            
+            {activeShipments.length === 0 ? (
+              <div className="bg-gray-50 rounded-lg p-8 text-center">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-4">
+                  <Truck className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">No active shipments</h3>
+                <p className="text-gray-500 mb-4">There are no active shipments at the moment.</p>
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setSelectedOrderForShipment(null);
+                    setShowShipmentForm(true);
+                  }}
+                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Plus size={16} className="mr-1" /> Create New Shipment
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {activeShipments.map((shipment) => (
+                  <div key={shipment._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                    <div className="p-4">
+                      {/* Header with order ID and status badge */}
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <span className="text-xs font-medium text-gray-500">ORDER ID</span>
+                          <h4 className="text-base font-bold text-gray-800">#{shipment.orderId}</h4>
+                        </div>
+                        {getStatusBadge(shipment.status)}
                       </div>
-                    )}
-                    
-                    {shipment.eta && (
-                      <div className="flex items-center">
-                        <Clock size={16} className="text-gray-500 mr-2" />
-                        <span className="text-gray-600">ETA: {shipment.eta}</span>
+                      
+                      {/* Origin and destination - condensed */}
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="flex items-center">
+                          <MapPin className="h-4 w-4 text-gray-400 mr-1.5 flex-shrink-0" />
+                          <div className="overflow-hidden">
+                            <p className="text-xs text-gray-500">FROM</p>
+                            <p className="text-xs font-medium text-gray-700 truncate">{shipment.origin}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center">
+                          <MapPin className="h-4 w-4 text-blue-500 mr-1.5 flex-shrink-0" />
+                          <div className="overflow-hidden">
+                            <p className="text-xs text-gray-500">TO</p>
+                            <p className="text-xs font-medium text-gray-700 truncate">{shipment.destination}</p>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="border-t mt-3 pt-3 flex flex-wrap justify-between">
-                    {/* Status update buttons */}
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {shipment.status !== 'In Transit' && (
-                        <button
-                          onClick={() => handleStatusUpdate(shipment._id, 'In Transit', 30)}
-                          className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded"
-                        >
-                          Mark In Transit
-                        </button>
-                      )}
                       
-                      {shipment.status !== 'Out for Delivery' && (
-                        <button
-                          onClick={() => handleStatusUpdate(shipment._id, 'Out for Delivery', 70)}
-                          className="text-xs px-2 py-1 bg-orange-100 text-orange-800 rounded"
-                        >
-                          Out for Delivery
-                        </button>
-                      )}
+                      {/* Driver, vehicle and ETA - condensed */}
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div className="overflow-hidden">
+                          <p className="text-xs text-gray-500">DRIVER</p>
+                          <p className="text-xs font-medium text-gray-700 truncate">{shipment.driver}</p>
+                        </div>
+                        
+                        <div className="overflow-hidden">
+                          <p className="text-xs text-gray-500">VEHICLE</p>
+                          <p className="text-xs font-medium text-gray-700 truncate">{shipment.vehicle}</p>
+                        </div>
+                        
+                        <div className="overflow-hidden">
+                          <p className="text-xs text-gray-500">ETA</p>
+                          <p className="text-xs font-medium text-gray-700 truncate">{shipment.eta || "Unknown"}</p>
+                        </div>
+                      </div>
                       
-                      {shipment.status !== 'Delivered' && (
-                        <button
-                          onClick={() => handleStatusUpdate(shipment._id, 'Delivered', 100)}
-                          className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded"
-                        >
-                          Mark Delivered
-                        </button>
-                      )}
+                      {/* Progress bar */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-gray-500">SHIPMENT PROGRESS</span>
+                          <span className="text-xs font-medium text-blue-600">{shipment.progress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                          <div 
+                            className="bg-blue-600 h-1.5 rounded-full" 
+                            style={{ width: `${shipment.progress}%` }}
+                          ></div>
+                        </div>
+                      </div>
                       
-                      {shipment.status !== 'Failed' && (
-                        <button
-                          onClick={() => handleStatusUpdate(shipment._id, 'Failed', 0)}
-                          className="text-xs px-2 py-1 bg-red-100 text-red-800 rounded"
+                      {/* Delivery date and last updated */}
+                      <div className="flex justify-between items-center text-xs mb-3">
+                        <div className="flex items-center text-gray-500">
+                          <Calendar className="h-3.5 w-3.5 mr-1" />
+                          <span>Delivery: {shipment.estimatedDeliveryDate ? new Date(shipment.estimatedDeliveryDate).toLocaleDateString() : "Not set"}</span>
+                        </div>
+                        <div className="text-gray-400">
+                          Updated: {shipment.updatedAt ? new Date(shipment.updatedAt).toLocaleTimeString() : new Date(shipment.createdAt).toLocaleTimeString()}
+                        </div>
+                      </div>
+                      
+                      {/* Status update buttons */}
+                      <div>
+                        <select
+                          className="w-full text-sm py-1.5 px-3 bg-gray-50 border border-gray-300 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          value="" // Always reset to placeholder after selection
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              const statusProgress = {
+                                'Pending': 10,
+                                'Loading': 25,
+                                'In Transit': 50,
+                                'Out for Delivery': 75,
+                                'Delivered': 100,
+                                'Failed': 0
+                              };
+                              const newStatus = e.target.value;
+                              const newProgress = statusProgress[newStatus] ?? shipment.progress;
+                              
+                              handleStatusUpdate(shipment._id, newStatus, newProgress);
+                              e.target.value = "";
+                            }
+                          }}
                         >
-                          Mark Failed
-                        </button>
-                      )}
+                          <option value="" disabled>Update status...</option>
+                          {shipment.status !== 'Pending' && shipment.status !== 'Loading' && <option value="Loading">Mark as Loading</option>}
+                          {shipment.status !== 'In Transit' && <option value="In Transit">Mark as In Transit</option>}
+                          {shipment.status !== 'Out for Delivery' && shipment.status !== 'Pending' && <option value="Out for Delivery">Mark as Out for Delivery</option>}
+                          {shipment.status !== 'Delivered' && shipment.status !== 'Pending' && <option value="Delivered">Mark as Delivered</option>}
+                          {/* Only show Failed option for shipments already in transit */}
+                          {(shipment.status === 'In Transit' || shipment.status === 'Out for Delivery') && 
+                            <option value="Failed">Mark as Failed</option>}
+                        </select>
+                      </div>
                     </div>
                     
-                    {/* Edit/Delete buttons */}
-                    <div className="mt-2 space-x-2">
+                    <div className="bg-gray-50 px-4 py-2 flex justify-end space-x-2 border-t border-gray-200">
                       <button
                         onClick={() => handleEdit(shipment)}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="inline-flex items-center py-1 px-2 border border-gray-300 rounded-md bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
                       >
-                        <Edit size={16} />
+                        <Edit size={12} className="mr-1" /> Edit
                       </button>
-                      
                       <button
                         onClick={() => handleDelete(shipment._id)}
-                        className="text-red-600 hover:text-red-800"
+                        className="inline-flex items-center py-1 px-2 border border-gray-300 rounded-md bg-white text-xs font-medium text-red-700 hover:bg-red-50 focus:outline-none"
                       >
-                        <Trash size={16} />
+                        <Trash size={12} className="mr-1" /> Delete
                       </button>
                     </div>
                   </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Completed Shipments View */}
+        {viewMode === 'completed' && !loading && (
+          <>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-800">Completed Shipments</h3>
+            </div>
+            
+            {completedShipments.length === 0 ? (
+              <div className="bg-gray-50 rounded-lg p-8 text-center">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
                 </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Completed Shipments View */}
-      {viewMode === 'completed' && !loading && (
-        <>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Completed Deliveries</h3>
-            <button 
-              onClick={fetchCompletedShipments}
-              className="flex items-center text-green-700 hover:text-green-900"
-              disabled={loading}
-            >
-              <RefreshCw size={16} className={`mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
-            </button>
-          </div>
-          
-          {completedShipments.length === 0 ? (
-            <div className="bg-gray-50 rounded-md p-6 text-center">
-              <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500">No completed shipments found.</p>
-            </div>
-          ) : (
-            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Order ID</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Destination</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Driver</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Delivery Date</th>
-                    <th scope="col" className="relative py-3.5 pl-3 pr-4 text-right text-sm font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {completedShipments.map((shipment) => (
-                    <>
-                      <tr key={shipment._id} className="hover:bg-gray-50">
-                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900 cursor-pointer" onClick={() => setExpandedShipmentId(expandedShipmentId === shipment._id ? null : shipment._id)}>
-                          <div className="flex items-center">
-                            <button className="mr-2 focus:outline-none">
-                              {expandedShipmentId === shipment._id ? 
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg> : 
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              }
-                            </button>
-                            #{shipment.orderId}
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">{shipment.destination}</td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">{shipment.driver}</td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm">
-                          {getStatusBadge(shipment.status)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">
-                          {shipment.completedAt ? new Date(shipment.completedAt).toLocaleDateString() : 
-                          new Date(shipment.updatedAt).toLocaleDateString()}
-                        </td>
-                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium">
-                          <button
-                            onClick={() => handleEdit(shipment)}
-                            className="text-blue-600 hover:text-blue-800 mr-3"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(shipment._id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <Trash size={16} />
-                          </button>
-                        </td>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">No completed shipments</h3>
+                <p className="text-gray-500">There are no completed shipments at the moment.</p>
+              </div>
+            ) : (
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Order ID
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Destination
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Driver
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Delivery Date
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                      
-                      {/* Expanded details row */}
-                      {expandedShipmentId === shipment._id && (
-                        <tr>
-                          <td colSpan="6" className="p-4 bg-gray-50">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <p className="font-medium text-gray-700 mb-1">Shipment Details</p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center">
-                                    <MapPin size={14} className="text-gray-500 mr-2" />
-                                    <span className="text-gray-600">From: {shipment.origin}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <MapPin size={14} className="text-gray-500 mr-2" />
-                                    <span className="text-gray-600">To: {shipment.destination}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <Truck size={14} className="text-gray-500 mr-2" />
-                                    <span className="text-gray-600">Vehicle: {shipment.vehicle}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <Phone size={14} className="text-gray-500 mr-2" />
-                                    <span className="text-gray-600">Contact: {shipment.contactNumber}</span>
-                                  </div>
-                                </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {completedShipments.map((shipment) => (
+                        <React.Fragment key={shipment._id}>
+                          <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpandedShipmentId(expandedShipmentId === shipment._id ? null : shipment._id)}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              <div className="flex items-center">
+                                <button className="mr-2 focus:outline-none">
+                                  {expandedShipmentId === shipment._id ? 
+                                    <ChevronDown className="h-4 w-4 text-gray-500" /> : 
+                                    <ChevronRight className="h-4 w-4 text-gray-500" />
+                                  }
+                                </button>
+                                #{shipment.orderId}
                               </div>
-                              
-                              <div>
-                                <p className="font-medium text-gray-700 mb-1">Timeline</p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center">
-                                    <Calendar size={14} className="text-gray-500 mr-2" />
-                                    <span className="text-gray-600">Created: {new Date(shipment.createdAt).toLocaleDateString()}</span>
-                                  </div>
-                                  {shipment.completedAt && (
-                                    <div className="flex items-center">
-                                      <CheckCircle size={14} className="text-gray-500 mr-2" />
-                                      <span className="text-gray-600">Completed: {new Date(shipment.completedAt).toLocaleDateString()}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                              {shipment.destination}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                              {shipment.driver}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {getStatusBadge(shipment.status)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                              {shipment.completedAt ? new Date(shipment.completedAt).toLocaleDateString() : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(shipment);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 mr-3"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(shipment._id);
+                                }}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <Trash size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                          
+                          {/* Expanded details row */}
+                          {expandedShipmentId === shipment._id && (
+                            <tr>
+                              <td colSpan="6" className="bg-gray-50 px-6 py-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  <div className="space-y-3">
+                                    <h4 className="font-medium text-gray-800 text-sm mb-2">Shipment Details</h4>
+                                    
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <p className="text-xs text-gray-500">FROM</p>
+                                        <p className="text-sm font-medium text-gray-800">{shipment.origin}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">TO</p>
+                                        <p className="text-sm font-medium text-gray-800">{shipment.destination}</p>
+                                      </div>
                                     </div>
-                                  )}
-                                </div>
-                                {shipment.notes && (
-                                  <div className="mt-2">
-                                    <p className="font-medium text-gray-700">Notes:</p>
-                                    <p className="text-gray-600">{shipment.notes}</p>
+                                    
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <p className="text-xs text-gray-500">VEHICLE</p>
+                                        <p className="text-sm font-medium text-gray-800">{shipment.vehicle}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">CONTACT</p>
+                                        <p className="text-sm font-medium text-gray-800">{shipment.contactNumber}</p>
+                                      </div>
+                                    </div>
                                   </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
-      )}
+                                  
+                                  <div className="space-y-3">
+                                    <h4 className="font-medium text-gray-800 text-sm mb-2">Timeline</h4>
+                                    
+                                    <div className="space-y-2">
+                                      <div className="flex items-center">
+                                        <div className="flex-shrink-0 h-4 w-4 rounded-full bg-blue-200 flex items-center justify-center">
+                                          <Calendar size={10} className="text-blue-600" />
+                                        </div>
+                                        <div className="ml-2">
+                                          <p className="text-xs text-gray-500">CREATED</p>
+                                          <p className="text-sm font-medium text-gray-700">
+                                            {new Date(shipment.createdAt).toLocaleDateString()} 
+                                            {new Date(shipment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      
+                                      {shipment.completedAt && (
+                                        <div className="flex items-center">
+                                          <div className="flex-shrink-0 h-4 w-4 rounded-full bg-green-200 flex items-center justify-center">
+                                            <CheckCircle size={10} className="text-green-600" />
+                                          </div>
+                                          <div className="ml-2">
+                                            <p className="text-xs text-gray-500">COMPLETED</p>
+                                            <p className="text-sm font-medium text-gray-700">
+                                              {new Date(shipment.completedAt).toLocaleDateString()}
+                                              {new Date(shipment.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {shipment.notes && (
+                                      <div className="mt-3">
+                                        <p className="text-xs text-gray-500">NOTES</p>
+                                        <p className="text-sm text-gray-700 mt-1 p-2 bg-gray-100 rounded border border-gray-200">
+                                          {shipment.notes}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
-      {/* Returned Shipments View */}
-      {viewMode === 'returned' && !loading && (
-        <>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Failed & Returned Deliveries</h3>
-            <button 
-              onClick={fetchReturnedShipments}
-              className="flex items-center text-red-700 hover:text-red-900"
-              disabled={loading}
-            >
-              <RefreshCw size={16} className={`mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
-            </button>
-          </div>
-          
-          {returnedShipments.length === 0 ? (
-            <div className="bg-gray-50 rounded-md p-6 text-center">
-              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500">No returned or failed shipments found.</p>
+        {/* Returned Shipments View */}
+        {viewMode === 'returned' && !loading && (
+          <>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-800">Failed & Returned Deliveries</h3>
             </div>
-          ) : (
-            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Order ID</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Destination</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Driver</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Failure Date</th>
-                    <th scope="col" className="relative py-3.5 pl-3 pr-4 text-right text-sm font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {returnedShipments.map((shipment) => (
-                    <>
-                      <tr key={shipment._id} className="hover:bg-gray-50">
-                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900 cursor-pointer" onClick={() => setExpandedShipmentId(expandedShipmentId === shipment._id ? null : shipment._id)}>
-                          <div className="flex items-center">
-                            <button className="mr-2 focus:outline-none">
-                              {expandedShipmentId === shipment._id ? 
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg> : 
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                              }
-                            </button>
-                            #{shipment.orderId}
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">{shipment.destination}</td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">{shipment.driver}</td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm">
-                          {getStatusBadge(shipment.status)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-700">
-                          {shipment.completedAt ? new Date(shipment.completedAt).toLocaleDateString() : 
-                          new Date(shipment.updatedAt).toLocaleDateString()}
-                        </td>
-                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium">
-                          <button
-                            onClick={() => handleEdit(shipment)}
-                            className="text-blue-600 hover:text-blue-800 mr-3"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(shipment._id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <Trash size={16} />
-                          </button>
-                        </td>
+            
+            {returnedShipments.length === 0 ? (
+              <div className="bg-gray-50 rounded-lg p-8 text-center">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
+                  <AlertTriangle className="h-8 w-8 text-red-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">No failed shipments</h3>
+                <p className="text-gray-500">There are no failed or returned shipments at the moment.</p>
+              </div>
+            ) : (
+              <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Order ID
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Destination
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Driver
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Failure Date
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                      
-                      {/* Expanded details row */}
-                      {expandedShipmentId === shipment._id && (
-                        <tr>
-                          <td colSpan="6" className="p-4 bg-gray-50">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <p className="font-medium text-gray-700 mb-1">Shipment Details</p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center">
-                                    <MapPin size={14} className="text-gray-500 mr-2" />
-                                    <span className="text-gray-600">From: {shipment.origin}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <MapPin size={14} className="text-gray-500 mr-2" />
-                                    <span className="text-gray-600">To: {shipment.destination}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <Truck size={14} className="text-gray-500 mr-2" />
-                                    <span className="text-gray-600">Vehicle: {shipment.vehicle}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <Phone size={14} className="text-gray-500 mr-2" />
-                                    <span className="text-gray-600">Contact: {shipment.contactNumber}</span>
-                                  </div>
-                                </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {returnedShipments.map((shipment) => (
+                        <React.Fragment key={shipment._id}>
+                          <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpandedShipmentId(expandedShipmentId === shipment._id ? null : shipment._id)}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              <div className="flex items-center">
+                                <button className="mr-2 focus:outline-none">
+                                  {expandedShipmentId === shipment._id ? 
+                                    <ChevronDown className="h-4 w-4 text-gray-500" /> : 
+                                    <ChevronRight className="h-4 w-4 text-gray-500" />
+                                  }
+                                </button>
+                                #{shipment.orderId}
                               </div>
-                              
-                              <div>
-                                <p className="font-medium text-gray-700 mb-1">Issue Information</p>
-                                <div className="space-y-1">
-                                  <div className="flex items-center">
-                                    <Calendar size={14} className="text-gray-500 mr-2" />
-                                    <span className="text-gray-600">Created: {new Date(shipment.createdAt).toLocaleDateString()}</span>
-                                  </div>
-                                  {shipment.completedAt && (
-                                    <div className="flex items-center">
-                                      <AlertCircle size={14} className="text-red-500 mr-2" />
-                                      <span className="text-gray-600">
-                                        {shipment.status === 'Failed' ? 'Failed on: ' : 'Returned on: '}
-                                        {new Date(shipment.completedAt).toLocaleDateString()}
-                                      </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                              {shipment.destination}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                              {shipment.driver}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {getStatusBadge(shipment.status)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                              {shipment.completedAt ? new Date(shipment.completedAt).toLocaleDateString() : 
+                              new Date(shipment.updatedAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <div className="flex justify-end space-x-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRearrangeShipment(shipment);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 mr-1"
+                                  title="Rearrange for delivery"
+                                >
+                                  <RefreshCw size={16} />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(shipment);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 mr-1"
+                                >
+                                  <Edit size={16} />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(shipment._id);
+                                  }}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <Trash size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          
+                          {/* Expanded details row */}
+                          {expandedShipmentId === shipment._id && (
+                            <tr>
+                              <td colSpan="6" className="bg-gray-50 px-6 py-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  <div className="space-y-3">
+                                    <h4 className="font-medium text-gray-800 text-sm mb-2">Shipment Details</h4>
+                                    
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <p className="text-xs text-gray-500">FROM</p>
+                                        <p className="text-sm font-medium text-gray-800">{shipment.origin}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">TO</p>
+                                        <p className="text-sm font-medium text-gray-800">{shipment.destination}</p>
+                                      </div>
                                     </div>
-                                  )}
+                                    
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <p className="text-xs text-gray-500">VEHICLE</p>
+                                        <p className="text-sm font-medium text-gray-800">{shipment.vehicle}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-gray-500">CONTACT</p>
+                                        <p className="text-sm font-medium text-gray-800">{shipment.contactNumber}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="space-y-3">
+                                    <h4 className="font-medium text-gray-800 text-sm mb-2">Issue Information</h4>
+                                    
+                                    <div className="space-y-2">
+                                      <div className="flex items-center">
+                                        <div className="flex-shrink-0 h-4 w-4 rounded-full bg-blue-200 flex items-center justify-center">
+                                          <Calendar size={10} className="text-blue-600" />
+                                        </div>
+                                        <div className="ml-2">
+                                          <p className="text-xs text-gray-500">CREATED</p>
+                                          <p className="text-sm font-medium text-gray-700">
+                                            {new Date(shipment.createdAt).toLocaleDateString()}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      
+                                      {shipment.completedAt && (
+                                        <div className="flex items-center">
+                                          <div className="flex-shrink-0 h-4 w-4 rounded-full bg-red-200 flex items-center justify-center">
+                                            <AlertCircle size={10} className="text-red-600" />
+                                          </div>
+                                          <div className="ml-2">
+                                            <p className="text-xs text-gray-500">
+                                              {shipment.status === 'Failed' ? 'FAILED ON' : 'RETURNED ON'}
+                                            </p>
+                                            <p className="text-sm font-medium text-gray-700">
+                                              {new Date(shipment.completedAt).toLocaleDateString()}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {shipment.notes && (
+                                      <div className="mt-3">
+                                        <p className="text-xs text-gray-500">NOTES</p>
+                                        <p className="text-sm text-gray-700 mt-1 p-2 bg-gray-100 rounded border border-gray-200">
+                                          {shipment.notes}
+                                        </p>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Add retry button for failed shipments */}
+                                    {shipment.status === 'Failed' && (
+                                      <div className="mt-4">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Move back to active shipments with Pending status
+                                            handleEdit({
+                                              ...shipment,
+                                              status: 'Pending',
+                                              progress: 0
+                                            });
+                                            setShowShipmentForm(true);
+                                          }}
+                                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                        >
+                                          <RefreshCw size={14} className="mr-1.5" /> Prepare for Redelivery
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                                {shipment.notes && (
-                                  <div className="mt-2">
-                                    <p className="font-medium text-gray-700">Notes:</p>
-                                    <p className="text-gray-600">{shipment.notes}</p>
-                                  </div>
-                                )}
-                                
-                                {/* Add retry button for failed shipments */}
-                                {shipment.status === 'Failed' && (
-                                  <div className="mt-3">
-                                    <button
-                                      onClick={() => {
-                                        // Move back to active shipments with Pending status
-                                        handleEdit({
-                                          ...shipment,
-                                          status: 'Pending',
-                                          progress: 0
-                                        });
-                                        setShowShipmentForm(true);
-                                      }}
-                                      className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-md hover:bg-blue-200 transition-colors"
-                                    >
-                                      Prepare for Redelivery
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  ))}
-                </tbody>
-              </table>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      
+      {/* Shipment Form - Fix the estimated delivery field name */}
+      {showShipmentForm && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative bg-white rounded-lg shadow-xl mx-auto p-6 max-w-3xl w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">
+                {selectedShipment ? 'Edit Shipment' : 'Create New Shipment'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowShipmentForm(false);
+                  resetForm();
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+              >
+                <X size={24} />
+              </button>
             </div>
-          )}
-        </>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="orderId"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Order ID*
+                  </label>
+                  <input
+                    type="text"
+                    id="orderId"
+                    name="orderId"
+                    value={formData.orderId}
+                    onChange={handleInputChange}
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
+                      formErrors.orderId ? 'border-red-300' : 'border-gray-300'
+                    } rounded-md p-2`}
+                    placeholder="Order ID"
+                    required
+                    readOnly={!!selectedOrderForShipment}
+                  />
+                  {formErrors.orderId && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.orderId}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="driver"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Driver Name*
+                  </label>
+                  <input
+                    type="text"
+                    id="driver"
+                    name="driver"
+                    value={formData.driver}
+                    onChange={handleInputChange}
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
+                      formErrors.driver ? 'border-red-300' : 'border-gray-300'
+                    } rounded-md p-2`}
+                    placeholder="Driver Name"
+                    required
+                  />
+                  {formErrors.driver && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.driver}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="origin"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Origin*
+                  </label>
+                  <input
+                    type="text"
+                    id="origin"
+                    name="origin"
+                    value={formData.origin}
+                    onChange={handleInputChange}
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
+                      formErrors.origin ? 'border-red-300' : 'border-gray-300'
+                    } rounded-md p-2`}
+                    placeholder="Shipment Origin"
+                    required
+                  />
+                  {formErrors.origin && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.origin}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="destination"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Destination*
+                  </label>
+                  <input
+                    type="text"
+                    id="destination"
+                    name="destination"
+                    value={formData.destination}
+                    onChange={handleInputChange}
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
+                      formErrors.destination ? 'border-red-300' : 'border-gray-300'
+                    } rounded-md p-2`}
+                    placeholder="Shipment Destination"
+                    required
+                  />
+                  {formErrors.destination && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.destination}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="vehicle"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Vehicle Number*
+                  </label>
+                  <input
+                    type="text"
+                    id="vehicle"
+                    name="vehicle"
+                    value={formData.vehicle}
+                    onChange={handleInputChange}
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
+                      formErrors.vehicle ? 'border-red-300' : 'border-gray-300'
+                    } rounded-md p-2`}
+                    placeholder="e.g., ABC-1234 or WP-ABC-1234"
+                    required
+                  />
+                  {formErrors.vehicle && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.vehicle}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="contactNumber"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Contact Number*
+                  </label>
+                  <input
+                    type="text"
+                    id="contactNumber"
+                    name="contactNumber"
+                    value={formData.contactNumber}
+                    onChange={handleInputChange}
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
+                      formErrors.contactNumber ? 'border-red-300' : 'border-gray-300'
+                    } rounded-md p-2`}
+                    placeholder="e.g., 0771234567"
+                    required
+                  />
+                  {formErrors.contactNumber && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.contactNumber}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="status"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Status*
+                  </label>
+                  <select
+                    id="status"
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
+                    required
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="In Transit">In Transit</option>
+                    <option value="Out for Delivery">Out for Delivery</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Failed">Failed</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="estimatedDeliveryDate"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Estimated Delivery Date*
+                  </label>
+                  <input
+                    type="date"
+                    id="estimatedDeliveryDate"
+                    name="estimatedDeliveryDate"
+                    value={formData.estimatedDeliveryDate}
+                    onChange={handleInputChange}
+                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
+                      formErrors.estimatedDeliveryDate
+                        ? 'border-red-300'
+                        : 'border-gray-300'
+                    } rounded-md p-2`}
+                    required
+                  />
+                  {formErrors.estimatedDeliveryDate && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {formErrors.estimatedDeliveryDate}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="notes"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Notes
+                </label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  rows={3}
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
+                  placeholder="Additional notes or instructions"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowShipmentForm(false);
+                    resetForm();
+                  }}
+                  className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  {selectedShipment ? 'Update Shipment' : 'Create Shipment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
