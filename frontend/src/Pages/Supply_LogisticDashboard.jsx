@@ -2811,80 +2811,80 @@ const handleUpdateSupplier = async () => {
               .filter(shipment => shipmentStatusFilter === "all" || shipment.status === shipmentStatusFilter)
               .slice(0, 3)
               .map((shipment) => (
-                <div key={shipment.id || shipment._id} className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="px-6 py-4">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                      <div className="mb-3 md:mb-0">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                            <Truck className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <h4 className="text-lg font-medium text-gray-800">{shipment.id}</h4>
-                            <p className="text-sm text-gray-600">
-                              Order #{shipment.orderId?.substring(0, 8) || "N/A"}
-                            </p>
-                          </div>
+              <div key={shipment.id || shipment._id} className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                    <div className="mb-3 md:mb-0">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                          <Truck className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-medium text-gray-800">{shipment.id}</h4>
+                          <p className="text-sm text-gray-600">
+                            Order #{shipment.orderId?.substring(0, 8) || "N/A"}
+                          </p>
                         </div>
                       </div>
+                    </div>
+                    
+                    <div className="flex flex-col md:items-end">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        shipment.status === "In Transit" ? "bg-blue-100 text-blue-800" :
+                        shipment.status === "Loading" ? "bg-amber-100 text-amber-800" :
+                        shipment.status === "Out for Delivery" ? "bg-purple-100 text-purple-800" :
+                        "bg-gray-100 text-gray-800"
+                      }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${
+                          shipment.status === "In Transit" ? "bg-blue-500" :
+                          shipment.status === "Loading" ? "bg-amber-500" :
+                          shipment.status === "Out for Delivery" ? "bg-purple-500" :
+                          "bg-gray-500"
+                        }`}></span>
+                        {shipment.status}
+                      </span>
                       
-                      <div className="flex flex-col md:items-end">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          shipment.status === "In Transit" ? "bg-blue-100 text-blue-800" :
-                          shipment.status === "Loading" ? "bg-amber-100 text-amber-800" :
-                          shipment.status === "Out for Delivery" ? "bg-purple-100 text-purple-800" :
-                          "bg-gray-100 text-gray-800"
-                        }`}>
-                          <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${
-                            shipment.status === "In Transit" ? "bg-blue-500" :
-                            shipment.status === "Loading" ? "bg-amber-500" :
-                            shipment.status === "Out for Delivery" ? "bg-purple-500" :
-                            "bg-gray-500"
-                          }`}></span>
-                          {shipment.status}
-                        </span>
-                        
-                        <span className="text-sm text-gray-500 mt-1">
-                          ETA: {shipment.eta || "Unknown"}
-                        </span>
-                      </div>
+                      <span className="text-sm text-gray-500 mt-1">
+                        ETA: {shipment.eta || "Unknown"}
+                      </span>
                     </div>
-                    
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-500">FROM</p>
-                        <p className="text-sm font-medium text-gray-800">{shipment.origin || "Warehouse"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">TO</p>
-                        <p className="text-sm font-medium text-gray-800">{shipment.destination || "Customer Site"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">DRIVER</p>
-                        <p className="text-sm font-medium text-gray-800">{shipment.driver || "Not Assigned"}</p>
-                      </div>
+                  </div>
+                  
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500">FROM</p>
+                      <p className="text-sm font-medium text-gray-800">{shipment.origin || "Warehouse"}</p>
                     </div>
-                    
-                    <div className="mt-4">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>Progress</span>
-                        <span>{shipment.progress || 0}%</span>
-                      </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-2 rounded-full ${
-                            shipment.status === "In Transit" ? "bg-blue-500" :
-                            shipment.status === "Loading" ? "bg-amber-500" :
-                            shipment.status === "Out for Delivery" ? "bg-purple-500" :
-                            "bg-gray-500"
-                          }`}
-                          style={{ width: `${shipment.progress || 0}%` }}
-                        ></div>
-                      </div>
+                    <div>
+                      <p className="text-xs text-gray-500">TO</p>
+                      <p className="text-sm font-medium text-gray-800">{shipment.destination || "Customer Site"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">DRIVER</p>
+                      <p className="text-sm font-medium text-gray-800">{shipment.driver || "Not Assigned"}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>Progress</span>
+                      <span>{shipment.progress || 0}%</span>
+                    </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          shipment.status === "In Transit" ? "bg-blue-500" :
+                          shipment.status === "Loading" ? "bg-amber-500" :
+                          shipment.status === "Out for Delivery" ? "bg-purple-500" :
+                          "bg-gray-500"
+                        }`}
+                        style={{ width: `${shipment.progress || 0}%` }}
+                      ></div>
                     </div>
                   </div>
                 </div>
-              ))}
+              </div>
+            ))}
             
             {activeShipments.length > 3 && (
               <div className="text-center mt-4">
