@@ -498,7 +498,7 @@ try {
             <p className="mt-2 text-sm text-gray-500">{error}</p>
             <div className="mt-6">
               <button
-                onClick={() => navigate('/jobs')}
+                onClick={() => navigate('/ongoing-works')}
                 className="inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
                 Back to Projects
@@ -576,7 +576,7 @@ try {
               </p>
               <div className="mt-6 flex justify-center space-x-3">
                 <button
-                  onClick={() => navigate(`/jobs`)}
+                  onClick={() => navigate(`/ongoing-works`)}
                   className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
                 >
                   Go to My Projects
@@ -591,10 +591,6 @@ try {
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <nav className="mb-5">
           <ol className="flex items-center space-x-2 text-sm text-gray-500">
-            <li><Link to="/" className="hover:text-gray-700">Home</Link></li>
-            <li><span className="mx-2">/</span></li>
-            <li><Link to="/myprojects" className="hover:text-gray-700">My Projects</Link></li>
-            <li><span className="mx-2">/</span></li>
             <li><Link to={`/job/${jobId}`} className="hover:text-gray-700">Project Details</Link></li>
             <li><span className="mx-2">/</span></li>
             <li className="text-gray-900 font-medium">Agreement</li>
