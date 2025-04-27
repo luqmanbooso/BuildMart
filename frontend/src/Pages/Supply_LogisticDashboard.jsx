@@ -375,6 +375,16 @@ const mapOrderStatus = (status) => {
     const fetchInventory = async () => {
       setInventoryLoading(true);
       try {
+        // Fetch restock requests first to check which items already have requests
+        let existingRestockRequests = [];
+        try {
+          const restockResponse = await restockService.getAllRequests();
+          existingRestockRequests = restockResponse;
+          console.log("Fetched existing restock requests:", existingRestockRequests.length);
+        } catch (error) {
+          console.error("Error fetching restock requests:", error);
+        }
+
         const response = await axios.get(
           "http://localhost:5000/product/products"
         );
@@ -395,6 +405,12 @@ const mapOrderStatus = (status) => {
             // Find if this product has an assigned supplier
             const assignedSupplier = currentSuppliers.find(s => s.productId === product._id);
             
+            // Check if this product has a pending restock request
+            const hasRestockRequest = existingRestockRequests.some(
+              request => request.productId === product._id && 
+              ['requested', 'approved', 'ordered'].includes(request.status?.toLowerCase())
+            );
+            
             return {
               name: product.name,
               stock: product.stock,
@@ -402,7 +418,7 @@ const mapOrderStatus = (status) => {
               status: getStockStatus(product.stock, product.threshold),
               supplier: assignedSupplier ? assignedSupplier.name : "No Supplier Assigned",
               supplierId: assignedSupplier ? assignedSupplier._id : null,
-              restockRequested: false, // This would need to come from a restock request API
+              restockRequested: hasRestockRequest, // Set based on existing restock requests
               paymentStatus: "Pending", // This would need to come from a payment API
               deliveryStatus: "Pending", // This would need to come from a delivery API
               _id: product._id, // Keep the MongoDB ID for reference
@@ -904,6 +920,13 @@ const handleRestockRequest = async (itemName) => {
       return;
     }
 
+    // Check if there's already a restock request for this product
+    if (product.restockRequested) {
+      toast.info(`A restock request for ${itemName} already exists`);
+      setActiveTab("restock"); // Take user to the restock page to see existing request
+      return;
+    }
+
     // Check if product has a supplier assigned
     if (product.supplier === "No Supplier Assigned") {
       setActiveTab("suppliers");
@@ -962,7 +985,11 @@ const handleRestockRequest = async (itemName) => {
     const newRequest = await restockService.createRequest(restockData);
     
     // Add to restock requests list
-    setRestockRequests(prevRequests => [...prevRequests, newRequest]);
+    setRestockRequests(prevRequests => {
+      // First filter out any existing requests for this product to avoid duplicates
+      const filteredRequests = prevRequests.filter(req => req.productId !== product._id);
+      return [...filteredRequests, newRequest];
+    });
       
     // Switch to the restock tab after creating the request
     setActiveTab("restock");
