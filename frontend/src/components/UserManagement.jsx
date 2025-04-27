@@ -10,7 +10,24 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
   const [showUserModal, setShowUserModal] = useState(false);
   const [userDeleteId, setUserDeleteId] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportCriteria, setReportCriteria] = useState({
+    userType: 'all',
+    verificationStatus: 'all',
+    dateRange: {
+      start: '',
+      end: ''
+    },
+    fields: ['username', 'email', 'role', 'createdAt']
+  });
+  const [reportData, setReportData] = useState(null);
+
+  // Available fields for reports
+  const availableFields = {
+    basic: ['username', 'email', 'role', 'createdAt', 'updatedAt'],
+    contractor: ['companyName', 'address', 'phone', 'specialization', 'experienceYears', 'completedProjects', 'verified']
+  };
+
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(10);
   const [contractorProfiles, setContractorProfiles] = useState({});
@@ -250,6 +267,113 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     }
   };
 
+  const generateReport = () => {
+    try {
+      console.log("Generating report with criteria:", reportCriteria);
+      
+      // Filter users based on type
+      let usersToInclude = [];
+      if (reportCriteria.userType === 'all') {
+        usersToInclude = [...allClients, ...allServiceProviders];
+      } else if (reportCriteria.userType === 'clients') {
+        usersToInclude = [...allClients];
+      } else {
+        usersToInclude = [...allServiceProviders];
+      }
+      
+      // Filter by date range if specified
+      if (reportCriteria.dateRange.start) {
+        const startDate = new Date(reportCriteria.dateRange.start);
+        usersToInclude = usersToInclude.filter(user => 
+          new Date(user.createdAt) >= startDate
+        );
+      }
+      
+      if (reportCriteria.dateRange.end) {
+        const endDate = new Date(reportCriteria.dateRange.end);
+        endDate.setHours(23, 59, 59, 999); // Set to end of day
+        usersToInclude = usersToInclude.filter(user => 
+          new Date(user.createdAt) <= endDate
+        );
+      }
+      
+      // Filter service providers by verification status if needed
+      if (reportCriteria.userType === 'serviceProviders' || reportCriteria.userType === 'all') {
+        if (reportCriteria.verificationStatus === 'verified') {
+          usersToInclude = usersToInclude.filter(user => 
+            user.role === 'Client' || user.verified
+          );
+        } else if (reportCriteria.verificationStatus === 'unverified') {
+          usersToInclude = usersToInclude.filter(user => 
+            user.role === 'Client' || !user.verified
+          );
+        }
+      }
+      
+      // Remove duplicates (by ID)
+      const uniqueIds = new Set();
+      const uniqueUsers = usersToInclude.filter(user => {
+        const userId = user._id || user.id;
+        if (uniqueIds.has(userId)) {
+          return false;
+        }
+        uniqueIds.add(userId);
+        return true;
+      });
+      
+      // Enhance service provider data with contractor profiles if selected
+      const enhancedUsers = uniqueUsers.map(user => {
+        if (user.role === 'serviceProvider') {
+          const userId = user._id || user.id;
+          const contractorProfile = contractorProfiles[userId];
+          
+          if (contractorProfile) {
+            return {
+              ...user,
+              // Add contractor fields if they're in the selected fields
+              ...(reportCriteria.fields.includes('companyName') && { companyName: contractorProfile.companyName }),
+              ...(reportCriteria.fields.includes('address') && { address: contractorProfile.address }),
+              ...(reportCriteria.fields.includes('phone') && { phone: contractorProfile.phone || user.phone }),
+              ...(reportCriteria.fields.includes('specialization') && { specialization: contractorProfile.specialization?.join(', ') }),
+              ...(reportCriteria.fields.includes('experienceYears') && { experienceYears: contractorProfile.experienceYears }),
+              ...(reportCriteria.fields.includes('completedProjects') && { completedProjects: contractorProfile.completedProjects }),
+              verified: user.verified || contractorProfile.verified || false
+            };
+          }
+        }
+        return user;
+      });
+      
+      // Filter fields based on selection
+      const reportResult = enhancedUsers.map(user => {
+        const filteredUser = {};
+        reportCriteria.fields.forEach(field => {
+          if (user[field] !== undefined) {
+            filteredUser[field] = user[field];
+          }
+        });
+        return filteredUser;
+      });
+      
+      setReportData(reportResult);
+      
+      // Format date for filename
+      const today = new Date().toISOString().split('T')[0];
+      const userTypeLabel = reportCriteria.userType === 'all' ? 'all_users' : reportCriteria.userType;
+      const filename = `${userTypeLabel}_report_${today}.csv`;
+      
+      // Convert to CSV and download
+      const csvData = convertToCSV(reportResult);
+      downloadCSV(csvData, filename);
+      
+      toast.success(`Report generated successfully: ${reportResult.length} records`);
+      setShowReportModal(false);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast.error('Failed to generate report');
+    }
+  };
+
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
   
@@ -447,13 +571,22 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
           <FaSearch className="absolute left-3 top-2.5 text-gray-400" />
         </div>
         
-        <button
-          onClick={handleDownloadUsers}
-          className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm"
-        >
-          <FaDownload className="mr-2" />
-          <span>Export {activeTab === 'clients' ? 'Clients' : 'Service Providers'}</span>
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowReportModal(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+          >
+            <span>Generate Report</span>
+          </button>
+
+          <button
+            onClick={handleDownloadUsers}
+            className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm"
+          >
+            <FaDownload className="mr-2" />
+            <span>Export {activeTab === 'clients' ? 'Clients' : 'Service Providers'}</span>
+          </button>
+        </div>
       </div>
       
       <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
@@ -936,6 +1069,218 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                 className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReportModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-[600px] shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Generate Custom Report</h3>
+              <button onClick={() => setShowReportModal(false)} className="text-gray-500">
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="space-y-5">
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">User Type</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <label className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="userType"
+                      value="all"
+                      checked={reportCriteria.userType === 'all'}
+                      onChange={() => setReportCriteria({...reportCriteria, userType: 'all'})}
+                      className="text-blue-600"
+                    />
+                    <span>All Users</span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="userType"
+                      value="clients"
+                      checked={reportCriteria.userType === 'clients'}
+                      onChange={() => setReportCriteria({...reportCriteria, userType: 'clients'})}
+                      className="text-blue-600"
+                    />
+                    <span>Clients Only</span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="userType"
+                      value="serviceProviders"
+                      checked={reportCriteria.userType === 'serviceProviders'}
+                      onChange={() => setReportCriteria({...reportCriteria, userType: 'serviceProviders'})}
+                      className="text-blue-600"
+                    />
+                    <span>Service Providers Only</span>
+                  </label>
+                </div>
+              </div>
+              
+              {(reportCriteria.userType === 'serviceProviders' || reportCriteria.userType === 'all') && (
+                <div>
+                  <h4 className="font-medium text-gray-700 mb-2">Verification Status</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <label className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="verificationStatus"
+                        value="all"
+                        checked={reportCriteria.verificationStatus === 'all'}
+                        onChange={() => setReportCriteria({...reportCriteria, verificationStatus: 'all'})}
+                        className="text-blue-600"
+                      />
+                      <span>All</span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="verificationStatus"
+                        value="verified"
+                        checked={reportCriteria.verificationStatus === 'verified'}
+                        onChange={() => setReportCriteria({...reportCriteria, verificationStatus: 'verified'})}
+                        className="text-blue-600"
+                      />
+                      <span>Verified Only</span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="verificationStatus"
+                        value="unverified"
+                        checked={reportCriteria.verificationStatus === 'unverified'}
+                        onChange={() => setReportCriteria({...reportCriteria, verificationStatus: 'unverified'})}
+                        className="text-blue-600"
+                      />
+                      <span>Unverified Only</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+              
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">Date Range</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                      value={reportCriteria.dateRange.start}
+                      onChange={(e) => setReportCriteria({
+                        ...reportCriteria, 
+                        dateRange: {...reportCriteria.dateRange, start: e.target.value}
+                      })}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                      value={reportCriteria.dateRange.end}
+                      onChange={(e) => setReportCriteria({
+                        ...reportCriteria, 
+                        dateRange: {...reportCriteria.dateRange, end: e.target.value}
+                      })}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">Fields to Include</h4>
+                <div className="border rounded p-3 max-h-48 overflow-y-auto">
+                  <div className="grid grid-cols-2 gap-2">
+                    <h5 className="col-span-2 font-medium text-gray-600 text-sm mb-1">Basic Fields</h5>
+                    {availableFields.basic.map(field => (
+                      <label key={field} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={reportCriteria.fields.includes(field)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setReportCriteria({
+                                ...reportCriteria,
+                                fields: [...reportCriteria.fields, field]
+                              });
+                            } else {
+                              setReportCriteria({
+                                ...reportCriteria,
+                                fields: reportCriteria.fields.filter(f => f !== field)
+                              });
+                            }
+                          }}
+                          className="text-blue-600"
+                        />
+                        <span>{field.charAt(0).toUpperCase() + field.slice(1)}</span>
+                      </label>
+                    ))}
+                    
+                    {(reportCriteria.userType === 'serviceProviders' || reportCriteria.userType === 'all') && (
+                      <>
+                        <h5 className="col-span-2 font-medium text-gray-600 text-sm mb-1 mt-3">Contractor Fields</h5>
+                        {availableFields.contractor.map(field => (
+                          <label key={field} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={reportCriteria.fields.includes(field)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setReportCriteria({
+                                    ...reportCriteria,
+                                    fields: [...reportCriteria.fields, field]
+                                  });
+                                } else {
+                                  setReportCriteria({
+                                    ...reportCriteria,
+                                    fields: reportCriteria.fields.filter(f => f !== field)
+                                  });
+                                }
+                              }}
+                              className="text-blue-600"
+                            />
+                            <span>{field.charAt(0).toUpperCase() + field.slice(1)}</span>
+                          </label>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 pt-4 border-t flex justify-between">
+              <button 
+                onClick={() => setShowReportModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              
+              <button
+                onClick={generateReport}
+                disabled={reportCriteria.fields.length === 0}
+                className={`px-4 py-2 rounded text-white ${
+                  reportCriteria.fields.length > 0
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : 'bg-blue-300 cursor-not-allowed'
+                }`}
+              >
+                Generate Report
               </button>
             </div>
           </div>
