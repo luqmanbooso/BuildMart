@@ -1603,8 +1603,16 @@ const handleUpdateSupplier = async () => {
     // Filter to only show pending orders
     const pendingOrders = orders.filter(order => order.status === 'Pending');
     
+    // Filter orders based on search term
+    const filteredPendingOrders = pendingOrders.filter(order => 
+      orderSearchTerm === "" || 
+      (order.id && order.id.toLowerCase().includes(orderSearchTerm.toLowerCase())) ||
+      (order.customer && order.customer.toLowerCase().includes(orderSearchTerm.toLowerCase())) ||
+      (order.orderNumber && order.orderNumber.toLowerCase().includes(orderSearchTerm.toLowerCase()))
+    );
+    
     // Sort by date (oldest first) to emphasize first-come-first-serve
-    const sortedPendingOrders = [...pendingOrders].sort((a, b) => {
+    const sortedPendingOrders = [...filteredPendingOrders].sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
       return dateA - dateB;
@@ -1614,8 +1622,10 @@ const handleUpdateSupplier = async () => {
       return (
         <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 text-center">
           <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">No Pending Orders</h3>
-          <p className="text-gray-500 mb-4">All orders have been processed or are in transit.</p>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">No New Orders</h3>
+          <p className="text-gray-500 mb-4">
+            {orderSearchTerm ? "No orders match your search criteria." : "All orders have been processed or are in transit."}
+          </p>
           <button 
             onClick={() => setActiveTab("inventory")}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
@@ -1640,26 +1650,21 @@ const handleUpdateSupplier = async () => {
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">Pending Orders</h2>
+              <h2 className="text-2xl font-bold text-gray-800">New Orders</h2>
               <p className="text-gray-500 mt-1">First come, first serve processing queue</p>
             </div>
+            {/* Add search, filter and download buttons */}
             <div className="flex items-center gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input 
+                <input
                   type="text"
+                  className="w-64 py-2 pl-10 pr-4 rounded-lg border border-gray-300 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Search orders..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-64"
+                  value={orderSearchTerm}
+                  onChange={(e) => setOrderSearchTerm(e.target.value)}
                 />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               </div>
-              
-              <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                <Filter className="h-5 w-5 text-gray-500" />
-              </button>
-              
-              <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                <Download className="h-5 w-5 text-gray-500" />
-              </button>
             </div>
           </div>
         </div>
@@ -1719,7 +1724,7 @@ const handleUpdateSupplier = async () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{order.customer}</div>
                       <div className="text-sm text-gray-500">
-                        {order.shippingAddress ? `${order.shippingAddress.city || ''}, ${order.shippingAddress.country || ''}` : 'No address'}
+                        {order.shippingAddress ? `${order.shippingAddress.city || ''}, ${order.shippingAddress.postalCode || order.shippingAddress.zip || ''}` : 'No address'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -1798,7 +1803,7 @@ const handleUpdateSupplier = async () => {
                                   <p className="flex justify-between">
                                     <span className="text-sm text-gray-500">Status:</span>
                                     <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                                      {order.status}
+                                      {order.status === 'Pending' ? 'Awaiting Shipment' : order.status}
                                     </span>
                                   </p>
                                   <p className="flex justify-between">
@@ -1824,19 +1829,19 @@ const handleUpdateSupplier = async () => {
                                       <p className="flex justify-between">
                                         <span className="text-sm text-gray-500">Address:</span>
                                         <span className="text-sm font-medium text-gray-900">
-                                          {order.shippingAddress.street || 'N/A'}
+                                          {order.shippingAddress.street || order.shippingAddress.address || 'Address not provided'}
                                         </span>
                                       </p>
                                       <p className="flex justify-between">
                                         <span className="text-sm text-gray-500">City:</span>
                                         <span className="text-sm font-medium text-gray-900">
-                                          {order.shippingAddress.city || 'N/A'}
+                                          {order.shippingAddress.city || 'City not provided'}
                                         </span>
                                       </p>
                                       <p className="flex justify-between">
-                                        <span className="text-sm text-gray-500">Country:</span>
+                                        <span className="text-sm text-gray-500">Postal Code:</span>
                                         <span className="text-sm font-medium text-gray-900">
-                                          {order.shippingAddress.country || 'N/A'}
+                                          {order.shippingAddress.postalCode || order.shippingAddress.zip || 'Not provided'}
                                         </span>
                                       </p>
                                     </>
@@ -1893,7 +1898,31 @@ const handleUpdateSupplier = async () => {
                               </div>
                             ) : (
                               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                                <p className="text-center text-gray-500">Item details not available</p>
+                                <table className="min-w-full divide-y divide-gray-200">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Product
+                                      </th>
+                                      <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Quantity
+                                      </th>
+                                      <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Price
+                                      </th>
+                                      <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Total
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr>
+                                      <td colSpan="4" className="px-4 py-6 text-center text-gray-500">
+                                        {/* Empty table */}
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
                               </div>
                             )}
                             
@@ -1925,7 +1954,7 @@ const handleUpdateSupplier = async () => {
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-700">
-              <span className="font-medium">{sortedPendingOrders.length}</span> pending orders in queue
+              <span className="font-medium">{sortedPendingOrders.length}</span> new orders in queue
             </div>
             
             <div className="flex items-center space-x-5">
@@ -2212,7 +2241,7 @@ const handleUpdateSupplier = async () => {
                 <ClockIcon className="h-5 w-5 text-amber-600" />
               </div>
         <div>
-                <h4 className="text-lg font-semibold text-gray-800">Pending Orders</h4>
+                <h4 className="text-lg font-semibold text-gray-800">New Orders</h4>
                 <p className="text-sm text-gray-500">{pendingOrders.length} orders awaiting processing</p>
               </div>
             </div>
@@ -2226,7 +2255,7 @@ const handleUpdateSupplier = async () => {
               <div className="h-14 w-14 bg-gray-100 rounded-full mx-auto flex items-center justify-center mb-2">
                 <Package className="h-7 w-7 text-gray-400" />
               </div>
-              <h3 className="text-gray-500 font-medium">No pending orders</h3>
+              <h3 className="text-gray-500 font-medium">No new orders</h3>
               <p className="text-sm text-gray-400 mt-1">All orders have been processed</p>
             </div>
           ) : (
@@ -2830,7 +2859,7 @@ const handleUpdateSupplier = async () => {
           <div className="bg-white/10 backdrop-blur-sm rounded-lg px-5 py-4 border border-white/20">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-blue-100 text-xs font-medium">PENDING ORDERS</p>
+                <p className="text-blue-100 text-xs font-medium">NEW ORDERS</p>
                 <h3 className="text-3xl font-bold text-white mt-1">
                   {orders.filter(order => order.status === "Pending" || order.status === "Processing").length}
                 </h3>
@@ -3329,7 +3358,7 @@ const handleUpdateSupplier = async () => {
             {orders.filter(order => order.status === "Pending").length === 0 && (
               <div className="text-center py-8">
                 <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <h3 className="text-lg font-medium text-gray-900">No pending orders</h3>
+                <h3 className="text-lg font-medium text-gray-900">No new orders</h3>
                 <p className="text-gray-500 mt-1">All orders have been processed</p>
               </div>
             )}
@@ -3340,7 +3369,7 @@ const handleUpdateSupplier = async () => {
                   onClick={() => setActiveTab("orders")}
                   className="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center"
                 >
-                  View all {orders.filter(order => order.status === "Pending").length} pending orders
+                  View all {orders.filter(order => order.status === "Pending").length} new orders
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </button>
               </div>
@@ -3718,7 +3747,7 @@ const handleUpdateSupplier = async () => {
                 <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-xl shadow-sm border-2 border-amber-300 hover:shadow-md transition-all duration-200 transform hover:-translate-y-1">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-amber-700">Pending Orders</p>
+                      <p className="text-sm font-medium text-amber-700">New Orders</p>
                       <h3 className="text-2xl font-bold text-amber-900 mt-1">
                         {orders.filter(order => order.status === "Pending").length}
                       </h3>
