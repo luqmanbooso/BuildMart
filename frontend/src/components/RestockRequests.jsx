@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios'; // Add axios import
 import {
-  RefreshCw, Search, Loader, CheckCircle, Clock, DollarSign, X
+  RefreshCw, Search, Loader, CheckCircle, Clock, DollarSign, X,
+  Download, Filter, ChevronDown
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useSupplierPayments } from '../context/SupplierPaymentContext';
@@ -21,6 +22,7 @@ const RestockRequests = ({ inventory, setInventory }) => {
   const [statusTypes, setStatusTypes] = useState([]);
   const [statusTransitions, setStatusTransitions] = useState({});
   const [statusTypesLoading, setStatusTypesLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Add state for payment status types
   const [paymentStatusTypes, setPaymentStatusTypes] = useState([]);
@@ -392,6 +394,55 @@ const RestockRequests = ({ inventory, setInventory }) => {
     setShowRestockPaymentModal(true);
   };
 
+  // Function to filter restock requests
+  const getFilteredRequests = () => {
+    if (!restockRequests) return [];
+    
+    return restockRequests.filter(request => {
+      // Filter by search term
+      const matchesSearch = searchTerm.trim() === "" || 
+        (request.productName && request.productName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (request.supplierName && request.supplierName.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+      // Filter by status
+      const matchesStatus = statusFilter === "all" || 
+        (request.status && request.status.toLowerCase() === statusFilter.toLowerCase());
+        
+      return matchesSearch && matchesStatus;
+    });
+  };
+  
+  // Function to download restock requests as CSV
+  const downloadRestockData = () => {
+    // Create CSV content
+    const headers = ["Product", "Supplier", "Quantity", "Total Amount", "Status", "Payment Status", "Date Created"];
+    const data = getFilteredRequests().map(request => [
+      request.productName || "",
+      request.supplierName || "",
+      request.quantity || "",
+      calculateTotalAmount(request),
+      request.status || "",
+      request.paymentStatus || "",
+      new Date(request.createdAt).toLocaleDateString()
+    ]);
+    
+    // Generate CSV
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => row.join(','))
+    ].join('\n');
+    
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `restock_requests_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       {/* Payment Modal */}
@@ -495,164 +546,186 @@ const RestockRequests = ({ inventory, setInventory }) => {
         </div>
       )}
 
-      {/* Gradient Header */}
-      <div className="bg-gradient-to-r from-[#1e40af] to-[#1d4ed8] rounded-xl shadow-lg p-6">
-        <div className="flex items-center justify-between">
+      {/* Restock Management Header - styled like other dashboards */}
+      <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg p-5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white">Restock Management</h1>
-            <p className="text-blue-100 mt-1">Manage your inventory restocking process efficiently</p>
+            <h2 className="text-3xl font-bold text-white">
+              Restock Management
+            </h2>
+            <p className="text-blue-100 mt-1">
+              Manage inventory restock requests and supplier orders
+            </p>
           </div>
-          <div className="flex items-center space-x-4">
-            <button
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          <div className="mt-4 md:mt-0 flex items-center space-x-2">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search requests..."
+                className="py-2 pl-10 pr-4 bg-white/10 border border-white/20 text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/50 rounded-lg"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <div className="absolute left-3 top-2.5">
+                <Search className="h-5 w-5 text-blue-100" />
+              </div>
+            </div>
+            <button 
               onClick={() => {
                 setRestockLoading(true);
                 restockService.getAllRequests()
                   .then(data => {
                     setRestockRequests(data);
-                    toast.success("Restock data refreshed");
+                    setRestockError(null);
                   })
                   .catch(error => {
-                    console.error("Error refreshing restock data:", error);
-                    toast.error("Failed to refresh restock data");
+                    console.error("Error refreshing restock requests:", error);
+                    setRestockError("Failed to refresh restock requests");
                   })
-                  .finally(() => {
-                    setRestockLoading(false);
-                  });
+                  .finally(() => setRestockLoading(false));
               }}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              title="Refresh data"
             >
-              <RefreshCw className="h-5 w-5 text-white" />
+              <RefreshCw size={20} className="text-white" />
+            </button>
+            <button 
+              onClick={downloadRestockData}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              title="Download restock data"
+            >
+              <Download size={20} className="text-white" />
             </button>
           </div>
         </div>
       </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Requests</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">{restockRequests.length}</h3>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
-              <RefreshCw className="h-6 w-6 text-blue-600" />
-            </div>
+      
+      {/* Status Filter */}
+      <div className="bg-white shadow-sm rounded-lg p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex-grow max-w-md">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
+            <select
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">All Statuses</option>
+              {statusTypes.map(status => (
+                <option key={status} value={status.toLowerCase()}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </option>
+              ))}
+              {/* Add additional status options if statusTypes is empty */}
+              {statusTypes.length === 0 && (
+                <>
+                  <option value="requested">Requested</option>
+                  <option value="approved">Approved</option>
+                  <option value="ordered">Ordered</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
+                </>
+              )}
+            </select>
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">In Process</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {restockRequests.filter(req => ['requested', 'approved', 'ordered', 'shipped'].includes(req.status)).length}
-              </h3>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
-              <Clock className="h-6 w-6 text-amber-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Delivered</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {restockRequests.filter(req => req.status === 'delivered').length}
-              </h3>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Pending Payment</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                {restockRequests.filter(req => req.status === 'delivered' && req.paymentStatus === 'pending').length}
-              </h3>
-            </div>
-            <div className="h-12 w-12 rounded-full bg-purple-50 flex items-center justify-center">
-              <DollarSign className="h-6 w-6 text-purple-600" />
-            </div>
+          
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("all");
+              }}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+            >
+              Reset Filters
+            </button>
           </div>
         </div>
       </div>
-
-      {/* Restock Requests Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium text-gray-800">Restock Requests</h3>
-            <div className="relative">
-              <input
-                type="text"
-                className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                placeholder="Search requests..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
-            </div>
-          </div>
-        </div>
-
+      
+      {/* Content */}
+      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
         {restockLoading ? (
-          <div className="flex justify-center items-center py-10">
-            <Loader className="h-10 w-10 text-blue-600 animate-spin" />
-            <p className="ml-2 text-gray-600">Loading restock requests...</p>
+          <div className="flex justify-center items-center p-10">
+            <Loader className="h-8 w-8 text-blue-600 animate-spin mr-3" />
+            <p className="text-gray-600">Loading restock requests...</p>
           </div>
         ) : restockError ? (
-          <div className="m-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-4 m-4">
+            <p className="font-medium text-lg mb-1">Error loading restock requests</p>
             <p>{restockError}</p>
             <button
-              onClick={() => window.location.reload()}
-              className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              onClick={() => {
+                setRestockLoading(true);
+                restockService.getAllRequests()
+                  .then(data => {
+                    setRestockRequests(data);
+                    setRestockError(null);
+                  })
+                  .catch(error => {
+                    console.error("Error refreshing restock requests:", error);
+                    setRestockError("Failed to refresh restock requests");
+                  })
+                  .finally(() => setRestockLoading(false));
+              }}
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
               Retry
             </button>
           </div>
+        ) : getFilteredRequests().length === 0 ? (
+          <div className="text-center p-10">
+            <div className="h-20 w-20 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <RefreshCw className="h-10 w-10 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-1">No restock requests found</h3>
+            <p className="text-gray-500 mb-4">
+              {statusFilter !== 'all' 
+                ? `There are no restock requests with status "${statusFilter}".` 
+                : "There are no active restock requests at the moment."
+              }
+              {statusFilter !== 'all' && (
+                <button 
+                  onClick={() => setStatusFilter('all')}
+                  className="text-blue-600 ml-1 hover:underline"
+                >
+                  Show all instead
+                </button>
+              )}
+            </p>
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Product
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Supplier
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantity
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Amount
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {restockRequests
-                  .filter(req => 
-                    req.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    req.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    req.status?.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map(request => (
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Product
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Supplier
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Quantity
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Amount
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {getFilteredRequests().map(request => (
                     <tr key={request._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
@@ -736,15 +809,14 @@ const RestockRequests = ({ inventory, setInventory }) => {
                       </td>
                     </tr>
                   ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
             
-            {restockRequests.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No restock requests found.
-              </div>
-            )}
-          </div>
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
+              Showing {getFilteredRequests().length} of {restockRequests.length} restock requests
+            </div>
+          </>
         )}
       </div>
     </div>
