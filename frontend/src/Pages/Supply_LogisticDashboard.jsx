@@ -279,6 +279,7 @@ function Supply_LogisticDashboard() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [inventoryFilter, setInventoryFilter] = useState("all");
+  const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [showShipmentDetails, setShowShipmentDetails] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -309,6 +310,7 @@ function Supply_LogisticDashboard() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState(null);
   const [activeShipments, setActiveShipments] = useState([]);
+  const [completedShipments, setCompletedShipments] = useState([]);
   const [shipmentsLoading, setShipmentsLoading] = useState(true);
   const [shipmentsError, setShipmentsError] = useState(null);
   const [statusOptions, setStatusOptions] = useState({});
@@ -565,40 +567,61 @@ const mapOrderStatus = (status) => {
     const fetchShipments = async () => {
       setShipmentsLoading(true);
       try {
-        // Try to fetch from real API first
+        // Try to fetch active shipments from real API first
         try {
           const response = await axios.get('http://localhost:5000/api/shipping/active');
           if (response.data && Array.isArray(response.data)) {
             setActiveShipments(response.data);
             setShipmentsError(null);
-            return; // If successful, exit early
+          } else {
+            throw new Error('Invalid response format');
           }
         } catch (apiError) {
           console.log('API fetch failed, using order-based shipments:', apiError);
-          // Continue to fallback approach if API fails
+          // Fallback: extract shipment info from orders
+          const shipmentData = orders
+            .filter(
+              (order) =>
+                order.status === "In Transit" || order.status === "Processing"
+            )
+            .map((order) => ({
+              id: `SHP-${order.id.substring(order.id.length - 5)}`,
+              origin: "Colombo Warehouse",
+              destination: `${order.shippingAddress?.city || "Customer"} Site`,
+              driver: "Assigned Driver",
+              vehicle: "Pending Assignment",
+              status: order.status === "In Transit" ? "In Transit" : "Preparing",
+              progress: order.status === "In Transit" ? 50 : 10,
+              eta: "24 hours",
+              orderId: order.id,
+              createdAt: new Date().toISOString(),
+            }));
+
+          setActiveShipments(shipmentData);
         }
-
-        // Fallback: extract shipment info from orders
-        const shipmentData = orders
-          .filter(
-            (order) =>
-              order.status === "In Transit" || order.status === "Processing"
-          )
-          .map((order) => ({
-            id: `SHP-${order.id.substring(order.id.length - 5)}`,
-            origin: "Colombo Warehouse",
-            destination: `${order.shippingAddress?.city || "Customer"} Site`,
-            driver: "Assigned Driver",
-            vehicle: "Pending Assignment",
-            status: order.status === "In Transit" ? "In Transit" : "Preparing",
-            progress: order.status === "In Transit" ? 50 : 10,
-            eta: "24 hours",
-            orderId: order.id,
-            createdAt: new Date().toISOString(),
-          }));
-
-        setActiveShipments(shipmentData);
-        setShipmentsError(null);
+        
+        // Try to fetch completed shipments
+        try {
+          const completedResponse = await axios.get('http://localhost:5000/api/shipping/completed');
+          if (completedResponse.data && Array.isArray(completedResponse.data)) {
+            setCompletedShipments(completedResponse.data);
+          } else {
+            throw new Error('Invalid response format');
+          }
+        } catch (completedError) {
+          console.log('Completed shipments API fetch failed:', completedError);
+          // Fallback: get from orders
+          const completedShipmentData = orders
+            .filter(order => order.status === "Delivered")
+            .map((order) => ({
+              id: `SHP-${order.id.substring(order.id.length - 5)}`,
+              orderId: order.id,
+              status: "Delivered",
+              progress: 100,
+              completedAt: order.date,
+            }));
+          setCompletedShipments(completedShipmentData);
+        }
       } catch (error) {
         console.error("Error fetching shipments:", error);
         setShipmentsError("Failed to load shipment data");
@@ -871,22 +894,24 @@ const updateOrderStatus = async (orderId, newStatus) => {
 
   // Function to filter inventory data
   const getFilteredInventory = () => {
-    let filtered = inventory;
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (item) =>
-          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (item.supplier &&
-            item.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
-
-    if (inventoryFilter !== "all") {
-      filtered = filtered.filter((item) => item.status === inventoryFilter);
-    }
-
-    return filtered;
+    if (!inventory) return [];
+    
+    return inventory.filter(item => {
+      // Filter by search term
+      const matchesSearch = searchTerm.trim() === "" || 
+        (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+      // Filter by status
+      const matchesStatus = inventoryFilter === "all" || item.status === inventoryFilter;
+      
+      // Filter by category
+      const matchesCategory = inventoryCategoryFilter === "all" || 
+        (item.category && item.category === inventoryCategoryFilter);
+        
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
   };
 
   // Update handleRestockRequest function to use supplier price
@@ -1897,32 +1922,10 @@ const handleUpdateSupplier = async () => {
                                 </div>
                               </div>
                             ) : (
-                              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                  <thead className="bg-gray-50">
-                                    <tr>
-                                      <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Product
-                                      </th>
-                                      <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Quantity
-                                      </th>
-                                      <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Price
-                                      </th>
-                                      <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Total
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    <tr>
-                                      <td colSpan="4" className="px-4 py-6 text-center text-gray-500">
-                                        {/* Empty table */}
-                                      </td>
-                                    </tr>
-                                  </tbody>
-                                </table>
+                              <div className="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-center">
+                                <div className="text-center">
+                                  <Box className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                                </div>
                               </div>
                             )}
                             
@@ -2226,10 +2229,16 @@ const handleUpdateSupplier = async () => {
       order.status.toLowerCase().includes(orderSearchTerm.toLowerCase())
     );
     
-    // Divide orders into pending and others
+    // Divide orders into pending and others - ensure we use consistent status names
     const pendingOrders = filteredOrders.filter(order => order.status === 'Pending');
-    const processingOrders = filteredOrders.filter(order => ['Processing', 'In Transit'].includes(order.status));
-    const completedOrders = filteredOrders.filter(order => order.status === 'Delivered');
+    // Use activeShipments instead of filtering orders
+    const processingOrders = activeShipments.filter(shipment => 
+      filteredOrders.some(order => order.id === shipment.orderId)
+    );
+    // Use completedShipments instead of filtering orders
+    const completedOrders = completedShipments.filter(shipment => 
+      filteredOrders.some(order => order.id === shipment.orderId)
+    );
     
     return (
       <div className="space-y-5 mt-4">
@@ -2543,6 +2552,34 @@ const handleUpdateSupplier = async () => {
       console.error("Error fetching suppliers:", error);
       setError("Failed to fetch suppliers");
     }
+  };
+
+  // Get inventory categories for filtering
+  const getInventoryCategories = () => {
+    const categories = ["all"];
+    
+    // Add categories from our inventory items 
+    inventory.forEach(item => {
+      if (item.category && !categories.includes(item.category)) {
+        categories.push(item.category);
+      }
+    });
+    
+    // Add predefined categories if they're not already included
+    const predefinedCategories = [
+      "Safety Gear & Accessories",
+      "Tools & Equipment",
+      "Construction Materials", 
+      "Plumbing & Electrical Supplies",
+    ];
+    
+    predefinedCategories.forEach(category => {
+      if (!categories.includes(category)) {
+        categories.push(category);
+      }
+    });
+    
+    return categories;
   };
 
   return (
@@ -3382,63 +3419,121 @@ const handleUpdateSupplier = async () => {
 )}
           {activeTab === "inventory" && (
             <div className="space-y-6">
-              {/* Inventory Filter Section */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                      placeholder="Search inventory..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                    <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
+              {/* Inventory Management Header - styled like shipment dashboard */}
+              <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg p-5">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-3xl font-bold text-white">
+                      Inventory Management
+                    </h2>
+                    <p className="text-blue-100 mt-1">
+                      Track, manage and optimize your inventory levels
+                    </p>
                   </div>
-                  <div className="relative">
-                    <select
-                      className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                      value={inventoryFilter}
-                      onChange={(e) => setInventoryFilter(e.target.value)}
+                  <div className="mt-4 md:mt-0 flex items-center space-x-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search inventory..."
+                        className="py-2 pl-10 pr-4 bg-white/10 border border-white/20 text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/50 rounded-lg"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      <div className="absolute left-3 top-2.5">
+                        <Search className="h-5 w-5 text-blue-100" />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setInventoryLoading(true);
+                        fetchInventory().finally(() => setInventoryLoading(false));
+                      }} 
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                      title="Refresh data"
                     >
-                      <option value="all">All</option>
-                      <option value="In Stock">In Stock</option>
-                      <option value="Low Stock">Low Stock</option>
-                      <option value="Critical">Critical</option>
-                    </select>
-                    <Filter className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
+                      <RefreshCw size={20} className="text-white" />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        // Download inventory data as CSV
+                        const headers = ["Product", "Stock", "Threshold", "Status", "Supplier", "Category"];
+                        const data = inventory.map(item => [
+                          item.name, item.stock, item.threshold, item.status, 
+                          item.supplier, item.category || 'General'
+                        ]);
+                        
+                        // Create CSV content
+                        const csvContent = [
+                          headers.join(','),
+                          ...data.map(row => row.join(','))
+                        ].join('\n');
+                        
+                        // Create download link
+                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.setAttribute('href', url);
+                        link.setAttribute('download', `inventory_${new Date().toISOString().split('T')[0]}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                      title="Download inventory data"
+                    >
+                      <Download className="h-5 w-5 text-white" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                    onClick={() => {
-                      const csvContent =
-                        "data:text/csv;charset=utf-8," +
-                        "Item,Stock,Threshold,Status,Supplier,Payment Status,Delivery Status\n" +
-                        getFilteredInventory()
-                          .map(
-                            (item) =>
-                              `"${item.name}",${item.stock},${item.threshold},"${item.status}","${item.supplier}","${item.paymentStatus}","${item.deliveryStatus}"`
-                          )
-                          .join("\n");
-                      const encodedUri = encodeURI(csvContent);
-                      const link = document.createElement("a");
-                      link.setAttribute("href", encodedUri);
-                      link.setAttribute("download", "inventory_report.csv");
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
+              </div>
+
+              {/* Filter Bar */}
+              <div className="bg-white shadow-sm rounded-lg p-4 flex flex-wrap items-center gap-4">
+                <div className="flex-grow">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
+                  <select
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={inventoryFilter}
+                    onChange={(e) => setInventoryFilter(e.target.value)}
                   >
-                    <Download className="h-5 w-5 text-gray-600" />
-                  </button>
-                  <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                    <MoreHorizontal className="h-5 w-5 text-gray-600" />
+                    <option value="all">All Items</option>
+                    <option value="In Stock">In Stock</option>
+                    <option value="Low Stock">Low Stock</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+
+                <div className="flex-grow">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category Filter</label>
+                  <select
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={inventoryCategoryFilter}
+                    onChange={(e) => setInventoryCategoryFilter(e.target.value)}
+                  >
+                    <option value="all">All Categories</option>
+                    {getInventoryCategories().filter(cat => cat !== "all").map(category => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setInventoryFilter("all");
+                      setInventoryCategoryFilter("all");
+                    }}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    Reset Filters
                   </button>
                 </div>
               </div>
 
+              {/* Inventory Content */}
               {/* Enhanced Inventory Table */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 {inventoryLoading ? (
@@ -3764,7 +3859,7 @@ const handleUpdateSupplier = async () => {
                     <div>
                       <p className="text-sm font-medium text-gray-500">In Progress</p>
                       <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {orders.filter(order => ["Processing", "In Transit"].includes(order.status)).length}
+                        {activeShipments.length}
                       </h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
@@ -3778,7 +3873,7 @@ const handleUpdateSupplier = async () => {
                     <div>
                       <p className="text-sm font-medium text-gray-500">Delivered</p>
                       <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {orders.filter(order => order.status === "Delivered").length}
+                        {completedShipments.length}
                       </h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">

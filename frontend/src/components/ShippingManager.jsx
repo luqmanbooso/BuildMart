@@ -52,6 +52,7 @@ const ShippingManager = ({
   const [returnedShipments, setReturnedShipments] = useState([]);
   const [expandedShipmentId, setExpandedShipmentId] = useState(null); // Add this state for tracking expanded rows
   const [showAdditionalDetails, setShowAdditionalDetails] = useState(false); // Add this state for toggling additional details
+  const [searchTerm, setSearchTerm] = useState(''); // Add state for search term
   
   // Add this function at the top of your component
   const mockUpdateOrderStatus = (orderId, status) => {
@@ -930,6 +931,19 @@ const handleDelete = async (id) => {
     }
   };
 
+  // Filter shipments based on search term
+  const filterShipmentsBySearch = (shipments) => {
+    if (!searchTerm) return shipments;
+    
+    return shipments.filter(shipment => 
+      (shipment.orderId && shipment.orderId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (shipment.destination && shipment.destination.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (shipment.driver && shipment.driver.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (shipment.vehicle && shipment.vehicle.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (shipment.status && shipment.status.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  };
+
   return (
     <div className="overflow-hidden">
       {/* Header Section - Updated with download option */}
@@ -949,6 +963,8 @@ const handleDelete = async (id) => {
                 type="text"
                 placeholder="Search shipments..."
                 className="py-2 pl-10 pr-4 bg-white/10 border border-white/20 text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/50 rounded-lg"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
               <div className="absolute left-3 top-2.5">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-100" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1107,7 +1123,7 @@ const handleDelete = async (id) => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {activeShipments.map((shipment) => (
+                {filterShipmentsBySearch(activeShipments).map((shipment) => (
                   <div key={shipment._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                     <div className="p-4">
                       {/* Header with order ID and status badge */}
@@ -1279,7 +1295,7 @@ const handleDelete = async (id) => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {completedShipments.map((shipment) => (
+                      {filterShipmentsBySearch(completedShipments).map((shipment) => (
                         <React.Fragment key={shipment._id}>
                           <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpandedShipmentId(expandedShipmentId === shipment._id ? null : shipment._id)}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -1456,7 +1472,7 @@ const handleDelete = async (id) => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {returnedShipments.map((shipment) => (
+                      {filterShipmentsBySearch(returnedShipments).map((shipment) => (
                         <React.Fragment key={shipment._id}>
                           <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpandedShipmentId(expandedShipmentId === shipment._id ? null : shipment._id)}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
