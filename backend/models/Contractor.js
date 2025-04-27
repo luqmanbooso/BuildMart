@@ -27,7 +27,7 @@ const contractorSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  // Contact details (basic required info)
+  // Contact details 
   phone: {
     type: String,
     required: true
@@ -56,7 +56,6 @@ const contractorSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  // New field to track manually entered projects separately
   manualCompletedProjects: {
     type: Number,
     default: 0
@@ -87,8 +86,7 @@ const contractorSchema = new mongoose.Schema({
 contractorSchema.pre('findOneAndDelete', async function(next) {
   try {
     const contractorId = this.getFilter()._id;
-    // You can add logic to delete related contractor data here
-    // Example: await Qualification.deleteMany({ contractorId });
+  
     next();
   } catch (error) {
     next(error);

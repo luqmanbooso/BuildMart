@@ -58,7 +58,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST new qualification with file upload
 router.post('/', qualificationUpload.single('documentImage'), async (req, res) => {
   try {
     const { userId, type, name, issuer, year, expiry } = req.body;
@@ -87,7 +86,6 @@ router.post('/', qualificationUpload.single('documentImage'), async (req, res) =
       return res.status(400).json({ error: 'Issuer contains invalid characters' });
     }
     
-    // Validate year format (4-digit number between 1900 and current year)
     if (!year || !year.trim() || !/^\d{4}$/.test(year)) {
       return res.status(400).json({ error: 'Year must be a 4-digit number' });
     }
@@ -180,7 +178,6 @@ router.put('/:id', qualificationUpload.single('documentImage'), async (req, res)
     if (req.file) {
       updateData.documentImage = `/uploads/qualifications/${req.file.filename}`;
       
-      // If old image exists and isn't a base64 string
       if (existingQualification.documentImage && 
           !existingQualification.documentImage.startsWith('data:') &&
           !existingQualification.documentImage.startsWith('http')) {
