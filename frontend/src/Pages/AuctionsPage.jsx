@@ -275,7 +275,7 @@ const AuctionsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const auctionsPerPage = 8;
   
-  const categories = ['All', 'Construction', 'Plumbing', 'Electrical', 'Renovation', 'Interior'];
+  const categories = ['All', 'Electrical', 'Plumbing', 'Carpentry', 'Masonry', 'Painting', 'Flooring','Roofing', 'Landscaping','Interior Design']; 
   const statuses = ['All', 'active', 'pending', 'ended'];
   
   // Add this function near the top of AuctionsPage component
