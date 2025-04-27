@@ -17,7 +17,7 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
     description: { valid: true, message: '' }
   });
   
-  // Define issue categories
+  // Define issue categories - ensure all match backend allowed values
   const categories = [
     { value: 'technical', label: 'Technical Issue' },
     { value: 'billing', label: 'Payment/Billing Problem' },
@@ -26,6 +26,9 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
     { value: 'communication', label: 'Communication Problem' },
     { value: 'other', label: 'Other' },
   ];
+  
+  // Define valid backend categories for validation
+  const validBackendCategories = ['technical', 'billing', 'quality', 'timeline', 'communication', 'other'];
   
   // Define priority levels
   const priorities = [
@@ -139,6 +142,20 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
     }
   }, [isOpen]);
   
+  // Effect to normalize category if it's invalid
+  useEffect(() => {
+    if (isOpen && category) {
+      // If the provided category is not in valid list, default to 'other'
+      if (!validBackendCategories.includes(category.toLowerCase())) {
+        setIssueData(prev => ({
+          ...prev,
+          category: 'other'
+        }));
+        console.log(`Normalized invalid category '${category}' to 'other'`);
+      }
+    }
+  }, [isOpen, category]);
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -165,11 +182,18 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
       // Get authentication token
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
+      // Normalize category to ensure it's valid for backend
+      let normalizedCategory = issueData.category.toLowerCase();
+      if (!validBackendCategories.includes(normalizedCategory)) {
+        normalizedCategory = 'other'; // Default to 'other' if invalid
+        console.log(`Normalized invalid category '${issueData.category}' to '${normalizedCategory}'`);
+      }
+      
       // Simplify the payload - only send absolutely required fields
       const payload = {
         title: issueData.title,
         description: issueData.description,
-        category: issueData.category || 'technical',
+        category: normalizedCategory, // Use normalized category
         priority: issueData.priority || 'medium',
         status: 'pending',
         submittedAt: submissionDate
@@ -179,7 +203,7 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
       if (projectName) payload.projectName = projectName;
       if (projectId) payload.projectId = projectId;
       if (userId) payload.userId = userId;
-      if (username) payload.username = username; // Add username to payload
+      if (username) payload.username = username;
       if (userRole) payload.userRole = userRole;
       
       console.log('Sending simplified payload with username:', payload);
@@ -212,8 +236,14 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
     } catch (error) {
       console.error("Error submitting issue:", error);
       
-      // More detailed error logging
-      if (error.response) {
+      // More detailed error handling for validation errors
+      if (error.response?.data?.errors) {
+        // Display specific validation error messages
+        const errorDetails = error.response.data.errors
+          .map(err => `${err.field}: ${err.message}`)
+          .join(', ');
+        toast.error(`Validation error: ${errorDetails}`);
+      } else if (error.response) {
         // The server responded with an error status
         console.error('Server error details:', error.response.data);
         console.error('Status code:', error.response.status);
