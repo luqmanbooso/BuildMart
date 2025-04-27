@@ -416,6 +416,34 @@ const validateDriverName = (name) => {
 const handleInputChange = (e) => {
   const { name, value } = e.target;
   
+  // For contact number, validate Sri Lankan format and limit input
+  if (name === 'contactNumber') {
+    // Allow only digits and plus sign at beginning
+    let sanitizedValue = '';
+    if (value.startsWith('+')) {
+      sanitizedValue = '+' + value.substring(1).replace(/[^\d]/g, '');
+    } else {
+      sanitizedValue = value.replace(/[^\d]/g, '');
+    }
+    
+    // Limit length based on format (+94 format can be 12 chars, local format 10)
+    if (sanitizedValue.startsWith('+94')) {
+      sanitizedValue = sanitizedValue.slice(0, 12); // +94 + 9 digits
+    } else {
+      sanitizedValue = sanitizedValue.slice(0, 10); // 10 digits for local format
+    }
+    
+    setFormData({
+      ...formData,
+      [name]: sanitizedValue
+    });
+    
+    // Validate immediately
+    const error = validateSriLankanPhoneNumber(sanitizedValue);
+    setFormErrors({...formErrors, [name]: error});
+    return;
+  }
+
   // Driver name validation
   if (name === 'driver') {
     setFormData({
@@ -447,20 +475,6 @@ const handleInputChange = (e) => {
       ...formData,
       [name]: value.toUpperCase() // Automatically convert to uppercase
     });
-    setFormErrors({...formErrors, [name]: error});
-    return;
-  }
-
-  // For contact number, validate Sri Lankan format
-  if (name === 'contactNumber') {
-    const sanitizedValue = value.replace(/\s/g, ''); // Remove spaces
-    
-    setFormData({
-      ...formData,
-      [name]: sanitizedValue
-    });
-    
-    const error = validateSriLankanPhoneNumber(sanitizedValue);
     setFormErrors({...formErrors, [name]: error});
     return;
   }
@@ -1816,6 +1830,27 @@ const handleDelete = async (id) => {
                         name="contactNumber"
                         value={formData.contactNumber}
                         onChange={handleInputChange}
+                        onKeyDown={(e) => {
+                          // Allow: backspace, delete, tab, escape, enter
+                          if ([8, 46, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+                              // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                              (e.keyCode >= 65 && e.keyCode <= 90 && e.ctrlKey === true) ||
+                              // Allow: home, end, left, right
+                              (e.keyCode >= 35 && e.keyCode <= 39)) {
+                            return;
+                          }
+                          
+                          // Allow + only at the beginning of empty input
+                          if (e.key === '+' && e.target.value === '') {
+                            return;
+                          }
+                          
+                          // Prevent input if not a number
+                          if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && 
+                              (e.keyCode < 96 || e.keyCode > 105)) {
+                            e.preventDefault();
+                          }
+                        }}
                         className={`w-full px-3 py-2 bg-gray-50 border ${
                           formErrors.contactNumber ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
                         } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
