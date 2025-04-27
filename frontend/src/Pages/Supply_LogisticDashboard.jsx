@@ -40,7 +40,8 @@ import {
   MapPin,
   User,
   Plus,
-  RotateCw
+  RotateCw,
+  Eye
 } from "lucide-react";
 import axios from "axios"; // Add axios import
 import { toast, ToastContainer } from "react-toastify"; // Add toast for notifications
@@ -278,6 +279,7 @@ function Supply_LogisticDashboard() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [inventoryFilter, setInventoryFilter] = useState("all");
+  const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [showShipmentDetails, setShowShipmentDetails] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -308,6 +310,7 @@ function Supply_LogisticDashboard() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState(null);
   const [activeShipments, setActiveShipments] = useState([]);
+  const [completedShipments, setCompletedShipments] = useState([]);
   const [shipmentsLoading, setShipmentsLoading] = useState(true);
   const [shipmentsError, setShipmentsError] = useState(null);
   const [statusOptions, setStatusOptions] = useState({});
@@ -321,6 +324,11 @@ function Supply_LogisticDashboard() {
   const [supplierValue, setSupplierValue] = useState("");
   // Add a new state for order search
   const [orderSearchTerm, setOrderSearchTerm] = useState("");
+  // Add state for order details modal
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+  const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
+  // Add state for expanded order row
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
@@ -559,40 +567,61 @@ const mapOrderStatus = (status) => {
     const fetchShipments = async () => {
       setShipmentsLoading(true);
       try {
-        // Try to fetch from real API first
+        // Try to fetch active shipments from real API first
         try {
           const response = await axios.get('http://localhost:5000/api/shipping/active');
           if (response.data && Array.isArray(response.data)) {
             setActiveShipments(response.data);
             setShipmentsError(null);
-            return; // If successful, exit early
+          } else {
+            throw new Error('Invalid response format');
           }
         } catch (apiError) {
           console.log('API fetch failed, using order-based shipments:', apiError);
-          // Continue to fallback approach if API fails
+          // Fallback: extract shipment info from orders
+          const shipmentData = orders
+            .filter(
+              (order) =>
+                order.status === "In Transit" || order.status === "Processing"
+            )
+            .map((order) => ({
+              id: `SHP-${order.id.substring(order.id.length - 5)}`,
+              origin: "Colombo Warehouse",
+              destination: `${order.shippingAddress?.city || "Customer"} Site`,
+              driver: "Assigned Driver",
+              vehicle: "Pending Assignment",
+              status: order.status === "In Transit" ? "In Transit" : "Preparing",
+              progress: order.status === "In Transit" ? 50 : 10,
+              eta: "24 hours",
+              orderId: order.id,
+              createdAt: new Date().toISOString(),
+            }));
+
+          setActiveShipments(shipmentData);
         }
-
-        // Fallback: extract shipment info from orders
-        const shipmentData = orders
-          .filter(
-            (order) =>
-              order.status === "In Transit" || order.status === "Processing"
-          )
-          .map((order) => ({
-            id: `SHP-${order.id.substring(order.id.length - 5)}`,
-            origin: "Colombo Warehouse",
-            destination: `${order.shippingAddress?.city || "Customer"} Site`,
-            driver: "Assigned Driver",
-            vehicle: "Pending Assignment",
-            status: order.status === "In Transit" ? "In Transit" : "Preparing",
-            progress: order.status === "In Transit" ? 50 : 10,
-            eta: "24 hours",
-            orderId: order.id,
-            createdAt: new Date().toISOString(),
-          }));
-
-        setActiveShipments(shipmentData);
-        setShipmentsError(null);
+        
+        // Try to fetch completed shipments
+        try {
+          const completedResponse = await axios.get('http://localhost:5000/api/shipping/completed');
+          if (completedResponse.data && Array.isArray(completedResponse.data)) {
+            setCompletedShipments(completedResponse.data);
+          } else {
+            throw new Error('Invalid response format');
+          }
+        } catch (completedError) {
+          console.log('Completed shipments API fetch failed:', completedError);
+          // Fallback: get from orders
+          const completedShipmentData = orders
+            .filter(order => order.status === "Delivered")
+            .map((order) => ({
+              id: `SHP-${order.id.substring(order.id.length - 5)}`,
+              orderId: order.id,
+              status: "Delivered",
+              progress: 100,
+              completedAt: order.date,
+            }));
+          setCompletedShipments(completedShipmentData);
+        }
       } catch (error) {
         console.error("Error fetching shipments:", error);
         setShipmentsError("Failed to load shipment data");
@@ -865,22 +894,24 @@ const updateOrderStatus = async (orderId, newStatus) => {
 
   // Function to filter inventory data
   const getFilteredInventory = () => {
-    let filtered = inventory;
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (item) =>
-          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (item.supplier &&
-            item.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
-
-    if (inventoryFilter !== "all") {
-      filtered = filtered.filter((item) => item.status === inventoryFilter);
-    }
-
-    return filtered;
+    if (!inventory) return [];
+    
+    return inventory.filter(item => {
+      // Filter by search term
+      const matchesSearch = searchTerm.trim() === "" || 
+        (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+      // Filter by status
+      const matchesStatus = inventoryFilter === "all" || item.status === inventoryFilter;
+      
+      // Filter by category
+      const matchesCategory = inventoryCategoryFilter === "all" || 
+        (item.category && item.category === inventoryCategoryFilter);
+        
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
   };
 
   // Update handleRestockRequest function to use supplier price
@@ -1412,6 +1443,152 @@ const handleUpdateSupplier = async () => {
     setSupplierCategory(product ? product.category : "");
   };
 
+  // Function to format date properly for display and calculations
+  const formatOrderDate = (dateString) => {
+    // Handle missing date values
+    if (!dateString) {
+      console.warn("Missing date value");
+      return new Date();
+    }
+    
+    try {
+      // If it's already a Date object
+      if (dateString instanceof Date) return dateString;
+      
+      // If it's a string, parse it
+      let date;
+      
+      // Check if the string might be in a format that needs special handling
+      if (typeof dateString === 'string') {
+        // For MySQL/ISO format (convert to local time)
+        if (dateString.includes('T') || dateString.includes('Z')) {
+          date = new Date(dateString);
+        }
+        // For YYYY-MM-DD format without time (add current time)
+        else if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+          const today = new Date();
+          date = new Date(`${dateString}T00:00:00`);
+          
+          // If date parsing resulted in previous day due to timezone, adjust
+          if (date.getDate() !== parseInt(dateString.split('-')[2], 10)) {
+            date = new Date(`${dateString}T12:00:00`);
+          }
+        }
+        // For any other format
+        else {
+          date = new Date(dateString);
+        }
+      } else {
+        // For numeric timestamps
+        date = new Date(dateString);
+      }
+      
+      // Check if valid date
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid date string:", dateString);
+        return new Date();
+      }
+      
+      return date;
+    } catch (error) {
+      console.error("Error parsing date:", error, dateString);
+      return new Date(); // Fallback to current date
+    }
+  };
+
+  // Function to log the order and date debugging info
+  const logOrderDateInfo = (order) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.group(`Order Date Debug: ${order.id}`);
+      console.log("Original date string:", order.date);
+      console.log("Parsed date:", formatOrderDate(order.date));
+      console.log("Current date:", new Date());
+      console.log("Difference in ms:", new Date().getTime() - formatOrderDate(order.date).getTime());
+      console.groupEnd();
+    }
+    return null; // Return null so it doesn't affect the UI
+  };
+  
+  // Function to calculate time elapsed since order date with timezone handling
+  const getTimeElapsed = (orderDate) => {
+    try {
+      // Get the timestamp for the order and current time
+      const orderDateTime = formatOrderDate(orderDate);
+      const orderTime = orderDateTime.getTime();
+      const currentTime = new Date().getTime();
+      
+      // If the date is missing or invalid, show 'New'
+      if (!orderDate || isNaN(orderTime)) {
+        return 'New';
+      }
+      
+      // Calculate the difference in milliseconds
+      const diffInMs = currentTime - orderTime;
+      
+      // If the difference is negative or very small, it's a new order
+      if (diffInMs < 60 * 1000) { // Less than one minute
+        return 'Just now';
+      }
+      
+      // Convert to useful time units - use Math.floor to avoid rounding issues
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      const diffInHours = Math.floor((diffInMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const diffInMinutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      // Format based on the time difference
+      if (diffInDays > 0) {
+        return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+      } else if (diffInHours > 0) {
+        return `${diffInHours}h ${diffInMinutes}m ago`;
+      } else if (diffInMinutes > 0) {
+        return `${diffInMinutes}m ago`;
+      } else {
+        return 'Just now';
+      }
+    } catch (error) {
+      console.error("Error calculating time elapsed:", error);
+      return 'New';
+    }
+  };
+  
+  // Function to determine priority class based on wait time
+  const getPriorityClass = (orderDate) => {
+    try {
+      // Get the timestamp for the order and current time
+      const orderDateTime = formatOrderDate(orderDate);
+      const orderTime = orderDateTime.getTime();
+      const currentTime = new Date().getTime();
+      
+      // If the date is missing or invalid, default to normal priority
+      if (!orderDate || isNaN(orderTime)) {
+        return "bg-green-100 text-green-800 border-green-300";
+      }
+      
+      // Calculate the difference in milliseconds
+      const diffInMs = currentTime - orderTime;
+      
+      // If the difference is negative or very small, it's a new order
+      if (diffInMs < 60 * 1000) { // Less than one minute
+        return "bg-green-100 text-green-800 border-green-300";
+      }
+      
+      const diffInHours = diffInMs / (1000 * 60 * 60);
+      
+      if (diffInHours >= 24) {
+        return "bg-red-100 text-red-800 border-red-300"; // Critical priority
+      } else if (diffInHours >= 12) {
+        return "bg-orange-100 text-orange-800 border-orange-300"; // High priority
+      } else if (diffInHours >= 6) {
+        return "bg-amber-100 text-amber-800 border-amber-300"; // Medium priority
+      } else {
+        return "bg-green-100 text-green-800 border-green-300"; // Normal priority
+      }
+    } catch (error) {
+      console.error("Error determining priority class:", error);
+      return "bg-gray-100 text-gray-800 border-gray-300"; // Fallback
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -1428,7 +1605,386 @@ const handleUpdateSupplier = async () => {
     );
   }
 
-  // Rendering the orders table component
+  // Completely rewrite the renderPendingOrdersTable function
+  const renderPendingOrdersTable = () => {
+    if (ordersLoading) {
+      return (
+        <div className="flex justify-center items-center py-12">
+          <RefreshCw className="animate-spin h-8 w-8 text-blue-600 mr-3" />
+          <span className="text-lg text-gray-700 font-medium">Loading orders...</span>
+        </div>
+      );
+    }
+    
+    if (ordersError) {
+      return (
+        <div className="bg-red-50 p-6 rounded-lg border border-red-200 text-center">
+          <div className="text-red-600 mb-2 text-xl">Error Loading Orders</div>
+          <p className="text-gray-700">{ordersError}</p>
+        </div>
+      );
+    }
+    
+    // Filter to only show pending orders
+    const pendingOrders = orders.filter(order => order.status === 'Pending');
+    
+    // Filter orders based on search term
+    const filteredPendingOrders = pendingOrders.filter(order => 
+      orderSearchTerm === "" || 
+      (order.id && order.id.toLowerCase().includes(orderSearchTerm.toLowerCase())) ||
+      (order.customer && order.customer.toLowerCase().includes(orderSearchTerm.toLowerCase())) ||
+      (order.orderNumber && order.orderNumber.toLowerCase().includes(orderSearchTerm.toLowerCase()))
+    );
+    
+    // Sort by date (oldest first) to emphasize first-come-first-serve
+    const sortedPendingOrders = [...filteredPendingOrders].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateA - dateB;
+    });
+    
+    if (sortedPendingOrders.length === 0) {
+      return (
+        <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 text-center">
+          <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">No New Orders</h3>
+          <p className="text-gray-500 mb-4">
+            {orderSearchTerm ? "No orders match your search criteria." : "All orders have been processed or are in transit."}
+          </p>
+          <button 
+            onClick={() => setActiveTab("inventory")}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            View Inventory
+          </button>
+        </div>
+      );
+    }
+
+    // Handle row click to toggle expanded state
+    const handleRowClick = (orderId) => {
+      if (expandedOrderId === orderId) {
+        setExpandedOrderId(null); // Collapse
+      } else {
+        setExpandedOrderId(orderId); // Expand
+      }
+    };
+    
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">New Orders</h2>
+              <p className="text-gray-500 mt-1">First come, first serve processing queue</p>
+            </div>
+            {/* Add search, filter and download buttons */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input
+                  type="text"
+                  className="w-64 py-2 pl-10 pr-4 rounded-lg border border-gray-300 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Search orders..."
+                  value={orderSearchTerm}
+                  onChange={(e) => setOrderSearchTerm(e.target.value)}
+                />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Priority
+                </th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Order ID
+                </th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Customer
+                </th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Items
+                </th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Value
+                </th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Waiting Time
+                </th>
+                <th scope="col" className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {sortedPendingOrders.map((order, index) => (
+                <React.Fragment key={order.id}>
+                  {/* Main Order Row */}
+                  <tr 
+                    className={`hover:bg-gray-50 transition-colors cursor-pointer ${
+                      index === 0 ? 'bg-amber-50' : ''
+                    } ${
+                      expandedOrderId === order.id ? 'border-b-0 bg-blue-50' : ''
+                    }`}
+                    onClick={() => handleRowClick(order.id)}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`px-3 py-1 rounded-md border ${getPriorityClass(order.date)} text-xs font-medium flex items-center`}>
+                        <Clock className="h-3 w-3 mr-1" />
+                        {index === 0 ? 'NEXT' : `#${index + 1}`}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span className="bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-md text-sm font-medium">
+                          #{order.orderNumber || order.id.substring(0, 6)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{order.customer}</div>
+                      <div className="text-sm text-gray-500">
+                        {order.shippingAddress ? `${order.shippingAddress.city || ''}, ${order.shippingAddress.postalCode || order.shippingAddress.zip || ''}` : 'No address'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 font-medium">{order.items}</div>
+                      <div className="text-xs text-gray-500">items</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-gray-900">Rs. {order.value ? order.value.toLocaleString() : '0'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span className={`text-sm font-medium flex items-center ${
+                          new Date(order.date).getTime() < new Date().getTime() - (24 * 60 * 60 * 1000) 
+                            ? 'text-red-600' 
+                            : new Date(order.date).getTime() < new Date().getTime() - (12 * 60 * 60 * 1000)
+                              ? 'text-orange-600'
+                              : 'text-gray-600'
+                        }`}>
+                          <Clock className="h-4 w-4 mr-1.5" />
+                          {getTimeElapsed(order.date)}
+                        </span>
+                        <span className="ml-2 text-xs text-gray-500">
+                          {order.date ? new Date(order.date).toLocaleDateString() : 'No date'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end items-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent row toggle
+                            setSelectedOrderForShipment(order);
+                            setActiveTab("shipments");
+                          }}
+                          className="flex items-center text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors"
+                        >
+                          <Truck className="mr-1.5 h-4 w-4" /> 
+                          Ship
+                        </button>
+                        
+                        <ChevronDown 
+                          className={`ml-3 h-5 w-5 text-gray-400 transform transition-transform duration-200 ${
+                            expandedOrderId === order.id ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                  
+                  {/* Expanded Details Row - Only render when expanded */}
+                  {expandedOrderId === order.id && (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-4 border-t-0 bg-blue-50">
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                          <div className="p-4">
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4">Order Details</h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                              {/* Order Info */}
+                              <div className="bg-gray-50 p-4 rounded-lg">
+                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
+                                  <ShoppingCart className="h-4 w-4 mr-2 text-blue-600" />
+                                  Order Information
+                                </h4>
+                                <div className="space-y-2">
+                                  <p className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Order ID:</span>
+                                    <span className="text-sm font-medium text-gray-900">{order.id}</span>
+                                  </p>
+                                  <p className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Order Date:</span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {order.date ? new Date(order.date).toLocaleString() : 'Not available'}
+                                    </span>
+                                  </p>
+                                  <p className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Status:</span>
+                                    <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                                      {order.status === 'Pending' ? 'Awaiting Shipment' : order.status}
+                                    </span>
+                                  </p>
+                                  <p className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Total Amount:</span>
+                                    <span className="text-sm font-medium text-gray-900">Rs. {order.value ? order.value.toLocaleString() : '0'}</span>
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Customer Info */}
+                              <div className="bg-gray-50 p-4 rounded-lg">
+                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
+                                  <User className="h-4 w-4 mr-2 text-blue-600" />
+                                  Customer Information
+                                </h4>
+                                <div className="space-y-2">
+                                  <p className="flex justify-between">
+                                    <span className="text-sm text-gray-500">Name:</span>
+                                    <span className="text-sm font-medium text-gray-900">{order.customer}</span>
+                                  </p>
+                                  {order.shippingAddress && (
+                                    <>
+                                      <p className="flex justify-between">
+                                        <span className="text-sm text-gray-500">Address:</span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {order.shippingAddress.street || order.shippingAddress.address || 'Address not provided'}
+                                        </span>
+                                      </p>
+                                      <p className="flex justify-between">
+                                        <span className="text-sm text-gray-500">City:</span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {order.shippingAddress.city || 'City not provided'}
+                                        </span>
+                                      </p>
+                                      <p className="flex justify-between">
+                                        <span className="text-sm text-gray-500">Postal Code:</span>
+                                        <span className="text-sm font-medium text-gray-900">
+                                          {order.shippingAddress.postalCode || order.shippingAddress.zip || 'Not provided'}
+                                        </span>
+                                      </p>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Order Items - Only show if we have detailed item info */}
+                            {Array.isArray(order.items) && order.items.length > 0 && typeof order.items[0] === 'object' ? (
+                              <div className="mt-4">
+                                <h4 className="font-semibold text-gray-700 mb-3 flex items-center">
+                                  <Box className="h-4 w-4 mr-2 text-blue-600" />
+                                  Order Items
+                                </h4>
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                      <tr>
+                                        <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Product
+                                        </th>
+                                        <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Quantity
+                                        </th>
+                                        <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Price
+                                        </th>
+                                        <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Total
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                      {order.items.map((item, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50">
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                            {item.product?.name || item.name || 'Unknown Product'}
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                                            {item.quantity || 1}
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                                            Rs. {(item.price || 0).toLocaleString()}
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
+                                            Rs. {((item.price || 0) * (item.quantity || 1)).toLocaleString()}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-center">
+                                <div className="text-center">
+                                  <Box className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Actions */}
+                            <div className="mt-4 flex justify-end">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOrderForShipment(order);
+                                  setActiveTab("shipments");
+                                }}
+                                className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                              >
+                                <Truck className="mr-2 h-4 w-4" />
+                                Arrange Shipment
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              <span className="font-medium">{sortedPendingOrders.length}</span> new orders in queue
+            </div>
+            
+            <div className="flex items-center space-x-5">
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-xs text-gray-600">New</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                <span className="text-xs text-gray-600">Waiting {'>'}6h</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                <span className="text-xs text-gray-600">Waiting {'>'}12h</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <span className="text-xs text-gray-600">Waiting {'>'}24h</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Original orders table component (keeping for reference)
   const renderOrdersTable = () => {
     if (ordersLoading) {
       return <div className="loading-spinner">Loading orders...</div>;
@@ -1673,10 +2229,16 @@ const handleUpdateSupplier = async () => {
       order.status.toLowerCase().includes(orderSearchTerm.toLowerCase())
     );
     
-    // Divide orders into pending and others
+    // Divide orders into pending and others - ensure we use consistent status names
     const pendingOrders = filteredOrders.filter(order => order.status === 'Pending');
-    const processingOrders = filteredOrders.filter(order => ['Processing', 'In Transit'].includes(order.status));
-    const completedOrders = filteredOrders.filter(order => order.status === 'Delivered');
+    // Use activeShipments instead of filtering orders
+    const processingOrders = activeShipments.filter(shipment => 
+      filteredOrders.some(order => order.id === shipment.orderId)
+    );
+    // Use completedShipments instead of filtering orders
+    const completedOrders = completedShipments.filter(shipment => 
+      filteredOrders.some(order => order.id === shipment.orderId)
+    );
     
     return (
       <div className="space-y-5 mt-4">
@@ -1688,7 +2250,7 @@ const handleUpdateSupplier = async () => {
                 <ClockIcon className="h-5 w-5 text-amber-600" />
               </div>
         <div>
-                <h4 className="text-lg font-semibold text-gray-800">Pending Orders</h4>
+                <h4 className="text-lg font-semibold text-gray-800">New Orders</h4>
                 <p className="text-sm text-gray-500">{pendingOrders.length} orders awaiting processing</p>
               </div>
             </div>
@@ -1702,7 +2264,7 @@ const handleUpdateSupplier = async () => {
               <div className="h-14 w-14 bg-gray-100 rounded-full mx-auto flex items-center justify-center mb-2">
                 <Package className="h-7 w-7 text-gray-400" />
               </div>
-              <h3 className="text-gray-500 font-medium">No pending orders</h3>
+              <h3 className="text-gray-500 font-medium">No new orders</h3>
               <p className="text-sm text-gray-400 mt-1">All orders have been processed</p>
             </div>
           ) : (
@@ -1990,6 +2552,34 @@ const handleUpdateSupplier = async () => {
       console.error("Error fetching suppliers:", error);
       setError("Failed to fetch suppliers");
     }
+  };
+
+  // Get inventory categories for filtering
+  const getInventoryCategories = () => {
+    const categories = ["all"];
+    
+    // Add categories from our inventory items 
+    inventory.forEach(item => {
+      if (item.category && !categories.includes(item.category)) {
+        categories.push(item.category);
+      }
+    });
+    
+    // Add predefined categories if they're not already included
+    const predefinedCategories = [
+      "Safety Gear & Accessories",
+      "Tools & Equipment",
+      "Construction Materials", 
+      "Plumbing & Electrical Supplies",
+    ];
+    
+    predefinedCategories.forEach(category => {
+      if (!categories.includes(category)) {
+        categories.push(category);
+      }
+    });
+    
+    return categories;
   };
 
   return (
@@ -2306,7 +2896,7 @@ const handleUpdateSupplier = async () => {
           <div className="bg-white/10 backdrop-blur-sm rounded-lg px-5 py-4 border border-white/20">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-blue-100 text-xs font-medium">PENDING ORDERS</p>
+                <p className="text-blue-100 text-xs font-medium">NEW ORDERS</p>
                 <h3 className="text-3xl font-bold text-white mt-1">
                   {orders.filter(order => order.status === "Pending" || order.status === "Processing").length}
                 </h3>
@@ -2805,7 +3395,7 @@ const handleUpdateSupplier = async () => {
             {orders.filter(order => order.status === "Pending").length === 0 && (
               <div className="text-center py-8">
                 <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <h3 className="text-lg font-medium text-gray-900">No pending orders</h3>
+                <h3 className="text-lg font-medium text-gray-900">No new orders</h3>
                 <p className="text-gray-500 mt-1">All orders have been processed</p>
               </div>
             )}
@@ -2816,7 +3406,7 @@ const handleUpdateSupplier = async () => {
                   onClick={() => setActiveTab("orders")}
                   className="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center"
                 >
-                  View all {orders.filter(order => order.status === "Pending").length} pending orders
+                  View all {orders.filter(order => order.status === "Pending").length} new orders
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </button>
               </div>
@@ -2829,63 +3419,121 @@ const handleUpdateSupplier = async () => {
 )}
           {activeTab === "inventory" && (
             <div className="space-y-6">
-              {/* Inventory Filter Section */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                      placeholder="Search inventory..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                    <Search className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
+              {/* Inventory Management Header - styled like shipment dashboard */}
+              <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg p-5">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-3xl font-bold text-white">
+                      Inventory Management
+                    </h2>
+                    <p className="text-blue-100 mt-1">
+                      Track, manage and optimize your inventory levels
+                    </p>
                   </div>
-                  <div className="relative">
-                    <select
-                      className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                      value={inventoryFilter}
-                      onChange={(e) => setInventoryFilter(e.target.value)}
+                  <div className="mt-4 md:mt-0 flex items-center space-x-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search inventory..."
+                        className="py-2 pl-10 pr-4 bg-white/10 border border-white/20 text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/50 rounded-lg"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      <div className="absolute left-3 top-2.5">
+                        <Search className="h-5 w-5 text-blue-100" />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setInventoryLoading(true);
+                        fetchInventory().finally(() => setInventoryLoading(false));
+                      }} 
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                      title="Refresh data"
                     >
-                      <option value="all">All</option>
-                      <option value="In Stock">In Stock</option>
-                      <option value="Low Stock">Low Stock</option>
-                      <option value="Critical">Critical</option>
-                    </select>
-                    <Filter className="absolute right-2 top-2 h-5 w-5 text-gray-400" />
+                      <RefreshCw size={20} className="text-white" />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        // Download inventory data as CSV
+                        const headers = ["Product", "Stock", "Threshold", "Status", "Supplier", "Category"];
+                        const data = inventory.map(item => [
+                          item.name, item.stock, item.threshold, item.status, 
+                          item.supplier, item.category || 'General'
+                        ]);
+                        
+                        // Create CSV content
+                        const csvContent = [
+                          headers.join(','),
+                          ...data.map(row => row.join(','))
+                        ].join('\n');
+                        
+                        // Create download link
+                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.setAttribute('href', url);
+                        link.setAttribute('download', `inventory_${new Date().toISOString().split('T')[0]}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                      title="Download inventory data"
+                    >
+                      <Download className="h-5 w-5 text-white" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                    onClick={() => {
-                      const csvContent =
-                        "data:text/csv;charset=utf-8," +
-                        "Item,Stock,Threshold,Status,Supplier,Payment Status,Delivery Status\n" +
-                        getFilteredInventory()
-                          .map(
-                            (item) =>
-                              `"${item.name}",${item.stock},${item.threshold},"${item.status}","${item.supplier}","${item.paymentStatus}","${item.deliveryStatus}"`
-                          )
-                          .join("\n");
-                      const encodedUri = encodeURI(csvContent);
-                      const link = document.createElement("a");
-                      link.setAttribute("href", encodedUri);
-                      link.setAttribute("download", "inventory_report.csv");
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
+              </div>
+
+              {/* Filter Bar */}
+              <div className="bg-white shadow-sm rounded-lg p-4 flex flex-wrap items-center gap-4">
+                <div className="flex-grow">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
+                  <select
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={inventoryFilter}
+                    onChange={(e) => setInventoryFilter(e.target.value)}
                   >
-                    <Download className="h-5 w-5 text-gray-600" />
-                  </button>
-                  <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                    <MoreHorizontal className="h-5 w-5 text-gray-600" />
+                    <option value="all">All Items</option>
+                    <option value="In Stock">In Stock</option>
+                    <option value="Low Stock">Low Stock</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+
+                <div className="flex-grow">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category Filter</label>
+                  <select
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={inventoryCategoryFilter}
+                    onChange={(e) => setInventoryCategoryFilter(e.target.value)}
+                  >
+                    <option value="all">All Categories</option>
+                    {getInventoryCategories().filter(cat => cat !== "all").map(category => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setInventoryFilter("all");
+                      setInventoryCategoryFilter("all");
+                    }}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    Reset Filters
                   </button>
                 </div>
               </div>
 
+              {/* Inventory Content */}
               {/* Enhanced Inventory Table */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 {inventoryLoading ? (
@@ -3191,16 +3839,17 @@ const handleUpdateSupplier = async () => {
                   </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-xl shadow-sm border-2 border-amber-300 hover:shadow-md transition-all duration-200 transform hover:-translate-y-1">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Pending</p>
-                      <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                      <p className="text-sm font-medium text-amber-700">New Orders</p>
+                      <h3 className="text-2xl font-bold text-amber-900 mt-1">
                         {orders.filter(order => order.status === "Pending").length}
                       </h3>
+                      <p className="text-xs text-amber-700 mt-1">Awaiting processing</p>
                     </div>
-                    <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
-                      <Clock className="h-6 w-6 text-amber-600" />
+                    <div className="h-14 w-14 rounded-full bg-amber-200 flex items-center justify-center">
+                      <Clock className="h-7 w-7 text-amber-700" />
                     </div>
                   </div>
                 </div>
@@ -3210,7 +3859,7 @@ const handleUpdateSupplier = async () => {
                     <div>
                       <p className="text-sm font-medium text-gray-500">In Progress</p>
                       <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {orders.filter(order => ["Processing", "In Transit"].includes(order.status)).length}
+                        {activeShipments.length}
                       </h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
@@ -3224,7 +3873,7 @@ const handleUpdateSupplier = async () => {
                     <div>
                       <p className="text-sm font-medium text-gray-500">Delivered</p>
                       <h3 className="text-2xl font-bold text-gray-900 mt-1">
-                        {orders.filter(order => order.status === "Delivered").length}
+                        {completedShipments.length}
                       </h3>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center">
@@ -3235,7 +3884,7 @@ const handleUpdateSupplier = async () => {
               </div>
 
               {/* Orders Section */}
-              {renderOrdersCards()}
+              {renderPendingOrdersTable()}
             </div>
           )}
 
