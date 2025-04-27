@@ -14,7 +14,7 @@ const ContractorProfileSetup = () => {
   
   const [formData, setFormData] = useState({
     phone: '',
-    address: '', // This will now hold the selected district
+    address: '',
     companyName: '',
     specialization: [],
     experienceYears: 0,
@@ -76,140 +76,190 @@ const ContractorProfileSetup = () => {
     });
   };
 
-  // Add the handlePhoneInput function to handle phone number formatting
   const handlePhoneInput = (e) => {
-    // Only allow numeric input
-    const value = e.target.value.replace(/\D/g, '');
+    const value = e.target.value;
     
-    // Ensure it doesn't exceed 10 digits
-    const truncatedValue = value.slice(0, 10);
+    let formattedValue = '';
     
-    // Update the form data with the formatted phone number
+    if (value.startsWith('+')) {
+      formattedValue = '+';
+      
+      const digits = value.substring(1).replace(/\D/g, '');
+      
+      if (digits.length > 0) {
+        if (digits.startsWith('94')) {
+          formattedValue += digits.slice(0, 11); 
+        } else {
+          formattedValue += '94' + digits.slice(0, 9); 
+        }
+      }
+    } else {
+      const digits = value.replace(/\D/g, '');
+      
+      if (digits.length > 0) {
+        if (digits.startsWith('07')) {
+          formattedValue = digits.slice(0, 10);
+        } else if (digits.startsWith('7')) {
+          formattedValue = '0' + digits.slice(0, 9); 
+        } else {
+          formattedValue = '07' + digits.slice(0, 8);
+        }
+      }
+    }
+    
     setFormData({
       ...formData,
-      phone: truncatedValue
+      phone: formattedValue
     });
   };
 
-  // Real-time field validation functions
-const validatePhone = (phone) => {
-  if (!phone) return { valid: false, message: 'Phone number is required' };
-  const digits = phone.replace(/[^0-9]/g, '');
-  if (digits.length !== 10) {
-    return { 
-      valid: false, 
-      message: 'Phone number should be 10 digits' 
-    };
-  }
-  if (!digits.startsWith('07')) {
-    return {
-      valid: false,
-      message: 'Phone number must start with 07'
-    };
-  }
-  return { valid: true, message: '' };
-};
+  const handlePhoneKeyDown = (e) => {
+    if ([46, 8, 9, 27, 13, 37, 39, 36, 35].indexOf(e.keyCode) !== -1 ||
+        (e.keyCode >= 65 && e.keyCode <= 90 && e.ctrlKey === true)) {
+      return;
+    }
+    
+    const currentValue = e.target.value;
+    
+    if (e.key === '+' && currentValue === '') {
+      return;
+    }
+    
+    if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && 
+        (e.keyCode < 96 || e.keyCode > 105)) {
+      e.preventDefault();
+    }
+    
+    if (currentValue.startsWith('+') && currentValue.length >= 12) {
+      e.preventDefault();
+    } else if (!currentValue.startsWith('+') && currentValue.length >= 10) {
+      e.preventDefault();
+    }
+  };
 
-// Add company name validation to check for special characters
-const validateCompanyName = (name) => {
-  if (!name) return { valid: true, message: '' }; // Optional field
-  if (name.trim().length < 2) {
-    return { valid: false, message: 'Company name should be at least 2 characters' };
-  }
-  // Check for invalid special characters (allowing only common ones like &, -, etc.)
-  const invalidCharsRegex = /[^\w\s&\-.,'"()]/;
-  if (invalidCharsRegex.test(name)) {
-    return { valid: false, message: 'Company name contains invalid characters' };
-  }
-  return { valid: true, message: '' };
-};
+  const validatePhone = (phone) => {
+    if (!phone) return { valid: false, message: 'Phone number is required' };
+    
+    if (phone.startsWith('+94')) {
+      if (phone.length !== 12) {
+        return { 
+          valid: false, 
+          message: `Phone number with +94 prefix should be 12 characters (${phone.length}/12)` 
+        };
+      }
+      return { valid: true, message: '' };
+    }
+    
+    if (!phone.startsWith('07')) {
+      return {
+        valid: false,
+        message: 'Phone number must start with 07 or +94'
+      };
+    }
+    
+    if (phone.length !== 10) {
+      return { 
+        valid: false, 
+        message: `Phone number should be 10 digits (${phone.length}/10)` 
+      };
+    }
+    
+    return { valid: true, message: '' };
+  };
 
-const validateAddress = (address) => {
-  if (!address) return { valid: false, message: 'Please select a district' };
-  return { valid: true, message: '' };
-};
+  const validateCompanyName = (name) => {
+    if (!name) return { valid: true, message: '' }; 
+    if (name.trim().length < 2) {
+      return { valid: false, message: 'Company name should be at least 2 characters' };
+    }
+    
+    const validCharsRegex = /^[a-zA-Z0-9\s&\-.'()]+$/;
+    if (!validCharsRegex.test(name)) {
+      return { 
+        valid: false, 
+        message: 'Company name can only contain letters, numbers, spaces, and characters: & - . \' ( )' 
+      };
+    }
+    return { valid: true, message: '' };
+  };
 
-const validateBio = (bio) => {
-  if (!bio) return { valid: false, message: 'Bio is required' };
-  if (bio.trim().length < 50) {
-    return { 
-      valid: false, 
-      message: 'Bio should be at least 50 characters' 
-    };
-  }
-  if (bio.length > 500) {
-    return { 
-      valid: false, 
-      message: 'Bio should not exceed 500 characters' 
-    };
-  }
-  
-  // Check for excessive special characters or patterns that might indicate spam/injection
-  const specialCharPattern = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/g;
-  const specialCharCount = (bio.match(specialCharPattern) || []).length;
-  
-  if (specialCharCount > bio.length * 0.3) { // If more than 30% special chars
-    return {
-      valid: false,
-      message: 'Bio contains too many special characters'
-    };
-  }
-  
-  return { valid: true, message: '' };
-};
+  const validateAddress = (address) => {
+    if (!address) return { valid: false, message: 'Please select a district' };
+    return { valid: true, message: '' };
+  };
+
+  const validateBio = (bio) => {
+    if (!bio) return { valid: false, message: 'Bio is required' };
+    if (bio.trim().length < 50) {
+      return { 
+        valid: false, 
+        message: 'Bio should be at least 50 characters' 
+      };
+    }
+    if (bio.length > 500) {
+      return { 
+        valid: false, 
+        message: 'Bio should not exceed 500 characters' 
+      };
+    }
+    
+    const specialCharPattern = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/g;
+    const specialCharCount = (bio.match(specialCharPattern) || []).length;
+    
+    if (specialCharCount > bio.length * 0.3) { 
+      return {
+        valid: false,
+        message: 'Bio contains too many special characters'
+      };
+    }
+    
+    return { valid: true, message: '' };
+  };
 
   const validateForm = () => {
-    // Phone validation - should be a valid format
     if (!formData.phone) {
       toast.error('Phone number is required');
       setActiveSection(0);
       return false;
     }
     
-    // Phone format validation - check for at least 10 digits
     const phoneRegex = /^[0-9]{10,12}$/;
     if (!phoneRegex.test(formData.phone.replace(/[^0-9]/g, ''))) {
       toast.error('Phone number should contain 10-12 digits');
       setActiveSection(0);
       return false;
     }
-  
-    // Address validation - minimum length
+
     if (!formData.address) {
       toast.error('Please select a district');
       setActiveSection(0);
       return false;
     }
   
-    // Company name validation (if provided)
     if (formData.companyName && formData.companyName.trim().length < 2) {
       toast.error('Company name should be at least 2 characters');
       setActiveSection(1);
       return false;
     }
   
-    // Experience years validation
     if (formData.experienceYears < 0) {
       toast.error('Experience years cannot be negative');
       setActiveSection(1);
       return false;
     }
   
-    // Completed projects validation
     if (formData.completedProjects < 0) {
       toast.error('Completed projects cannot be negative');
       setActiveSection(1);
       return false;
     }
   
-    // Specialization validation
     if (formData.specialization.length === 0) {
       toast.error('Please select at least one specialization');
       setActiveSection(2);
       return false;
     }
   
-    // Bio validation - minimum and maximum length
     if (!formData.bio || formData.bio.trim().length < 50) {
       toast.error('Please provide a detailed bio (at least 50 characters)');
       setActiveSection(3);
@@ -225,17 +275,13 @@ const validateBio = (bio) => {
     return true;
   };
 
-// Add these validation functions near your other validation functions
 
-// Section validation functions
 const isSection0Valid = () => {
   return validatePhone(formData.phone).valid && formData.address !== '';
 };
 
 const isSection1Valid = () => {
-  // Company name validation
   const companyNameValidation = validateCompanyName(formData.companyName);
-  // Experience and projects should not be negative
   return companyNameValidation.valid && 
          formData.experienceYears >= 0 && 
          formData.completedProjects >= 0;
@@ -249,10 +295,7 @@ const isSection3Valid = () => {
   return validateBio(formData.bio).valid;
 };
 
-// Add this useEffect near the top of your component:
-
 useEffect(() => {
-  // Check if user is a contractor with incomplete profile
   const token = localStorage.getItem('token');
   const profileComplete = localStorage.getItem('contractorProfileComplete');
   
@@ -269,12 +312,10 @@ useEffect(() => {
     }
     
     if (profileComplete === 'true') {
-      // If they already completed the profile but somehow got back here
       navigate('/auction');
       return;
     }
     
-    // If they try to leave, warn them
     const handleBeforeUnload = (e) => {
       const message = 'You need to complete your profile setup before continuing. Are you sure you want to leave?';
       e.returnValue = message;
@@ -292,7 +333,6 @@ useEffect(() => {
   }
 }, [navigate]);
 
-// Update the handleSubmit function to properly handle the token
 
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -301,14 +341,12 @@ const handleSubmit = async (e) => {
 
   setLoading(true);
   try {
-    // Get auth token from localStorage or sessionStorage
-      // Debug localStorage contents
+ 
       console.log('All localStorage keys:');
       for (let i = 0; i < localStorage.length; i++) {
         console.log(`- ${localStorage.key(i)}`);
       }
       
-      // Get auth token from localStorage with better error handling
       const token = localStorage.getItem('token');
       console.log('Token retrieved:', token ? 'Yes (length: ' + token.length + ')' : 'No token found');
       
@@ -318,7 +356,6 @@ const handleSubmit = async (e) => {
       return;
     }
 
-    // If you're using jwtDecode, make sure to handle potential errors
     let userId;
     try {
       const decoded = jwtDecode(token);
@@ -334,7 +371,6 @@ const handleSubmit = async (e) => {
       return;
     }
 
-    // Now make the API request with the user ID
     const response = await axios.post('http://localhost:5000/api/contractors/', {
       ...formData,
       userId
@@ -342,7 +378,7 @@ const handleSubmit = async (e) => {
 
     localStorage.setItem('contractorProfileComplete', 'true');
     toast.success('Profile created successfully!');
-    navigate('/auction'); // Or wherever contractors should go after onboarding
+    navigate('/auction'); 
   } catch (error) {
     console.error('Error creating profile:', error);
     
@@ -356,7 +392,6 @@ const handleSubmit = async (e) => {
   }
 };
 
-  // Animation variants
   const pageVariants = {
     initial: { opacity: 0, x: 100 },
     animate: { opacity: 1, x: 0 },
@@ -439,10 +474,8 @@ const handleSubmit = async (e) => {
           </div>
 
           <form onSubmit={handleSubmit} className="p-8">
-            {/* Section container with fixed height */}
             <div className="relative min-h-[450px]">
               <AnimatePresence mode="wait">
-                {/* Contact Information */}
                 {activeSection === 0 && (
                   <motion.div 
                     key="contact"
@@ -471,9 +504,9 @@ const handleSubmit = async (e) => {
                           id="phone"
                           name="phone"
                           value={formData.phone}
-                          onChange={handleChange}
-                          onInput={handlePhoneInput}
-                          maxLength={10}
+                          onChange={handlePhoneInput}
+                          onKeyDown={handlePhoneKeyDown}
+                          maxLength={formData.phone.startsWith('+') ? 12 : 10}
                           className={`w-full border ${
                             formData.phone && !validatePhone(formData.phone).valid
                               ? 'border-red-300 focus:ring-red-500'
@@ -481,7 +514,7 @@ const handleSubmit = async (e) => {
                           } rounded-md px-4 py-2 
                             focus:outline-none focus:ring-2 focus:border-transparent
                             transition-all duration-200`}
-                          placeholder="e.g. 0771234567"
+                          placeholder="e.g. 0771234567 or +94771234567"
                           required
                         />
                         {formData.phone && !validatePhone(formData.phone).valid && (
@@ -489,6 +522,10 @@ const handleSubmit = async (e) => {
                             {validatePhone(formData.phone).message}
                           </p>
                         )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          <FaPhoneAlt className="inline mr-1" />
+                          Enter either 07XXXXXXXX or +94XXXXXXXXX format
+                        </p>
                       </motion.div>
 
                       <motion.div variants={itemVariants}>
@@ -542,7 +579,6 @@ const handleSubmit = async (e) => {
                   </motion.div>
                 )}
 
-                {/* Business Details */}
                 {activeSection === 1 && (
                   <motion.div 
                     key="business"
@@ -572,7 +608,7 @@ const handleSubmit = async (e) => {
                           name="companyName"
                           value={formData.companyName}
                           onChange={handleChange}
-                          maxLength={50} // Add reasonable maximum length
+                          maxLength={50}
                           className={`w-full border ${
                             formData.companyName && !validateCompanyName(formData.companyName).valid
                               ? 'border-red-300 focus:ring-red-500'
@@ -600,11 +636,11 @@ const handleSubmit = async (e) => {
                           value={formData.experienceYears}
                           onChange={handleNumericChange}
                           min="0"
-                          max="100" // Add reasonable maximum
-                          maxLength="3" // HTML length restriction
+                          max="100" 
+                          maxLength="3" 
                           onInput={(e) => {
-                            if (e.target.value < 0) e.target.value = 0; // Prevent negative values
-                            if (e.target.value > 100) e.target.value = 100; // Cap at maximum
+                            if (e.target.value < 0) e.target.value = 0; 
+                            if (e.target.value > 100) e.target.value = 100; 
                           }}
                           className="w-full border border-gray-300 rounded-md px-4 py-2 
                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -623,11 +659,11 @@ const handleSubmit = async (e) => {
                           value={formData.completedProjects}
                           onChange={handleNumericChange}
                           min="0"
-                          max="10000" // Add reasonable maximum
-                          maxLength="5" // HTML length restriction
+                          max="10000" 
+                          maxLength="5" 
                           onInput={(e) => {
-                            if (e.target.value < 0) e.target.value = 0; // Prevent negative values
-                            if (e.target.value > 10000) e.target.value = 10000; // Cap at maximum
+                            if (e.target.value < 0) e.target.value = 0; 
+                            if (e.target.value > 10000) e.target.value = 10000; 
                           }}
                           className="w-full border border-gray-300 rounded-md px-4 py-2 
                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
@@ -663,7 +699,6 @@ const handleSubmit = async (e) => {
                   </motion.div>
                 )}
 
-                {/* Specializations */}
                 {activeSection === 2 && (
                   <motion.div 
                     key="specializations"
@@ -695,7 +730,6 @@ const handleSubmit = async (e) => {
                         </div>
                       </div>
                       
-                      {/* Progress bar */}
                       <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
                         <motion.div 
                           className="bg-blue-600 h-2 rounded-full"
@@ -758,7 +792,6 @@ const handleSubmit = async (e) => {
                   </motion.div>
                 )}
 
-                {/* Bio */}
                 {activeSection === 3 && (
                   <motion.div 
                     key="bio"
@@ -784,7 +817,7 @@ const handleSubmit = async (e) => {
                         value={formData.bio}
                         onChange={handleChange}
                         rows="5"
-                        maxLength={700} // Add this to prevent typing beyond 500 chars
+                        maxLength={700} 
                         className={`w-full border ${
                           formData.bio && !validateBio(formData.bio).valid
                             ? 'border-red-300 focus:ring-red-500'

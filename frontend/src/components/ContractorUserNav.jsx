@@ -16,7 +16,6 @@ const ContractorUserNav = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Track scroll position for navbar styling - matching ClientNavBar
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 50) {
@@ -30,7 +29,6 @@ const ContractorUserNav = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Handle clicks outside dropdown to close it
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -55,7 +53,6 @@ const ContractorUserNav = () => {
         const decoded = jwtDecode(token);
         const userId = decoded.userId || decoded.id;
         
-        // Fetch user data
         const response = await axios.get(`http://localhost:5000/auth/user/${userId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -64,7 +61,6 @@ const ContractorUserNav = () => {
       } catch (error) {
         console.error('Error fetching user data:', error);
         
-        // Fall back to using token data
         try {
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           if (token) {
@@ -99,7 +95,6 @@ const ContractorUserNav = () => {
     return name.split(' ').map(part => part[0]).join('').toUpperCase();
   };
 
-  // Function to determine if a link is active
   const isActive = (path) => {
     return location.pathname === path;
   };
@@ -124,14 +119,12 @@ const ContractorUserNav = () => {
           isScrolled ? "bg-white/90 shadow-lg" : "bg-white/50"
         }`}
       >
-        {/* Logo - same as ClientNavBar */}
         <div className="flex items-center">
           <Link to="/">
             <img src={logo} alt="BuildMart" className="h-12 md:h-16" />
           </Link>
         </div>
 
-        {/* Main navigation links */}
         <div className="hidden lg:flex items-center space-x-6">
           <Link 
             to="/auction" 
@@ -162,7 +155,6 @@ const ContractorUserNav = () => {
             <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${isActive('/ongoingproject') ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
           </Link>
           
-          {/* Add shop link here */}
           <Link 
             to="/shop" 
             className={`relative py-2 px-1 ${isActive('/shop') ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'} font-medium transition-colors duration-300 group`}
@@ -187,7 +179,6 @@ const ContractorUserNav = () => {
             <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transform origin-left scale-x-0 transition-transform duration-300 ${isActive('/contact-us') ? 'scale-x-100' : 'group-hover:scale-x-100'}`}></span>
           </Link>
           
-          {/* User dropdown - styled similarly to ClientNavBar */}
           <div className="relative" ref={dropdownRef}>
             <div 
               className="flex items-center space-x-2 cursor-pointer bg-gradient-to-r from-blue-50 to-gray-100 py-2 px-4 rounded-full border border-gray-200 hover:shadow-md transition-all"
@@ -273,7 +264,6 @@ const ContractorUserNav = () => {
           </div>
         </div>
         
-        {/* Mobile menu button - matching ClientNavBar */}
         <div className="lg:hidden">
           <button 
             className="text-gray-700 focus:outline-none p-2"
@@ -286,7 +276,6 @@ const ContractorUserNav = () => {
         </div>
       </nav>
 
-      {/* UPDATED: Mobile menu links */}
       <AnimatePresence>
         {showDropdown && (
           <motion.div

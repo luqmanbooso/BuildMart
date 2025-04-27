@@ -11,7 +11,6 @@ const ClosedJobBidsSection = ({ bids, jobId }) => {
   const [contractorDetails, setContractorDetails] = useState({});
   const [loading, setLoading] = useState(true);
 
-  // Organize bids into accepted, rejected, and pending categories
   useEffect(() => {
     if (!bids || !bids.length) {
       setLoading(false);
@@ -26,18 +25,15 @@ const ClosedJobBidsSection = ({ bids, jobId }) => {
     setRejectedBids(rejected);
     setPendingBids(pending);
     
-    // Fetch contractor details
     const fetchContractorData = async () => {
       setLoading(true);
       const details = {};
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       try {
-        // Process all bids in parallel for efficiency
         await Promise.all(bids.map(async (bid) => {
           if (bid.contractorId) {
             try {
-              // Fetch contractor profile details
               const contractorResponse = await axios.get(
                 `http://localhost:5000/api/contractors/user/${bid.contractorId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -46,7 +42,6 @@ const ClosedJobBidsSection = ({ bids, jobId }) => {
               details[bid.contractorId] = contractorResponse.data;
             } catch (error) {
               console.error(`Error fetching data for contractor ${bid.contractorId}:`, error);
-              // Set defaults if fetch fails
               if (!details[bid.contractorId]) {
                 details[bid.contractorId] = { experienceYears: 0, completedProjects: 0 };
               }
@@ -65,7 +60,6 @@ const ClosedJobBidsSection = ({ bids, jobId }) => {
     fetchContractorData();
   }, [bids]);
 
-  // Card component for displaying a bid with contractor details
   const BidCard = ({ bid, status }) => {
     const bidId = bid?.id || bid?._id;
     const contractor = contractorDetails[bid?.contractorId] || {};
@@ -187,7 +181,6 @@ const ClosedJobBidsSection = ({ bids, jobId }) => {
       
       {bids && bids.length > 0 ? (
         <div className="space-y-10">
-          {/* Accepted Bid Section */}
           {acceptedBid ? (
             <div>
               <h4 className="text-md font-semibold text-green-800 border-b border-green-200 pb-2 mb-4 flex items-center">
@@ -202,7 +195,6 @@ const ClosedJobBidsSection = ({ bids, jobId }) => {
             </div>
           )}
           
-          {/* Rejected Bids Section */}
           {rejectedBids.length > 0 && (
             <div>
               <h4 className="text-md font-semibold text-red-800 border-b border-red-200 pb-2 mb-4 flex items-center">
@@ -217,7 +209,6 @@ const ClosedJobBidsSection = ({ bids, jobId }) => {
             </div>
           )}
           
-          {/* Pending Bids Section */}
           {pendingBids.length > 0 && (
             <div>
               <h4 className="text-md font-semibold text-yellow-800 border-b border-yellow-200 pb-2 mb-4">

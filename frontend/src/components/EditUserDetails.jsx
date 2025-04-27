@@ -328,6 +328,11 @@ const handleSubmit = async (e) => {
       return { valid: false, message: 'Username can only contain letters, numbers, hyphens, and underscores' };
     }
     
+    // NEW: Must start with a letter
+    if (!/^[a-zA-Z]/.test(username)) {
+      return { valid: false, message: 'Username must start with a letter' };
+    }
+    
     // Check for consecutive special characters
     if (/([-_]){2,}/.test(username)) {
       return { valid: false, message: 'Username cannot contain consecutive special characters' };
@@ -338,10 +343,35 @@ const handleSubmit = async (e) => {
       return { valid: false, message: 'Username cannot start or end with special characters' };
     }
     
+    // NEW: Prevent username with only numbers
+    if (/^\d+$/.test(username)) {
+      return { valid: false, message: 'Username cannot consist of only numbers' };
+    }
+    
+    // NEW: Prevent username with excessive numbers (more than 50% numbers)
+    const numberCount = (username.match(/\d/g) || []).length;
+    if (numberCount > username.length * 0.5) {
+      return { valid: false, message: 'Username cannot contain too many numbers' };
+    }
+    
+    // NEW: Check for reserved words or patterns
+    const reservedWords = ['admin', 'administrator', 'moderator', 'mod', 'support', 'system', 'buildmart', 'root'];
+    const lowerUsername = username.toLowerCase();
+    for (const word of reservedWords) {
+      if (lowerUsername === word || lowerUsername.startsWith(word + '_') || lowerUsername.startsWith(word + '-')) {
+        return { valid: false, message: 'This username is reserved or contains a reserved prefix' };
+      }
+    }
+    
+    // NEW: Check for suspicious patterns (repeating characters)
+    if (/(.)\1{3,}/.test(username)) {
+      return { valid: false, message: 'Username contains too many repeating characters' };
+    }
+    
     return { valid: true, message: '' };
   };
 
-  // Add sanitization function
+  // Also update the sanitization function to ensure it starts with a letter
   const sanitizeUsername = (username) => {
     if (!username) return '';
     
@@ -353,6 +383,11 @@ const handleSubmit = async (e) => {
     
     // Remove special characters from start and end
     sanitized = sanitized.replace(/^[-_]+|[-_]+$/g, '');
+    
+    // Ensure it starts with a letter (add 'a' if it doesn't)
+    if (sanitized && !/^[a-zA-Z]/.test(sanitized)) {
+      sanitized = 'a' + sanitized;
+    }
     
     // Limit length
     sanitized = sanitized.slice(0, 30);
