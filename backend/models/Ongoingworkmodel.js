@@ -1,12 +1,10 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-// Milestone Schema to track phases of the project
 const milestoneSchema = new mongoose.Schema({
   name: String,
   amount: String,
   description: String,
-  // Update the status enum to include all possible states
   status: { 
     type: String, 
     enum: ['Pending', 'In Progress', 'Pending Verification', 'Ready For Payment', 'Completed'],
@@ -30,7 +28,6 @@ const milestoneSchema = new mongoose.Schema({
   notes: String
 });
 
-// Ongoing Work Schema to track job progress for both client and contractor
 const ongoingWorkSchema = new mongoose.Schema({
   jobId: { 
     type: Schema.Types.ObjectId, 
@@ -43,7 +40,7 @@ const ongoingWorkSchema = new mongoose.Schema({
   },
   timeline: {
     type: Number,
-    default: 30, // Default to 30 days if not specified
+    default: 30,
     required: true
   },
   contractorId: { 
@@ -64,7 +61,7 @@ const ongoingWorkSchema = new mongoose.Schema({
   },
   workProgress: {
     type: Number,
-    default: 0, // percentage of work completed
+    default: 0, 
   },
   totalPrice: {
     type: Number,
@@ -91,7 +88,7 @@ const ongoingWorkSchema = new mongoose.Schema({
     default: 0
   },
   communication: [{
-    senderId: String, // Either client or contractor
+    senderId: String, 
     message: String,
     sentAt: { 
       type: Date, 
@@ -107,7 +104,7 @@ const ongoingWorkSchema = new mongoose.Schema({
     default: Date.now 
   }
 }, {
-  timestamps: true // Adds updatedAt field automatically
+  timestamps: true
 });
 
 const OngoingWork = mongoose.model('OngoingWork', ongoingWorkSchema);

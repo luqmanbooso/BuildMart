@@ -2,11 +2,10 @@ const express = require('express');
 const router = express.Router();
 const OngoingWork = require('../models/Ongoingworkmodel');
 const Job = require('../models/Job');
-const Contractor = require('../models/Contractor'); // Add this import
-const mongoose = require('mongoose'); // Import mongoose
+const Contractor = require('../models/Contractor');
+const mongoose = require('mongoose');
 
-// Add the commission constant at the top of the file
-const COMMISSION_RATE = 0.10; // 10% commission
+const COMMISSION_RATE = 0.10; 
 
 // Helper function to increment contractor's completed projects
 const incrementCompletedProjects = async (contractorId) => {
@@ -21,10 +20,6 @@ const incrementCompletedProjects = async (contractorId) => {
       return false;
     }
     
-    // DON'T directly increment the completedProjects field anymore
-    // as that should be the calculated total (manual + system)
-    
-    // Instead, we'll recalculate the proper total by getting system count
     const completedWorks = await OngoingWork.countDocuments({
       contractorId: contractorId,
       jobStatus: 'Completed'
@@ -50,7 +45,6 @@ const incrementCompletedProjects = async (contractorId) => {
 // Get all ongoing works (admin only)
 router.get('/admin/all', async (req, res) => {
   try {
-    // Check if user is admin (You'll need to add admin validation)
     const ongoingWorks = await OngoingWork.find().populate('jobId');
     res.status(200).json(ongoingWorks);
   } catch (error) {
@@ -74,11 +68,9 @@ router.get('/client/:clientId', async (req, res) => {
     // Try to find works both with string and ObjectId versions of clientId
     let ongoingWorks;
     try {
-      // First try as is (string comparison)
       ongoingWorks = await OngoingWork.find({ clientId }).populate('jobId');
       console.log(`[DEBUG] Found ${ongoingWorks.length} works with string clientId`);
       
-      // If no works found and it might be an ObjectId, try with ObjectId
       if (ongoingWorks.length === 0 && clientId.match(/^[0-9a-fA-F]{24}$/)) {
         const objectIdClientId = new mongoose.Types.ObjectId(clientId);
         const objectIdWorks = await OngoingWork.find({ 
@@ -93,7 +85,7 @@ router.get('/client/:clientId', async (req, res) => {
       }
     } catch (findError) {
       console.error('[DEBUG] Error during find operation:', findError);
-      throw findError; // Re-throw to be caught by the outer try-catch
+      throw findError; 
     }
 
     // Log the result counts
@@ -150,7 +142,7 @@ router.get('/job/:jobId', async (req, res) => {
   }
 });
 
-// Create a new ongoing work - Fix potential issues here
+// Create a new ongoing work
 router.post('/', async (req, res) => {
   try {
     const { jobId, clientId, contractorId, milestones, totalPrice, timeline } = req.body;
@@ -191,7 +183,7 @@ router.post('/', async (req, res) => {
     
     // Parse timeline as number with fallback
     const parsedTimeline = parseInt(timeline) || 30;
-    console.log(`[DEBUG] Creating ongoing work with timeline: ${parsedTimeline} days`);
+    // console.log(`[DEBUG] Creating ongoing work with timeline: ${parsedTimeline} days`);
     
     // Calculate initial totalAmountPending with better validation
     let totalAmountPending = 0;
@@ -330,7 +322,6 @@ router.patch('/:id/milestone/:milestoneIndex', async (req, res) => {
         ongoingWork.milestones[milestoneIdx].completedAt = completedAt || new Date();
       }
       
-      // Only when client makes payment and status is explicitly 'Completed'
       if (status === 'Completed' && actualAmountPaid) {
         ongoingWork.milestones[milestoneIdx].actualAmountPaid = actualAmountPaid;
         ongoingWork.lastPaymentDate = new Date();
@@ -368,9 +359,8 @@ router.patch('/:id/milestone/:milestoneIndex', async (req, res) => {
         totalAmountPending += amount;
       }
       
-      // Count 'Pending Verification' and 'Ready For Payment' as partially complete for progress bar
       if (milestone.status === 'Pending Verification' || milestone.status === 'Ready For Payment') {
-        completedCount += 0.5; // Count as half complete for progress bar
+        completedCount += 0.5; 
       }
     });
     

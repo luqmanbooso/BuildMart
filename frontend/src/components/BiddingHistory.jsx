@@ -6,7 +6,7 @@ import ContractorUserNav from './ContractorUserNav';
 import { Link } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import { useNavigate } from 'react-router-dom';
-import Footer from './Footer'; // Import Footer component
+import Footer from './Footer'; 
 
 const BiddingHistoryPage = () => {
   const [biddingHistory, setBiddingHistory] = useState([]);
@@ -20,7 +20,6 @@ const BiddingHistoryPage = () => {
     active: 0,
     expired: 0
   });
-  // Keep this state for API calls but remove display of these details
   const [contractorData, setContractorData] = useState({
     id: '',
     name: '',
@@ -29,7 +28,6 @@ const BiddingHistoryPage = () => {
   
   const navigate = useNavigate();
   
-  // Keep this effect for authentication and data fetching
   useEffect(() => {
     const getContractorDetails = () => {
       try {
@@ -98,7 +96,7 @@ const BiddingHistoryPage = () => {
           const bidsWithoutProjectNames = response.data.map(bid => ({
             id: bid._id,
             projectId: bid.projectId,
-            projectName: null, // We'll fetch this separately
+            projectName: null, 
             bidAmount: bid.price,
             bidDate: new Date(bid.createdAt).toLocaleDateString(),
             status: bid.status.charAt(0).toUpperCase() + bid.status.slice(1),
@@ -349,7 +347,6 @@ const BiddingHistoryPage = () => {
                               {bid.projectName.charAt(0)}
                             </div>
                             <div className="ml-4">
-                              {/* Show only project name, not the owner */}
                               <div className="text-sm font-medium text-gray-900">{bid.projectName}</div>
                             </div>
                           </div>
@@ -436,7 +433,6 @@ const BiddingHistoryPage = () => {
         </motion.div>
       </div>
       
-      {/* Add Footer */}
       <Footer />
     </div>
   );

@@ -5,22 +5,19 @@ import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion'; 
-import Footer from '../components/Footer'; // Import Footer component
+import Footer from '../components/Footer'; 
 import ContractorUserNav from '../components/ContractorUserNav';
 import EditContractorProfile from '../components/EditContractorProfile';
 import QualificationsManager from '../components/QualificationsManager';
 import EditUserDetails from '../components/EditUserDetails';
 
-// Enhanced ProfileImage component with better circle display and sizing options
 function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
-  // Check if the path is a full URL or just a relative path
   const imgSrc = profilePicPath
     ? profilePicPath.startsWith('http') 
       ? profilePicPath 
       : `http://localhost:5000${profilePicPath}`
-    : '/default-profile.png'; // Fallback image
+    : '/default-profile.png'; 
 
-  // Size map with expanded options
   const sizeMap = {
     small: "h-10 w-10",
     medium: "h-16 w-16", 
@@ -29,10 +26,8 @@ function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
     xxlarge: "h-32 w-32"
   };
   
-  // Get size class or default to passed dimensions
   const sizeClass = sizeMap[size] || "";
   
-  // Combine size with passed className
   const containerClasses = `${sizeClass} ${className} rounded-full overflow-hidden flex-shrink-0 bg-gray-50`;
 
   return (
@@ -55,7 +50,6 @@ function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
           backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(248,250,252,0.2) 100%)"
         }}
       ></div>
-      {/* Perfect circle mask with aspect ratio enforcement */}
       <div className="absolute inset-0 rounded-full overflow-hidden">
         <div style={{ 
           width: '100%', 
@@ -82,7 +76,6 @@ function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
 }
 
 const ContractorProfile = () => {
-  // Your existing state variables...
   // Personal info state
   const [personalInfo, setPersonalInfo] = useState({
     firstName: '',
@@ -102,15 +95,13 @@ const ContractorProfile = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile'); // Options: 'profile', 'payments'
+  const [activeTab, setActiveTab] = useState('profile'); 
   const navigate = useNavigate();
 
-  // Add these state variables at the top of your ContractorProfile component
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
 
-  // Add new state variables for project counts
   const [projectCounts, setProjectCounts] = useState({
     systemCount: 0,
     manualCount: 0,
@@ -119,7 +110,6 @@ const ContractorProfile = () => {
     error: null
   });
 
-  // Your existing functions...
   const handleProfileUpdate = (updatedProfile) => {
     setContractorInfo(updatedProfile);
     setPersonalInfo(prev => ({
@@ -149,16 +139,14 @@ const ContractorProfile = () => {
     refreshProfilePicture();
   };
 
-  // Existing useEffect...
   useEffect(() => {
     fetchUserProfile();
     fetchContractorData();
     fetchProfilePicture();
     fetchPaymentHistory(); 
-    fetchCompletedProjectsCount(); // Add this new function call
+    fetchCompletedProjectsCount(); 
   }, []);
 
-  // Add new function to fetch completed projects count
   const fetchCompletedProjectsCount = async () => {
     const userId = getUserId();
     if (!userId) return;
@@ -181,7 +169,6 @@ const ContractorProfile = () => {
         error: null
       });
       
-      // Also update the contractorInfo with these values for consistency
       if (contractorInfo) {
         setContractorInfo(prev => ({
           ...prev,
@@ -201,10 +188,7 @@ const ContractorProfile = () => {
     }
   };
   
-  // Your existing functions: getToken, getUserId, fetchUserProfile, fetchContractorData, 
-  // handleLogout, handleDeleteAccount, fetchProfilePicture, refreshProfilePicture...
 
-  // Define animation variants for use with motion components
   const pageVariants = {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
@@ -226,9 +210,7 @@ const ContractorProfile = () => {
     }
   };
 
-  // Add these missing functions to your ContractorProfile component
-
-  // Get the authentication token from storage
+  // Get the authentication token 
   const getToken = () => {
     return localStorage.getItem('token') || sessionStorage.getItem('token');
   };
@@ -261,11 +243,9 @@ const ContractorProfile = () => {
       const response = await axios.get(`http://localhost:5000/auth/user/${userId}`);
       console.log('User data response:', response.data);
       
-      // Access the nested user object
       const userData = response.data.user; 
       
       if (userData) {
-        // Split username to get first and last name if they don't exist separately
         const nameParts = userData.username ? userData.username.split(' ') : ['', ''];
         
         setPersonalInfo(prev => ({
@@ -327,7 +307,6 @@ const ContractorProfile = () => {
     }
   };
 
-  // Refresh profile picture (used after updates)
   const refreshProfilePicture = () => {
     fetchProfilePicture();
   };
@@ -363,12 +342,10 @@ const ContractorProfile = () => {
         }
       });
       
-      // Clear tokens and show success
       localStorage.removeItem('token');
       sessionStorage.removeItem('token');
       toast.success('Your account has been deleted successfully');
       
-      // Redirect to home page
       navigate('/');
     } catch (error) {
       console.error('Error deleting account:', error);
@@ -378,7 +355,6 @@ const ContractorProfile = () => {
     }
   };
 
-  // Add this function to fetch payment history
   const fetchPaymentHistory = async () => {
     const token = getToken();
     if (!token) return;
@@ -392,7 +368,7 @@ const ContractorProfile = () => {
       // Fetch payments for this contractor
       const response = await axios.get(`http://localhost:5000/api/payments`, {
         headers: { 'Authorization': `Bearer ${token}` },
-        params: { userId: userId } // This will properly include userId as a query param
+        params: { userId: userId } 
       });
       
       // Check if response contains payments data
@@ -403,14 +379,11 @@ const ContractorProfile = () => {
         return;
       }
       
-      // Filter payments to include only this user's payments
-      // This is a client-side safety measure in case server filtering isn't working
-      const userPayments = response.data.filter(payment => 
+        const userPayments = response.data.filter(payment => 
         payment.user && 
         (payment.user.userId === userId || payment.user.userId?.toString() === userId.toString())
       );
       
-      // Format the payment data for display
       const formattedPayments = userPayments.map(payment => ({
         id: payment._id,
         description: getPaymentDescription(payment),
@@ -438,7 +411,6 @@ const ContractorProfile = () => {
     }
   };
 
-  // Helper function to generate payment descriptions
   const getPaymentDescription = (payment) => {
     if (payment.paymentType === 'milestone') {
       return `Milestone Payment for Project #${payment.workId?.toString().slice(-6).toUpperCase() || 'Unknown'}`;
@@ -451,10 +423,8 @@ const ContractorProfile = () => {
     }
   };
 
-  // Render function (assuming it returns a React component)
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Existing content */}
       <motion.div 
         initial="initial"
         animate="animate"
@@ -508,7 +478,6 @@ const ContractorProfile = () => {
           </div>
         </motion.div>
         
-        {/* Show the edit profile component when showEditProfile is true */}
         <AnimatePresence>
           {showEditProfile && (
             <motion.div 
@@ -527,7 +496,6 @@ const ContractorProfile = () => {
           )}
         </AnimatePresence>
         
-        {/* Show the edit user details component when showEditUserDetails is true */}
         <AnimatePresence>
           {showEditUserDetails && (
             <motion.div 
@@ -546,7 +514,7 @@ const ContractorProfile = () => {
           )}
         </AnimatePresence>
         
-        {/* Profile content - only show when not editing */}
+        {/* Profile content */}
         <AnimatePresence>
           {!showEditProfile && !showEditUserDetails && (
             <motion.div 
@@ -558,8 +526,7 @@ const ContractorProfile = () => {
               {/* Show content based on active tab */}
               {activeTab === 'profile' ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {/* Your existing profile content */}
-                  {/* Left column - Personal Info */}
+                 
                   <motion.div 
                     variants={cardVariants}
                     className="md:col-span-1"
@@ -711,7 +678,6 @@ const ContractorProfile = () => {
                     </motion.div>
                   </motion.div>
 
-                  {/* Right column - Qualifications and Professional Details */}
                   <motion.div 
                     variants={cardVariants}
                     className="md:col-span-2"
@@ -799,20 +765,10 @@ const ContractorProfile = () => {
                               
                               <div className="mt-2 text-xs text-gray-500">
                                 <div className="flex justify-between">
-                                  <span>Manual: {projectCounts.manualCount}</span>
-                                  <span>System: {projectCounts.systemCount}</span>
+                                  
                                 </div>
                                 
-                                {/* Add a refresh button */}
-                                <button 
-                                  onClick={fetchCompletedProjectsCount}
-                                  className="mt-2 text-blue-500 text-xs flex items-center hover:text-blue-700"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                  </svg>
-                                  Refresh
-                                </button>
+                                
                               </div>
                             </>
                           )}
@@ -1111,7 +1067,6 @@ const ContractorProfile = () => {
           )}
       </motion.div>
 
-      {/* Add Footer at the bottom */}
       <Footer />
     </div>
   );

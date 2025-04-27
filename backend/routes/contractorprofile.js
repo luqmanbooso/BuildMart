@@ -3,7 +3,7 @@ const router = express.Router();
 const Contractor = require('../models/Contractor');
 const OngoingWork = require('../models/Ongoingworkmodel');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken'); // Add this missing import
+const jwt = require('jsonwebtoken'); 
 
 router.post('/', async (req, res) => {
   try {
@@ -15,7 +15,7 @@ router.post('/', async (req, res) => {
 
     // Create new contractor profile
     const contractorData = {
-      userId: req.body.userId, // Get from request body since no auth
+      userId: req.body.userId, 
       phone: req.body.phone,
       address: req.body.address,
       companyName: req.body.companyName,
@@ -51,10 +51,8 @@ router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     
-    // Special case handler for 'profile'
     if (userId === 'profile') {
-      // If you need to get the authenticated user's profile
-      // Extract the ID from authentication token
+    
       const token = req.headers.authorization?.split(' ')[1];
       
       if (!token) {
@@ -77,7 +75,6 @@ router.get('/:userId', async (req, res) => {
       }
     }
     
-    // Regular ObjectId lookup
     const contractor = await Contractor.findOne({ userId });
     
     if (!contractor) {
@@ -101,26 +98,21 @@ router.get('/user/:userId', async (req, res) => {
       return res.status(404).json({ error: 'Contractor not found' });
     }
     
-    // Store the original manually entered count
     const manualCount = contractor.manualCompletedProjects || contractor.completedProjects || 0;
     
-    // Get system count from OngoingWork
     try {
       const completedWorks = await OngoingWork.countDocuments({
         contractorId: req.params.userId,
         jobStatus: 'Completed'
       });
       
-      // Add additional fields to response
       contractor._doc.systemCompletedProjects = completedWorks;
       contractor._doc.manualCompletedProjects = manualCount;
       contractor._doc.totalCompletedProjects = manualCount + completedWorks;
       
-      // The completedProjects field will be the total
       if (contractor.completedProjects !== manualCount + completedWorks) {
         contractor.completedProjects = manualCount + completedWorks;
         
-        // Also store the manual count separately for future reference
         contractor.manualCompletedProjects = manualCount;
         
         await contractor.save();
@@ -128,7 +120,6 @@ router.get('/user/:userId', async (req, res) => {
       
     } catch (syncError) {
       console.error('Error syncing completed projects count:', syncError);
-      // Continue execution even if sync fails
     }
     
     res.json(contractor);
@@ -143,15 +134,12 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-// Update the endpoint to handle completed projects correctly
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     
-    // Special case handler for 'profile'
     if (userId === 'profile') {
-      // If you need to get the authenticated user's profile
-      // Extract the ID from authentication token
+
       const token = req.headers.authorization?.split(' ')[1];
       
       if (!token) {
@@ -173,41 +161,34 @@ router.get('/:userId', async (req, res) => {
         return res.status(401).json({ error: 'Token is not valid' });
       }
     }
-    
-    // Regular ObjectId lookup
+
     const contractor = await Contractor.findOne({ userId });
     
     if (!contractor) {
       return res.status(404).json({ error: 'Contractor not found' });
     }
     
-    // Store the original manually entered count
     const manualCount = contractor.manualCompletedProjects || contractor.completedProjects || 0;
     
-    // Get system count from OngoingWork
     try {
       const completedWorks = await OngoingWork.countDocuments({
         contractorId: userId,
         jobStatus: 'Completed'
       });
       
-      // Add additional fields to response
       contractor._doc.systemCompletedProjects = completedWorks;
       contractor._doc.manualCompletedProjects = manualCount;
       contractor._doc.totalCompletedProjects = manualCount + completedWorks;
       
-      // The completedProjects field will be the total
       if (contractor.completedProjects !== manualCount + completedWorks) {
         contractor.completedProjects = manualCount + completedWorks;
         
-        // Also store the manual count separately for future reference
         contractor.manualCompletedProjects = manualCount;
         
         await contractor.save();
       }
     } catch (syncError) {
       console.error('Error syncing completed projects count:', syncError);
-      // Continue execution even if sync fails
     }
     
     res.json(contractor);
@@ -217,7 +198,6 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
-// Update the PUT endpoint to handle manualCompletedProjects field
 router.put('/:id', async (req, res) => {
   try {
     let contractor = await Contractor.findById(req.params.id);
@@ -226,7 +206,6 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Contractor not found' });
     }
     
-    // Update fields
     const updateData = {};
     if (req.body.phone) updateData.phone = req.body.phone;
     if (req.body.address) updateData.address = req.body.address;
@@ -234,18 +213,14 @@ router.put('/:id', async (req, res) => {
     if (req.body.specialization) updateData.specialization = req.body.specialization;
     if (req.body.experienceYears) updateData.experienceYears = req.body.experienceYears;
     
-    // Handle completedProjects properly - save as manualCompletedProjects
     if (req.body.completedProjects !== undefined) {
-      // Store the manual count directly provided by user
       updateData.manualCompletedProjects = parseInt(req.body.completedProjects);
       
-      // Recalculate total completedProjects
       const completedWorks = await OngoingWork.countDocuments({
         contractorId: contractor.userId,
         jobStatus: 'Completed'
       });
       
-      // Set total as sum of manual + system
       updateData.completedProjects = updateData.manualCompletedProjects + completedWorks;
       
       console.log(`Updating contractor ${contractor._id} projects: manual=${updateData.manualCompletedProjects}, system=${completedWorks}, total=${updateData.completedProjects}`);
@@ -253,7 +228,6 @@ router.put('/:id', async (req, res) => {
     
     if (req.body.bio) updateData.bio = req.body.bio;
     
-    // Only update fields that were provided
     const updatedContractor = await Contractor.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
@@ -272,7 +246,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Fix the refresh endpoint logic to correctly calculate counts
 router.get('/refresh-completed-projects/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -328,7 +301,6 @@ router.get('/refresh-completed-projects/:userId', async (req, res) => {
   }
 });
 
-// Add a fix endpoint to reset and correct possibly corrupted counts
 router.post('/fix-project-counts/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -383,8 +355,6 @@ router.post('/fix-project-counts/:userId', async (req, res) => {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
-
-// ...existing code...
 
 // Search and filter contractors
 router.get('/search/filters', async (req, res) => {

@@ -38,7 +38,7 @@ router.post('/', async (req, res) => {
       projectId, 
       projectName,
       userId,
-      username, // Add username field
+      username, 
       userRole,
       status,
       submittedAt
@@ -56,7 +56,7 @@ router.post('/', async (req, res) => {
     // Check and normalize user role if needed
     let normalizedUserRole = userRole;
     if (userRole && !['Client', 'Service Provider', 'Guest', 'Admin', 'User'].includes(userRole)) {
-      normalizedUserRole = 'User'; // Default to 'User' if invalid role received
+      normalizedUserRole = 'User'; 
     }
     
     const inquiry = new Inquiry({
@@ -67,7 +67,7 @@ router.post('/', async (req, res) => {
       projectId,
       projectName,
       userId,
-      username, // Store username in database
+      username, 
       userRole: normalizedUserRole,
       status: status || 'pending',
       submittedAt: submittedAt || new Date()
@@ -78,9 +78,7 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error('Error creating inquiry:', error);
     
-    // Improved error handling
     if (error.name === 'ValidationError') {
-      // Mongoose validation error - send details to help debug
       const validationErrors = Object.keys(error.errors).map(field => ({
         field,
         message: error.errors[field].message

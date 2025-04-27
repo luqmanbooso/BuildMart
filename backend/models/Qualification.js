@@ -36,8 +36,5 @@ const qualificationSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Ensure user can't have duplicate qualifications
-// qualificationSchema.index({ userId: 1, name: 1, issuer: 1 }, { unique: true });
-
 const Qualification = mongoose.model('Qualification', qualificationSchema);
 module.exports = Qualification;
