@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaChartLine, FaMoneyBillWave, FaHourglassHalf, FaClipboardList } from 'react-icons/fa';
+import { FaChartLine, FaMoneyBillWave, FaHourglassHalf, FaClipboardList, FaFileDownload, FaFileCsv } from 'react-icons/fa';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import ContractorUserNav from '../components/ContractorUserNav';
@@ -43,6 +43,14 @@ const MyEarningsPage = () => {
   });
   const [selectedTimeframe, setSelectedTimeframe] = useState('all');
   const [selectedTab, setSelectedTab] = useState('summary');
+  // Add state for reports
+  const [reportCriteria, setReportCriteria] = useState({
+    period: 'all',
+    type: 'earnings',
+    status: 'all'
+  });
+  const [reportData, setReportData] = useState([]);
+  const [isReportGenerated, setIsReportGenerated] = useState(false);
   // Add state for chart data
   const [chartData, setChartData] = useState({
     labels: [],
@@ -239,6 +247,106 @@ const MyEarningsPage = () => {
     });
   };
 
+  // Function to generate reports based on criteria
+  const generateReport = () => {
+    let filteredData = [];
+    const { period, type, status } = reportCriteria;
+    
+    // Filter by period
+    let startDate = null;
+    const now = new Date();
+    
+    if (period !== 'all') {
+      startDate = new Date();
+      switch (period) {
+        case 'week':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'quarter':
+          startDate.setMonth(now.getMonth() - 3);
+          break;
+        case 'year':
+          startDate.setFullYear(now.getFullYear() - 1);
+          break;
+        default:
+          startDate = null;
+      }
+    }
+
+    if (type === 'earnings') {
+      // Generate earnings report
+      filteredData = earnings.milestones.filter(milestone => {
+        // Filter by period
+        if (startDate && milestone.completedAt) {
+          const completionDate = new Date(milestone.completedAt);
+          if (completionDate < startDate) return false;
+        }
+        
+        // Filter by status
+        if (status !== 'all' && milestone.status !== status) return false;
+        
+        return true;
+      }).map(milestone => ({
+        projectName: milestone.jobTitle,
+        milestoneName: milestone.name,
+        status: milestone.status,
+        amount: milestone.actualAmountPaid || parseInt(milestone.amount) || 0,
+        completedDate: milestone.completedAt ? new Date(milestone.completedAt).toLocaleDateString() : 'Not completed'
+      }));
+    } else if (type === 'projects') {
+      // Generate projects report
+      filteredData = earnings.ongoingWorks.filter(work => {
+        // Filter by status
+        if (status !== 'all' && work.jobStatus !== status) return false;
+        return true;
+      }).map(work => ({
+        projectName: work.jobId?.title || 'Unnamed Job',
+        status: work.jobStatus,
+        totalEarned: work.totalAmountPaid || 0,
+        totalPending: work.totalAmountPending || 0,
+        startDate: work.startDate ? new Date(work.startDate).toLocaleDateString() : 'Unknown',
+        completionDate: work.completionDate ? new Date(work.completionDate).toLocaleDateString() : 'Not completed'
+      }));
+    }
+    
+    setReportData(filteredData);
+    setIsReportGenerated(true);
+  };
+
+  // Function to export as CSV
+  const exportAsCSV = () => {
+    if (!reportData.length) return;
+    
+    // Get headers from first object
+    const headers = Object.keys(reportData[0]);
+    
+    // Convert data to CSV format
+    let csvContent = headers.join(',') + '\n';
+    
+    reportData.forEach(item => {
+      const row = headers.map(header => {
+        // Handle commas and quotes in the data
+        const cell = String(item[header]).replace(/"/g, '""');
+        return `"${cell}"`;
+      }).join(',');
+      csvContent += row + '\n';
+    });
+    
+    // Create a blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `earnings_report_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -337,22 +445,37 @@ const MyEarningsPage = () => {
             >
               Milestone Payments
             </button>
+            <button 
+              className={`py-4 px-1 font-medium text-sm border-b-2 ${
+                selectedTab === 'reports' 
+                  ? 'border-blue-500 text-blue-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              onClick={() => {
+                setSelectedTab('reports');
+                setIsReportGenerated(false);
+              }}
+            >
+              Reports
+            </button>
           </nav>
         </div>
 
-        {/* Timeframe Filter */}
-        <div className="mb-6 flex justify-end">
-          <select
-            value={selectedTimeframe}
-            onChange={(e) => setSelectedTimeframe(e.target.value)}
-            className="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-          >
-            <option value="all">All Time</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="year">This Year</option>
-          </select>
-        </div>
+        {/* Timeframe Filter - Only show for summary and milestones tabs */}
+        {selectedTab !== 'reports' && (
+          <div className="mb-6 flex justify-end">
+            <select
+              value={selectedTimeframe}
+              onChange={(e) => setSelectedTimeframe(e.target.value)}
+              className="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            >
+              <option value="all">All Time</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+              <option value="year">This Year</option>
+            </select>
+          </div>
+        )}
 
         {/* Content based on selected tab */}
         {selectedTab === 'summary' ? (
@@ -482,7 +605,7 @@ const MyEarningsPage = () => {
               </div>
             </div>
           </div>
-        ) : (
+        ) : selectedTab === 'milestones' ? (
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
               <h3 className="text-lg font-medium text-gray-900">Milestone Payments</h3>
@@ -549,6 +672,126 @@ const MyEarningsPage = () => {
                 <p className="text-gray-500">No milestone payments found for the selected timeframe.</p>
               </div>
             )}
+          </div>
+        ) : (
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
+              <h3 className="text-lg font-medium text-gray-900">Generate Reports</h3>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {/* Report Period */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Time Period</label>
+                  <select
+                    value={reportCriteria.period}
+                    onChange={(e) => setReportCriteria({...reportCriteria, period: e.target.value})}
+                    className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="week">Last 7 Days</option>
+                    <option value="month">Last 30 Days</option>
+                    <option value="quarter">Last 3 Months</option>
+                    <option value="year">Last Year</option>
+                  </select>
+                </div>
+                
+                {/* Report Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Report Type</label>
+                  <select
+                    value={reportCriteria.type}
+                    onChange={(e) => setReportCriteria({...reportCriteria, type: e.target.value})}
+                    className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  >
+                    <option value="earnings">Earnings Report</option>
+                    <option value="projects">Projects Report</option>
+                  </select>
+                </div>
+                
+                {/* Status Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={reportCriteria.status}
+                    onChange={(e) => setReportCriteria({...reportCriteria, status: e.target.value})}
+                    className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="Completed">Completed</option>
+                    <option value="In Progress">In Progress</option>
+                    {reportCriteria.type === 'projects' && <option value="On Hold">On Hold</option>}
+                  </select>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center mb-6">
+                <button
+                  onClick={generateReport}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <FaChartLine className="mr-2" />
+                  Generate Report
+                </button>
+                
+                {isReportGenerated && reportData.length > 0 && (
+                  <button
+                    onClick={exportAsCSV}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <FaFileCsv className="mr-2" />
+                    Export as CSV
+                  </button>
+                )}
+              </div>
+              
+              {isReportGenerated && (
+                <>
+                  <h4 className="text-lg font-medium text-gray-800 mb-4">
+                    {reportCriteria.type === 'earnings' ? 'Earnings Report' : 'Projects Report'}
+                  </h4>
+                  
+                  {reportData.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead>
+                          <tr>
+                            {Object.keys(reportData[0]).map((header, idx) => (
+                              <th 
+                                key={idx} 
+                                className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                {header.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {reportData.map((item, idx) => (
+                            <tr key={idx}>
+                              {Object.values(item).map((value, valueIdx) => (
+                                <td key={valueIdx} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {typeof value === 'number' ? (
+                                    valueIdx === 0 ? value : `LKR ${value.toLocaleString()}`
+                                  ) : (
+                                    value
+                                  )}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      No data found matching your criteria.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

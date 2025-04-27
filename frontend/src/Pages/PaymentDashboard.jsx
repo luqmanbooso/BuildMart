@@ -27,11 +27,22 @@ function PaymentDashboard() {
   const [payments, setPayments] = useState([]);
   const [serviceProviderPayments, setServiceProviderPayments] = useState([]);
   const [itemsPayments, setItemsPayments] = useState([]);
-  const [commissionPayments, setCommissionPayments] = useState([]); // Add this line
-  const [agreementFeePayments, setAgreementFeePayments] = useState([]); // Add this line
+  const [commissionPayments, setCommissionPayments] = useState([]);
+  const [agreementFeePayments, setAgreementFeePayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  
+  // Add new state variables for report generation
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportType, setReportType] = useState('all');
+  const [reportDateRange, setReportDateRange] = useState('all');
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+  const [reportStatus, setReportStatus] = useState('all');
+  const [reportPaymentMethod, setReportPaymentMethod] = useState('all');
+  const [reportLoading, setReportLoading] = useState(false);
+
   // Add new state variables for filtering and advanced features
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -1819,11 +1830,11 @@ function PaymentDashboard() {
                 </button>
                 
                 <button
-                  onClick={exportPayments}
+                  onClick={() => setShowReportModal(true)}
                   className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
                   <FileText size={16} className="mr-2" />
-                  Export Data
+                  Generate Report
                 </button>
                 
                 <button 
@@ -3241,6 +3252,265 @@ function PaymentDashboard() {
     }
   };
 
+  // Add the generateReport function inside the component
+  const generateReport = async () => {
+    try {
+      setReportLoading(true);
+      
+      // Filter data based on selected criteria
+      let filteredData = [];
+      
+      // Helper function to check if a date is within the selected range
+      const isDateInRange = (date) => {
+        if (reportDateRange === 'all') return true;
+        const paymentDate = new Date(date);
+        const startDate = new Date(reportStartDate);
+        const endDate = new Date(reportEndDate);
+        return paymentDate >= startDate && paymentDate <= endDate;
+      };
+      
+      // Helper function to check if status matches
+      const isStatusMatch = (status) => {
+        if (reportStatus === 'all') return true;
+        return status === reportStatus;
+      };
+      
+      // Helper function to check if payment method matches
+      const isPaymentMethodMatch = (method) => {
+        if (reportPaymentMethod === 'all') return true;
+        return method === reportPaymentMethod;
+      };
+      
+      // Process data based on report type
+      switch (reportType) {
+        case 'all':
+          // Combine all payment types
+          filteredData = [
+            ...payments.filter(p => isDateInRange(p.createdAt) && isStatusMatch(p.status) && isPaymentMethodMatch(p.cardType)),
+            ...serviceProviderPayments.filter(p => isDateInRange(p.date) && isStatusMatch(p.status)),
+            ...itemsPayments.filter(p => isDateInRange(p.date) && isStatusMatch(p.status)),
+            ...commissionPayments.filter(p => isDateInRange(p.date)),
+            ...agreementFeePayments.filter(p => isDateInRange(p.date) && isStatusMatch(p.status))
+          ];
+          break;
+        case 'payments':
+          filteredData = payments.filter(p => isDateInRange(p.createdAt) && isStatusMatch(p.status) && isPaymentMethodMatch(p.cardType));
+          break;
+        case 'service-providers':
+          filteredData = serviceProviderPayments.filter(p => isDateInRange(p.date) && isStatusMatch(p.status));
+          break;
+        case 'inventory':
+          filteredData = itemsPayments.filter(p => isDateInRange(p.date) && isStatusMatch(p.status));
+          break;
+        case 'commission':
+          filteredData = commissionPayments.filter(p => isDateInRange(p.date));
+          break;
+        case 'agreement-fees':
+          filteredData = agreementFeePayments.filter(p => isDateInRange(p.date) && isStatusMatch(p.status));
+          break;
+        default:
+          filteredData = [];
+      }
+      
+      // Generate CSV content
+      const headers = [
+        'Type',
+        'ID',
+        'Name/Description',
+        'Amount',
+        'Status',
+        'Payment Method',
+        'Date',
+        'Additional Info'
+      ];
+      
+      const csvData = filteredData.map(record => {
+        const baseRecord = {
+          type: record.paymentType || 'Payment',
+          id: record._id || record.id,
+          name: record.cardholderName || record.providerName || record.itemName || record.clientName || 'N/A',
+          amount: record.amount || record.commissionAmount || 0,
+          status: record.status || 'N/A',
+          paymentMethod: record.cardType || 'N/A',
+          date: new Date(record.createdAt || record.date).toLocaleString(),
+          additionalInfo: ''
+        };
+        
+        // Add type-specific information
+        if (record.commissionRate) {
+          baseRecord.additionalInfo = `Commission Rate: ${(record.commissionRate * 100).toFixed(1)}%`;
+        } else if (record.quantity) {
+          baseRecord.additionalInfo = `Quantity: ${record.quantity}`;
+        }
+        
+        return [
+          baseRecord.type,
+          baseRecord.id,
+          baseRecord.name,
+          baseRecord.amount,
+          baseRecord.status,
+          baseRecord.paymentMethod,
+          baseRecord.date,
+          baseRecord.additionalInfo
+        ];
+      });
+      
+      // Create and trigger download
+      const csvContent = [headers.join(','), ...csvData.map(row => row.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `payment_report_${new Date().toISOString()}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setReportLoading(false);
+      setShowReportModal(false);
+      showNotificationMessage('success', 'Report generated successfully');
+    } catch (error) {
+      setReportLoading(false);
+      showNotificationMessage('error', 'Failed to generate report: ' + error.message);
+    }
+  };
+
+  // Add the report modal component inside the component
+  const renderReportModal = () => (
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl p-8 w-full max-w-2xl shadow-2xl transform transition-all">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Generate Report</h2>
+          <button
+            onClick={() => setShowReportModal(false)}
+            className="text-gray-400 hover:text-gray-500 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">Report Type</label>
+              <select
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+              >
+                <option value="all">All Payments</option>
+                <option value="payments">Customer Payments</option>
+                <option value="service-providers">Service Provider Payments</option>
+                <option value="inventory">Inventory Sales</option>
+                <option value="commission">Commission Income</option>
+                <option value="agreement-fees">Agreement Fees</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">Date Range</label>
+              <select
+                value={reportDateRange}
+                onChange={(e) => setReportDateRange(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+              >
+                <option value="all">All Time</option>
+                <option value="custom">Custom Range</option>
+              </select>
+            </div>
+          </div>
+          
+          {reportDateRange === 'custom' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">Start Date</label>
+                <input
+                  type="date"
+                  value={reportStartDate}
+                  onChange={(e) => setReportStartDate(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">End Date</label>
+                <input
+                  type="date"
+                  value={reportEndDate}
+                  onChange={(e) => setReportEndDate(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+                />
+              </div>
+            </div>
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">Status</label>
+              <select
+                value={reportStatus}
+                onChange={(e) => setReportStatus(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+              >
+                <option value="all">All Statuses</option>
+                <option value="completed">Completed</option>
+                <option value="pending">Pending</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">Payment Method</label>
+              <select
+                value={reportPaymentMethod}
+                onChange={(e) => setReportPaymentMethod(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+              >
+                <option value="all">All Methods</option>
+                <option value="visa">Visa</option>
+                <option value="mastercard">Mastercard</option>
+                <option value="amex">American Express</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-8 flex justify-end space-x-4">
+          <button
+            onClick={() => setShowReportModal(false)}
+            className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={generateReport}
+            disabled={reportLoading}
+            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+          >
+            {reportLoading ? (
+              <>
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Generating...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Generate Report</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // Rest of the component remains the same
   return (
     <div className="flex h-screen bg-gray-100">
@@ -3547,6 +3817,7 @@ function PaymentDashboard() {
           </div>
         </div>
       )}
+      {showReportModal && renderReportModal()}
     </div>
   );
 }
