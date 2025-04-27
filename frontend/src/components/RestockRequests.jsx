@@ -602,45 +602,31 @@ const RestockRequests = ({ inventory, setInventory }) => {
       
       {/* Status Filter */}
       <div className="bg-white shadow-sm rounded-lg p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex-grow max-w-md">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
-            <select
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">All Statuses</option>
-              {statusTypes.map(status => (
-                <option key={status} value={status.toLowerCase()}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </option>
-              ))}
-              {/* Add additional status options if statusTypes is empty */}
-              {statusTypes.length === 0 && (
-                <>
-                  <option value="requested">Requested</option>
-                  <option value="approved">Approved</option>
-                  <option value="ordered">Ordered</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
-                </>
-              )}
-            </select>
-          </div>
-          
-          <div className="flex items-end">
-            <button
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
-              }}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-            >
-              Reset Filters
-            </button>
-          </div>
+        <div className="flex-grow max-w-md">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Status Filter</label>
+          <select
+            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">All Statuses</option>
+            {statusTypes.map(status => (
+              <option key={status} value={status.toLowerCase()}>
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </option>
+            ))}
+            {/* Add additional status options if statusTypes is empty */}
+            {statusTypes.length === 0 && (
+              <>
+                <option value="requested">Requested</option>
+                <option value="approved">Approved</option>
+                <option value="ordered">Ordered</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </>
+            )}
+          </select>
         </div>
       </div>
       
