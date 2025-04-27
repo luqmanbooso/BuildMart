@@ -47,6 +47,10 @@ const BidForm = ({ sampleData }) => {
   
   const [costBreakdownError, setCostBreakdownError] = useState(null);
   const [timelineBreakdownError, setTimelineBreakdownError] = useState(null);
+
+  const [lowestBid, setLowestBid] = useState(null);
+  const [bidCount, setBidCount] = useState(0);
+  const [loadingBids, setLoadingBids] = useState(false);
   
   const MAX_PROJECT_DURATION = 365;
   
@@ -279,6 +283,41 @@ const BidForm = ({ sampleData }) => {
     fetchContractorProfile();
   }, [userInfo, setValue]);
 
+  const fetchLowestBid = async (projectId) => {
+    if (!projectId) return;
+    
+    try {
+      setLoadingBids(true);
+      
+      // First get all bids to count them
+      const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${projectId}`);
+      if (bidsResponse.data) {
+        setBidCount(bidsResponse.data.length);
+        
+        // If there are bids, find the lowest one
+        if (bidsResponse.data.length > 0) {
+          // Sort bids by price (ascending)
+          const sortedBids = bidsResponse.data.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+          // Get the lowest bid
+          setLowestBid(parseFloat(sortedBids[0].price));
+        } else {
+          setLowestBid(null);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching lowest bid:", error);
+    } finally {
+      setLoadingBids(false);
+    }
+  };
+
+  // Call fetchLowestBid when component loads or when jobId changes
+  useEffect(() => {
+    if (jobId) {
+      fetchLowestBid(jobId);
+    }
+  }, [jobId]);
+
   useEffect(() => {
     if (!jobId && !sampleData) return;
     
@@ -315,6 +354,8 @@ const BidForm = ({ sampleData }) => {
           setJobDetails(sampleData);
           setValue("projectName", sampleData.title || "Sample Project");
           
+
+          fetchLowestBid(jobId);
           const endDate = new Date();
           endDate.setDate(endDate.getDate() + 3); 
           updateTimer(endDate);
@@ -794,6 +835,8 @@ const projectDescription = jobDetails?.description || "";
               <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
                 
+                
+
                 <h3 className="text-lg font-semibold mb-5 text-gray-800 pb-3 border-b flex items-center relative z-10">
                   <div className="bg-gradient-to-r from-blue-500 to-blue-700 p-2 rounded-lg mr-3 shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
@@ -803,6 +846,8 @@ const projectDescription = jobDetails?.description || "";
                   </div>
                   <label htmlFor="yourBid">Your Bid Amount <span className="text-red-500 ml-1">*</span></label>
                 </h3>
+
+                
                 
                 <div className="space-y-4">
                   <div className="relative">
@@ -867,8 +912,51 @@ const projectDescription = jobDetails?.description || "";
                     </p>
                   </div>
                 </div>
+
+                {/* Add current lowest bid information card */}
+                {loadingBids ? (
+                  <div className="flex items-center mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="animate-spin h-4 w-4 mr-2 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
+                    <span className="text-sm text-gray-500">Loading bid information...</span>
+                  </div>
+                ) : lowestBid ? (
+                  <div className="mb-4 p-3 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg border border-amber-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0 1 1 0 012 0zm-1 9a1 1 0 01-1-1v-4a1 1 0 112 0v4a1 1 0 01-1 1H9z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-sm font-medium text-gray-800">Current Market Info</span>
+                      </div>
+                     
+                    </div>
+                    <div className="mt-2 flex justify-between items-center">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Current Lowest Bid</div>
+                        <div className="text-lg font-bold text-amber-700">RS {lowestBid.toFixed(2)}</div>
+                      </div>
+                      
+                    </div>
+                    <div className="mt-2 text-xs text-gray-600 bg-white p-2 rounded border border-gray-200">
+                      To win this project, consider bidding below RS {lowestBid.toFixed(2)} or highlight your superior qualifications and expertise.
+                    </div>
+                  </div>
+                ) : bidCount === 0 ? (
+                  <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <div className="flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm font-medium text-gray-800">Be the First Bidder!</span>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-600 bg-white p-2 rounded border border-gray-200">
+                      No bids have been placed yet. Submit a competitive bid now to set the standard and make a strong first impression!
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
+                    
               <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-opacity-95 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-green-100 to-transparent rounded-bl-full opacity-70 z-0"></div>
                 
