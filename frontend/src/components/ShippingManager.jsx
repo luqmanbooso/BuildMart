@@ -793,7 +793,7 @@ const handleDelete = async (id) => {
       case 'Pending':
         return <span className="bg-gray-200 text-gray-800 px-2 py-1 rounded-full text-xs">Pending</span>;
       case 'Loading':
-        return <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">Loading</span>;
+        return <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">Processing</span>;
       case 'In Transit':
         return <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">In Transit</span>;
       case 'Out for Delivery':
@@ -1098,7 +1098,7 @@ const handleDelete = async (id) => {
                           }}
                         >
                           <option value="" disabled>Update status...</option>
-                          {shipment.status !== 'Pending' && shipment.status !== 'Loading' && <option value="Loading">Mark as Loading</option>}
+                          {shipment.status !== 'Pending' && shipment.status !== 'Loading' && <option value="Loading">Mark as Processing</option>}
                           {shipment.status !== 'In Transit' && <option value="In Transit">Mark as In Transit</option>}
                           {shipment.status !== 'Out for Delivery' && shipment.status !== 'Pending' && <option value="Out for Delivery">Mark as Out for Delivery</option>}
                           {shipment.status !== 'Delivered' && shipment.status !== 'Pending' && <option value="Delivered">Mark as Delivered</option>}
