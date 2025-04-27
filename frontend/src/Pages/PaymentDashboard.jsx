@@ -1655,9 +1655,7 @@ function PaymentDashboard() {
                       };
                     }
                     
-                    acc[monthYear].totalCommission += payment.commissionAmount;
-                    acc[monthYear].transactionCount += 1;
-                    acc[monthYear].totalCommissionRate += payment.commissionRate;
+                   
                     
                     return acc;
                   }, {}))
