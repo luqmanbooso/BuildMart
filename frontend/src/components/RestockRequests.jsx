@@ -226,13 +226,13 @@ const RestockRequests = ({ inventory, setInventory, searchTerm, setSearchTerm })
         // Update inventory based on status
         if (newStatus.toLowerCase() === 'delivered') {
           // For delivered: increase stock and update status
-          setInventory(prev => 
-            prev.map(item => 
-              item._id === request.productId ? 
-              {
-                ...item,
-                stock: item.stock + request.quantity,
-                status: getStockStatus(item.stock + request.quantity, item.threshold),
+        setInventory(prev => 
+          prev.map(item => 
+            item._id === request.productId ? 
+            {
+              ...item,
+              stock: item.stock + request.quantity,
+              status: getStockStatus(item.stock + request.quantity, item.threshold),
                 deliveryStatus: "Delivered",
                 // Clear the restock requested flag since request is complete
                 restockRequested: false
@@ -247,9 +247,9 @@ const RestockRequests = ({ inventory, setInventory, searchTerm, setSearchTerm })
               {
                 ...item,
                 restockRequested: false
-              } : item
-            )
-          );
+            } : item
+          )
+        );
         }
       }
       

@@ -4236,10 +4236,48 @@ const handleUpdateSupplier = async () => {
           {activeTab === "reports" && (
             <div className="space-y-6">
               {/* Reports Section */}
+              <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-xl shadow-lg p-5 mb-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-3xl font-bold text-white">
+                      Reports & Analytics
+                    </h2>
+                    <p className="text-blue-100 mt-1">
+                      Track key metrics, generate business insights, and make data-driven decisions
+                    </p>
+                  </div>
+                  <div className="mt-4 md:mt-0 flex items-center space-x-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search reports..."
+                        className="py-2 pl-10 pr-4 bg-white/10 border border-white/20 text-white placeholder-blue-100 focus:outline-none focus:ring-2 focus:ring-white/50 rounded-lg"
+                      />
+                      <div className="absolute left-3 top-2.5">
+                        <Search className="h-5 w-5 text-blue-100" />
+                      </div>
+                    </div>
+                    <button 
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                      title="Refresh data"
+                    >
+                      <RefreshCw size={20} className="text-white" />
+                    </button>
+                    <button 
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                      title="Download reports"
+                    >
+                      <Download size={20} className="text-white" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reports Content Area */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-gray-800">
-                    Reports & Analytics
+                    Available Reports
                   </h3>
                   <div className="flex items-center space-x-2">
                     <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">

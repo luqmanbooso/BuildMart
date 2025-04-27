@@ -1212,12 +1212,12 @@ const handleDelete = async (id) => {
                       ></div>
                       
                       <div className="p-3">
-                        {/* Header with order ID and status badge */}
+                      {/* Header with order ID and status badge */}
                         <div className="flex justify-between items-start mb-2">
-                          <div>
+                        <div>
                             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">ORDER ID</span>
                             <h4 className="text-base font-semibold text-gray-700 mt-0.5">#{shipment.orderId}</h4>
-                          </div>
+                        </div>
                           <div 
                             className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center
                               ${styles.inTransit ? 'bg-blue-200 text-blue-800' : ''}
@@ -1234,8 +1234,8 @@ const handleDelete = async (id) => {
                             `}></span>
                             {shipment.status}
                           </div>
-                        </div>
-                        
+                      </div>
+                      
                         {/* Origin and destination - with improved icons */}
                         <div className="grid grid-cols-2 gap-2 mb-2">
                           <div className="flex items-start">
@@ -1252,12 +1252,12 @@ const handleDelete = async (id) => {
                                 ${styles.outForDelivery ? 'text-purple-500' : ''}
                               `} />
                             </div>
-                            <div className="overflow-hidden">
+                          <div className="overflow-hidden">
                               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">FROM</p>
                               <p className="text-sm font-medium text-gray-700 truncate">{shipment.origin}</p>
-                            </div>
                           </div>
-                          
+                        </div>
+                        
                           <div className="flex items-start">
                             <div className={`h-6 w-6 rounded-full flex items-center justify-center mr-2 flex-shrink-0
                               ${styles.inTransit ? 'bg-blue-100' : ''}
@@ -1272,34 +1272,34 @@ const handleDelete = async (id) => {
                                 ${styles.outForDelivery ? 'text-purple-600' : ''}
                               `} />
                             </div>
-                            <div className="overflow-hidden">
+                          <div className="overflow-hidden">
                               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">TO</p>
                               <p className="text-sm font-medium text-gray-700 truncate">{shipment.destination}</p>
-                            </div>
                           </div>
                         </div>
-                        
+                      </div>
+                      
                         {/* Driver, vehicle and ETA - with improved styling */}
                         <div className="grid grid-cols-3 gap-2 mb-2 bg-gray-50 p-2 rounded-lg">
-                          <div className="overflow-hidden">
+                        <div className="overflow-hidden">
                             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">DRIVER</p>
                             <p className="text-sm font-medium text-gray-700 truncate">{shipment.driver}</p>
-                          </div>
-                          
-                          <div className="overflow-hidden">
-                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">VEHICLE</p>
-                            <p className="text-sm font-medium text-gray-700 truncate">{shipment.vehicle}</p>
-                          </div>
-                          
-                          <div className="overflow-hidden">
-                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">ETA</p>
-                            <p className="text-sm font-medium text-gray-700 truncate">{shipment.eta || "Unknown"}</p>
-                          </div>
                         </div>
                         
+                        <div className="overflow-hidden">
+                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">VEHICLE</p>
+                            <p className="text-sm font-medium text-gray-700 truncate">{shipment.vehicle}</p>
+                        </div>
+                        
+                        <div className="overflow-hidden">
+                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">ETA</p>
+                            <p className="text-sm font-medium text-gray-700 truncate">{shipment.eta || "Unknown"}</p>
+                        </div>
+                      </div>
+                      
                         {/* Progress bar with enhanced styling */}
                         <div className="mb-2">
-                          <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center">
                               <span className={`w-2 h-2 rounded-full mr-1.5
                                 ${styles.inTransit ? 'bg-blue-500' : ''}
@@ -1308,7 +1308,7 @@ const handleDelete = async (id) => {
                                 ${styles.outForDelivery ? 'bg-purple-500' : ''}
                               `}></span>
                               <span className="text-xs font-medium text-gray-500">PROGRESS</span>
-                            </div>
+                        </div>
                             <span className={`text-xs font-semibold
                               ${styles.inTransit ? 'text-blue-600' : ''}
                               ${styles.loading ? 'text-amber-600' : ''}
@@ -1317,7 +1317,7 @@ const handleDelete = async (id) => {
                             `}>{shipment.progress}%</span>
                           </div>
                           <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                            <div 
+                          <div 
                               className={`h-1.5 rounded-full bg-gradient-to-r 
                                 ${styles.inTransit ? 'from-blue-400 to-blue-500' : ''}
                                 ${styles.loading ? 'from-amber-400 to-amber-500' : ''}
@@ -1325,86 +1325,86 @@ const handleDelete = async (id) => {
                                 ${styles.outForDelivery ? 'from-purple-400 to-purple-500' : ''}
                               `}
                               style={{ width: `${shipment.progress}%`, transition: "width 1s ease-in-out" }}
-                            ></div>
-                          </div>
+                          ></div>
                         </div>
-                        
+                      </div>
+                      
                         {/* Delivery date and last updated - with enhanced styling */}
                         <div className="flex justify-between items-center text-xs mb-2">
                           <div className="flex items-center text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md">
                             <Calendar className="h-3 w-3 mr-1 text-gray-400" />
-                            <span>Delivery: {shipment.estimatedDeliveryDate ? new Date(shipment.estimatedDeliveryDate).toLocaleDateString() : "Not set"}</span>
-                          </div>
-                          <div className="text-gray-400 italic text-[10px]">
-                            Updated: {shipment.updatedAt ? new Date(shipment.updatedAt).toLocaleTimeString() : new Date(shipment.createdAt).toLocaleTimeString()}
-                          </div>
+                          <span>Delivery: {shipment.estimatedDeliveryDate ? new Date(shipment.estimatedDeliveryDate).toLocaleDateString() : "Not set"}</span>
                         </div>
-                        
+                          <div className="text-gray-400 italic text-[10px]">
+                          Updated: {shipment.updatedAt ? new Date(shipment.updatedAt).toLocaleTimeString() : new Date(shipment.createdAt).toLocaleTimeString()}
+                        </div>
+                      </div>
+                      
                         {/* Status update dropdown with enhanced styling */}
-                        <div>
-                          <select
+                      <div>
+                        <select
                             className={`w-full text-xs py-1 px-2 border rounded-lg text-gray-700 focus:outline-none focus:ring-1 focus:border-transparent bg-white hover:bg-gray-50 transition-colors
                               ${styles.inTransit ? 'border-blue-200 focus:ring-blue-500' : ''}
                               ${styles.loading ? 'border-amber-200 focus:ring-amber-500' : ''}
                               ${styles.pending ? 'border-gray-200 focus:ring-gray-500' : ''}
                               ${styles.outForDelivery ? 'border-purple-200 focus:ring-purple-500' : ''}
                             `}
-                            value="" // Always reset to placeholder after selection
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                const statusProgress = {
-                                  'Pending': 10,
-                                  'Loading': 25,
-                                  'In Transit': 50,
-                                  'Out for Delivery': 75,
-                                  'Delivered': 100,
-                                  'Failed': 0
-                                };
-                                const newStatus = e.target.value;
-                                const newProgress = statusProgress[newStatus] ?? shipment.progress;
-                                
-                                handleStatusUpdate(shipment._id, newStatus, newProgress);
-                                e.target.value = "";
-                              }
-                            }}
-                          >
-                            <option value="" disabled>Update status...</option>
-                            {shipment.status !== 'Pending' && shipment.status !== 'Loading' && <option value="Loading">Mark as Processing</option>}
-                            {shipment.status !== 'In Transit' && <option value="In Transit">Mark as In Transit</option>}
-                            {shipment.status !== 'Out for Delivery' && shipment.status !== 'Pending' && <option value="Out for Delivery">Mark as Out for Delivery</option>}
-                            {shipment.status !== 'Delivered' && shipment.status !== 'Pending' && <option value="Delivered">Mark as Delivered</option>}
-                            {/* Only show Failed option for shipments already in transit */}
-                            {(shipment.status === 'In Transit' || shipment.status === 'Out for Delivery') && 
-                              <option value="Failed">Mark as Failed</option>}
-                          </select>
-                        </div>
+                          value="" // Always reset to placeholder after selection
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              const statusProgress = {
+                                'Pending': 10,
+                                'Loading': 25,
+                                'In Transit': 50,
+                                'Out for Delivery': 75,
+                                'Delivered': 100,
+                                'Failed': 0
+                              };
+                              const newStatus = e.target.value;
+                              const newProgress = statusProgress[newStatus] ?? shipment.progress;
+                              
+                              handleStatusUpdate(shipment._id, newStatus, newProgress);
+                              e.target.value = "";
+                            }
+                          }}
+                        >
+                          <option value="" disabled>Update status...</option>
+                          {shipment.status !== 'Pending' && shipment.status !== 'Loading' && <option value="Loading">Mark as Processing</option>}
+                          {shipment.status !== 'In Transit' && <option value="In Transit">Mark as In Transit</option>}
+                          {shipment.status !== 'Out for Delivery' && shipment.status !== 'Pending' && <option value="Out for Delivery">Mark as Out for Delivery</option>}
+                          {shipment.status !== 'Delivered' && shipment.status !== 'Pending' && <option value="Delivered">Mark as Delivered</option>}
+                          {/* Only show Failed option for shipments already in transit */}
+                          {(shipment.status === 'In Transit' || shipment.status === 'Out for Delivery') && 
+                            <option value="Failed">Mark as Failed</option>}
+                        </select>
                       </div>
-                      
+                    </div>
+                    
                       <div className={`px-3 py-2 flex justify-end space-x-2 border-t bg-gradient-to-r 
                         ${styles.inTransit ? 'border-blue-200 from-blue-50 to-blue-100' : ''}
                         ${styles.loading ? 'border-amber-200 from-amber-50 to-amber-100' : ''}
                         ${styles.pending ? 'border-gray-200 from-gray-50 to-gray-100' : ''}
                         ${styles.outForDelivery ? 'border-purple-200 from-purple-50 to-purple-100' : ''}
                       `}>
-                        <button
-                          onClick={() => handleEdit(shipment)}
+                      <button
+                        onClick={() => handleEdit(shipment)}
                           className={`inline-flex items-center py-1 px-2 border rounded-md bg-white text-xs font-medium text-gray-700 transition-colors
                             ${styles.inTransit ? 'border-blue-200 hover:bg-blue-50' : ''}
                             ${styles.loading ? 'border-amber-200 hover:bg-amber-50' : ''}
                             ${styles.pending ? 'border-gray-200 hover:bg-gray-50' : ''}
                             ${styles.outForDelivery ? 'border-purple-200 hover:bg-purple-50' : ''}
                           `}
-                        >
+                      >
                           <Edit size={11} className="mr-1" /> Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(shipment._id)}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(shipment._id)}
                           className="inline-flex items-center py-1 px-2 border border-gray-200 rounded-md bg-white text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-                        >
+                      >
                           <Trash size={11} className="mr-1" /> Delete
-                        </button>
-                      </div>
+                      </button>
                     </div>
+                  </div>
                   );
                 })}
               </div>
