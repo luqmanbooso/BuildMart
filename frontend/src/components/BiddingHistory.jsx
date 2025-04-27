@@ -246,6 +246,7 @@ const BiddingHistoryPage = () => {
         transition={{ duration: 0.8 }}
       >
         <div className="container mx-auto">
+          <br /><br /><br /><br />
           <h1 className="text-4xl font-bold">Bidding History</h1>
         </div>
       </motion.div>
