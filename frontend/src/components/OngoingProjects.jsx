@@ -96,12 +96,10 @@ const OngoingProjects = () => {
     console.log("Contractor ID for fetching projects:", contractorId);
   }, [navigate]);
   
-  // Add this helper function to extract proper user data
 const getClientDataFromProject = async (project, token) => {
   try {
     if (!project.clientId) return { name: 'Client', email: '' };
     
-    // Try to fetch client data from API
     const response = await axios.get(`http://localhost:5000/auth/users/${project.clientId}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -135,7 +133,7 @@ const getClientDataFromProject = async (project, token) => {
           }
         });
         
-        console.log("RAW API RESPONSE FROM BACKEND:", response.data[0]); // Log first item for debugging
+        console.log("RAW API RESPONSE FROM BACKEND:", response.data[0]); 
         
         const formattedProjects = response.data.map(project => {
           console.log("Processing project with totalPrice:", project.totalPrice);
@@ -213,29 +211,23 @@ const getClientDataFromProject = async (project, token) => {
             try {
               console.log(`🔍 Fetching data for client ID: ${project.clientId}`);
               
-              // Try both API endpoints since one might work
               let clientResponse;
               try {
-                // First try the auth endpoint
                 clientResponse = await axios.get(`http://localhost:5000/auth/user/${project.clientId}`, {
                   headers: { 'Authorization': `Bearer ${token}` }
                 });
               } catch (err) {
-                // If that fails, try the API endpoint
                 console.log(err);
               }
               
-              // Log the entire response to see the structure
               console.log("Full client response data:", JSON.stringify(clientResponse.data));
               
-              // Try different possible locations for email
               const email = clientResponse.data.email || 
                             clientResponse.data.user?.email || 
                             clientResponse.data.userEmail ||
                             '';
               
 
-              // Log what we found
               console.log(`Email found: ${email || 'NONE'}`);
               console.log(`Username found: ${clientResponse.data.username || 'NONE'}`);
               
@@ -312,21 +304,18 @@ const updateMilestoneStatus = async (projectId, milestoneIndex, newStatus) => {
       return;
     }
     
-    // Enforce workflow: Can only start work on Pending milestones
     if (newStatus === 'In Progress' && milestone.status !== 'Pending') {
       toast.error("Can only start work on pending milestones");
       setIsUpdating(false);
       return;
     }
     
-    // Enforce workflow: Can only mark complete milestones that are In Progress
     if (newStatus === 'Completed' && milestone.status !== 'In Progress') {
       toast.error("Can only mark in-progress milestones as complete");
       setIsUpdating(false);
       return;
     }
     
-    // If contractor is marking as complete, change to "Pending Verification"
     let statusToSend = newStatus;
     if (newStatus === 'Completed') {
       statusToSend = 'Pending Verification';
@@ -406,7 +395,6 @@ const updateMilestoneStatus = async (projectId, milestoneIndex, newStatus) => {
 const calculateProjectProgress = (milestones) => {
   if (!milestones || milestones.length === 0) return 0;
   
-  // Count completed milestones - assign weights to different statuses
   let completionWeight = 0;
   
   milestones.forEach(m => {
@@ -449,7 +437,6 @@ const calculateProjectProgress = (milestones) => {
     }
   };
   
-  // Add comment/message to project
   const sendMessage = async (projectId, message) => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -532,9 +519,7 @@ const stats = {
     // Set project data with explicit project name
     setSelectedProjectForReport({
       ...project,
-      // Ensure we have the correct category name as a separate property
       categoryName: categoryName,
-      // Ensure project name is explicitly included
       projectName: project.title || 'Untitled Project'
     });
     
@@ -850,21 +835,17 @@ const stats = {
                                 {/* Calculate end date based on start date and timeline */}
                                 {(() => {
                                   try {
-                                    // Get the raw start date string for debugging
                                     const rawStartDate = activeProject.startDate;
-                                    console.log(`[DATE DEBUG] Calculating end date for ${activeProject.title}:`);
-                                    console.log(`- Raw start date string: "${rawStartDate}"`);
+                                    // console.log(`[DATE DEBUG] Calculating end date for ${activeProject.title}:`);
+                                    // console.log(`- Raw start date string: "${rawStartDate}"`);
                                     
-                                    // Try to parse the date
                                     const startDate = new Date(rawStartDate);
                                     console.log(`- Parsed start date object: ${startDate}`);
                                     console.log(`- Is valid date? ${!isNaN(startDate.getTime())}`);
                                     
-                                    // Get the timeline value
                                     const timelineDays = parseInt(activeProject.timeline) || 30;
                                     console.log(`- Using timeline value: ${timelineDays} days`);
                                     
-                                    // Calculate end date
                                     const endDate = new Date(startDate);
                                     endDate.setDate(startDate.getDate() + timelineDays);
                                     console.log(`- Calculated end date: ${endDate}`);
@@ -977,7 +958,6 @@ const stats = {
                                 }))
                               };
                               
-                              // Log what we're sending to verify
                               console.log("Agreement data being sent:", {
                                 timeline: agreementData.jobDetails.timeline,
                                 timelineDisplay: agreementData.bidDetails.timelineDisplay
@@ -1086,7 +1066,6 @@ const stats = {
                                     </button>
                                   )}
                                   
-                                  {/* Removed "Revert to Pending" button */}
                                 </div>
                               </div>
                             </div>
@@ -1096,7 +1075,6 @@ const stats = {
                     </div>
                   </div>
                 </div>
-                {/* Add this section to your project details area */}
                 <div className="mt-6 bg-white shadow rounded-lg p-4 border border-gray-200">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Project Timeline</h3>
                   
@@ -1136,7 +1114,6 @@ const stats = {
                   </div>
                 </div>
 
-                {/* Add Report Issue Button */}
                 <div className="mt-4 flex justify-end">
                   <button 
                     onClick={() => handleOpenReportModal(activeProject)}
@@ -1153,7 +1130,7 @@ const stats = {
           </div>
         )}
 
-        {/* Add IssueReportModal at the end of component */}
+        {/*  IssueReportModal  */}
         {selectedProjectForReport && (
           <IssueReportModal
             isOpen={isReportModalOpen}
@@ -1162,7 +1139,7 @@ const stats = {
             projectName={selectedProjectForReport.projectName || selectedProjectForReport.title || 'Untitled Project'} 
             title={selectedProjectForReport.title || 'Untitled Project'}
             userId={contractorData.id}
-            username={contractorData.name} // Pass contractor name as username
+            username={contractorData.name} 
             userRole="Service Provider"
             category={selectedProjectForReport.categoryName || selectedProjectForReport.category || "Construction"}
             work={selectedProjectForReport}
@@ -1170,7 +1147,7 @@ const stats = {
         )}
       </div>
       
-      {/* Add Footer */}
+      {/*  Footer */}
       <Footer />
     </div>
   );
