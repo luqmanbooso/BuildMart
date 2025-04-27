@@ -361,9 +361,112 @@ const validateSriLankanPhoneNumber = (phone) => {
   return '';
 };
 
+// Add these validation functions after the validateSriLankanPhoneNumber function
+const validateLocation = (location, fieldName) => {
+  // Check if empty
+  if (!location.trim()) {
+    return `${fieldName} is required`;
+  }
+  
+  // Check minimum length
+  if (location.trim().length < 3) {
+    return `${fieldName} must be at least 3 characters`;
+  }
+  
+  // Check maximum length
+  if (location.trim().length > 100) {
+    return `${fieldName} must not exceed 100 characters`;
+  }
+  
+  // Check for invalid characters
+  const validLocationPattern = /^[a-zA-Z0-9\s,.\-]+$/;
+  if (!validLocationPattern.test(location)) {
+    return `${fieldName} cannot contain special characters except commas, periods, and hyphens`;
+  }
+  
+  return '';
+};
+
+const validateDriverName = (name) => {
+  // Check if empty
+  if (!name.trim()) {
+    return 'Driver name is required';
+  }
+  
+  // Check minimum length
+  if (name.trim().length < 3) {
+    return 'Driver name must be at least 3 characters';
+  }
+  
+  // Check maximum length
+  if (name.trim().length > 50) {
+    return 'Driver name must not exceed 50 characters';
+  }
+  
+  // Check for invalid characters - only allow letters and spaces
+  const validNamePattern = /^[a-zA-Z\s]+$/;
+  if (!validNamePattern.test(name)) {
+    return 'Driver name can only contain letters and spaces';
+  }
+  
+  return '';
+};
+
 // Update handleInputChange function
 const handleInputChange = (e) => {
   const { name, value } = e.target;
+  
+  // For contact number, validate Sri Lankan format and limit input
+  if (name === 'contactNumber') {
+    // Allow only digits and plus sign at beginning
+    let sanitizedValue = '';
+    if (value.startsWith('+')) {
+      sanitizedValue = '+' + value.substring(1).replace(/[^\d]/g, '');
+    } else {
+      sanitizedValue = value.replace(/[^\d]/g, '');
+    }
+    
+    // Limit length based on format (+94 format can be 12 chars, local format 10)
+    if (sanitizedValue.startsWith('+94')) {
+      sanitizedValue = sanitizedValue.slice(0, 12); // +94 + 9 digits
+    } else {
+      sanitizedValue = sanitizedValue.slice(0, 10); // 10 digits for local format
+    }
+    
+    setFormData({
+      ...formData,
+      [name]: sanitizedValue
+    });
+    
+    // Validate immediately
+    const error = validateSriLankanPhoneNumber(sanitizedValue);
+    setFormErrors({...formErrors, [name]: error});
+    return;
+  }
+
+  // Driver name validation
+  if (name === 'driver') {
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+    
+    const error = validateDriverName(value);
+    setFormErrors({...formErrors, [name]: error});
+    return;
+  }
+  
+  // Origin/destination validation
+  if (name === 'origin' || name === 'destination') {
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+    
+    const error = validateLocation(value, name === 'origin' ? 'Origin' : 'Destination');
+    setFormErrors({...formErrors, [name]: error});
+    return;
+  }
   
   // Vehicle number validation
   if (name === 'vehicle') {
@@ -372,20 +475,6 @@ const handleInputChange = (e) => {
       ...formData,
       [name]: value.toUpperCase() // Automatically convert to uppercase
     });
-    setFormErrors({...formErrors, [name]: error});
-    return;
-  }
-
-  // For contact number, validate Sri Lankan format
-  if (name === 'contactNumber') {
-    const sanitizedValue = value.replace(/\s/g, ''); // Remove spaces
-    
-    setFormData({
-      ...formData,
-      [name]: sanitizedValue
-    });
-    
-    const error = validateSriLankanPhoneNumber(sanitizedValue);
     setFormErrors({...formErrors, [name]: error});
     return;
   }
@@ -487,8 +576,26 @@ const handleInputChange = (e) => {
   const validateForm = () => {
     const errors = {};
     
+    // Origin validation
+    const originError = validateLocation(formData.origin, 'Origin');
+    if (originError) {
+      errors.origin = originError;
+    }
+    
+    // Destination validation
+    const destinationError = validateLocation(formData.destination, 'Destination');
+    if (destinationError) {
+      errors.destination = destinationError;
+    }
+    
+    // Driver name validation
+    const driverError = validateDriverName(formData.driver);
+    if (driverError) {
+      errors.driver = driverError;
+    }
+    
     // Required fields validation
-    const requiredFields = ['orderId', 'origin', 'destination', 'driver', 'vehicle', 'contactNumber'];
+    const requiredFields = ['orderId', 'vehicle', 'contactNumber'];
     requiredFields.forEach(field => {
       if (!formData[field]?.trim()) {
         errors[field] = `${field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')} is required`;
@@ -793,7 +900,7 @@ const handleDelete = async (id) => {
       case 'Pending':
         return <span className="bg-gray-200 text-gray-800 px-2 py-1 rounded-full text-xs">Pending</span>;
       case 'Loading':
-        return <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">Loading</span>;
+        return <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">Processing</span>;
       case 'In Transit':
         return <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">In Transit</span>;
       case 'Out for Delivery':
@@ -1098,7 +1205,7 @@ const handleDelete = async (id) => {
                           }}
                         >
                           <option value="" disabled>Update status...</option>
-                          {shipment.status !== 'Pending' && shipment.status !== 'Loading' && <option value="Loading">Mark as Loading</option>}
+                          {shipment.status !== 'Pending' && shipment.status !== 'Loading' && <option value="Loading">Mark as Processing</option>}
                           {shipment.status !== 'In Transit' && <option value="In Transit">Mark as In Transit</option>}
                           {shipment.status !== 'Out for Delivery' && shipment.status !== 'Pending' && <option value="Out for Delivery">Mark as Out for Delivery</option>}
                           {shipment.status !== 'Delivered' && shipment.status !== 'Pending' && <option value="Delivered">Mark as Delivered</option>}
@@ -1519,264 +1626,341 @@ const handleDelete = async (id) => {
         )}
       </div>
       
-      {/* Shipment Form - Fix the estimated delivery field name */}
+      {/* Shipment Form - Updated with backdrop blur and enhanced UI */}
       {showShipmentForm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative bg-white rounded-lg shadow-xl mx-auto p-6 max-w-3xl w-full">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-gray-800">
-                {selectedShipment ? 'Edit Shipment' : 'Create New Shipment'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowShipmentForm(false);
-                  resetForm();
-                }}
-                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-              >
-                <X size={24} />
-              </button>
+        <div className="fixed inset-0 backdrop-blur-lg bg-gray-800/30 z-50 flex items-center justify-center overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-2xl border border-gray-200 max-w-3xl w-full mx-4 my-6">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-gray-800">
+                  {selectedShipment ? 'Edit Shipment' : 'Create New Shipment'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowShipmentForm(false);
+                    resetForm();
+                  }}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <p className="mt-1 text-sm text-gray-500">
+                {selectedShipment 
+                  ? "Update shipment information in the system." 
+                  : "Create a new shipment for delivery tracking."}
+              </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label
-                    htmlFor="orderId"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Order ID*
-                  </label>
-                  <input
-                    type="text"
-                    id="orderId"
-                    name="orderId"
-                    value={formData.orderId}
-                    onChange={handleInputChange}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
-                      formErrors.orderId ? 'border-red-300' : 'border-gray-300'
-                    } rounded-md p-2`}
-                    placeholder="Order ID"
-                    required
-                    readOnly={!!selectedOrderForShipment}
-                  />
-                  {formErrors.orderId && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.orderId}</p>
-                  )}
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-4 md:col-span-2">
+                  <h4 className="text-sm font-medium text-blue-600 uppercase tracking-wider">
+                    Shipment Information
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label
+                        htmlFor="orderId"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Order ID <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="orderId"
+                        name="orderId"
+                        value={formData.orderId}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 bg-gray-50 border ${
+                          formErrors.orderId ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                        } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                        placeholder="Enter order ID"
+                        required
+                        readOnly={!!selectedOrderForShipment}
+                      />
+                      {formErrors.orderId && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.orderId}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="status"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Status <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="status"
+                        name="status"
+                        value={formData.status}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                        required
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Loading">Processing</option>
+                        <option value="In Transit">In Transit</option>
+                        <option value="Out for Delivery">Out for Delivery</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Failed">Failed</option>
+                        <option value="Returned">Returned</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="origin"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Origin <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="origin"
+                        name="origin"
+                        value={formData.origin}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 bg-gray-50 border ${
+                          formErrors.origin ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                        } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                        placeholder="Shipment origin location"
+                        required
+                      />
+                      {formErrors.origin && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.origin}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="destination"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Destination <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="destination"
+                        name="destination"
+                        value={formData.destination}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 bg-gray-50 border ${
+                          formErrors.destination ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                        } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                        placeholder="Delivery destination"
+                        required
+                      />
+                      {formErrors.destination && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {formErrors.destination}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 md:col-span-2">
+                  <h4 className="text-sm font-medium text-blue-600 uppercase tracking-wider">
+                    Transport Details
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label
+                        htmlFor="driver"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Driver Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="driver"
+                        name="driver"
+                        value={formData.driver}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 bg-gray-50 border ${
+                          formErrors.driver ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                        } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                        placeholder="Driver's full name"
+                        required
+                      />
+                      {formErrors.driver && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.driver}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="vehicle"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Vehicle Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="vehicle"
+                        name="vehicle"
+                        value={formData.vehicle}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 bg-gray-50 border ${
+                          formErrors.vehicle ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                        } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                        placeholder="e.g., ABC-1234 or WP-ABC-1234"
+                        required
+                      />
+                      {formErrors.vehicle && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.vehicle}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="contactNumber"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Contact Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="contactNumber"
+                        name="contactNumber"
+                        value={formData.contactNumber}
+                        onChange={handleInputChange}
+                        onKeyDown={(e) => {
+                          // Allow: backspace, delete, tab, escape, enter
+                          if ([8, 46, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+                              // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                              (e.keyCode >= 65 && e.keyCode <= 90 && e.ctrlKey === true) ||
+                              // Allow: home, end, left, right
+                              (e.keyCode >= 35 && e.keyCode <= 39)) {
+                            return;
+                          }
+                          
+                          // Allow + only at the beginning of empty input
+                          if (e.key === '+' && e.target.value === '') {
+                            return;
+                          }
+                          
+                          // Prevent input if not a number
+                          if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && 
+                              (e.keyCode < 96 || e.keyCode > 105)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        className={`w-full px-3 py-2 bg-gray-50 border ${
+                          formErrors.contactNumber ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                        } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                        placeholder="+94XXXXXXXXX or 07XXXXXXXX"
+                        required
+                      />
+                      {formErrors.contactNumber && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {formErrors.contactNumber}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="estimatedDeliveryDate"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Estimated Delivery Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        id="estimatedDeliveryDate"
+                        name="estimatedDeliveryDate"
+                        value={formData.estimatedDeliveryDate}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 bg-gray-50 border ${
+                          formErrors.estimatedDeliveryDate ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                        } rounded-md focus:outline-none focus:ring-2 focus:bg-white`}
+                        required
+                      />
+                      {formErrors.estimatedDeliveryDate && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {formErrors.estimatedDeliveryDate}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="eta"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        ETA
+                      </label>
+                      <input
+                        type="text"
+                        id="eta"
+                        name="eta"
+                        value={formData.eta}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white`}
+                        placeholder="e.g., 2 hours, 30 minutes"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
                   <label
-                    htmlFor="driver"
+                    htmlFor="notes"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
-                    Driver Name*
+                    Notes
                   </label>
-                  <input
-                    type="text"
-                    id="driver"
-                    name="driver"
-                    value={formData.driver}
+                  <textarea
+                    id="notes"
+                    name="notes"
+                    value={formData.notes}
                     onChange={handleInputChange}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
-                      formErrors.driver ? 'border-red-300' : 'border-gray-300'
-                    } rounded-md p-2`}
-                    placeholder="Driver Name"
-                    required
+                    rows={3}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    placeholder="Additional notes or instructions about this shipment..."
                   />
-                  {formErrors.driver && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.driver}</p>
-                  )}
                 </div>
+              </form>
+            </div>
 
-                <div>
-                  <label
-                    htmlFor="origin"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Origin*
-                  </label>
-                  <input
-                    type="text"
-                    id="origin"
-                    name="origin"
-                    value={formData.origin}
-                    onChange={handleInputChange}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
-                      formErrors.origin ? 'border-red-300' : 'border-gray-300'
-                    } rounded-md p-2`}
-                    placeholder="Shipment Origin"
-                    required
-                  />
-                  {formErrors.origin && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.origin}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="destination"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Destination*
-                  </label>
-                  <input
-                    type="text"
-                    id="destination"
-                    name="destination"
-                    value={formData.destination}
-                    onChange={handleInputChange}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
-                      formErrors.destination ? 'border-red-300' : 'border-gray-300'
-                    } rounded-md p-2`}
-                    placeholder="Shipment Destination"
-                    required
-                  />
-                  {formErrors.destination && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {formErrors.destination}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="vehicle"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Vehicle Number*
-                  </label>
-                  <input
-                    type="text"
-                    id="vehicle"
-                    name="vehicle"
-                    value={formData.vehicle}
-                    onChange={handleInputChange}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
-                      formErrors.vehicle ? 'border-red-300' : 'border-gray-300'
-                    } rounded-md p-2`}
-                    placeholder="e.g., ABC-1234 or WP-ABC-1234"
-                    required
-                  />
-                  {formErrors.vehicle && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.vehicle}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="contactNumber"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Contact Number*
-                  </label>
-                  <input
-                    type="text"
-                    id="contactNumber"
-                    name="contactNumber"
-                    value={formData.contactNumber}
-                    onChange={handleInputChange}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
-                      formErrors.contactNumber ? 'border-red-300' : 'border-gray-300'
-                    } rounded-md p-2`}
-                    placeholder="e.g., 0771234567"
-                    required
-                  />
-                  {formErrors.contactNumber && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {formErrors.contactNumber}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="status"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Status*
-                  </label>
-                  <select
-                    id="status"
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
-                    required
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="In Transit">In Transit</option>
-                    <option value="Out for Delivery">Out for Delivery</option>
-                    <option value="Delivered">Delivered</option>
-                    <option value="Failed">Failed</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="estimatedDeliveryDate"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Estimated Delivery Date*
-                  </label>
-                  <input
-                    type="date"
-                    id="estimatedDeliveryDate"
-                    name="estimatedDeliveryDate"
-                    value={formData.estimatedDeliveryDate}
-                    onChange={handleInputChange}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border ${
-                      formErrors.estimatedDeliveryDate
-                        ? 'border-red-300'
-                        : 'border-gray-300'
-                    } rounded-md p-2`}
-                    required
-                  />
-                  {formErrors.estimatedDeliveryDate && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {formErrors.estimatedDeliveryDate}
-                    </p>
-                  )}
-                </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center rounded-b-lg">
+              <div className="flex items-center text-sm text-gray-500">
+                <span className="text-red-500 mr-1">*</span> Required fields
               </div>
-
-              <div>
-                <label
-                  htmlFor="notes"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Notes
-                </label>
-                <textarea
-                  id="notes"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
-                  placeholder="Additional notes or instructions"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-3">
+              <div className="flex items-center space-x-3">
                 <button
                   type="button"
                   onClick={() => {
                     setShowShipmentForm(false);
                     resetForm();
                   }}
-                  className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  disabled={loading}
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  onClick={handleSubmit}
+                  className={`px-4 py-2 rounded-md text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                  disabled={loading}
                 >
-                  {selectedShipment ? 'Update Shipment' : 'Create Shipment'}
+                  <div className="flex items-center">
+                    {loading && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    )}
+                    {selectedShipment ? 'Update Shipment' : 'Create Shipment'}
+                  </div>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
