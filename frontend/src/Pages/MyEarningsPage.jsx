@@ -3,8 +3,7 @@ import { FaChartLine, FaMoneyBillWave, FaHourglassHalf, FaClipboardList, FaFileD
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import ContractorUserNav from '../components/ContractorUserNav';
-import Footer from '../components/Footer'; // Import Footer component
-// Import Chart.js components
+import Footer from '../components/Footer'; 
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -18,7 +17,6 @@ import {
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 
-// Register Chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -31,7 +29,6 @@ ChartJS.register(
 );
 
 const MyEarningsPage = () => {
-  // Replace the AuthContext with direct token access
   const [currentUser, setCurrentUser] = useState({ id: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,7 +40,6 @@ const MyEarningsPage = () => {
   });
   const [selectedTimeframe, setSelectedTimeframe] = useState('all');
   const [selectedTab, setSelectedTab] = useState('summary');
-  // Add state for reports
   const [reportCriteria, setReportCriteria] = useState({
     period: 'all',
     type: 'earnings',
@@ -51,29 +47,24 @@ const MyEarningsPage = () => {
   });
   const [reportData, setReportData] = useState([]);
   const [isReportGenerated, setIsReportGenerated] = useState(false);
-  // Add state for chart data
   const [chartData, setChartData] = useState({
     labels: [],
     datasets: []
   });
 
-  // Get user ID from token on component mount
   useEffect(() => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (token) {
-        // Try to get user ID from localStorage first (for convenience)
         const userId = localStorage.getItem('userId');
         
         if (userId) {
           setCurrentUser({ id: userId });
         } else {
-          // If not in localStorage, decode from token
           const decoded = jwtDecode(token);
           const id = decoded.id || decoded._id || decoded.userId;
           setCurrentUser({ id });
           
-          // Store for convenience
           if (id) localStorage.setItem('userId', id);
         }
       } else {
@@ -85,7 +76,7 @@ const MyEarningsPage = () => {
     }
   }, []);
 
-  // Fetch earnings data once we have the user ID
+  // Fetch earnings data 
   useEffect(() => {
     if (!currentUser.id) return;
     
@@ -150,7 +141,7 @@ const MyEarningsPage = () => {
       pendingAmounts.push(work.totalAmountPending || 0);
     });
 
-    // Set the chart data
+    // chart data
     setChartData({
       labels: projectLabels,
       datasets: [
@@ -171,7 +162,7 @@ const MyEarningsPage = () => {
       ]
     });
 
-    // Set the processed data
+    //processed data
     setEarnings({
       totalEarned,
       totalPending,
@@ -180,9 +171,8 @@ const MyEarningsPage = () => {
     });
   };
 
-  // Function to prepare time-series data for line chart
+  // line chart
   const prepareEarningsOverTimeData = () => {
-    // Create a copy and sort by completion date
     const completedMilestones = earnings.milestones
       .filter(m => m.completedAt)
       .sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
@@ -247,7 +237,7 @@ const MyEarningsPage = () => {
     });
   };
 
-  // Function to generate reports based on criteria
+  // generate reports based on criteria
   const generateReport = () => {
     let filteredData = [];
     const { period, type, status } = reportCriteria;
@@ -277,7 +267,7 @@ const MyEarningsPage = () => {
     }
 
     if (type === 'earnings') {
-      // Generate earnings report
+      //earnings report
       filteredData = earnings.milestones.filter(milestone => {
         // Filter by period
         if (startDate && milestone.completedAt) {
@@ -484,7 +474,7 @@ const MyEarningsPage = () => {
               <h3 className="text-lg font-medium text-gray-900">Earnings Summary</h3>
             </div>
             
-            {/* Replace chart placeholder with actual Chart.js implementation */}
+            {/*Chart implementation */}
             <div className="p-6" style={{ height: '350px' }}>
               <Bar
                 data={chartData}
@@ -796,7 +786,7 @@ const MyEarningsPage = () => {
         )}
       </div>
       
-      {/* Add Footer */}
+      {/* Footer */}
       <Footer />
     </div>
   );

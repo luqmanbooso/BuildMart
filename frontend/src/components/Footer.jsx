@@ -1,10 +1,26 @@
-import React from 'react'
-import {FaHammer} from 'react-icons/fa';
+import React, { useState, useEffect } from 'react'
+import {FaHammer, FaAngleRight} from 'react-icons/fa';
 import { Link } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
 
 const Footer = () => {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        setUser(decoded); 
+      } catch (error) {
+        console.error('Error decoding JWT token', error);
+      }
+    }
+  }, []);
+
   return (
-<footer className="bg-gray-900 text-white">
+    <footer className="bg-gray-900 text-white">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="col-span-1 md:col-span-1">
@@ -17,50 +33,74 @@ const Footer = () => {
               </p>
             </div>
             
-            <div>
-              <h3 className="text-sm font-semibold text-gray-300 tracking-wider uppercase">For Contractors</h3>
-              <ul className="mt-4 space-y-2">
-                <li>
-                  <Link to="/find-projects" className="text-gray-400 hover:text-blue-400">Find Projects</Link>
-                </li>
-                <li>
-                  <Link to="/bid-history" className="text-gray-400 hover:text-blue-400">Bid History</Link>
-                </li>
-                <li>
-                  <Link to="/contractor-dashboard" className="text-gray-400 hover:text-blue-400">Dashboard</Link>
-                </li>
+            <div className="text-right">
+              <h3 className="text-sm font-semibold text-blue-400 tracking-wider uppercase mb-3 border-b border-gray-700 pb-2">For Contractors</h3>
+              <ul className="mt-4 space-y-3">
+                {(!user || user.role === 'Service Provider') ? (
+                  <>
+                    <li>
+                      <Link to="/auction" className="text-gray-400 hover:text-blue-400 transition-colors duration-300 flex items-center justify-end">
+                        <span>Find Projects</span>
+                        <FaAngleRight className="ml-1 text-blue-400" />
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/bidhistory" className="text-gray-400 hover:text-blue-400 transition-colors duration-300 flex items-center justify-end">
+                        <span>Bid History</span>
+                        <FaAngleRight className="ml-1 text-blue-400" />
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/ongoingproject" className="text-gray-400 hover:text-blue-400 transition-colors duration-300 flex items-center justify-end">
+                        <span>Ongoing Projects</span>
+                        <FaAngleRight className="ml-1 text-blue-400" />
+                      </Link>
+                    </li>
+                  </>
+                ) : (
+                  <li className="text-gray-600">Login as a contractor to access</li>
+                )}
               </ul>
             </div>
             
-            <div>
-              <h3 className="text-sm font-semibold text-gray-300 tracking-wider uppercase">For Clients</h3>
-              <ul className="mt-4 space-y-2">
-                <li>
-                  <Link to="/post-project" className="text-gray-400 hover:text-blue-400">Post a Project</Link>
-                </li>
-                <li>
-                  <Link to="/find-contractors" className="text-gray-400 hover:text-blue-400">Find Contractors</Link>
-                </li>
-                <li>
-                  <Link to="/client-dashboard" className="text-gray-400 hover:text-blue-400">Dashboard</Link>
-                </li>
+            <div className="text-right">
+              <h3 className="text-sm font-semibold text-blue-400 tracking-wider uppercase mb-3 border-b border-gray-700 pb-2">For Clients</h3>
+              <ul className="mt-4 space-y-3">
+                {(!user || user.role === 'Client') ? (
+                  <>
+                    <li>
+                      <Link to="/contractors" className="text-gray-400 hover:text-blue-400 transition-colors duration-300 flex items-center justify-end">
+                        <span>Find Contractors</span>
+                        <FaAngleRight className="ml-1 text-blue-400" />
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/ongoing-works" className="text-gray-400 hover:text-blue-400 transition-colors duration-300 flex items-center justify-end">
+                        <span>Ongoing Work</span>
+                        <FaAngleRight className="ml-1 text-blue-400" />
+                      </Link>
+                    </li>
+                  </>
+                ) : (
+                  <li className="text-gray-600">Login as a client to access</li>
+                )}
               </ul>
             </div>
             
-            <div>
-              <h3 className="text-sm font-semibold text-gray-300 tracking-wider uppercase">Support</h3>
-              <ul className="mt-4 space-y-2">
+            <div className="text-right">
+              <h3 className="text-sm font-semibold text-blue-400 tracking-wider uppercase mb-3 border-b border-gray-700 pb-2">Support</h3>
+              <ul className="mt-4 space-y-3">
                 <li>
-                  <Link to="/contact" className="text-gray-400 hover:text-blue-400">Contact Us</Link>
+                  <Link to="/about-us" className="text-gray-400 hover:text-blue-400 transition-colors duration-300 flex items-center justify-end">
+                    <span>About Us</span>
+                    <FaAngleRight className="ml-1 text-blue-400" />
+                  </Link>
                 </li>
                 <li>
-                  <Link to="/faq" className="text-gray-400 hover:text-blue-400">FAQ</Link>
-                </li>
-                <li>
-                  <Link to="/privacy-policy" className="text-gray-400 hover:text-blue-400">Privacy Policy</Link>
-                </li>
-                <li>
-                  <Link to="/terms" className="text-gray-400 hover:text-blue-400">Terms of Service</Link>
+                  <Link to="/contact-us" className="text-gray-400 hover:text-blue-400 transition-colors duration-300 flex items-center justify-end">
+                    <span>Contact Us</span>
+                    <FaAngleRight className="ml-1 text-blue-400" />
+                  </Link>
                 </li>
               </ul>
             </div>

@@ -6,9 +6,8 @@ import ContractorUserNav from '../components/ContractorUserNav';
 import { jwtDecode } from 'jwt-decode';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Footer from '../components/Footer'; // Import Footer component
+import Footer from '../components/Footer'; 
 
-// Update the AuctionCard component to better match the Job model
 const AuctionCard = ({ auction }) => {
   const navigate = useNavigate();
   const [contractorInfo, setContractorInfo] = useState(null);
@@ -25,9 +24,7 @@ const AuctionCard = ({ auction }) => {
         
         const decoded = jwtDecode(token);
         
-        if (decoded.role !== 'Service Provider') {
-          return;
-        }
+       
         
         const response = await axios.get(`http://localhost:5000/api/contractors/${decoded.userId}`);
         
@@ -80,7 +77,6 @@ const AuctionCard = ({ auction }) => {
     navigate(`/project/${auction._id}`);
   };
 
-  // Calculate time left with error handling
   const calculateTimeLeft = (endDateString) => {
     try {
       const endDate = new Date(endDateString);
@@ -98,16 +94,13 @@ const AuctionCard = ({ auction }) => {
     }
   };
 
-  // Fix the determineStatus function to properly respect "Pending" status
   const determineStatus = () => {
     try {
       const now = new Date().getTime();
       const endDate = new Date(auction.biddingEndTime).getTime();
       const startTime = new Date(auction.biddingStartTime).getTime();
       
-      // First, respect the explicit status from the database if it exists
       if (auction.status === 'Active') {
-        // Check if the auction timeline has ended
         if (now > endDate) {
           return "ended";
         }
@@ -122,7 +115,6 @@ const AuctionCard = ({ auction }) => {
         return "ended";
       }
       
-      // If no explicit status or status is something else, use date-based logic as fallback
       if (now > endDate) {
         return "ended";
       } 
@@ -140,7 +132,6 @@ const AuctionCard = ({ auction }) => {
   
   const displayStatus = determineStatus();
   
-  // Format budget as a range
   const formatBudget = () => {
     if (!auction.minBudget && !auction.maxBudget) return 'Not specified';
     
@@ -163,7 +154,6 @@ const AuctionCard = ({ auction }) => {
       }}
     >
       <div className="relative">
-        {/* Color bar at the top indicating status */}
         <div className={`h-1.5 w-full ${
           displayStatus === 'active' ? 'bg-green-500' : 
           displayStatus === 'ended' ? 'bg-red-500' : 
@@ -278,10 +268,9 @@ const AuctionsPage = () => {
   const categories = ['All', 'Electrical', 'Plumbing', 'Carpentry', 'Masonry', 'Painting', 'Flooring','Roofing', 'Landscaping','Interior Design']; 
   const statuses = ['All', 'active', 'pending', 'ended'];
   
-  // Add this function near the top of AuctionsPage component
   const fetchBidCounts = async (jobIds) => {
     try {
-      // Get bid counts for all jobs in one request
+      // Get bid counts
       const response = await axios.get(`http://localhost:5000/api/bids/counts`, {
         params: { jobIds: jobIds.join(',') }
       });
@@ -292,15 +281,13 @@ const AuctionsPage = () => {
     }
   };
   
-  // Fetch auctions from API
   useEffect(() => {
     const fetchAuctions = async () => {
       setLoading(true);
       try {
-        // Make API call to get jobs from backend
+        //API call to get jobs from backend
         const response = await axios.get('http://localhost:5000/api/jobs');
         
-        // Map the backend data structure to match the frontend component
         const formattedJobs = response.data.map(job => {
           // Process budget information
           let minBudget, maxBudget;
@@ -311,7 +298,7 @@ const AuctionsPage = () => {
             minBudget = min;
             maxBudget = max;
           } else {
-            // Otherwise use the explicit minBudget and maxBudget fields if available
+            //explicit minBudget and maxBudget fields if available
             minBudget = job.minBudget || 0;
             maxBudget = job.maxBudget || 0;
           }
@@ -344,19 +331,18 @@ const AuctionsPage = () => {
         // Set auctions with initial bid count
         setAuctions(formattedJobs);
         
-        // Now fetch actual bid counts
+        //fetch bid counts
         if (formattedJobs.length > 0) {
           const jobIds = formattedJobs.map(job => job._id);
           try {
             // Get individual bid counts
             const bidCounts = {};
             for (const jobId of jobIds) {
-              // Use the auction endpoint instead of project endpoint
               const response = await axios.get(`http://localhost:5000/bids/auction/${jobId}`);
               bidCounts[jobId] = response.data.length;
             }
             
-            // Update auctions with actual bid counts
+            // Update auctions with bid counts
             setAuctions(prevAuctions => prevAuctions.map(auction => ({
               ...auction,
               bids: bidCounts[auction._id] || auction.bids || 0
@@ -373,7 +359,6 @@ const AuctionsPage = () => {
       }
     };
     
-    // Helper function to format budget range
     const formatBudgetRange = (min, max) => {
       if (!min && !max) return 'Not specified';
       
@@ -387,11 +372,11 @@ const AuctionsPage = () => {
     fetchAuctions();
   }, []);
   
-  // Apply filters and search
+  //filters and search
   useEffect(() => {
     let result = [...auctions];
     
-    // Apply category filter
+    //category filter
     if (activeCategory !== 'All') {
       result = result.filter(auction => 
         auction.categories && auction.categories.some(cat => 
@@ -400,16 +385,14 @@ const AuctionsPage = () => {
       );
     }
     
-    // Apply status filter - FIXED to respect explicit status
+    //status filter
     if (activeStatus !== 'All') {
       result = result.filter(auction => {
-        // Get the actual status of the auction using our determineStatus logic
         const auctionStatus = (() => {
           if (auction.status === 'Active') return 'active';
           if (auction.status === 'Pending') return 'pending';
           if (auction.status === 'Closed') return 'ended';
           
-          // Only use date-based logic if no explicit status
           const now = new Date().getTime();
           const endDate = new Date(auction.biddingEndTime).getTime();
           const startTime = new Date(auction.biddingStartTime).getTime();
@@ -423,7 +406,7 @@ const AuctionsPage = () => {
       });
     }
     
-    // Apply search
+    //search
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(auction => 
@@ -434,7 +417,7 @@ const AuctionsPage = () => {
       );
     }
     
-    // Get auction status for sorting
+    //auction status for sorting
     const getAuctionStatusPriority = (auction) => {
       const now = new Date().getTime();
       const endDate = new Date(auction.endDate).getTime();
@@ -449,15 +432,15 @@ const AuctionsPage = () => {
       }
     };
     
-    // Apply sorting
+    //sorting
     switch(sortOrder) {
       case 'budget-high-low':
         result = result.sort((a, b) => {
-          // First sort by status priority
+          //sort by status priority
           const statusDiff = getAuctionStatusPriority(a) - getAuctionStatusPriority(b);
           if (statusDiff !== 0) return statusDiff;
           
-          // Then by budget high to low
+          //budget high to low
           const aBudget = parseInt(a.budget.replace(/[^\d]/g, '')) || 0;
           const bBudget = parseInt(b.budget.replace(/[^\d]/g, '')) || 0;
           return bBudget - aBudget;
@@ -465,11 +448,11 @@ const AuctionsPage = () => {
         break;
       case 'budget-low-high':
         result = result.sort((a, b) => {
-          // First sort by status priority
+          //  sort by status priority
           const statusDiff = getAuctionStatusPriority(a) - getAuctionStatusPriority(b);
           if (statusDiff !== 0) return statusDiff;
           
-          // Then by budget low to high
+          //budget low to high
           const aBudget = parseInt(a.budget.replace(/[^\d]/g, '')) || 0;
           const bBudget = parseInt(b.budget.replace(/[^\d]/g, '')) || 0;
           return aBudget - bBudget;
@@ -477,18 +460,17 @@ const AuctionsPage = () => {
         break;
       case 'date-newest':
         result = result.sort((a, b) => {
-          // First sort by status priority
+          //sort by status priority
           const statusDiff = getAuctionStatusPriority(a) - getAuctionStatusPriority(b);
           if (statusDiff !== 0) return statusDiff;
           
-          // Then by end date (soonest first)
+          //end date 
           const aDate = new Date(a.endDate);
           const bDate = new Date(b.endDate);
           return aDate - bDate;
         });
         break;
       default:
-        // Default sort: just by status priority (active first, then pending, then ended)
         result = result.sort((a, b) => {
           return getAuctionStatusPriority(a) - getAuctionStatusPriority(b);
         });
@@ -785,7 +767,7 @@ const AuctionsPage = () => {
         )}
       </div>
 
-      {/* Add Footer */}
+      {/*Footer */}
       <Footer />
     </div>
   );

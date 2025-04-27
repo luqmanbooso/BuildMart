@@ -34,7 +34,6 @@ const AcceptedAgreementView = () => {
     onAfterPrint: () => toast.success('Agreement printed successfully')
   });
 
-  // Replace the entire handleDownloadPdf function with this approach that doesn't use html2canvas
   const handleDownloadPdf = async () => {
     toast.info("Generating agreement PDF...");
     
@@ -142,11 +141,10 @@ const AcceptedAgreementView = () => {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
       
-      // Add a light gray background for the description
       pdf.setFillColor(245, 245, 245);
       pdf.rect(margin, yPosition, pageWidth - (margin * 2), 22, 'F');
       
-      // Add description text with wrapping
+      //  description text with wrapping
       yPosition = addText(jobDetails?.description || "No description provided", 
                           margin + 2, yPosition + 4, pageWidth - (margin * 2) - 4);
       
@@ -187,12 +185,10 @@ const AcceptedAgreementView = () => {
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(0, 0, 0);
       
-      // Determine if we have payment schedule items
       if (paymentSchedule && paymentSchedule.length > 0) {
         let alternateRow = false;
         
         for (const payment of paymentSchedule) {
-          // Add row data with alternating background
           if (alternateRow) {
             pdf.setFillColor(248, 248, 248);
             pdf.rect(margin, yPosition, pageWidth - (margin * 2), 6, 'F');
@@ -202,7 +198,6 @@ const AcceptedAgreementView = () => {
           // Add row data
           pdf.text(payment.milestone || "", col1, yPosition + 4, { maxWidth: 30 });
           
-          // Truncate description if too long
           const desc = payment.description || "";
           const shortDesc = desc.length > 25 ? desc.substring(0, 22) + "..." : desc;
           pdf.text(shortDesc, col2, yPosition + 4, { maxWidth: pageWidth - col2 - 60 });
@@ -247,7 +242,6 @@ const AcceptedAgreementView = () => {
         "Either party may terminate this agreement with written notice if the other fails to comply with its terms."
       ];
       
-      // Use a more compact, two-column approach for terms
       const leftTerms = terms.slice(0, 4);
       const rightTerms = terms.slice(4);
       
@@ -306,12 +300,10 @@ const AcceptedAgreementView = () => {
     }
   };
 
-  // Add these state variables if not already present
   const [projectData, setProjectData] = useState(null);
   const [bidData, setBidData] = useState(null);
   const [clientData, setClientData] = useState(null);
 
-  // In your useEffect, make sure to properly extract data from location state or fetch it
   useEffect(() => {
     // Extract data from location state or fetch it
     if (location.state) {
@@ -528,13 +520,12 @@ const AcceptedAgreementView = () => {
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Timeline:</h4>
                     <p className="text-md font-medium text-gray-900">
-                      {/* Fix timeline display logic to avoid "days days" */}
                       {bidDetails?.timelineDisplay ? (
-                        bidDetails.timelineDisplay  // This will use "startDate to endDate" format
+                        bidDetails.timelineDisplay 
                       ) : (
                         typeof bidDetails?.timeline === 'number' ? 
-                        `${bidDetails.timeline} days` : // Add "days" only if we have a number
-                        bidDetails?.timeline || '30 days' // Use as-is if already formatted or fallback
+                        `${bidDetails.timeline} days` :
+                        bidDetails?.timeline || '30 days' 
                       )}
                     </p>
                   </div>

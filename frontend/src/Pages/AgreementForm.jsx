@@ -26,7 +26,6 @@ const AgreementForm = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // FIRST CHECK: If we have data in location state, use it
         if (location.state) {
           console.log("Using data from navigation state:", location.state);
           
@@ -39,20 +38,17 @@ const AgreementForm = () => {
             navigate(`/accepted-agreement/${jobId}/${bidId}`, { 
               state: location.state 
             });
-            return; // Stop further processing
+            return; 
           }
           
-          // Continue with normal processing for non-accepted bids
           setJobDetails(location.state.jobDetails);
           setContractorDetails(location.state.contractorDetails);
           setBidDetails(location.state.bidDetails);
           
-          // Use client details from state if available (NEW CODE)
           if (location.state.clientDetails) {
             setClientDetails(location.state.clientDetails);
             console.log("Client details from navigation:", location.state.clientDetails);
           } else {
-            // Get client details from localStorage as fallback
             const clientName = localStorage.getItem('clientName') || 'Client';
             const clientEmail = localStorage.getItem('clientEmail') || 'Email not available';
             setClientDetails({
@@ -62,22 +58,19 @@ const AgreementForm = () => {
           }
           
           setLoading(false);
-          return; // Skip the API calls
+          return;
         }
         
-        // SECOND CHECK: Validate jobId and bidId before making API calls
         if (!jobId || jobId === 'undefined' || !bidId || bidId === 'undefined') {
           throw new Error("Invalid job or bid ID. Please try again with valid parameters.");
         }
         
         console.log("Fetching job details for:", { jobId, bidId });
         
-        // This endpoint is correct - keep as is
         const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`);
         setJobDetails(jobResponse.data);
         console.log("Job details:", jobResponse.data);
         
-        // NEW CODE: Get client info directly from jobDetails.userid
         const jobUserId = jobResponse.data.userid;
         console.log("Job's client userId:", jobUserId);
 
@@ -86,7 +79,6 @@ const AgreementForm = () => {
             // Get token for authentication
             const token = localStorage.getItem('token') || sessionStorage.getItem('token');
             
-            // Make API call to get client data using the job's userid field
             const clientResponse = await axios.get(
               `http://localhost:5000/auth/user/${jobUserId}`, 
               { headers: { Authorization: `Bearer ${token}` }}
@@ -98,10 +90,10 @@ const AgreementForm = () => {
             const userData = clientResponse.data.user;
             
             if (userData) {
-              // Set client details with correct field mapping from API
+              // Set client details
               setClientDetails({
-                name: userData.username,  // API returns username as shown in auth.js
-                email: userData.email     // API returns email
+                name: userData.username,  
+                email: userData.email     
               });
               
               console.log('Client details set from job userid API call', {
@@ -112,7 +104,6 @@ const AgreementForm = () => {
           } catch (apiError) {
             console.error('Client API call failed:', apiError);
             
-            // Fallback to using username from job
             setClientDetails({
               name: jobResponse.data.username || 'Client',
               email: 'Email not available'
@@ -127,9 +118,7 @@ const AgreementForm = () => {
           });
         }
         
-        // CHANGE THIS: No direct endpoint for individual bid - need to fetch by project then filter
-        // Instead of: const bidResponse = await axios.get(`http://localhost:5000/api/bids/${bidId}`);
-        const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
+              const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
         const matchingBid = bidsResponse.data.find(bid => bid._id === bidId);
         
         if (!matchingBid) {
@@ -145,7 +134,6 @@ const AgreementForm = () => {
           console.log("Bid is already accepted");
         }
         
-        // Contractor ID from bid
         const contractor = matchingBid.contractorId || matchingBid.contractor;
         
 
@@ -159,11 +147,11 @@ if (!token) {
 }
 
 try {
-  // Decode token - make sure we log the EXACT structure
+  // Decode token 
   const decoded = jwtDecode(token);
   console.log('FULL TOKEN DATA:', JSON.stringify(decoded));
   
-  // Extract client ID first 
+  // Extract client ID  
   const userId = decoded.id || decoded._id || decoded.userId;
   console.log('User ID from token:', userId);
   
@@ -172,7 +160,7 @@ try {
     throw new Error('User ID not found');
   }
   
-  // Make direct API call to get client data
+  // Get client data
   try {
     const clientResponse = await axios.get(
       `http://localhost:5000/auth/user/${userId}`, 
@@ -181,14 +169,14 @@ try {
     
     console.log('CLIENT API RESPONSE:', clientResponse.data);
     
-    // Extract user data based on actual API response structure
+    // Extract user data 
     const userData = clientResponse.data.user;
     
     if (userData) {
       // Set client details with correct field mapping
       setClientDetails({
-        name: userData.username,  // API returns username
-        email: userData.email     // API returns email
+        name: userData.username,  
+        email: userData.email     
       });
       
       console.log('Client details set from API call', {
@@ -199,7 +187,6 @@ try {
   } catch (apiError) {
     console.error('API call failed:', apiError);
     
-    // Fall back to token data
     setClientDetails({
       name: decoded.username || 'Client',
       email: decoded.email || 'Email not available'
@@ -213,17 +200,14 @@ try {
   });
 }
         
-        // CHANGE THIS: Fetch contractor details - correct endpoint
         if (contractor) {
-          // Instead of: `http://localhost:5000/api/users/${contractor}`
           const contractorResponse = await axios.get(`http://localhost:5000/auth/user/${contractor}`);
           setContractorDetails(contractorResponse.data.user || contractorResponse.data);
           console.log("Contractor details:", contractorResponse.data);
         } else {
-          // Fallback is fine as is
           setContractorDetails({
             name: matchingBid.contractorname || "Contractor",
-            email: "contractor@example.com" // Fallback value
+            email: "contractor@example.com" 
           });
         }
         
@@ -240,14 +224,12 @@ try {
   }, [jobId, bidId, location.state, navigate]);
   
   const handleSubmit = async (e) => {
-    // alert("Button clicked - handleSubmit running");
     
     if (!agreementChecked) {
       toast.warning("Please confirm you agree to the terms and conditions");
       return;
     }
     
-    // Declare userId at the beginning of the function
     let userId = localStorage.getItem('userId');
     
     try {
@@ -257,7 +239,6 @@ try {
         const decoded = jwtDecode(token);
         userId = decoded.id || decoded.userId || decoded._id;
         
-        // Save it for future use
         if (userId) {
           localStorage.setItem('userId', userId);
         }
@@ -266,7 +247,6 @@ try {
       console.error("Error extracting user ID from token:", e);
     }
   
-    // If still no userId, handle the error
     if (!userId) {
       toast.error("User ID not found. Please log in again.");
       setTimeout(() => navigate('/login'), 2000);
@@ -275,60 +255,40 @@ try {
     
     setSubmitting(true);
     try {
-      // alert("Starting bid acceptance process...");
-      
-      // Now userId is properly defined
       const localClientId = userId;
       const localContractorId = bidDetails?.contractorId || 
                                bidDetails?.contractor || 
                                contractorDetails?._id;
       
-      /* 
-      alert(`Contractor ID: ${localContractorId || 'Not found'}`);
-      alert(`Job ID: ${jobId || 'Not found'}`);
-      alert(`Bid ID: ${bidId || 'Not found'}`);
-      */
+     
       
       if (!localContractorId) {
         throw new Error("Could not determine contractor ID");
       }
       
-      // Check for milestones
       if (!jobDetails?.milestones || !jobDetails?.milestones.length) {
-        // alert("Warning: No milestones found in job details");
       }
       
-      // Calculate even distribution of price across milestones
       const totalBidPrice = parseFloat(bidDetails.price) || 0;
       const milestoneCount = jobDetails.milestones?.length || 0;
 
-      // Calculate per-milestone amount (equal distribution)
       const pricePerMilestone = milestoneCount > 0 ? totalBidPrice / milestoneCount : 0;
 
-      // Fix 2: Update the bid status with better error handling
       try {
-        // alert("Updating bid status...");
         const bidUpdateUrl = `http://localhost:5000/bids/${bidId}/status`;
-        // alert(`Using bid update URL: ${bidUpdateUrl}`);
         
         const bidUpdateResponse = await axios.put(bidUpdateUrl, {
           status: 'accepted'
         });
         
-        // alert(`Bid status update successful: ${JSON.stringify(bidUpdateResponse.data)}`);
         toast.success("🎯 Contractor bid has been successfully accepted!");
       } catch (bidError) {
-        // alert(`Bid status update failed: ${bidError.message}`);
         toast.error(`Failed to accept bid: ${bidError.message}`);
         throw bidError;
       }
       
-      // Fix 3: Create ongoing work with proper status values
       try {
-        // alert("Creating ongoing work...");
-        
-        // Fix: Use the correct enum values that match your backend schema
-        // Get timeline from bidDetails
+       
         const timeline = parseInt(bidDetails.timeline) || 30;
         console.log(`Using timeline for ongoing work: ${timeline} days`);
 
@@ -405,12 +365,9 @@ try {
           toast.info("📢 Auction has been closed for this project");
         } catch (jobError) {
           console.error("Failed to update job status, but agreement was created:", jobError);
-          // Don't throw error here - we want to continue even if this fails
         }
         
-        // NEW CODE: Update all other bids for this job to 'rejected'
         console.log("Other bids are automatically rejected when accepting a bid");
-        // No need for separate API call - the backend route '/:bidId/status' already does this
         
         toast.success(
           <div className="flex items-center">
@@ -436,17 +393,13 @@ try {
       } catch (workError) {
         console.error("Error creating ongoing work:", workError);
         
-        // Capture detailed server error information
         if (workError.response) {
           console.error("Server response:", workError.response.data);
-          // alert(`Server Error: ${JSON.stringify(workError.response.data)}`);
           toast.error(`Server Error: ${JSON.stringify(workError.response.data)}`);
         } else {
-          // alert(`Ongoing work creation failed: ${workError.message}`);
           toast.error(`Project creation failed: ${workError.message}`);
         }
         
-        // If the user has developer console open, they can see this
         console.log("Debug info - data sent:", {
           jobId,
           bidId,
@@ -458,13 +411,7 @@ try {
         throw workError;
       }
     } catch (err) {
-      // alert(`Overall error: ${err.message}`);
       console.error("Error submitting agreement:", err);
-      
-      // Show error details if available
-      if (err.response) {
-        // alert(`Response error data: ${JSON.stringify(err.response.data)}`);
-      }
       
       setError("Failed to process agreement: " + (err.response?.data?.message || err.message));
       toast.error("Failed to process agreement: " + (err.response?.data?.message || err.message));
@@ -544,12 +491,7 @@ try {
       });
     } catch (error) {
       console.error("Error calculating payment schedule:", error);
-      // Return default schedule if there's an error
-      const defaultSchedule = [
-        { milestone: 'Initial Payment', percentage: 30, amount: totalAmount * 0.3, date: new Date().toLocaleDateString(), status: 'Pending' },
-        { milestone: 'Midway Payment', percentage: 40, amount: totalAmount * 0.4, date: new Date(new Date().getTime() + 15*24*60*60*1000).toLocaleDateString(), status: 'Not Started' },
-        { milestone: 'Final Payment', percentage: 30, amount: totalAmount * 0.3, date: new Date(new Date().getTime() + 30*24*60*60*1000).toLocaleDateString(), status: 'Not Started' }
-      ];
+      
       return defaultSchedule;
     }
     
@@ -686,7 +628,7 @@ try {
                   </div>
                 )}
                 
-                {/* Timeline Breakdown Section - NEW ADDITION */}
+                {/* Timeline Breakdown Section  */}
                 {bidDetails?.timelineBreakdown && (
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-500 mb-2">Timeline Details:</h4>
@@ -800,7 +742,7 @@ try {
             
             <div className="mt-8 pt-6 border-t border-gray-200">
             
-              {/* Agreement Checkbox - Only show when bid is not accepted */}
+              {/* Agreement Checkbox  */}
               {!bidAlreadyAccepted && (
                 <div className="mt-6">
                   <div className="flex items-start">

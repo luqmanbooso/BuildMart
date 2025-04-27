@@ -20,8 +20,8 @@ function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
     small: "h-10 w-10",
     medium: "h-16 w-16", 
     large: "h-20 w-20",
-    xlarge: "h-24 w-24",  // New larger size (96px)
-    xxlarge: "h-32 w-32"  // New extra large size (128px)
+    xlarge: "h-24 w-24",  
+    xxlarge: "h-32 w-32"  
   };
   
   // Get size class or default to passed dimensions

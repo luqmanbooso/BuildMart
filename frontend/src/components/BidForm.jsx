@@ -913,7 +913,7 @@ const projectDescription = jobDetails?.description || "";
                   </div>
                 </div>
 
-                {/* Add current lowest bid information card */}
+                {/*current lowest bid */}
                 {loadingBids ? (
                   <div className="flex items-center mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="animate-spin h-4 w-4 mr-2 border-t-2 border-b-2 border-blue-500 rounded-full"></div>
