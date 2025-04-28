@@ -1,0 +1,1 @@
+export const backend_url = "https://build-mart-api.vercel.app/api"
