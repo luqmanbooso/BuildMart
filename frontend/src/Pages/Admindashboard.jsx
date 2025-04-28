@@ -1293,7 +1293,7 @@ function Admindashboard() {
     
     // Add title
     doc.setFontSize(20);
-    doc.text('BuildMart - Custom Bids Report', 14, 22);
+    doc.text('BuildMart - Bids Report', 14, 22);
     
     // Add date
     doc.setFontSize(12);
@@ -1356,7 +1356,7 @@ function Admindashboard() {
       <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50">
         <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl">
           <div className="flex justify-between items-center border-b pb-4">
-            <h3 className="text-xl font-semibold text-gray-800">Generate Custom Report</h3>
+            <h3 className="text-xl font-semibold text-gray-800">Export Report</h3>
             <button 
               onClick={onClose}
               className="text-gray-400 hover:text-gray-500 focus:outline-none"
@@ -1451,7 +1451,7 @@ function Admindashboard() {
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
             >
               <FaFilePdf className="mr-2" />
-              Generate Report
+              Export as PDF
             </button>
           </div>
         </div>
@@ -1499,19 +1499,13 @@ function Admindashboard() {
               <option value="accepted">Accepted</option>
               <option value="rejected">Rejected</option>
             </select>
-            <button
-              onClick={generateBidsPDF}
-              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              <FaFilePdf className="mr-2" />
-              Export PDF
-            </button>
+            
             <button
               onClick={() => setIsCustomReportModalOpen(true)}
               className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <FaFilePdf className="mr-2" />
-              Custom Report
+              Export Report
             </button>
           </div>
         </div>
