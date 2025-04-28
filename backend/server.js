@@ -19,11 +19,6 @@ const inquiriesRoutes = require('./routes/inquiries');
 const reviewsRoutes = require('./routes/reviews');
 const supplierPaymentRoutes = require('./routes/supplierPaymentRoutes'); // Add this line
 
-// Set Vercel environment variable if not already set
-if (process.env.VERCEL && !process.env.VERCEL_ENV) {
-  process.env.VERCEL = '1';
-}
-
 // Middleware
 app.use(cors());
 app.use(express.json());

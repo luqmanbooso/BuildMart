@@ -210,7 +210,7 @@ const IssueReportModal = ({ isOpen, onClose, projectId, projectName, title, user
       
       // Make the request with auth token
       const response = await axios.post(
-        'https://build-mart-backend.vercel.app/api/inquiries', 
+        'http://localhost:5000/api/inquiries', 
         payload,
         {
           headers: token ? { 

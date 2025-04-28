@@ -349,7 +349,7 @@ const handleLogout = () => {
       
       try {
         // Make API call to get jobs/auctions from backend
-        const response = await axios.get('https://build-mart-backend.vercel.app/api/jobs');
+        const response = await axios.get('http://localhost:5000/api/jobs');
         
         if (!response.data || response.data.length === 0) {
           setAuctions([]);
@@ -415,8 +415,8 @@ const handleLogout = () => {
     setProductError(null);
     
     try {
-      console.log('Fetching products from:', 'https://build-mart-backend.vercel.app/product/products');
-      const response = await axios.get('https://build-mart-backend.vercel.app/product/products');
+      console.log('Fetching products from:', 'http://localhost:5000/product/products');
+      const response = await axios.get('http://localhost:5000/product/products');
       console.log('Raw API response:', response);
       
       if (response.data.success) {
@@ -429,7 +429,7 @@ const handleLogout = () => {
             description: product.description || `High-quality ${product.name} for construction needs`,
             price: product.price,
             active: product.stock > 0,
-            image: product.image ? `https://build-mart-backend.vercel.app/${product.image}` : construction_tools,
+            image: product.image ? `http://localhost:5000${product.image}` : construction_tools,
             stock: product.stock
           }));
         
@@ -453,7 +453,7 @@ const handleLogout = () => {
       setContractorError(null);
       
       try {
-        const response = await axios.get('https://build-mart-backend.vercel.app/api/contractors');
+        const response = await axios.get('http://localhost:5000/api/contractors');
         
         if (!response.data || response.data.length === 0) {
           setFeaturedContractors([]);
@@ -472,7 +472,7 @@ const handleLogout = () => {
             const profilePic = contractor.userId?.profilePic 
               ? contractor.userId.profilePic.startsWith('http') 
                 ? contractor.userId.profilePic 
-                : `https://build-mart-backend.vercel.app/${contractor.userId.profilePic}`
+                : `http://localhost:5000${contractor.userId.profilePic}`
               : constructor_icon;
             
             return {

@@ -152,7 +152,7 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
   useEffect(() => {
     const fetchLowestBid = async () => {
       try {
-        const lowestBidResponse = await axios.get(`https://build-mart-backend.vercel.app/bids/project/${bid.projectId}/lowest`);
+        const lowestBidResponse = await axios.get(`http://localhost:5000/bids/project/${bid.projectId}/lowest`);
         
         if (lowestBidResponse.data.exists) {
           const lowestBidPrice = lowestBidResponse.data.price;
@@ -166,7 +166,7 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
           }));
         }
         
-        const jobResponse = await axios.get(`https://build-mart-backend.vercel.app/api/jobs/${bid.projectId}`);
+        const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${bid.projectId}`);
         if (jobResponse.data && jobResponse.data.minBudget) {
           setProjectDetails(prev => ({
             ...prev,
@@ -206,7 +206,7 @@ const BidUpdate = ({ bid, onClose, onSuccess }) => {
       };
 
       const response = await axios.put(
-        `https://build-mart-backend.vercel.app/bids/update/${bid._id}`, 
+        `http://localhost:5000/bids/update/${bid._id}`, 
         updateData
       );
 

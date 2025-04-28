@@ -23,7 +23,7 @@ const AdminManagement = ({ allAdmins, setAllAdmins, isLoading }) => {
   // Function to refresh admin data
   const refreshAdminData = async () => {
     try {
-      const response = await axios.get('https://build-mart-backend.vercel.app/auth/admins');
+      const response = await axios.get('http://localhost:5000/auth/admins');
       setAllAdmins(response.data);
       return response.data;
     } catch (error) {
@@ -93,7 +93,7 @@ const AdminManagement = ({ allAdmins, setAllAdmins, isLoading }) => {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       const response = await axios.post(
-        'https://build-mart-backend.vercel.app/auth/register', 
+        'http://localhost:5000/auth/register', 
         {
           username: newAdmin.username,
           email: newAdmin.email,
@@ -162,7 +162,7 @@ const AdminManagement = ({ allAdmins, setAllAdmins, isLoading }) => {
       }
       
       // Make the delete request
-      const apiUrl = `https://build-mart-backend.vercel.app/auth/users/${cleanAdminId}`;
+      const apiUrl = `http://localhost:5000/auth/users/${cleanAdminId}`;
       console.log("Sending DELETE request to:", apiUrl);
       
       const response = await axios.delete(apiUrl, {
@@ -266,7 +266,7 @@ const AdminManagement = ({ allAdmins, setAllAdmins, isLoading }) => {
                         {admin.profilePic ? (
                           <img 
                             className="h-10 w-10 rounded-full object-cover" 
-                            src={`https://build-mart-backend.vercel.app/${admin.profilePic}`} 
+                            src={`http://localhost:5000${admin.profilePic}`} 
                             alt={`${admin.username}'s profile`}
                             onError={(e) => {
                               e.target.onerror = null;
@@ -475,7 +475,7 @@ const AdminManagement = ({ allAdmins, setAllAdmins, isLoading }) => {
               {selectedAdmin.profilePic ? (
                 <img 
                   className="h-24 w-24 rounded-full mb-3 object-cover" 
-                  src={`https://build-mart-backend.vercel.app/${selectedAdmin.profilePic}`} 
+                  src={`http://localhost:5000${selectedAdmin.profilePic}`} 
                   alt={selectedAdmin.username}
                   onError={(e) => {
                     e.target.onerror = null;

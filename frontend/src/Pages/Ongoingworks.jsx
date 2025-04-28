@@ -71,7 +71,7 @@ function Ongoingworks() {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) return;
       
-      const response = await axios.get('https://build-mart-backend.vercel.app/api/reviews/user', {
+      const response = await axios.get('http://localhost:5000/api/reviews/user', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -140,9 +140,9 @@ function Ongoingworks() {
       }
       
       // Make API call with proper error handling
-      console.log(`[DEBUG] Making API call to: https://build-mart-backend.vercel.app/api/ongoingworks/client/${userId}`);
+      console.log(`[DEBUG] Making API call to: http://localhost:5000/api/ongoingworks/client/${userId}`);
       
-      const response = await axios.get(`https://build-mart-backend.vercel.app/api/ongoingworks/client/${userId}`, {
+      const response = await axios.get(`http://localhost:5000/api/ongoingworks/client/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -275,7 +275,7 @@ function Ongoingworks() {
     }
     
     // Otherwise prepend the backend URL
-    return `https://build-mart-backend.vercel.app/${path}`;
+    return `http://localhost:5000${path}`;
   };
 
   // Fetch contractor details for each ongoing work
@@ -296,7 +296,7 @@ function Ongoingworks() {
         
         // Fetch contractor details from API
         const response = await axios.get(
-          `https://build-mart-backend.vercel.app/api/contractors/user/${work.contractorId}`, 
+          `http://localhost:5000/api/contractors/user/${work.contractorId}`, 
           {
             headers: { Authorization: `Bearer ${token}` }
           }
@@ -394,7 +394,7 @@ function Ongoingworks() {
         });
         
         // Make the API request with the correct status
-        await axios.patch(`https://build-mart-backend.vercel.app/api/ongoingworks/${workId}/milestone/${milestoneIndex}`, {
+        await axios.patch(`http://localhost:5000/api/ongoingworks/${workId}/milestone/${milestoneIndex}`, {
           status: 'Ready For Payment'
         }, {
           headers: {
@@ -642,7 +642,7 @@ const handlePaymentSuccess = async (paymentData) => {
 
     // Send all payment details to the backend
     await axios.patch(
-      `https://build-mart-backend.vercel.app/api/ongoingworks/${activeWorkId}/milestone/${milestoneIndex}`,
+      `http://localhost:5000/api/ongoingworks/${activeWorkId}/milestone/${milestoneIndex}`,
       {
         status: 'Completed',
         actualAmountPaid: totalAmount, // Total amount paid

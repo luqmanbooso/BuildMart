@@ -303,7 +303,7 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
       
       if (contractorData?._id) {
         response = await axios.put(
-          `https://build-mart-backend.vercel.app/api/contractors/${contractorData._id}`,
+          `http://localhost:5000/api/contractors/${contractorData._id}`,
           submitData,
           {
             headers: {
@@ -315,7 +315,7 @@ const EditContractorProfile = ({ onClose, contractorData, onProfileUpdate }) => 
       } 
       else {
         response = await axios.post(
-          'https://build-mart-backend.vercel.app/api/contractors',
+          'http://localhost:5000/api/contractors',
           submitData,
           {
             headers: {

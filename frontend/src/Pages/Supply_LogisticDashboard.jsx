@@ -407,7 +407,7 @@ const mapOrderStatus = (status) => {
         }
 
         const response = await axios.get(
-          "https://build-mart-backend.vercel.app/product/products"
+          "http://localhost:5000/product/products"
         );
         if (response.data.success) {
           // First get suppliers if we don't have them yet
@@ -534,7 +534,7 @@ const mapOrderStatus = (status) => {
         setOrdersError(null);
         
         // Make API request to get ALL orders by using the all=true parameter
-        const response = await axios.get('https://build-mart-backend.vercel.app/api/orders?all=true');
+        const response = await axios.get('http://localhost:5000/api/orders?all=true');
         
         if (response.data && response.data.success) {
           const apiOrders = response.data.orders;
@@ -589,7 +589,7 @@ const mapOrderStatus = (status) => {
       try {
         // Try to fetch active shipments from real API first
         try {
-          const response = await axios.get('https://build-mart-backend.vercel.app/api/shipping/active');
+          const response = await axios.get('http://localhost:5000/api/shipping/active');
           if (response.data && Array.isArray(response.data)) {
             setActiveShipments(response.data);
             setShipmentsError(null);
@@ -622,7 +622,7 @@ const mapOrderStatus = (status) => {
         
         // Try to fetch completed shipments
         try {
-          const completedResponse = await axios.get('https://build-mart-backend.vercel.app/api/shipping/completed');
+          const completedResponse = await axios.get('http://localhost:5000/api/shipping/completed');
           if (completedResponse.data && Array.isArray(completedResponse.data)) {
             setCompletedShipments(completedResponse.data);
           } else {
@@ -676,7 +676,7 @@ const mapOrderStatus = (status) => {
         
         try {
           // Try to fetch from API
-          const response = await axios.get('https://build-mart-backend.vercel.app/api/restock/status-types');
+          const response = await axios.get('http://localhost:5000/api/restock/status-types');
           
           if (response.data && response.data.statusTypes) {
             const statusTypes = response.data.statusTypes;
@@ -811,7 +811,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
     
     // Then, send the update to the server
     const response = await axios.patch(
-      `https://build-mart-backend.vercel.app/api/orders/${orderId}/status`, 
+      `http://localhost:5000/api/orders/${orderId}/status`, 
       { status: statusToSend }
     );
     
@@ -902,7 +902,7 @@ const updateOrderStatus = async (orderId, newStatus) => {
       }
 
       // In a real implementation, you'd update the backend
-      // await axios.patch(`https://build-mart-backend.vercel.app/api/shipments/${shipmentId}`, {
+      // await axios.patch(`http://localhost:5000/api/shipments/${shipmentId}`, {
       //   status: newStatus,
       //   progress: newProgress
       // });
@@ -2789,7 +2789,7 @@ const handleUpdateSupplier = async () => {
               const fetchShipmentData = async () => {
                 try {
                   setShipmentsLoading(true);
-                  const response = await axios.get('https://build-mart-backend.vercel.app/api/shipping/active');
+                  const response = await axios.get('http://localhost:5000/api/shipping/active');
                   setActiveShipments(response.data);
                   setShipmentsError(null);
                   toast.success("Shipment data refreshed");
@@ -3453,7 +3453,7 @@ const handleUpdateSupplier = async () => {
                         // Refresh orders data
                         setOrdersLoading(true);
                         axios
-                          .get("https://build-mart-backend.vercel.app/api/orders?all=true")
+                          .get("http://localhost:5000/api/orders?all=true")
                           .then((response) => {
                             if (response.data.success) {
                               const transformedOrders =

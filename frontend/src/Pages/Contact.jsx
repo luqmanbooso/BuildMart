@@ -84,7 +84,7 @@ const ContactUs = () => {
       
       // First attempt to send to backend API
       try {
-        const response = await axios.post('https://build-mart-backend.vercel.app/api/contact-messages', contactData);
+        const response = await axios.post('http://localhost:5000/api/contact-messages', contactData);
         console.log("Message sent successfully to API:", response.data);
         savedSuccessfully = true;
       } catch (apiError) {

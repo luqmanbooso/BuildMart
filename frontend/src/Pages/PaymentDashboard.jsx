@@ -162,7 +162,7 @@ function PaymentDashboard() {
       }
       
       // Make API request
-      const url = `https://build-mart-backend.vercel.app/api/payments${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      const url = `http://localhost:5000/api/payments${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -489,7 +489,7 @@ function PaymentDashboard() {
     try {
       setLoading(true);
       
-      const response = await fetch(`https://build-mart-backend.vercel.app/api/payments/${paymentId}/status`, {
+      const response = await fetch(`http://localhost:5000/api/payments/${paymentId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -756,7 +756,7 @@ function PaymentDashboard() {
       const fetchSupplierPayments = async () => {
         try {
           setLoading(true);
-          const response = await fetch('https://build-mart-backend.vercel.app/api/supplier-payments');
+          const response = await fetch('http://localhost:5000/api/supplier-payments');
           if (!response.ok) {
             throw new Error('Failed to fetch supplier payments');
           }
@@ -787,7 +787,7 @@ function PaymentDashboard() {
       
       try {
         // Try to get expenses from the API
-        const response = await axios.get('https://build-mart-backend.vercel.app/auth/admins/expenses');
+        const response = await axios.get('http://localhost:5000/auth/admins/expenses');
         
         if (response.data && Array.isArray(response.data)) {
           const formattedExpenses = response.data.map(expense => ({
@@ -832,7 +832,7 @@ function PaymentDashboard() {
   const fetchAdminSalaries = async () => {
     try {
       setIsLoadingAdmins(true);
-      const response = await axios.get('https://build-mart-backend.vercel.app/auth/admins');
+      const response = await axios.get('http://localhost:5000/auth/admins');
       
       // Transform the data to match the format expected by the component
       const processedSalaries = response.data.map(admin => {
@@ -966,7 +966,7 @@ function PaymentDashboard() {
 
         // Try to send payment data to backend
         try {
-          const response = await axios.post('https://build-mart-backend.vercel.app/auth/admins/pay-salary', {
+          const response = await axios.post('http://localhost:5000/auth/admins/pay-salary', {
             adminId: admin.id,
             paymentDate: new Date().toISOString(),
             month: monthName,
@@ -1036,7 +1036,7 @@ function PaymentDashboard() {
         ? currentSalary + changeAmount 
         : currentSalary - changeAmount;
 
-      const response = await fetch(`https://build-mart-backend.vercel.app/auth/admins/${selectedAdmin.id}/salary`, {
+      const response = await fetch(`http://localhost:5000/auth/admins/${selectedAdmin.id}/salary`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

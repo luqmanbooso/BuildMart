@@ -33,7 +33,7 @@ const RestockRequests = ({ inventory, setInventory, searchTerm, setSearchTerm })
     const fetchStatusTypes = async () => {
       try {
         console.log("Fetching restock status types...");
-        const response = await axios.get('https://build-mart-backend.vercel.app/api/restock/status-types');
+        const response = await axios.get('http://localhost:5000/api/restock/status-types');
         console.log("Status types response:", response.data);
         
         const { statusTypes, paymentStatusTypes } = response.data;

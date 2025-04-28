@@ -53,7 +53,7 @@ const ContractorUserNav = () => {
         const decoded = jwtDecode(token);
         const userId = decoded.userId || decoded.id;
         
-        const response = await axios.get(`https://build-mart-backend.vercel.app/auth/user/${userId}`, {
+        const response = await axios.get(`http://localhost:5000/auth/user/${userId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -187,7 +187,7 @@ const ContractorUserNav = () => {
               {userData?.profilePic ? (
                 <img
                   src={userData.profilePic.includes('data:') ? userData.profilePic : 
-                       `https://build-mart-backend.vercel.app/${userData.profilePic}`}
+                       `http://localhost:5000${userData.profilePic}`}
                   alt="Profile"
                   className="w-8 h-8 rounded-full border-2 border-blue-500 object-cover"
                 />
@@ -331,7 +331,7 @@ const ContractorUserNav = () => {
                   {userData?.profilePic ? (
                     <img
                       src={userData.profilePic.includes('data:') ? userData.profilePic : 
-                           `https://build-mart-backend.vercel.app/${userData.profilePic}`}
+                           `http://localhost:5000${userData.profilePic}`}
                       alt="Profile"
                       className="w-10 h-10 rounded-full border-2 border-blue-500 object-cover"
                     />

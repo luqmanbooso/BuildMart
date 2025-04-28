@@ -88,7 +88,7 @@ function Admindashboard() {
   // Function to handle bid status changes
   const handleBidStatusChange = async (bidId, newStatus) => {
     try {
-      await axios.put(`https://build-mart-backend.vercel.app/bids/${bidId}/status`, { status: newStatus });
+      await axios.put(`http://localhost:5000/bids/${bidId}/status`, { status: newStatus });
       
       // Update local state to reflect the change
       setAllBids(prevBids => 
@@ -143,7 +143,7 @@ function Admindashboard() {
           
           // API endpoint
           try {
-            const response = await axios.get('https://build-mart-backend.vercel.app/api/contact-messages');
+            const response = await axios.get('http://localhost:5000/api/contact-messages');
             console.log("Successfully fetched contact messages from API");
             messagesData = Array.isArray(response.data) ? response.data : [response.data];
           } catch (apiError) {
@@ -208,7 +208,7 @@ function Admindashboard() {
           console.log("Marked local message as read:", message._id);
         } else {
           try {
-            await axios.put(`https://build-mart-backend.vercel.app/api/contact-messages/${message._id}/read`);
+            await axios.put(`http://localhost:5000/api/contact-messages/${message._id}/read`);
             console.log("Marked API message as read:", message._id);
           } catch (apiError) {
             console.error("API error when marking as read:", apiError);
@@ -250,7 +250,7 @@ function Admindashboard() {
         console.log("Deleted local message");
       } else {
 
-        await axios.delete(`https://build-mart-backend.vercel.app/api/contact-messages/${messageId}`);
+        await axios.delete(`http://localhost:5000/api/contact-messages/${messageId}`);
         console.log("Deleted API message");
       }
       
@@ -297,9 +297,9 @@ function Admindashboard() {
       } else {
         try {
           if (currentStatus) {
-            await axios.put(`https://build-mart-backend.vercel.app/api/contact-messages/${messageId}/unread`);
+            await axios.put(`http://localhost:5000/api/contact-messages/${messageId}/unread`);
           } else {
-            await axios.put(`https://build-mart-backend.vercel.app/api/contact-messages/${messageId}/read`);
+            await axios.put(`http://localhost:5000/api/contact-messages/${messageId}/read`);
           }
           console.log(`Toggled API message ${messageId} read status to ${!currentStatus}`);
         } catch (apiError) {
@@ -352,14 +352,14 @@ function Admindashboard() {
       setIsLoading(true);
       try {
         // First fetch all users
-        const response = await axios.get('https://build-mart-backend.vercel.app/auth/users');
+        const response = await axios.get('http://localhost:5000/auth/users');
         
         const clients = response.data.filter(user => user.role === 'Client');
         const serviceProviders = response.data.filter(user => user.role === 'Service Provider');
         
         // Then fetch all contractors to get verification status
         try {
-          const contractorsResponse = await axios.get('https://build-mart-backend.vercel.app/api/contractors');
+          const contractorsResponse = await axios.get('http://localhost:5000/api/contractors');
           
           if (contractorsResponse.data && Array.isArray(contractorsResponse.data)) {
             console.log("Fetched contractors:", contractorsResponse.data);
@@ -427,7 +427,7 @@ function Admindashboard() {
     const fetchAdmins = async () => {
       setAdminsLoading(true);
       try {
-        const response = await axios.get('https://build-mart-backend.vercel.app/auth/admins');
+        const response = await axios.get('http://localhost:5000/auth/admins');
         setAllAdmins(response.data);
       } catch (error) {
         console.error("Failed to fetch admin data:", error);
@@ -445,7 +445,7 @@ function Admindashboard() {
   useEffect(() => {
     const fetchJobs = async () => {
       try {
-        const response = await axios.get('https://build-mart-backend.vercel.app/api/jobs');
+        const response = await axios.get('http://localhost:5000/api/jobs');
         
         // Calculate job statistics
         const total = response.data.length;
@@ -509,7 +509,7 @@ function Admindashboard() {
     const fetchAllJobs = async () => {
       setJobsLoading(true);
       try {
-        const response = await axios.get('https://build-mart-backend.vercel.app/api/jobs');
+        const response = await axios.get('http://localhost:5000/api/jobs');
         setAllJobs(response.data);
       } catch (error) {
         console.error("Failed to fetch job requests:", error);
@@ -526,7 +526,7 @@ function Admindashboard() {
     const fetchBids = async () => {
       setBidsLoading(true);
       try {
-        const response = await axios.get('https://build-mart-backend.vercel.app/bids');
+        const response = await axios.get('http://localhost:5000/bids');
         const bidsData = response.data;
         
         setAllBids(bidsData);
@@ -719,7 +719,7 @@ function Admindashboard() {
                       <div className="h-10 w-10 bg-gray-200 rounded-full mr-3 flex items-center justify-center">
                         {client.profilePic ? 
                           <img 
-                            src={`https://build-mart-backend.vercel.app/${client.profilePic}`} 
+                            src={`http://localhost:5000${client.profilePic}`} 
                             alt={`${client.username}'s profile`} 
                             className="h-10 w-10 rounded-full object-cover" 
                             onError={(e) => {
@@ -796,7 +796,7 @@ function Admindashboard() {
                       <div className="h-10 w-10 bg-gray-200 rounded-full mr-3 flex items-center justify-center">
                         {provider.profilePic ? 
                           <img 
-                            src={`https://build-mart-backend.vercel.app/${provider.profilePic}`} 
+                            src={`http://localhost:5000${provider.profilePic}`} 
                             alt={`${provider.username}'s profile`} 
                             className="h-10 w-10 rounded-full object-cover" 
                             onError={(e) => {

@@ -17,7 +17,7 @@ const AdminInquiries = () => {
   const fetchInquiries = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get('https://build-mart-backend.vercel.app/api/inquiries');
+      const response = await axios.get('http://localhost:5000/api/inquiries');
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
       console.log('Raw inquiry data:', response.data);
@@ -33,7 +33,7 @@ const AdminInquiries = () => {
       if (userIds.size > 0) {
         await Promise.all(Array.from(userIds).map(async (userId) => {
           try {
-            const userResponse = await axios.get(`https://build-mart-backend.vercel.app/auth/user/${userId}`, {
+            const userResponse = await axios.get(`http://localhost:5000/auth/user/${userId}`, {
               headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             userDetailsMap[userId] = userResponse.data;
@@ -84,7 +84,7 @@ const AdminInquiries = () => {
 
   const updateInquiryStatus = async (inquiryId, newStatus) => {
     try {
-      await axios.put(`https://build-mart-backend.vercel.app/api/inquiries/${inquiryId}/status`, { status: newStatus });
+      await axios.put(`http://localhost:5000/api/inquiries/${inquiryId}/status`, { status: newStatus });
       
       // Update inquiries in state
       setInquiries(prevInquiries => 
@@ -103,7 +103,7 @@ const AdminInquiries = () => {
   const deleteInquiry = async (inquiryId) => {
     if (window.confirm('Are you sure you want to delete this inquiry?')) {
       try {
-        await axios.delete(`https://build-mart-backend.vercel.app/api/inquiries/${inquiryId}`);
+        await axios.delete(`http://localhost:5000/api/inquiries/${inquiryId}`);
         
         // Remove from state
         setInquiries(prevInquiries => prevInquiries.filter(inquiry => inquiry._id !== inquiryId));

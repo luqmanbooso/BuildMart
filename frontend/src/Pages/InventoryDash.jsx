@@ -56,7 +56,7 @@ const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
   if (imagePath.startsWith('data:')) return imagePath;
   if (imagePath.startsWith('http')) return imagePath;
-  return `https://build-mart-backend.vercel.app/${imagePath}`;
+  return `http://localhost:5000${imagePath}`;
 };
 
 const InventoryDash = () => {
@@ -124,7 +124,7 @@ const InventoryDash = () => {
   // Move API fetch to a separate function that can be called immediately
   const fetchInventoryData = async () => {
     try {
-      const response = await axios.get('https://build-mart-backend.vercel.app/product/products');
+      const response = await axios.get('http://localhost:5000/product/products');
       if (response.data.success && response.data.products) {
         const products = response.data.products;
         setInventory(products);
@@ -155,7 +155,7 @@ const InventoryDash = () => {
         const products = await fetchInventoryData();
         
         // Then fetch pending order product IDs
-        const pendingResponse = await axios.get('https://build-mart-backend.vercel.app/api/orders/pending-product-ids');
+        const pendingResponse = await axios.get('http://localhost:5000/api/orders/pending-product-ids');
         if (pendingResponse.data.success) {
           setPendingOrderItems(pendingResponse.data.productIds);
         }
@@ -208,7 +208,7 @@ const InventoryDash = () => {
       
       // Make API request to update stock
       const response = await axios.put(
-        `https://build-mart-backend.vercel.app/product/products/${stockUpdateItem._id || stockUpdateItem.id}`,
+        `http://localhost:5000/product/products/${stockUpdateItem._id || stockUpdateItem.id}`,
         {
           name: stockUpdateItem.name,
           sku: stockUpdateItem.sku,
@@ -275,7 +275,7 @@ const InventoryDash = () => {
         // MongoDB items use _id, local items use id
         const itemId = typeof id === 'object' ? id._id : id;
         
-        await axios.delete(`https://build-mart-backend.vercel.app/product/products/${itemId}`);
+        await axios.delete(`http://localhost:5000/product/products/${itemId}`);
         
         // Filter items with improved logic
         setInventory(inventory.filter(item => {
@@ -302,7 +302,7 @@ const InventoryDash = () => {
   const handleAddProduct = async (formData) => {
     try {
       // Make API request
-      const response = await axios.post('https://build-mart-backend.vercel.app/product/products', formData, {
+      const response = await axios.post('http://localhost:5000/product/products', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -363,7 +363,7 @@ const InventoryDash = () => {
       
       // Make API request
       const response = await axios.put(
-        `https://build-mart-backend.vercel.app/product/products/${editedProduct._id || editedProduct.id}`,
+        `http://localhost:5000/product/products/${editedProduct._id || editedProduct.id}`,
         formData,
         {
           headers: {
@@ -414,7 +414,7 @@ const InventoryDash = () => {
       const toastId = toast.loading("Sending restock request...");
       
       // Use the correct endpoint from restockService
-      await axios.post('https://build-mart-backend.vercel.app/api/restock', {
+      await axios.post('http://localhost:5000/api/restock', {
         productId: orderRequestItem._id || orderRequestItem.id,
         productName: orderRequestItem.name,
         sku: orderRequestItem.sku,
@@ -1500,7 +1500,7 @@ const InventoryDash = () => {
                         src={
                           editingItem.image.startsWith('data:') 
                             ? editingItem.image 
-                            : `https://build-mart-backend.vercel.app/${editingItem.image}`
+                            : `http://localhost:5000${editingItem.image}`
                         } 
                         alt={editingItem.name}
                         className="h-28 w-auto object-contain rounded-lg border border-gray-200" 

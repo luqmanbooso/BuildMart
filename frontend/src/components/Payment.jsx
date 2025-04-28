@@ -390,7 +390,7 @@ const EnhancedPaymentGateway = ({ amount: initialAmount, onSuccess, onCancel, co
           paymentData.milestoneId = window.milestoneId;
         }
         console.log("Sending payment data:", paymentData);
-        const response = await fetch('https://build-mart-backend.vercel.app/api/payments/process-payment', {
+        const response = await fetch('http://localhost:5000/api/payments/process-payment', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

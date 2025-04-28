@@ -13,7 +13,7 @@ const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
   if (imagePath.startsWith('data:')) return imagePath;
   if (imagePath.startsWith('http')) return imagePath;
-  return `https://build-mart-backend.vercel.app/${imagePath}`;
+  return `http://localhost:5000${imagePath}`;
 };
 
 // Category colors for visual consistency

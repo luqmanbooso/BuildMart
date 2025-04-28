@@ -2,47 +2,45 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Determine if running on Vercel's serverless environment
-const isServerlessEnvironment = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION;
+// Create uploads directory if it doesn't exist
+const uploadDir = 'uploads/qualifications';
 
-let storage;
-if (isServerlessEnvironment) {
-  // Use memory storage for serverless environments
-  storage = multer.memoryStorage();
-  console.log('Using memory storage for serverless environment');
-} else {
-  // For local development, use disk storage
-  const uploadDir = 'uploads/qualifications';
-  
-  // Create directory if it doesn't exist (only in local environment)
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-  
-  storage = multer.diskStorage({
-    destination: function(req, file, cb) {
-      cb(null, uploadDir);
-    },
-    filename: function(req, file, cb) {
-      cb(null, Date.now() + path.extname(file.originalname));
-    }
-  });
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Configure multer with the appropriate storage
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: function(req, file, cb) {
-    const filetypes = /jpeg|jpg|png|pdf|doc|docx/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error("Only images and documents are allowed!"));
+// Configure storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    // Create unique filename with timestamp
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const fileExt = path.extname(file.originalname);
+    cb(null, `qualification-${uniqueSuffix}${fileExt}`);
   }
 });
 
-module.exports = upload;
+// File filter for images with improved validation
+const fileFilter = (req, file, cb) => {
+  // Check MIME type
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+  
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only JPG, PNG images and PDF files are allowed'), false);
+  }
+};
+
+// Create multer instance
+const qualificationUpload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 1024 * 1024, // 1MB limit aligned with frontend
+  }
+});
+
+module.exports = qualificationUpload;

@@ -87,7 +87,7 @@ const MyEarningsPage = () => {
         setLoading(true);
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
-        const response = await axios.get(`https://build-mart-backend.vercel.app/api/ongoingworks/contractor/${currentUser.id}`, {
+        const response = await axios.get(`http://localhost:5000/api/ongoingworks/contractor/${currentUser.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

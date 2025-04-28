@@ -12,7 +12,7 @@ function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
   const imgSrc = profilePicPath
     ? profilePicPath.startsWith('http') 
       ? profilePicPath 
-      : `https://build-mart-backend.vercel.app/${profilePicPath}`
+      : `http://localhost:5000${profilePicPath}`
     : '/default-profile.png'; // Fallback image
 
   // Size map with expanded options
@@ -207,7 +207,7 @@ const handleSubmit = async (e) => {
         imageFormData.append('profilePic', profileImage);
         
         const uploadResponse = await axios.post(
-          'https://build-mart-backend.vercel.app/auth/upload/profile',
+          'http://localhost:5000/auth/upload/profile',
           imageFormData,
           {
             headers: {
@@ -236,7 +236,7 @@ const handleSubmit = async (e) => {
     console.log(`Making PUT request to /auth/user/${userId} with data:`, requestData);
     
     const response = await axios.put(
-      `https://build-mart-backend.vercel.app/auth/user/${userId}`,
+      `http://localhost:5000/auth/user/${userId}`,
       requestData,
       {
         headers: {

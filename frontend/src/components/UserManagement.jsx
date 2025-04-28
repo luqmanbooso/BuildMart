@@ -59,8 +59,8 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
 
   const refreshUserData = async () => {
     try {
-      const clientsResponse = await axios.get('https://build-mart-backend.vercel.app/api/users?role=Client');
-      const providersResponse = await axios.get('https://build-mart-backend.vercel.app/api/users?role=Service Provider');
+      const clientsResponse = await axios.get('http://localhost:5000/api/users?role=Client');
+      const providersResponse = await axios.get('http://localhost:5000/api/users?role=Service Provider');
       
       if (clientsResponse.data && Array.isArray(clientsResponse.data)) {
         setAllClients(clientsResponse.data);
@@ -85,14 +85,14 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     console.log("Fetching contractor profile for userId:", userId);
     
     try {
-      const response = await axios.get(`https://build-mart-backend.vercel.app/api/contractors/user/${userId}`);
+      const response = await axios.get(`http://localhost:5000/api/contractors/user/${userId}`);
       console.log("Contractor profile fetched successfully:", response.data);
       return response.data;
     } catch (firstError) {
       console.log("First endpoint failed:", firstError.message);
       
       try {
-        const altResponse = await axios.get(`https://build-mart-backend.vercel.app/contractors/user/${userId}`);
+        const altResponse = await axios.get(`http://localhost:5000/contractors/user/${userId}`);
         console.log("Contractor profile fetched from alternative endpoint:", altResponse.data);
         return altResponse.data;
       } catch (secondError) {
@@ -118,7 +118,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         
         try {
           console.log(`[${i+1}/${providers.length}] Fetching profile for provider:`, providerId);
-          const response = await axios.get(`https://build-mart-backend.vercel.app/api/contractors/user/${providerId}`);
+          const response = await axios.get(`http://localhost:5000/api/contractors/user/${providerId}`);
           
           if (response.data) {
             console.log(`Profile found for ${providerId}:`, response.data);
@@ -146,7 +146,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
 
   const testBackendConnection = async () => {
     try {
-      const testResponse = await axios.get('https://build-mart-backend.vercel.app/api/users');
+      const testResponse = await axios.get('http://localhost:5000/api/users');
       console.log("API test response:", testResponse.data);
       toast.success('API connection successful');
       return true;
@@ -202,7 +202,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
       if (!contractorId) {
         try {
           console.log("No contractor ID available, fetching profile for userId:", userId);
-          const response = await axios.get(`https://build-mart-backend.vercel.app/api/contractors/user/${userId}`);
+          const response = await axios.get(`http://localhost:5000/api/contractors/user/${userId}`);
           
           if (response.data) {
             contractorId = response.data._id;
@@ -224,7 +224,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
       
       console.log("Sending verification request for contractorId:", contractorId);
       const response = await axios.put(
-        `https://build-mart-backend.vercel.app/api/contractors/verify/${contractorId}`,
+        `http://localhost:5000/api/contractors/verify/${contractorId}`,
         {}, 
         {
           headers: {
@@ -787,7 +787,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                           {client.profilePic ? (
                             <img 
                               className="h-10 w-10 rounded-full object-cover" 
-                              src={`https://build-mart-backend.vercel.app/${client.profilePic}`} 
+                              src={`http://localhost:5000${client.profilePic}`} 
                               alt={`${client.username}'s profile`}
                               onError={(e) => {
                                 e.target.onerror = null;
@@ -871,7 +871,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                         {provider.profilePic ? (
                           <img 
                             className="h-10 w-10 rounded-full object-cover" 
-                            src={`https://build-mart-backend.vercel.app/${provider.profilePic}`} 
+                            src={`http://localhost:5000${provider.profilePic}`} 
                             alt={`${provider.username}'s profile`}
                             onError={(e) => {
                               e.target.onerror = null;
@@ -1058,7 +1058,7 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
               {selectedUser.profilePic ? (
                 <img 
                   className="h-24 w-24 rounded-full mb-3 object-cover" 
-                  src={`https://build-mart-backend.vercel.app/${selectedUser.profilePic}`} 
+                  src={`http://localhost:5000${selectedUser.profilePic}`} 
                   alt={selectedUser.username}
                   onError={(e) => {
                     e.target.onerror = null;

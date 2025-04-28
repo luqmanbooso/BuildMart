@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://build-mart-backend.vercel.app/api/restock';
+const API_URL = 'http://localhost:5000/api/restock';
 
 export const restockService = {
   getAllRequests: async () => {

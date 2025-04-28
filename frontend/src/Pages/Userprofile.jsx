@@ -12,7 +12,7 @@ function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
   const imgSrc = profilePicPath
     ? profilePicPath.startsWith('http') 
       ? profilePicPath 
-      : `https://build-mart-backend.vercel.app/${profilePicPath}`
+      : `http://localhost:5000${profilePicPath}`
     : '/default-profile.png';
 
   // Size map with expanded options
@@ -160,7 +160,7 @@ const UserProfilePage = () => {
   //fetch complete user profile
   const fetchUserProfile = async (userId, token) => {
     try {
-      const response = await axios.get(`https://build-mart-backend.vercel.app/auth/user/${userId}`, {
+      const response = await axios.get(`http://localhost:5000/auth/user/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -187,7 +187,7 @@ const UserProfilePage = () => {
       const decoded = jwtDecode(token);
       const userId = decoded.userId;
       
-      const response = await axios.get(`https://build-mart-backend.vercel.app/api/jobs?userid=${userId}`, {
+      const response = await axios.get(`http://localhost:5000/api/jobs?userid=${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}` 
         }
@@ -289,7 +289,7 @@ const UserProfilePage = () => {
         milestones: newJob.milestones 
       };
       
-      const response = await axios.post('https://build-mart-backend.vercel.app/api/jobs', jobData, {
+      const response = await axios.post('http://localhost:5000/api/jobs', jobData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -364,7 +364,7 @@ const UserProfilePage = () => {
       const userId = decoded.userId;
       
       const response = await axios.delete(
-        `https://build-mart-backend.vercel.app/auth/users/${userId}`,
+        `http://localhost:5000/auth/users/${userId}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -452,7 +452,7 @@ const fetchPaymentHistory = async () => {
     const decoded = jwtDecode(token);
     const userId = decoded.userId;
     
-    const response = await axios.get(`https://build-mart-backend.vercel.app/api/payments`, {
+    const response = await axios.get(`http://localhost:5000/api/payments`, {
       headers: { 'Authorization': `Bearer ${token}` },
       params: { userId: userId } 
     });
@@ -526,7 +526,7 @@ const debugPaymentData = async () => {
     console.log('Current user ID:', userId);
     
     // Fetch all payments without filtering
-    const response = await axios.get(`https://build-mart-backend.vercel.app/api/payments`, {
+    const response = await axios.get(`http://localhost:5000/api/payments`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     

@@ -22,7 +22,7 @@ const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
   if (imagePath.startsWith('data:')) return imagePath;
   if (imagePath.startsWith('http')) return imagePath;
-  return `https://build-mart-backend.vercel.app/${imagePath}`;
+  return `http://localhost:5000${imagePath}`;
 };
 
 // Category colors for visual consistency
@@ -73,7 +73,7 @@ const Shop = () => {
     const fetchProducts = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get('https://build-mart-backend.vercel.app/product/products');
+        const response = await axios.get('http://localhost:5000/product/products');
         if (response.data.success) {
           const formattedProducts = response.data.products.map(product => ({
             id: product._id,
@@ -472,7 +472,7 @@ const Shop = () => {
       
       // Send order to backend
       console.log('Submitting order data with user details:', orderData);
-      const response = await axios.post('https://build-mart-backend.vercel.app/api/orders', orderData, {
+      const response = await axios.post('http://localhost:5000/api/orders', orderData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token')}`
         }

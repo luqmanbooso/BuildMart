@@ -257,7 +257,7 @@ const BidForm = ({ sampleData }) => {
     
     const fetchContractorProfile = async () => {
       try {
-        const contractorResponse = await axios.get(`https://build-mart-backend.vercel.app/api/contractors//${userInfo.userId}`);
+        const contractorResponse = await axios.get(`http://localhost:5000/api/contractors//${userInfo.userId}`);
         setContractorInfo(contractorResponse.data);
         console.log("Contractor data:", contractorResponse.data);
         
@@ -290,7 +290,7 @@ const BidForm = ({ sampleData }) => {
       setLoadingBids(true);
       
       // First get all bids to count them
-      const bidsResponse = await axios.get(`https://build-mart-backend.vercel.app/bids/project/${projectId}`);
+      const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${projectId}`);
       if (bidsResponse.data) {
         setBidCount(bidsResponse.data.length);
         
@@ -329,7 +329,7 @@ const BidForm = ({ sampleData }) => {
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           
           try {
-            const jobResponse = await axios.get(`https://build-mart-backend.vercel.app/api/jobs/${jobId}`, {
+            const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }
@@ -375,7 +375,7 @@ const BidForm = ({ sampleData }) => {
     try {
       console.log("About to fetch qualifications for user:", userId);
       
-      const endpoint = `https://build-mart-backend.vercel.app/qualify/user/${userId}`;
+      const endpoint = `http://localhost:5000/qualify/user/${userId}`;
       
       try {
         const qualificationResponse = await axios.get(endpoint, {
@@ -723,7 +723,7 @@ const projectDescription = jobDetails?.description || "";
 
       console.log("Sending bid data:", bidData);
 
-      const response = await axios.post("https://build-mart-backend.vercel.app/bids/submit", bidData);
+      const response = await axios.post("http://localhost:5000/bids/submit", bidData);
 
       if (response.status === 201) {
         toast.success("Bid submitted successfully! You'll be notified when the project owner responds.", {

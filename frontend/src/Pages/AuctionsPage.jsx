@@ -26,7 +26,7 @@ const AuctionCard = ({ auction }) => {
         
        
         
-        const response = await axios.get(`https://build-mart-backend.vercel.app/api/contractors/${decoded.userId}`);
+        const response = await axios.get(`http://localhost:5000/api/contractors/${decoded.userId}`);
         
         if (response.data && response.data.specialization) {
           setContractorInfo(response.data);
@@ -271,7 +271,7 @@ const AuctionsPage = () => {
   const fetchBidCounts = async (jobIds) => {
     try {
       // Get bid counts
-      const response = await axios.get(`https://build-mart-backend.vercel.app/api/bids/counts`, {
+      const response = await axios.get(`http://localhost:5000/api/bids/counts`, {
         params: { jobIds: jobIds.join(',') }
       });
       return response.data;
@@ -286,7 +286,7 @@ const AuctionsPage = () => {
       setLoading(true);
       try {
         //API call to get jobs from backend
-        const response = await axios.get('https://build-mart-backend.vercel.app/api/jobs');
+        const response = await axios.get('http://localhost:5000/api/jobs');
         
         const formattedJobs = response.data.map(job => {
           // Process budget information
@@ -338,7 +338,7 @@ const AuctionsPage = () => {
             // Get individual bid counts
             const bidCounts = {};
             for (const jobId of jobIds) {
-              const response = await axios.get(`https://build-mart-backend.vercel.app/bids/auction/${jobId}`);
+              const response = await axios.get(`http://localhost:5000/bids/auction/${jobId}`);
               bidCounts[jobId] = response.data.length;
             }
             

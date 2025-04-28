@@ -146,7 +146,7 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
         
         try {
           try {
-            const response = await axios.get(`https://build-mart-backend.vercel.app/api/reviews/contractor/${contractorId}`);
+            const response = await axios.get(`http://localhost:5000/api/reviews/contractor/${contractorId}`);
             const reviews = response.data;
             
             if (reviews && reviews.length > 0) {
@@ -165,7 +165,7 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
             }
           } catch (firstAttemptError) {
             console.log(`First attempt failed for ${contractorId}, trying alternate path`);
-            const response = await axios.get(`https://build-mart-backend.vercel.app/reviews/contractor/${contractorId}`);
+            const response = await axios.get(`http://localhost:5000/reviews/contractor/${contractorId}`);
             const reviews = response.data;
             
             if (reviews && reviews.length > 0) {
@@ -254,7 +254,7 @@ const BidListingSection = ({ bids, jobId, refreshBids }) => {
     
     try {
       if (bid.contractorId) {
-        const response = await axios.get(`https://build-mart-backend.vercel.app/qualify/user/${bid.contractorId}`);
+        const response = await axios.get(`http://localhost:5000/qualify/user/${bid.contractorId}`);
         const qualifications = response.data;
         
         if (qualifications && qualifications.length > 0) {

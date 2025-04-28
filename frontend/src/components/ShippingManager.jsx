@@ -107,7 +107,7 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
       try {
         // Use the correct PATCH endpoint as defined in orderRoutes.js
         const response = await axios.patch(
-          `https://build-mart-backend.vercel.app/api/orders/${orderId}/status`, 
+          `http://localhost:5000/api/orders/${orderId}/status`, 
           { status: orderStatus }
         );
         
@@ -126,7 +126,7 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
         // Try another API endpoint format as fallback
         try {
           const fallbackResponse = await axios.patch(
-            `https://build-mart-backend.vercel.app/api/orders/${orderId}`, 
+            `http://localhost:5000/api/orders/${orderId}`, 
             { orderStatus: orderStatus }
           );
           
@@ -155,7 +155,7 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
   const fetchActiveShipments = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('https://build-mart-backend.vercel.app/api/shipping/active');
+      const response = await axios.get('http://localhost:5000/api/shipping/active');
       // Client-side filter to make sure no failed/returned shipments appear in active view
       const filteredShipments = response.data.filter(
         shipment => !['Failed', 'Returned', 'Delivered'].includes(shipment.status)
@@ -177,7 +177,7 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
       
       try {
         // Try to get data from the backend
-        const response = await axios.get('https://build-mart-backend.vercel.app/api/shipping/completed');
+        const response = await axios.get('http://localhost:5000/api/shipping/completed');
         
         // Ensure all completed shipments have a completedAt field for frontend use
         const processedShipments = response.data.map(shipment => {
@@ -195,7 +195,7 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
         console.log("Server endpoint for completed shipments not available, using client-side filtering");
         
         // Fallback: Filter completed shipments from all shipments on the client side
-        const allShipmentsResponse = await axios.get('https://build-mart-backend.vercel.app/api/shipping');
+        const allShipmentsResponse = await axios.get('http://localhost:5000/api/shipping');
         
         if (allShipmentsResponse.data) {
           // Filter shipments with status Delivered only
@@ -234,13 +234,13 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
       
       try {
         // Try to get data from the backend
-        const response = await axios.get('https://build-mart-backend.vercel.app/api/shipping/returned');
+        const response = await axios.get('http://localhost:5000/api/shipping/returned');
         setReturnedShipments(response.data);
       } catch (error) {
         console.log("Server endpoint for returned shipments not available, using client-side filtering");
         
         // Fallback: Filter returned shipments from all shipments
-        const allShipmentsResponse = await axios.get('https://build-mart-backend.vercel.app/api/shipping');
+        const allShipmentsResponse = await axios.get('http://localhost:5000/api/shipping');
         
         if (allShipmentsResponse.data) {
           // Filter shipments with status Failed or Returned
@@ -276,7 +276,7 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
       
       // Update on the server first
       const response = await axios.put(
-        `https://build-mart-backend.vercel.app/api/shipping/${shipment._id}/status`, 
+        `http://localhost:5000/api/shipping/${shipment._id}/status`, 
         updateData
       );
       
@@ -710,12 +710,12 @@ const handleSubmit = async (e) => {
     
     if (selectedShipment) {
       // Update existing shipment
-      const response = await axios.put(`https://build-mart-backend.vercel.app/api/shipping/${selectedShipment._id}`, formData);
+      const response = await axios.put(`http://localhost:5000/api/shipping/${selectedShipment._id}`, formData);
       setActiveShipments(activeShipments.map(s => s._id === selectedShipment._id ? response.data : s));
       toast.success('Shipment updated successfully');
     } else {
       // Create new shipment
-      const response = await axios.post('https://build-mart-backend.vercel.app/api/shipping', formData);
+      const response = await axios.post('http://localhost:5000/api/shipping', formData);
       setActiveShipments([...activeShipments, response.data]);
       toast.success('Shipment created successfully');
       
@@ -773,7 +773,7 @@ const handleSubmit = async (e) => {
       }
       
       // Update on the server first
-      const response = await axios.put(`https://build-mart-backend.vercel.app/api/shipping/${id}/status`, updateData);
+      const response = await axios.put(`http://localhost:5000/api/shipping/${id}/status`, updateData);
       const updatedShipment = response.data;
       
       // Then update order status if applicable
@@ -857,7 +857,7 @@ const handleDelete = async (id) => {
     
     try {
       // Try to delete on the server
-      await axios.delete(`https://build-mart-backend.vercel.app/api/shipping/${id}`);
+      await axios.delete(`http://localhost:5000/api/shipping/${id}`);
       toast.success('Shipment deleted successfully');
       
       // Try to update order status if needed
