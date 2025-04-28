@@ -72,8 +72,7 @@ function PaymentDashboard() {
   // Add these state variables at the top of your component
   const [showSalaryModal, setShowSalaryModal] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
-  const [incrementAmount, setIncrementAmount] = useState(0);
-  const [incrementType, setIncrementType] = useState('fixed'); // 'fixed' or 'percentage'
+  const [salaryChangeAmount, setSalaryChangeAmount] = useState('');
   const [salaryChangeType, setSalaryChangeType] = useState('increment'); // Add this for increment/decrement
 
   // Add search functionality
@@ -785,7 +784,7 @@ function PaymentDashboard() {
       
       try {
         // Try to get expenses from the API
-        const response = await axios.get('http://localhost:5000/auth/admin-expenses');
+        const response = await axios.get('http://localhost:5000/auth/admins/expenses');
         
         if (response.data && Array.isArray(response.data)) {
           const formattedExpenses = response.data.map(expense => ({
@@ -1017,6 +1016,58 @@ function PaymentDashboard() {
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  const handleSalaryUpdate = async () => {
+    if (!selectedAdmin || !salaryChangeAmount) {
+      showNotificationMessage('error', 'Please select an admin and enter an amount');
+      return;
+    }
+
+    try {
+      // Calculate the new salary based on the change type
+      const currentSalary = selectedAdmin.salary || 30000;
+      const changeAmount = Number(salaryChangeAmount);
+      const newSalary = salaryChangeType === 'increment' 
+        ? currentSalary + changeAmount 
+        : currentSalary - changeAmount;
+
+      const response = await fetch(`http://localhost:5000/auth/admins/${selectedAdmin.id}/salary`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          salary: newSalary
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update salary');
+      }
+
+      const data = await response.json();
+      showNotificationMessage('success', `Salary ${salaryChangeType}ed successfully`);
+      
+      // Update the local state
+      setAdminSalaries(prevSalaries => 
+        prevSalaries.map(admin => 
+          admin.id === selectedAdmin.id 
+            ? { ...admin, salary: newSalary }
+            : admin
+        )
+      );
+
+      // Close the modal and reset states
+      setShowSalaryModal(false);
+      setSelectedAdmin(null);
+      setSalaryChangeAmount('');
+      setSalaryChangeType('increment');
+    } catch (error) {
+      console.error('Salary update error:', error);
+      showNotificationMessage('error', error.message);
     }
   };
 
@@ -3728,13 +3779,14 @@ function PaymentDashboard() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-semibold text-gray-800">
-                Salary Increment - {selectedAdmin.name}
+                Salary {salaryChangeType === 'increment' ? 'Increment' : 'Decrement'} - {selectedAdmin.name}
               </h3>
               <button 
                 onClick={() => {
                   setShowSalaryModal(false);
                   setSelectedAdmin(null);
-                  setIncrementAmount(0);
+                  setSalaryChangeAmount('');
+                  setSalaryChangeType('increment');
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
               >
@@ -3748,50 +3800,6 @@ function PaymentDashboard() {
                 <p className="text-xl font-bold text-gray-900">
                   Rs. {(selectedAdmin.salary || 30000).toLocaleString()}
                 </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Increment Type
-                </label>
-                <div className="flex space-x-4">
-                  <label className="inline-flex items-center">
-                    <input 
-                      type="radio" 
-                      className="form-radio" 
-                      name="incrementType" 
-                      value="fixed" 
-                      checked={incrementType === 'fixed'}
-                      onChange={() => setIncrementType('fixed')}
-                    />
-                    <span className="ml-2">Fixed Amount</span>
-                  </label>
-                  <label className="inline-flex items-center">
-                    <input 
-                      type="radio" 
-                      className="form-radio" 
-                      name="incrementType" 
-                      value="percentage" 
-                      checked={incrementType === 'percentage'}
-                      onChange={() => setIncrementType('percentage')}
-                    />
-                    <span className="ml-2">Percentage</span>
-                  </label>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {incrementType === 'fixed' ? 'Increment Amount (Rs.)' : 'Increment Percentage (%)'}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step={incrementType === 'fixed' ? '1000' : '0.5'}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  value={incrementAmount}
-                  onChange={(e) => setIncrementAmount(e.target.value)}
-                />
               </div>
               
               <div>
@@ -3823,32 +3831,18 @@ function PaymentDashboard() {
                   </label>
                 </div>
               </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm font-medium text-blue-800 mb-1">New Salary</p>
-                <p className="text-xl font-bold text-blue-900">
-                  Rs. {(incrementType === 'fixed' 
-                    ? (selectedAdmin.salary || 30000) + (salaryChangeType === 'increment' ? Number(incrementAmount || 0) : -Number(incrementAmount || 0))
-                    : (selectedAdmin.salary || 30000) * (1 + (salaryChangeType === 'increment' ? Number(incrementAmount || 0) / 100 : -Number(incrementAmount || 0) / 100))
-                  ).toLocaleString()}
-                </p>
-              </div>
-              
-              <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                <p className="text-sm text-gray-700">
-                  Current Salary: <span className="font-medium">Rs. {(selectedAdmin?.salary || 30000).toLocaleString()}</span>
-                </p>
-                {incrementAmount > 0 && (
-                  <p className="text-sm text-gray-700 mt-1">
-                    {salaryChangeType === 'increment' ? 'New' : 'New'} Salary: 
-                    <span className={`font-medium ${salaryChangeType === 'increment' ? 'text-green-600' : 'text-red-600'}`}>
-                      {' '}Rs. {salaryChangeType === 'increment' 
-                        ? (selectedAdmin?.salary + (incrementType === 'fixed' ? Number(incrementAmount) : (selectedAdmin?.salary * Number(incrementAmount) / 100))).toLocaleString()
-                        : (selectedAdmin?.salary - (incrementType === 'fixed' ? Number(incrementAmount) : (selectedAdmin?.salary * Number(incrementAmount) / 100))).toLocaleString()
-                      }
-                    </span>
-                  </p>
-                )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Amount
+                </label>
+                <input
+                  type="number"
+                  value={salaryChangeAmount}
+                  onChange={(e) => setSalaryChangeAmount(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter amount"
+                />
               </div>
               
               <div className="flex justify-end space-x-3 pt-4">
@@ -3856,6 +3850,8 @@ function PaymentDashboard() {
                   onClick={() => {
                     setShowSalaryModal(false);
                     setSelectedAdmin(null);
+                    setSalaryChangeAmount('');
+                    setSalaryChangeType('increment');
                   }}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                 >
