@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FaChartLine, FaMoneyBillWave, FaHourglassHalf, FaClipboardList, FaFileDownload, FaFileCsv } from 'react-icons/fa';
+import { FaChartLine, FaMoneyBillWave, FaHourglassHalf, FaClipboardList, FaFileDownload, FaFilePdf } from 'react-icons/fa';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
+import { jsPDF } from "jspdf";
+import 'jspdf-autotable';
 import ContractorUserNav from '../components/ContractorUserNav';
 import Footer from '../components/Footer'; 
 import {
@@ -335,6 +337,61 @@ const MyEarningsPage = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const exportAsPDF = () => {
+    if (!reportData.length) return;
+
+    try {
+      const doc = new jsPDF();
+      
+      doc.setFontSize(20);
+      doc.setTextColor(22, 160, 133);
+      doc.setFont('helvetica', 'bold');
+      doc.text('BuildMart', 14, 15);
+      
+      // Add report title
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${reportCriteria.type === 'earnings' ? 'Earnings' : 'Projects'} Report`, 14, 25);
+      
+      // Add report details
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 35);
+      doc.text(`Period: ${reportCriteria.period === 'all' ? 'All Time' : 
+               reportCriteria.period === 'week' ? 'Last 7 Days' : 
+               reportCriteria.period === 'month' ? 'Last 30 Days' : 
+               reportCriteria.period === 'quarter' ? 'Last 3 Months' : 'Last Year'}`, 14, 40);
+
+      // Format data for table
+      const headers = Object.keys(reportData[0]).map(header => 
+        header.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
+      );
+      
+      const data = reportData.map(item => 
+        Object.values(item).map(value => 
+          typeof value === 'number' ? `LKR ${value.toLocaleString()}` : value
+        )
+      );
+      
+      import('jspdf-autotable').then(({ default: autoTable }) => {
+        autoTable(doc, {
+          head: [headers],
+          body: data,
+          startY: 45, 
+          theme: 'striped',
+          styles: { overflow: 'linebreak', cellWidth: 'auto', fontSize: 8 },
+          headStyles: { fillColor: [22, 160, 133], textColor: 255 },
+          alternateRowStyles: { fillColor: [240, 240, 240] }
+        });
+        
+        doc.save(`BuildMart_${reportCriteria.type}_report_${new Date().toISOString().slice(0,10)}.pdf`);
+      });
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      alert("Failed to generate PDF. Please try again.");
+    }
   };
 
   if (loading) {
@@ -727,11 +784,11 @@ const MyEarningsPage = () => {
                 
                 {isReportGenerated && reportData.length > 0 && (
                   <button
-                    onClick={exportAsCSV}
+                    onClick={exportAsPDF}
                     className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
-                    <FaFileCsv className="mr-2" />
-                    Export as CSV
+                    <FaFilePdf className="mr-2" />
+                    Export as PDF
                   </button>
                 )}
               </div>
