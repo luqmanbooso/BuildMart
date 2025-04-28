@@ -4,7 +4,7 @@ import {
   FaChartLine, FaUsers, FaBuilding, FaTasks, FaBoxOpen,
   FaTruckMoving, FaWrench, FaChevronRight, FaEllipsisH, 
   FaCircle, FaAngleDown, FaCalendar, FaCheck, FaClock, FaTimes,
-  FaUserShield, FaPaperPlane, FaComments
+  FaUserShield, FaPaperPlane, FaComments, FaFilePdf
 } from 'react-icons/fa';
 import axios from 'axios';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
@@ -63,6 +63,8 @@ function Admindashboard() {
   // Add this new state for client requests/jobs
   const [allJobs, setAllJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(true);
+  const [jobSearchTerm, setJobSearchTerm] = useState('');
+  const [jobStatusFilter, setJobStatusFilter] = useState('all');
 
   // Add states for bids management
   const [allBids, setAllBids] = useState([]);
@@ -73,6 +75,8 @@ function Admindashboard() {
     pending: 0,
     rejected: 0
   });
+  const [bidSearchTerm, setBidSearchTerm] = useState('');
+  const [bidStatusFilter, setBidStatusFilter] = useState('all');
 
   // Function to handle viewing bid details
   const [selectedBid, setSelectedBid] = useState(null);
@@ -844,6 +848,14 @@ function Admindashboard() {
 
   // Render Client Requests content
   const renderClientRequestsContent = () => {
+    const filteredJobs = allJobs.filter(job => {
+      const matchesSearch = job.title?.toLowerCase().includes(jobSearchTerm.toLowerCase()) ||
+                          job.description?.toLowerCase().includes(jobSearchTerm.toLowerCase()) ||
+                          job.username?.toLowerCase().includes(jobSearchTerm.toLowerCase());
+      const matchesStatus = jobStatusFilter === 'all' || job.status?.toLowerCase() === jobStatusFilter.toLowerCase();
+      return matchesSearch && matchesStatus;
+    });
+
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-5 border-b border-gray-100 flex justify-between items-center">
@@ -857,10 +869,16 @@ function Admindashboard() {
                 type="text" 
                 className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
                 placeholder="Search job requests..."
+                value={jobSearchTerm}
+                onChange={(e) => setJobSearchTerm(e.target.value)}
               />
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             </div>
-            <select className="border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <select 
+              className="border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={jobStatusFilter}
+              onChange={(e) => setJobStatusFilter(e.target.value)}
+            >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
               <option value="active">Active</option>
@@ -873,7 +891,7 @@ function Admindashboard() {
           <div className="p-12 flex justify-center items-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
           </div>
-        ) : allJobs.length > 0 ? (
+        ) : filteredJobs.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -887,7 +905,7 @@ function Admindashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {allJobs.map((job) => (
+                {filteredJobs.map((job) => (
                   <tr key={job._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -1183,8 +1201,276 @@ function Admindashboard() {
     );
   };
 
+  // Add this function for PDF generation
+  const generateBidsPDF = () => {
+    // Get the current filtered bids
+    const currentFilteredBids = allBids.filter(bid => {
+      const matchesSearch = bid.contractorname?.toLowerCase().includes(bidSearchTerm.toLowerCase()) ||
+                          (allJobs.find(job => job._id === bid.projectId)?.title?.toLowerCase().includes(bidSearchTerm.toLowerCase()));
+      const matchesStatus = bidStatusFilter === 'all' || bid.status?.toLowerCase() === bidStatusFilter.toLowerCase();
+      return matchesSearch && matchesStatus;
+    });
+
+    // Create a new jsPDF instance
+    const doc = new window.jspdf.jsPDF();
+    
+    // Add title
+    doc.setFontSize(20);
+    doc.text('BuildMart - Bids Management Report', 14, 22);
+    
+    // Add date
+    doc.setFontSize(12);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+    
+    // Add filter information
+    doc.setFontSize(10);
+    doc.text(`Search Term: ${bidSearchTerm || 'None'}`, 14, 38);
+    doc.text(`Status Filter: ${bidStatusFilter}`, 14, 45);
+    
+    // Add statistics
+    doc.setFontSize(12);
+    doc.text('Statistics', 14, 60);
+    doc.setFontSize(10);
+    doc.text(`Total Bids: ${currentFilteredBids.length}`, 14, 68);
+    doc.text(`Accepted: ${currentFilteredBids.filter(bid => bid.status === 'accepted').length}`, 14, 75);
+    doc.text(`Pending: ${currentFilteredBids.filter(bid => bid.status === 'pending').length}`, 14, 82);
+    doc.text(`Rejected: ${currentFilteredBids.filter(bid => bid.status === 'rejected').length}`, 14, 89);
+    
+    // Prepare table data
+    const tableData = currentFilteredBids.map(bid => {
+      const relatedJob = allJobs.find(job => job._id === bid.projectId);
+      return [
+        bid.contractorname || 'Unknown Provider',
+        relatedJob ? relatedJob.title : 'Project #' + bid.projectId?.substring(0, 8),
+        `LKR ${bid.price?.toLocaleString() || '0'}`,
+        `${bid.timeline || '0'} days`,
+        bid.status.charAt(0).toUpperCase() + bid.status.slice(1)
+      ];
+    });
+    
+    // Add table
+    doc.autoTable({
+      startY: 100,
+      head: [['Service Provider', 'Project', 'Bid Amount', 'Timeline', 'Status']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
+      styles: { fontSize: 8 },
+      margin: { left: 14 }
+    });
+    
+    // Save the PDF
+    doc.save('buildmart-bids-report.pdf');
+  };
+
+  // Add state for report filters
+  const [reportFilters, setReportFilters] = useState({
+    startDate: '',
+    endDate: '',
+    status: 'all',
+    minAmount: '',
+    maxAmount: '',
+    serviceProvider: ''
+  });
+
+  // Add this function for custom PDF generation
+  const generateCustomBidsPDF = () => {
+    // Get the current filtered bids based on report filters
+    const filteredBids = allBids.filter(bid => {
+      const matchesDate = (!reportFilters.startDate || new Date(bid.createdAt) >= new Date(reportFilters.startDate)) &&
+                        (!reportFilters.endDate || new Date(bid.createdAt) <= new Date(reportFilters.endDate));
+      const matchesStatus = reportFilters.status === 'all' || bid.status === reportFilters.status;
+      const matchesAmount = (!reportFilters.minAmount || bid.price >= parseFloat(reportFilters.minAmount)) &&
+                          (!reportFilters.maxAmount || bid.price <= parseFloat(reportFilters.maxAmount));
+      const matchesProvider = !reportFilters.serviceProvider || 
+                            bid.contractorname?.toLowerCase().includes(reportFilters.serviceProvider.toLowerCase());
+      
+      return matchesDate && matchesStatus && matchesAmount && matchesProvider;
+    });
+
+    // Create a new jsPDF instance
+    const doc = new window.jspdf.jsPDF();
+    
+    // Add title
+    doc.setFontSize(20);
+    doc.text('BuildMart - Custom Bids Report', 14, 22);
+    
+    // Add date
+    doc.setFontSize(12);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+    
+    // Add filter information
+    doc.setFontSize(10);
+    doc.text('Report Criteria:', 14, 38);
+    doc.text(`Date Range: ${reportFilters.startDate ? new Date(reportFilters.startDate).toLocaleDateString() : 'Any'} - ${reportFilters.endDate ? new Date(reportFilters.endDate).toLocaleDateString() : 'Any'}`, 14, 45);
+    doc.text(`Status: ${reportFilters.status === 'all' ? 'All' : reportFilters.status.charAt(0).toUpperCase() + reportFilters.status.slice(1)}`, 14, 52);
+    doc.text(`Amount Range: ${reportFilters.minAmount ? `LKR ${parseFloat(reportFilters.minAmount).toLocaleString()}` : 'Any'} - ${reportFilters.maxAmount ? `LKR ${parseFloat(reportFilters.maxAmount).toLocaleString()}` : 'Any'}`, 14, 59);
+    doc.text(`Service Provider: ${reportFilters.serviceProvider || 'Any'}`, 14, 66);
+    
+    // Add statistics
+    doc.setFontSize(12);
+    doc.text('Statistics', 14, 80);
+    doc.setFontSize(10);
+    doc.text(`Total Bids: ${filteredBids.length}`, 14, 88);
+    doc.text(`Accepted: ${filteredBids.filter(bid => bid.status === 'accepted').length}`, 14, 95);
+    doc.text(`Pending: ${filteredBids.filter(bid => bid.status === 'pending').length}`, 14, 102);
+    doc.text(`Rejected: ${filteredBids.filter(bid => bid.status === 'rejected').length}`, 14, 109);
+    
+    // Calculate total amount
+    const totalAmount = filteredBids.reduce((sum, bid) => sum + (bid.price || 0), 0);
+    doc.text(`Total Amount: LKR ${totalAmount.toLocaleString()}`, 14, 116);
+    
+    // Prepare table data
+    const tableData = filteredBids.map(bid => {
+      const relatedJob = allJobs.find(job => job._id === bid.projectId);
+      return [
+        bid.contractorname || 'Unknown Provider',
+        relatedJob ? relatedJob.title : 'Project #' + bid.projectId?.substring(0, 8),
+        `LKR ${bid.price?.toLocaleString() || '0'}`,
+        `${bid.timeline || '0'} days`,
+        bid.status.charAt(0).toUpperCase() + bid.status.slice(1),
+        new Date(bid.createdAt).toLocaleDateString()
+      ];
+    });
+    
+    // Add table
+    doc.autoTable({
+      startY: 130,
+      head: [['Service Provider', 'Project', 'Bid Amount', 'Timeline', 'Status', 'Date']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
+      styles: { fontSize: 8 },
+      margin: { left: 14 }
+    });
+    
+    // Save the PDF
+    doc.save('buildmart-custom-bids-report.pdf');
+  };
+
+  // Add this component for the custom report modal
+  const CustomReportModal = ({ isOpen, onClose }) => {
+    if (!isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl">
+          <div className="flex justify-between items-center border-b pb-4">
+            <h3 className="text-xl font-semibold text-gray-800">Generate Custom Report</h3>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500 focus:outline-none"
+            >
+              <FaTimes size={20} />
+            </button>
+          </div>
+          
+          <div className="py-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  className="w-full border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={reportFilters.startDate}
+                  onChange={(e) => setReportFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  className="w-full border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={reportFilters.endDate}
+                  onChange={(e) => setReportFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  className="w-full border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={reportFilters.status}
+                  onChange={(e) => setReportFilters(prev => ({ ...prev, status: e.target.value }))}
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Service Provider</label>
+                <input
+                  type="text"
+                  className="w-full border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Filter by service provider"
+                  value={reportFilters.serviceProvider}
+                  onChange={(e) => setReportFilters(prev => ({ ...prev, serviceProvider: e.target.value }))}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Amount (LKR)</label>
+                <input
+                  type="number"
+                  className="w-full border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Minimum bid amount"
+                  value={reportFilters.minAmount}
+                  onChange={(e) => setReportFilters(prev => ({ ...prev, minAmount: e.target.value }))}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Maximum Amount (LKR)</label>
+                <input
+                  type="number"
+                  className="w-full border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Maximum bid amount"
+                  value={reportFilters.maxAmount}
+                  onChange={(e) => setReportFilters(prev => ({ ...prev, maxAmount: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="border-t pt-4 flex justify-end space-x-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                generateCustomBidsPDF();
+                onClose();
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+            >
+              <FaFilePdf className="mr-2" />
+              Generate Report
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Add state for modal visibility
+  const [isCustomReportModalOpen, setIsCustomReportModalOpen] = useState(false);
+
   // Render Bids Management content
   const renderBidsManagementContent = () => {
+    const filteredBids = allBids.filter(bid => {
+      const matchesSearch = bid.contractorname?.toLowerCase().includes(bidSearchTerm.toLowerCase()) ||
+                          (allJobs.find(job => job._id === bid.projectId)?.title?.toLowerCase().includes(bidSearchTerm.toLowerCase()));
+      const matchesStatus = bidStatusFilter === 'all' || bid.status?.toLowerCase() === bidStatusFilter.toLowerCase();
+      return matchesSearch && matchesStatus;
+    });
+
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-5 border-b border-gray-100 flex justify-between items-center">
@@ -1192,21 +1478,41 @@ function Admindashboard() {
             <h3 className="font-semibold text-lg text-gray-800">Bids Management</h3>
             <p className="text-sm text-gray-500">Review and manage all bids in the system</p>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
             <div className="relative mr-4">
               <input 
                 type="text" 
                 className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
                 placeholder="Search bids..."
+                value={bidSearchTerm}
+                onChange={(e) => setBidSearchTerm(e.target.value)}
               />
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             </div>
-            <select className="border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <select 
+              className="border border-gray-200 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={bidStatusFilter}
+              onChange={(e) => setBidStatusFilter(e.target.value)}
+            >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
               <option value="accepted">Accepted</option>
               <option value="rejected">Rejected</option>
             </select>
+            <button
+              onClick={generateBidsPDF}
+              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              <FaFilePdf className="mr-2" />
+              Export PDF
+            </button>
+            <button
+              onClick={() => setIsCustomReportModalOpen(true)}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <FaFilePdf className="mr-2" />
+              Custom Report
+            </button>
           </div>
         </div>
 
@@ -1214,19 +1520,19 @@ function Admindashboard() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-5">
           <div className="bg-gray-50 p-5 rounded-xl">
             <p className="text-sm text-gray-500 mb-1">Total Bids</p>
-            <p className="text-3xl font-bold text-gray-800">{bidStats.total}</p>
+            <p className="text-3xl font-bold text-gray-800">{filteredBids.length}</p>
           </div>
           <div className="bg-green-50 p-5 rounded-xl">
             <p className="text-sm text-green-600 mb-1">Accepted</p>
-            <p className="text-3xl font-bold text-green-700">{bidStats.accepted}</p>
+            <p className="text-3xl font-bold text-green-700">{filteredBids.filter(bid => bid.status === 'accepted').length}</p>
           </div>
           <div className="bg-yellow-50 p-5 rounded-xl">
             <p className="text-sm text-yellow-600 mb-1">Pending</p>
-            <p className="text-3xl font-bold text-yellow-700">{bidStats.pending}</p>
+            <p className="text-3xl font-bold text-yellow-700">{filteredBids.filter(bid => bid.status === 'pending').length}</p>
           </div>
           <div className="bg-red-50 p-5 rounded-xl">
             <p className="text-sm text-red-600 mb-1">Rejected</p>
-            <p className="text-3xl font-bold text-red-700">{bidStats.rejected}</p>
+            <p className="text-3xl font-bold text-red-700">{filteredBids.filter(bid => bid.status === 'rejected').length}</p>
           </div>
         </div>
 
@@ -1234,7 +1540,7 @@ function Admindashboard() {
           <div className="p-12 flex justify-center items-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
           </div>
-        ) : allBids.length > 0 ? (
+        ) : filteredBids.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -1248,10 +1554,8 @@ function Admindashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {allBids.map((bid) => {
-                  // Find the job for this bid if available
+                {filteredBids.map((bid) => {
                   const relatedJob = allJobs.find(job => job._id === bid.projectId);
-                  
                   return (
                     <tr key={bid._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -1328,140 +1632,10 @@ function Admindashboard() {
             <p className="text-gray-500">There are currently no bids in the system.</p>
           </div>
         )}
-
-        {/* Bid details modal */}
-        {selectedBid && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-3xl">
-              <div className="flex justify-between items-center border-b pb-4">
-                <h3 className="text-xl font-semibold text-gray-800">Bid Details</h3>
-                <button 
-                  onClick={() => setSelectedBid(null)}
-                  className="text-gray-400 hover:text-gray-500 focus:outline-none"
-                >
-                  <FaTimes size={20} />
-                </button>
-              </div>
-              
-              <div className="py-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-gray-50 p-4 rounded-xl">
-                    <p className="text-sm text-gray-500 mb-1">Service Provider</p>
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 bg-indigo-100 text-indigo-600 rounded-full mr-3 flex items-center justify-center font-semibold">
-                        {selectedBid.contractorname ? selectedBid.contractorname.charAt(0).toUpperCase() : "S"}
-                      </div>
-                      <p className="font-medium text-lg">{selectedBid.contractorname || 'Unknown Provider'}</p>
-                    </div>
-                    {(selectedBid.rating > 0 || selectedBid.completedProjects > 0) && (
-                      <div className="mt-2 pl-1">
-                        {selectedBid.rating > 0 && (
-                          <div className="flex items-center mb-1">
-                            <FaCircle className="text-yellow-400 mr-2 text-xs" />
-                            <span className="text-sm">Rating: {selectedBid.rating.toFixed(1)}</span>
-                          </div>
-                        )}
-                        {selectedBid.completedProjects > 0 && (
-                          <div className="flex items-center">
-                            <FaCheck className="text-green-500 mr-2 text-xs" />
-                            <span className="text-sm">{selectedBid.completedProjects} completed projects</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="bg-gray-50 p-4 rounded-xl">
-                    <p className="text-sm text-gray-500 mb-1">Project</p>
-                    <p className="font-medium text-lg">
-                      {allJobs.find(job => job._id === selectedBid.projectId)?.title || 'Project #' + selectedBid.projectId?.substring(0, 8)}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {allJobs.find(job => job._id === selectedBid.projectId)?.categories?.join(', ') || 'No categories'}
-                    </p>
-                  </div>
-                  
-                  <div className="bg-gray-50 p-4 rounded-xl">
-                    <p className="text-sm text-gray-500 mb-1">Bid Amount</p>
-                    <p className="font-bold text-2xl text-gray-800">LKR {selectedBid.price?.toLocaleString() || '0'}</p>
-                    {selectedBid.previousPrices && selectedBid.previousPrices.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-xs text-gray-500 mb-1">Price history:</p>
-                        {selectedBid.previousPrices.map((priceHistory, idx) => (
-                          <div key={idx} className="flex items-center text-sm">
-                            <FaClock className="text-gray-400 mr-2 text-xs" />
-                            <span>LKR {priceHistory.price?.toLocaleString()} - {new Date(priceHistory.updatedAt).toLocaleDateString()}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="bg-gray-50 p-4 rounded-xl">
-                    <p className="text-sm text-gray-500 mb-1">Timeline & Status</p>
-                    <p className="font-medium text-lg">{selectedBid.timeline || '0'} days</p>
-                    <div className="flex items-center mt-2">
-                      <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
-                        selectedBid.status === 'accepted' ? 'bg-green-100 text-green-800' : 
-                        selectedBid.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {selectedBid.status.charAt(0).toUpperCase() + selectedBid.status.slice(1)}
-                      </span>
-                      <span className="text-xs text-gray-500 ml-2">
-                        Last updated: {new Date(selectedBid.updatedAt || selectedBid.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-6 bg-gray-50 p-4 rounded-xl">
-                  <p className="text-sm text-gray-500 mb-2">Service Provider Qualifications</p>
-                  <p className="text-gray-800">{selectedBid.qualifications || 'No qualifications provided.'}</p>
-                </div>
-              
-                <div className="mt-6 border-t pt-6">
-                  <p className="text-sm font-medium text-gray-800 mb-3">Change Status</p>
-                  <div className="flex space-x-3">
-                    <button 
-                      onClick={() => handleBidStatusChange(selectedBid._id, 'accepted')}
-                      className={`px-4 py-2 rounded-lg flex items-center justify-center ${
-                        selectedBid.status === 'accepted' 
-                          ? 'bg-green-100 text-green-800 cursor-not-allowed' 
-                          : 'bg-green-600 text-white hover:bg-green-700'
-                      }`}
-                      disabled={selectedBid.status === 'accepted'}
-                    >
-                      <FaCheck className="mr-2" />
-                      Accept
-                    </button>
-                    <button 
-                      onClick={() => handleBidStatusChange(selectedBid._id, 'rejected')}
-                      className={`px-4 py-2 rounded-lg flex items-center justify-center ${
-                        selectedBid.status === 'rejected' 
-                          ? 'bg-red-100 text-red-800 cursor-not-allowed' 
-                          : 'bg-red-600 text-white hover:bg-red-700'
-                      }`}
-                      disabled={selectedBid.status === 'rejected'}
-                    >
-                      <FaTimes className="mr-2" />
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="border-t pt-4 flex justify-end">
-                <button 
-                  onClick={() => setSelectedBid(null)}
-                  className="px-6 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 text-gray-800 font-medium transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <CustomReportModal 
+          isOpen={isCustomReportModalOpen}
+          onClose={() => setIsCustomReportModalOpen(false)}
+        />
       </div>
     );
   };
