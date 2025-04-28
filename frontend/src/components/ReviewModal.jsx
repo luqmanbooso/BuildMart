@@ -42,7 +42,7 @@ const ReviewModal = ({ isOpen, onClose, projectId, contractorId, contractorName,
       });
       
       const response = await axios.post(
-        'http://localhost:5000/api/reviews', 
+        'https://build-mart-backend.vercel.app/api/reviews', 
         {
           projectId,
           contractorId,

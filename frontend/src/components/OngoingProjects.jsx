@@ -100,7 +100,7 @@ const getClientDataFromProject = async (project, token) => {
   try {
     if (!project.clientId) return { name: 'Client', email: '' };
     
-    const response = await axios.get(`http://localhost:5000/auth/users/${project.clientId}`, {
+    const response = await axios.get(`https://build-mart-backend.vercel.app/auth/users/${project.clientId}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     
@@ -127,7 +127,7 @@ const getClientDataFromProject = async (project, token) => {
         setLoading(true);
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
-        const response = await axios.get(`http://localhost:5000/api/ongoingworks/contractor/${contractorData.id}`, {
+        const response = await axios.get(`https://build-mart-backend.vercel.app/api/ongoingworks/contractor/${contractorData.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -213,7 +213,7 @@ const getClientDataFromProject = async (project, token) => {
               
               let clientResponse;
               try {
-                clientResponse = await axios.get(`http://localhost:5000/auth/user/${project.clientId}`, {
+                clientResponse = await axios.get(`https://build-mart-backend.vercel.app/auth/user/${project.clientId}`, {
                   headers: { 'Authorization': `Bearer ${token}` }
                 });
               } catch (err) {
@@ -329,7 +329,7 @@ const updateMilestoneStatus = async (projectId, milestoneIndex, newStatus) => {
       currentMilestone: milestone
     });
     
-    await axios.patch(`http://localhost:5000/api/ongoingworks/${projectId}/milestone/${milestoneIndex}`, {
+    await axios.patch(`https://build-mart-backend.vercel.app/api/ongoingworks/${projectId}/milestone/${milestoneIndex}`, {
       status: statusToSend,
       completedAt: statusToSend === 'Pending Verification' ? new Date() : null,
       notes: updateNotes
@@ -423,7 +423,7 @@ const calculateProjectProgress = (milestones) => {
       formData.append('projectId', projectId);
       formData.append('milestoneIndex', milestoneIndex);
       
-      await axios.post(`http://localhost:5000/api/ongoingworks/photo`, formData, {
+      await axios.post(`https://build-mart-backend.vercel.app/api/ongoingworks/photo`, formData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -441,7 +441,7 @@ const calculateProjectProgress = (milestones) => {
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      await axios.post(`http://localhost:5000/api/ongoingworks/${projectId}/message`, {
+      await axios.post(`https://build-mart-backend.vercel.app/api/ongoingworks/${projectId}/message`, {
         message,
         senderId: contractorData.id
       }, {

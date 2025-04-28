@@ -203,7 +203,7 @@ const MyOrders = () => {
         } : {};
         
         // Make API call
-        const response = await axios.get(`http://localhost:5000/api/orders`, {
+        const response = await axios.get(`https://build-mart-backend.vercel.app/api/orders`, {
           ...config,
           params: { userId: userId }
         });
@@ -309,7 +309,7 @@ const viewOrderDetails = async (order) => {
       headers: { Authorization: `Bearer ${token}` }
     } : {};
     
-    const response = await axios.get(`http://localhost:5000/api/orders/${order._id}`, config);
+    const response = await axios.get(`https://build-mart-backend.vercel.app/api/orders/${order._id}`, config);
     
     if (response.data.success) {
       const orderData = response.data.order;
@@ -317,7 +317,7 @@ const viewOrderDetails = async (order) => {
       // If shipping information is available, include it
       let shippingData = {};
       try {
-        const shippingResponse = await axios.get(`http://localhost:5000/api/shipments/order/${order._id}`, config);
+        const shippingResponse = await axios.get(`https://build-mart-backend.vercel.app/api/shipments/order/${order._id}`, config);
         if (shippingResponse.data && shippingResponse.data.shipment) {
           shippingData = {
             shippingProgress: shippingResponse.data.shipment.progress || 0,

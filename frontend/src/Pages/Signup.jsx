@@ -192,7 +192,7 @@ const SignUp = () => {
 
     try {
       // Make the POST request to the backend
-      const response = await axios.post('http://localhost:5000/auth/signup', formData, {
+      const response = await axios.post('https://build-mart-backend.vercel.app/auth/signup', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 

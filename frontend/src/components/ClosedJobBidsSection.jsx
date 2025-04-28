@@ -35,7 +35,7 @@ const ClosedJobBidsSection = ({ bids, jobId }) => {
           if (bid.contractorId) {
             try {
               const contractorResponse = await axios.get(
-                `http://localhost:5000/api/contractors/user/${bid.contractorId}`,
+                `https://build-mart-backend.vercel.app/api/contractors/user/${bid.contractorId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
               

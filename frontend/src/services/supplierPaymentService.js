@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/supplier-payments';
+const API_URL = 'https://build-mart-backend.vercel.app/api/supplier-payments';
 
 export const supplierPaymentService = {
   createPayment: async (paymentData) => {

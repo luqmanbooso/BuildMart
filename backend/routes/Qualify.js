@@ -19,7 +19,7 @@ router.get('/user/:userId', async (req, res) => {
       if (qualObj.documentImage && !qualObj.documentImage.startsWith('data:')) {
         // Convert to full URL if it's a local path
         if (!qualObj.documentImage.startsWith('http')) {
-          qualObj.documentImage = `http://localhost:5000${qualObj.documentImage}`;
+          qualObj.documentImage = `https://build-mart-backend.vercel.app/${qualObj.documentImage}`;
         }
       }
       
@@ -48,7 +48,7 @@ router.get('/:id', async (req, res) => {
     // Convert relative file path to full URL if needed
     if (qualObj.documentImage && !qualObj.documentImage.startsWith('data:')) {
       if (!qualObj.documentImage.startsWith('http')) {
-        qualObj.documentImage = `http://localhost:5000${qualObj.documentImage}`;
+        qualObj.documentImage = `https://build-mart-backend.vercel.app/${qualObj.documentImage}`;
       }
     }
     
@@ -210,7 +210,7 @@ router.put('/:id', qualificationUpload.single('documentImage'), async (req, res)
     const responseObj = updatedQualification.toObject();
     if (responseObj.documentImage && !responseObj.documentImage.startsWith('data:')) {
       if (!responseObj.documentImage.startsWith('http')) {
-        responseObj.documentImage = `http://localhost:5000${responseObj.documentImage}`;
+        responseObj.documentImage = `https://build-mart-backend.vercel.app/${responseObj.documentImage}`;
       }
     }
     

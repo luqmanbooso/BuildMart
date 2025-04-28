@@ -67,7 +67,7 @@ const AgreementForm = () => {
         
         console.log("Fetching job details for:", { jobId, bidId });
         
-        const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`);
+        const jobResponse = await axios.get(`https://build-mart-backend.vercel.app/api/jobs/${jobId}`);
         setJobDetails(jobResponse.data);
         console.log("Job details:", jobResponse.data);
         
@@ -80,7 +80,7 @@ const AgreementForm = () => {
             const token = localStorage.getItem('token') || sessionStorage.getItem('token');
             
             const clientResponse = await axios.get(
-              `http://localhost:5000/auth/user/${jobUserId}`, 
+              `https://build-mart-backend.vercel.app/auth/user/${jobUserId}`, 
               { headers: { Authorization: `Bearer ${token}` }}
             );
             
@@ -118,7 +118,7 @@ const AgreementForm = () => {
           });
         }
         
-              const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
+              const bidsResponse = await axios.get(`https://build-mart-backend.vercel.app/bids/project/${jobId}`);
         const matchingBid = bidsResponse.data.find(bid => bid._id === bidId);
         
         if (!matchingBid) {
@@ -163,7 +163,7 @@ try {
   // Get client data
   try {
     const clientResponse = await axios.get(
-      `http://localhost:5000/auth/user/${userId}`, 
+      `https://build-mart-backend.vercel.app/auth/user/${userId}`, 
       { headers: { Authorization: `Bearer ${token}` }}
     );
     
@@ -201,7 +201,7 @@ try {
 }
         
         if (contractor) {
-          const contractorResponse = await axios.get(`http://localhost:5000/auth/user/${contractor}`);
+          const contractorResponse = await axios.get(`https://build-mart-backend.vercel.app/auth/user/${contractor}`);
           setContractorDetails(contractorResponse.data.user || contractorResponse.data);
           console.log("Contractor details:", contractorResponse.data);
         } else {
@@ -275,7 +275,7 @@ try {
       const pricePerMilestone = milestoneCount > 0 ? totalBidPrice / milestoneCount : 0;
 
       try {
-        const bidUpdateUrl = `http://localhost:5000/bids/${bidId}/status`;
+        const bidUpdateUrl = `https://build-mart-backend.vercel.app/bids/${bidId}/status`;
         
         const bidUpdateResponse = await axios.put(bidUpdateUrl, {
           status: 'accepted'
@@ -320,7 +320,7 @@ try {
         
         // alert(`Submitting ongoing work data: ${JSON.stringify(ongoingWorkData)}`);
         
-        const ongoingWorkUrl = 'http://localhost:5000/api/ongoingworks';
+        const ongoingWorkUrl = 'https://build-mart-backend.vercel.app/api/ongoingworks';
         // alert(`Using ongoing work URL: ${ongoingWorkUrl}`);
         
         // Log the exact data being sent
@@ -356,7 +356,7 @@ try {
         
         // NEW CODE: Update job status to close the auction
         try {
-          const jobUpdateUrl = `http://localhost:5000/api/jobs/${jobId}/auction-status`;
+          const jobUpdateUrl = `https://build-mart-backend.vercel.app/api/jobs/${jobId}/auction-status`;
           await axios.put(jobUpdateUrl, {
             status: 'Closed'
           }, config);

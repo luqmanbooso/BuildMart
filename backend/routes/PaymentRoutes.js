@@ -310,7 +310,7 @@ router.post('/milestone-payment', async (req, res) => {
 });
 
 // Test your backend connectivity
-fetch('http://localhost:5000/api/payments/process-payment', {
+fetch('https://build-mart-backend.vercel.app/api/payments/process-payment', {
   method: 'HEAD'
 })
 .catch(err => console.error('Server connection error:', err));

@@ -219,7 +219,7 @@ const AddJobForm = ({ onClose, onJobAdded }) => {
         biddingEndTime: newJob.biddingEndTime,
         milestones: newJob.milestones
       };
-      const response = await axios.post('http://localhost:5000/api/jobs', jobData, {
+      const response = await axios.post('https://build-mart-backend.vercel.app/api/jobs', jobData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`

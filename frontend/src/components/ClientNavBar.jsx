@@ -16,7 +16,7 @@ function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
   const imgSrc = profilePicPath
     ? profilePicPath.startsWith('http') 
       ? profilePicPath 
-      : `http://localhost:5000${profilePicPath}`
+      : `https://build-mart-backend.vercel.app/${profilePicPath}`
     : '/default-profile.png'; // Fallback image
 
   // Size map with expanded options

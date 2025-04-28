@@ -14,7 +14,7 @@ const ContractorDetailsModal = ({ contractor, onClose }) => {
   const profilePic = contractor.userId?.profilePic 
     ? contractor.userId.profilePic.startsWith('http') 
       ? contractor.userId.profilePic 
-      : `http://localhost:5000${contractor.userId.profilePic}`
+      : `https://build-mart-backend.vercel.app/${contractor.userId.profilePic}`
     : null;
 
   // Get actual rating values
@@ -312,7 +312,7 @@ const ContractorCard = ({ contractor }) => {
   const profilePic = contractor.userId?.profilePic 
     ? contractor.userId.profilePic.startsWith('http') 
       ? contractor.userId.profilePic 
-      : `http://localhost:5000${contractor.userId.profilePic}`
+      : `https://build-mart-backend.vercel.app/${contractor.userId.profilePic}`
     : null;
 
   // Get actual rating values
@@ -587,7 +587,7 @@ const ContractorsPage = () => {
     const fetchContractors = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('http://localhost:5000/api/contractors');
+        const response = await axios.get('https://build-mart-backend.vercel.app/api/contractors');
         setContractors(response.data);
         setFilteredContractors(response.data);
         calculateStats(response.data);

@@ -50,11 +50,11 @@ const InitialPayment = () => {
         setAgreementFeePaid(feePaid);
         
         // Fetch job details
-        const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`);
+        const jobResponse = await axios.get(`https://build-mart-backend.vercel.app/api/jobs/${jobId}`);
         setJobDetails(jobResponse.data);
         
         // Fetch all bids for this job and find the matching one
-        const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
+        const bidsResponse = await axios.get(`https://build-mart-backend.vercel.app/bids/project/${jobId}`);
         const matchingBid = bidsResponse.data.find(bid => bid._id === bidId);
         
         if (!matchingBid) {
@@ -71,7 +71,7 @@ const InitialPayment = () => {
         
         // Also fetch contractor details if we have a contractor ID
         if (matchingBid.contractorId) {
-          const contractorResponse = await axios.get(`http://localhost:5000/auth/user/${matchingBid.contractorId}`);
+          const contractorResponse = await axios.get(`https://build-mart-backend.vercel.app/auth/user/${matchingBid.contractorId}`);
           setContractorDetails(contractorResponse.data.user || contractorResponse.data);
         }
 
@@ -152,7 +152,7 @@ const InitialPayment = () => {
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       // In a real app, you would make an API call to process the payment
-      // const response = await axios.post('http://localhost:5000/api/payments', {
+      // const response = await axios.post('https://build-mart-backend.vercel.app/api/payments', {
       //   jobId,
       //   bidId,
       //   amount: calculateInitialPayment(),

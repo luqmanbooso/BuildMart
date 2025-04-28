@@ -69,7 +69,7 @@ const ProjectDetails = () => {
         const contractorId = userInfo?.userId;
         
         // Fetch job data
-        const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
+        const jobResponse = await axios.get(`https://build-mart-backend.vercel.app/api/jobs/${jobId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -236,7 +236,7 @@ const ProjectDetails = () => {
   // Updated fetchBids function to also check for contractor's existing bid
   const fetchBids = async (jobId, contractorId = null) => {
     try {
-      const response = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
+      const response = await axios.get(`https://build-mart-backend.vercel.app/bids/project/${jobId}`);
       
       // Format the bids data for display
       const formattedBids = response.data.map(bid => ({
@@ -322,7 +322,7 @@ const refreshJobDetails = async () => {
     const contractorId = userInfo?.userId;
     
     // Fetch fresh job data
-    const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
+    const jobResponse = await axios.get(`https://build-mart-backend.vercel.app/api/jobs/${jobId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

@@ -15,7 +15,7 @@ function ProfileImage({ profilePicPath, className = "", size = "medium" }) {
   const imgSrc = profilePicPath
     ? profilePicPath.startsWith('http') 
       ? profilePicPath 
-      : `http://localhost:5000${profilePicPath}`
+      : `https://build-mart-backend.vercel.app/${profilePicPath}`
     : '/default-profile.png'; 
 
   const sizeMap = {
@@ -155,7 +155,7 @@ const ContractorProfile = () => {
     
     try {
       console.log("Fetching completed projects count from API...");
-       const response = await axios.get(`http://localhost:5000/api/ongoingworks/completed-count/${userId}`);
+       const response = await axios.get(`https://build-mart-backend.vercel.app/api/ongoingworks/completed-count/${userId}`);
       
       const { systemCount, manualCount, totalCount } = response.data;
       
@@ -240,7 +240,7 @@ const ContractorProfile = () => {
 
     setIsLoading(true);
     try {
-      const response = await axios.get(`http://localhost:5000/auth/user/${userId}`);
+      const response = await axios.get(`https://build-mart-backend.vercel.app/auth/user/${userId}`);
       console.log('User data response:', response.data);
       
       const userData = response.data.user; 
@@ -272,7 +272,7 @@ const ContractorProfile = () => {
     if (!userId) return;
     
     try {
-      const response = await axios.get(`http://localhost:5000/api/contractors/user/${userId}`);
+      const response = await axios.get(`https://build-mart-backend.vercel.app/api/contractors/user/${userId}`);
       setContractorInfo(response.data);
       
       // Update personal info with contractor data
@@ -292,7 +292,7 @@ const ContractorProfile = () => {
     if (!userId) return;
     
     try {
-      const response = await axios.get(`http://localhost:5000/auth/user/${userId}`);
+      const response = await axios.get(`https://build-mart-backend.vercel.app/auth/user/${userId}`);
       
       if (response.data && response.data.user && response.data.user.profilePic) {
         console.log('Profile picture fetched:', response.data.user.profilePic);
@@ -336,7 +336,7 @@ const ContractorProfile = () => {
     }
     
     try {
-      await axios.delete(`http://localhost:5000/auth/users/${userId}`, {
+      await axios.delete(`https://build-mart-backend.vercel.app/auth/users/${userId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -366,7 +366,7 @@ const ContractorProfile = () => {
       const userId = getUserId();
       
       // Fetch payments for this contractor
-      const response = await axios.get(`http://localhost:5000/api/payments`, {
+      const response = await axios.get(`https://build-mart-backend.vercel.app/api/payments`, {
         headers: { 'Authorization': `Bearer ${token}` },
         params: { userId: userId } 
       });

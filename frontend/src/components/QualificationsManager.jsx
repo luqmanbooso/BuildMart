@@ -52,7 +52,7 @@ const QualificationsManager = ({ userId }) => {
   const ensureFullImagePath = (imagePath) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    return `http://localhost:5000${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+    return `https://build-mart-backend.vercel.app/${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
   const fetchQualifications = async () => {
@@ -62,7 +62,7 @@ const QualificationsManager = ({ userId }) => {
     setError('');
 
     try {
-      const response = await axios.get(`http://localhost:5000/qualify/user/${userId}`);
+      const response = await axios.get(`https://build-mart-backend.vercel.app/qualify/user/${userId}`);
       
       const processedQualifications = response.data.map(qual => {
         if (qual.documentImage) {
@@ -327,7 +327,7 @@ const QualificationsManager = ({ userId }) => {
         formData.append('documentImage', newQualification.documentFile);
       }
       
-      const response = await axios.post('http://localhost:5000/qualify/', formData, {
+      const response = await axios.post('https://build-mart-backend.vercel.app/qualify/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -416,7 +416,7 @@ const QualificationsManager = ({ userId }) => {
       }
       
       const response = await axios.put(
-        `http://localhost:5000/qualify/${editingQualification._id}`,
+        `https://build-mart-backend.vercel.app/qualify/${editingQualification._id}`,
         formData,
         {
           headers: {
@@ -466,7 +466,7 @@ const QualificationsManager = ({ userId }) => {
     setError('');
     
     try {
-      await axios.delete(`http://localhost:5000/qualify/${id}`);
+      await axios.delete(`https://build-mart-backend.vercel.app/qualify/${id}`);
       
       setQualifications(qualifications.filter(q => q._id !== id));
       toast.success('Qualification deleted successfully!');

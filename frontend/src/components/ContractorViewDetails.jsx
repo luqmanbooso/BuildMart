@@ -19,7 +19,7 @@ const ContractorViewDetails = () => {
       try {
         setLoading(true);
         
-        const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${projectId}`);
+        const bidsResponse = await axios.get(`https://build-mart-backend.vercel.app/bids/project/${projectId}`);
         
         if (bidsResponse.data) {
           const matchingBid = bidsResponse.data.find(b => b._id === bidId);
@@ -29,7 +29,7 @@ const ContractorViewDetails = () => {
             setBid(matchingBid);
             
             try {
-              const userResponse = await axios.get(`http://localhost:5000/auth/user/${contractorId}`);
+              const userResponse = await axios.get(`https://build-mart-backend.vercel.app/auth/user/${contractorId}`);
               if (userResponse.data && userResponse.data.user) {
                 setContractorUser(userResponse.data.user);
               }
@@ -38,7 +38,7 @@ const ContractorViewDetails = () => {
             }
             
             try {
-              const qualificationsResponse = await axios.get(`http://localhost:5000/qualify/user/${contractorId}`);
+              const qualificationsResponse = await axios.get(`https://build-mart-backend.vercel.app/qualify/user/${contractorId}`);
               if (qualificationsResponse.data) {
                 setQualifications(qualificationsResponse.data);
                 console.log("Fetched qualifications:", qualificationsResponse.data);
@@ -50,14 +50,14 @@ const ContractorViewDetails = () => {
             try {
               setReviewsLoading(true);
               try {
-                const reviewsResponse = await axios.get(`http://localhost:5000/api/reviews/contractor/${contractorId}`);
+                const reviewsResponse = await axios.get(`https://build-mart-backend.vercel.app/api/reviews/contractor/${contractorId}`);
                 if (reviewsResponse.data) {
                   setReviews(reviewsResponse.data);
                   console.log("Fetched reviews:", reviewsResponse.data);
                 }
               } catch (firstAttemptError) {
                 console.log('First attempt failed, trying alternate path:', firstAttemptError);
-                const reviewsResponse = await axios.get(`http://localhost:5000/reviews/contractor/${contractorId}`);
+                const reviewsResponse = await axios.get(`https://build-mart-backend.vercel.app/reviews/contractor/${contractorId}`);
                 if (reviewsResponse.data) {
                   setReviews(reviewsResponse.data);
                   console.log("Fetched reviews (alternate path):", reviewsResponse.data);

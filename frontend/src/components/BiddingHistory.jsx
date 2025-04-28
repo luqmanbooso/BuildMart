@@ -89,7 +89,7 @@ const BiddingHistoryPage = () => {
       
       setLoading(true);
       try {
-        const response = await axios.get(`http://localhost:5000/bids/contractor/${contractorData.id}`);
+        const response = await axios.get(`https://build-mart-backend.vercel.app/bids/contractor/${contractorData.id}`);
         
         if (response.data) {
           // Process initial bid data
@@ -111,7 +111,7 @@ const BiddingHistoryPage = () => {
           const projectDetailsPromises = bidsWithoutProjectNames.map(async (bid) => {
             if (!bid.projectName) {
               try {
-                const projectResponse = await axios.get(`http://localhost:5000/api/jobs/${bid.projectId}`);
+                const projectResponse = await axios.get(`https://build-mart-backend.vercel.app/api/jobs/${bid.projectId}`);
                 if (projectResponse.data) {
                   bid.projectName = projectResponse.data.title;
                 }

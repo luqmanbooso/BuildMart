@@ -317,12 +317,12 @@ const AcceptedAgreementView = () => {
       const fetchData = async () => {
         try {
           // Fetch project/job details first
-          const projectResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`);
+          const projectResponse = await axios.get(`https://build-mart-backend.vercel.app/api/jobs/${jobId}`);
           setProjectData(projectResponse.data.job);
           
           // Fetch the ongoing work to get the timeline value
           // This is where we'll get the correct timeline
-          const ongoingWorkResponse = await axios.get(`http://localhost:5000/api/ongoingworks/job/${jobId}`);
+          const ongoingWorkResponse = await axios.get(`https://build-mart-backend.vercel.app/api/ongoingworks/job/${jobId}`);
           
           // Log what we got for debugging
           console.log("Fetched ongoing work data:", ongoingWorkResponse.data);
@@ -340,7 +340,7 @@ const AcceptedAgreementView = () => {
           
           // Fetch bid details if you have bid ID
           if (bidId) {
-            const bidResponse = await axios.get(`http://localhost:5000/bids/${bidId}`);
+            const bidResponse = await axios.get(`https://build-mart-backend.vercel.app/bids/${bidId}`);
             setBidData({
               ...bidResponse.data,
               timeline: timelineValue // Use the fetched timeline value
@@ -349,7 +349,7 @@ const AcceptedAgreementView = () => {
           
           // Fetch client details if you have client ID
           if (projectResponse.data?.job?.clientId) {
-            const clientResponse = await axios.get(`http://localhost:5000/api/clients/${projectResponse.data.job.clientId}`);
+            const clientResponse = await axios.get(`https://build-mart-backend.vercel.app/api/clients/${projectResponse.data.job.clientId}`);
             setClientData(clientResponse.data);
           }
         } catch (error) {

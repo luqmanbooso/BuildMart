@@ -50,7 +50,7 @@ const ActiveJob = () => {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
         // Fetch job details based on jobId
-        const jobResponse = await axios.get(`http://localhost:5000/api/jobs/${jobId}`, {
+        const jobResponse = await axios.get(`https://build-mart-backend.vercel.app/api/jobs/${jobId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -90,7 +90,7 @@ const ActiveJob = () => {
         }
         
         // Continue with the existing code to fetch bids
-        const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
+        const bidsResponse = await axios.get(`https://build-mart-backend.vercel.app/bids/project/${jobId}`);
         
         console.log(bidsResponse.data);
   
@@ -154,7 +154,7 @@ const ActiveJob = () => {
           localStorage.setItem('userId', userId);
           
           // Fetch contractor profile using the token
-          const contractorResponse = await axios.get(`http://localhost:5000/api/contractors/profile`, {
+          const contractorResponse = await axios.get(`https://build-mart-backend.vercel.app/api/contractors/profile`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -185,7 +185,7 @@ const ActiveJob = () => {
           
           // Fallback to try direct API request with the token
           try {
-            const userResponse = await axios.get(`http://localhost:5000/api/users/profile`, {
+            const userResponse = await axios.get(`https://build-mart-backend.vercel.app/api/users/profile`, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }
@@ -251,7 +251,7 @@ const ActiveJob = () => {
       
       // Use the PUT endpoint
       const response = await axios.put(
-        `http://localhost:5000/api/jobs/${jobId}`,
+        `https://build-mart-backend.vercel.app/api/jobs/${jobId}`,
         jobData,
         {
           headers: {
@@ -303,7 +303,7 @@ const handleStartAuction = async () => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     
     const response = await axios.put(
-      `http://localhost:5000/api/jobs/${jobId}/auction-status`,
+      `https://build-mart-backend.vercel.app/api/jobs/${jobId}/auction-status`,
       { status: 'Active' },
       {
         headers: {
@@ -350,7 +350,7 @@ const handleStopAuction = async () => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     
     const response = await axios.put(
-      `http://localhost:5000/api/jobs/${jobId}/auction-status`,
+      `https://build-mart-backend.vercel.app/api/jobs/${jobId}/auction-status`,
       { status: 'Closed' },
       {
         headers: {
@@ -399,7 +399,7 @@ useEffect(() => {
       // If current time is past the end time, update status to Closed
       if (now > endTime) {
         // Update status in backend
-        axios.put(`http://localhost:5000/api/jobs/${job._id}/auction-status`, {
+        axios.put(`https://build-mart-backend.vercel.app/api/jobs/${job._id}/auction-status`, {
           status: 'Closed'
         })
         .then(() => {
@@ -437,7 +437,7 @@ useEffect(() => {
       setError(null);
   
       // Call the backend API to update the bid status
-      const response = await axios.put(`http://localhost:5000/bids/${bidId}/status`, {
+      const response = await axios.put(`https://build-mart-backend.vercel.app/bids/${bidId}/status`, {
         status: 'accepted'
       });
   
@@ -475,7 +475,7 @@ const handleDeleteJob = async () => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     
     const response = await axios.delete(
-      `http://localhost:5000/api/jobs/${jobId}`,
+      `https://build-mart-backend.vercel.app/api/jobs/${jobId}`,
       {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -583,7 +583,7 @@ const handleRestartAuction = async () => {
     
     // Use the dedicated restart endpoint instead of the auction-status endpoint
     const response = await axios.put(
-      `http://localhost:5000/api/jobs/${jobId}/restart`,
+      `https://build-mart-backend.vercel.app/api/jobs/${jobId}/restart`,
       {}, // Default to 7 days auction duration
       {
         headers: {
@@ -1195,7 +1195,7 @@ const handleRestartAuction = async () => {
       // Function to refresh bids from the server
       const fetchBids = async () => {
         try {
-          const bidsResponse = await axios.get(`http://localhost:5000/bids/project/${jobId}`);
+          const bidsResponse = await axios.get(`https://build-mart-backend.vercel.app/bids/project/${jobId}`);
           
           const formattedBids = bidsResponse.data.map(bid => ({
             ...bid,
