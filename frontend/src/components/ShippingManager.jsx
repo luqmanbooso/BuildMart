@@ -389,10 +389,10 @@ const validateLocation = (location, fieldName) => {
     return `${fieldName} must not exceed 100 characters`;
   }
   
-  // Check for invalid characters
-  const validLocationPattern = /^[a-zA-Z0-9\s,.\-]+$/;
-  if (!validLocationPattern.test(location)) {
-    return `${fieldName} cannot contain special characters except commas, periods, and hyphens`;
+  // Check if first character is a letter or number
+  const firstCharPattern = /^[a-zA-Z0-9]/;
+  if (!firstCharPattern.test(location)) {
+    return `${fieldName}'s first character must be a letter or number`;
   }
   
   return '';
@@ -1478,7 +1478,15 @@ const handleDelete = async (id) => {
                               {getStatusBadge(shipment.status)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                              {shipment.completedAt ? new Date(shipment.completedAt).toLocaleDateString() : '-'}
+                              {shipment.completedAt ? 
+                                new Date(shipment.completedAt).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) 
+                                : '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
@@ -1544,8 +1552,13 @@ const handleDelete = async (id) => {
                                         <div className="ml-2">
                                           <p className="text-xs text-gray-500">CREATED</p>
                                           <p className="text-sm font-medium text-gray-700">
-                                            {new Date(shipment.createdAt).toLocaleDateString()} 
-                                            {new Date(shipment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            {new Date(shipment.createdAt).toLocaleString('en-US', {
+                                              year: 'numeric',
+                                              month: 'short',
+                                              day: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit'
+                                            })}
                                           </p>
                                         </div>
                                       </div>
@@ -1558,8 +1571,13 @@ const handleDelete = async (id) => {
                                           <div className="ml-2">
                                             <p className="text-xs text-gray-500">COMPLETED</p>
                                             <p className="text-sm font-medium text-gray-700">
-                                              {new Date(shipment.completedAt).toLocaleDateString()}
-                                              {new Date(shipment.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                              {new Date(shipment.completedAt).toLocaleString('en-US', {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                              })}
                                             </p>
                                           </div>
                                         </div>
@@ -1655,8 +1673,21 @@ const handleDelete = async (id) => {
                               {getStatusBadge(shipment.status)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                              {shipment.completedAt ? new Date(shipment.completedAt).toLocaleDateString() : 
-                              new Date(shipment.updatedAt).toLocaleDateString()}
+                              {shipment.completedAt ? 
+                                new Date(shipment.completedAt).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : 
+                                new Date(shipment.updatedAt).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <div className="flex justify-end space-x-2">
@@ -1734,7 +1765,13 @@ const handleDelete = async (id) => {
                                         <div className="ml-2">
                                           <p className="text-xs text-gray-500">CREATED</p>
                                           <p className="text-sm font-medium text-gray-700">
-                                            {new Date(shipment.createdAt).toLocaleDateString()}
+                                            {new Date(shipment.createdAt).toLocaleString('en-US', {
+                                              year: 'numeric',
+                                              month: 'short',
+                                              day: 'numeric',
+                                              hour: '2-digit',
+                                              minute: '2-digit'
+                                            })}
                                           </p>
                                         </div>
                                       </div>
@@ -1749,7 +1786,13 @@ const handleDelete = async (id) => {
                                               {shipment.status === 'Failed' ? 'FAILED ON' : 'RETURNED ON'}
                                             </p>
                                             <p className="text-sm font-medium text-gray-700">
-                                              {new Date(shipment.completedAt).toLocaleDateString()}
+                                              {new Date(shipment.completedAt).toLocaleString('en-US', {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                              })}
                                             </p>
                                           </div>
                                         </div>
