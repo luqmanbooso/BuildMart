@@ -178,7 +178,19 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
       try {
         // Try to get data from the backend
         const response = await axios.get('http://localhost:5000/api/shipping/completed');
-        setCompletedShipments(response.data);
+        
+        // Ensure all completed shipments have a completedAt field for frontend use
+        const processedShipments = response.data.map(shipment => {
+          if (shipment.actualDeliveryDate && !shipment.completedAt) {
+            return {
+              ...shipment,
+              completedAt: shipment.actualDeliveryDate
+            };
+          }
+          return shipment;
+        });
+        
+        setCompletedShipments(processedShipments);
       } catch (error) {
         console.log("Server endpoint for completed shipments not available, using client-side filtering");
         
@@ -187,9 +199,18 @@ const safeUpdateOrderStatus = async (orderId, shippingStatus) => {
         
         if (allShipmentsResponse.data) {
           // Filter shipments with status Delivered only
-          const completed = allShipmentsResponse.data.filter(
-            shipment => shipment.status === 'Delivered'
-          );
+          const completed = allShipmentsResponse.data
+            .filter(shipment => shipment.status === 'Delivered')
+            .map(shipment => {
+              // Add completedAt if not present but actualDeliveryDate is
+              if (shipment.actualDeliveryDate && !shipment.completedAt) {
+                return {
+                  ...shipment,
+                  completedAt: shipment.actualDeliveryDate
+                };
+              }
+              return shipment;
+            });
           
           setCompletedShipments(completed);
           console.log(`Found ${completed.length} completed shipments via client-side filtering`);
@@ -745,8 +766,10 @@ const handleSubmit = async (e) => {
         progress: newProgress
       };
       
+      // Add completedAt field for local state tracking
+      const now = new Date().toISOString();
       if (newStatus === 'Delivered' || newStatus === 'Failed' || newStatus === 'Returned') {
-        updateData.completedAt = new Date().toISOString();
+        updateData.completedAt = now;
       }
       
       // Update on the server first
@@ -774,7 +797,9 @@ const handleSubmit = async (e) => {
           setCompletedShipments(prev => [
             {
               ...updatedShipment,
-              completedAt: updateData.completedAt
+              completedAt: updateData.completedAt,
+              // In case actualDeliveryDate isn't set in the response
+              actualDeliveryDate: updatedShipment.actualDeliveryDate || now
             },
             ...prev
           ]);
@@ -1136,7 +1161,9 @@ const handleDelete = async (id) => {
           <>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-800">
-                {statusFilter === 'all' ? 'Active Shipments' : `${statusFilter} Shipments`}
+                {statusFilter === 'all' 
+                  ? 'Active Shipments' 
+                  : `${statusFilter === 'Loading' ? 'Processing' : statusFilter} Shipments`}
               </h3>
             </div>
             
@@ -1147,13 +1174,13 @@ const handleDelete = async (id) => {
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-1">
                   {statusFilter !== 'all' 
-                    ? `No ${statusFilter} shipments found` 
+                    ? `No ${statusFilter === 'Loading' ? 'Processing' : statusFilter} shipments found` 
                     : "No active shipments"
                   }
                 </h3>
                 <p className="text-gray-500 mb-4">
                   {statusFilter !== 'all' 
-                    ? `There are no shipments with status "${statusFilter}".` 
+                    ? `There are no shipments with status "${statusFilter === 'Loading' ? 'Processing' : statusFilter}".` 
                     : "There are no active shipments at the moment."
                   }
                   {statusFilter !== 'all' && (
@@ -1232,7 +1259,7 @@ const handleDelete = async (id) => {
                               ${styles.pending ? 'bg-gray-600' : ''}
                               ${styles.outForDelivery ? 'bg-purple-600' : ''}
                             `}></span>
-                            {shipment.status}
+                            {shipment.status === 'Loading' ? 'Processing' : shipment.status}
                           </div>
                       </div>
                       
@@ -1478,8 +1505,8 @@ const handleDelete = async (id) => {
                               {getStatusBadge(shipment.status)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                              {shipment.completedAt ? 
-                                new Date(shipment.completedAt).toLocaleString('en-US', {
+                              {shipment.actualDeliveryDate || shipment.completedAt ? 
+                                new Date(shipment.actualDeliveryDate || shipment.completedAt).toLocaleString('en-US', {
                                   year: 'numeric',
                                   month: 'short',
                                   day: 'numeric',
@@ -1563,7 +1590,7 @@ const handleDelete = async (id) => {
                                         </div>
                                       </div>
                                       
-                                      {shipment.completedAt && (
+                                      {(shipment.actualDeliveryDate || shipment.completedAt) && (
                                         <div className="flex items-center">
                                           <div className="flex-shrink-0 h-4 w-4 rounded-full bg-green-200 flex items-center justify-center">
                                             <CheckCircle size={10} className="text-green-600" />
@@ -1571,7 +1598,7 @@ const handleDelete = async (id) => {
                                           <div className="ml-2">
                                             <p className="text-xs text-gray-500">COMPLETED</p>
                                             <p className="text-sm font-medium text-gray-700">
-                                              {new Date(shipment.completedAt).toLocaleString('en-US', {
+                                              {new Date(shipment.actualDeliveryDate || shipment.completedAt).toLocaleString('en-US', {
                                                 year: 'numeric',
                                                 month: 'short',
                                                 day: 'numeric',
