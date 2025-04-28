@@ -21,6 +21,11 @@ dotenv.config();
 app.use(cors());
 app.use(express.json());
 
+// Basic route for testing
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Backend is running' });
+});
+
 // Debug middleware to log all requests
 app.use((req, res, next) => {
   console.log('--------------------');
@@ -75,17 +80,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log('Available routes:');
-  app._router.stack.forEach(middleware => {
-    if (middleware.route) {
-      console.log(`${Object.keys(middleware.route.methods)} ${middleware.route.path}`);
-    } else if (middleware.name === 'router') {
-      console.log(`Router: ${middleware.regexp}`);
-    }
-  });
-});
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
 
-module.exports = app; 
+// Export for Vercel
+module.exports = app;
