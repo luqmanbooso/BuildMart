@@ -308,26 +308,21 @@ const MyEarningsPage = () => {
     setIsReportGenerated(true);
   };
 
-  // Function to export as CSV
   const exportAsCSV = () => {
     if (!reportData.length) return;
     
-    // Get headers from first object
     const headers = Object.keys(reportData[0]);
     
-    // Convert data to CSV format
     let csvContent = headers.join(',') + '\n';
     
     reportData.forEach(item => {
       const row = headers.map(header => {
-        // Handle commas and quotes in the data
         const cell = String(item[header]).replace(/"/g, '""');
         return `"${cell}"`;
       }).join(',');
       csvContent += row + '\n';
     });
     
-    // Create a blob and download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
