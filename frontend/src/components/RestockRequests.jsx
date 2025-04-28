@@ -17,6 +17,9 @@ const RestockRequests = ({ inventory, setInventory, searchTerm, setSearchTerm })
   const [localSearchTerm, setLocalSearchTerm] = useState('');
   const { addSupplierPayment } = useSupplierPayments();
   
+  // Add state for status filter
+  const [statusFilter, setStatusFilter] = useState('all');
+  
   // Add state for status types
   const [statusTypes, setStatusTypes] = useState([]);
   const [statusTransitions, setStatusTransitions] = useState({});
@@ -79,6 +82,11 @@ const RestockRequests = ({ inventory, setInventory, searchTerm, setSearchTerm })
         setStatusTransitions(transitions);
       } catch (error) {
         console.error("Error fetching status types:", error);
+        // Fallback to hardcoded status types and transitions
+        const defaultStatusTypes = ['requested', 'approved', 'ordered', 'shipped', 'delivered', 'cancelled'];
+        setStatusTypes(defaultStatusTypes);
+        setPaymentStatusTypes(["pending", "paid", "rejected"]);
+        
         // Fallback to hardcoded transitions
         setStatusTransitions({
           requested: ['approved', 'cancelled'],
@@ -536,7 +544,7 @@ const RestockRequests = ({ inventory, setInventory, searchTerm, setSearchTerm })
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Pending Payment</p>
+              <p className="text-sm font-medium text-gray-500">Payment</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">
                 {restockRequests.filter(req => req.status === 'delivered' && req.paymentStatus === 'pending').length}
               </h3>
@@ -654,16 +662,25 @@ const RestockRequests = ({ inventory, setInventory, searchTerm, setSearchTerm })
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium text-gray-800">Restock Requests</h3>
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={() => setLocalSearchTerm('')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  localSearchTerm ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'text-gray-400 cursor-default'
-                }`}
-                disabled={!localSearchTerm}
-              >
-                Clear Filter
-              </button>
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="pl-3 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Statuses</option>
+                  {statusTypesLoading ? (
+                    <option disabled>Loading...</option>
+                  ) : (
+                    statusTypes.map(status => (
+                      <option key={status} value={status.toLowerCase()}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -713,11 +730,18 @@ const RestockRequests = ({ inventory, setInventory, searchTerm, setSearchTerm })
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {restockRequests
-                  .filter(req => 
-                    req.productName?.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
-                    req.supplierName?.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
-                    req.status?.toLowerCase().includes(localSearchTerm.toLowerCase())
-                  )
+                  .filter(req => {
+                    // Filter by search term
+                    const matchesSearch = 
+                      req.productName?.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
+                      req.supplierName?.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
+                      req.status?.toLowerCase().includes(localSearchTerm.toLowerCase());
+                    
+                    // Filter by status
+                    const matchesStatus = statusFilter === 'all' || req.status?.toLowerCase() === statusFilter;
+                    
+                    return matchesSearch && matchesStatus;
+                  })
                   .map(request => (
                     <tr key={request._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
