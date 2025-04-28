@@ -93,7 +93,7 @@ const MyEarningsPage = () => {
           }
         });
         
-        // Process the data
+        // Proces data
         processEarningsData(response.data);
       } catch (err) {
         console.error('Error fetching earnings data:', err);
