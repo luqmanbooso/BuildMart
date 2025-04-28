@@ -7,13 +7,16 @@ import {
   LayoutDashboard, ShoppingCart, Wallet, Sliders,
   ArrowDownRight, ArrowUpRight, Loader, RefreshCw, 
   FileText, Check, X, ChevronRight, BarChart2, Percent,
-  Clock // Add this import
+  Clock, ArrowUp, ArrowDown // Add these imports
 } from 'lucide-react';
 import { useSupplierPayments } from '../context/SupplierPaymentContext';
 import { supplierPaymentService } from '../services/supplierPaymentService'; // Add this import
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import { useNavigate } from 'react-router-dom';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import logo from '../assets/images/buildmart_logo1.png';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
@@ -1909,6 +1912,20 @@ function PaymentDashboard() {
                     </>
                   )}
                 </button>
+                <button
+                  onClick={() => generateFinancialStatementPDF('income', paymentStats)}
+                  className="inline-flex items-center px-4 py-2 bg-white border border-green-400 text-green-700 rounded-lg hover:bg-green-50"
+                >
+                  <FileText size={16} className="mr-2" />
+                  Income Statement (PDF)
+                </button>
+                <button
+                  onClick={() => generateFinancialStatementPDF('balance', paymentStats)}
+                  className="inline-flex items-center px-4 py-2 bg-white border border-blue-400 text-blue-700 rounded-lg hover:bg-blue-50"
+                >
+                  <FileText size={16} className="mr-2" />
+                  Balance Sheet (PDF)
+                </button>
               </div>
             </div>
             
@@ -3773,79 +3790,101 @@ function PaymentDashboard() {
         </main>
       </div>
 
-      {/* Salary Increment Modal */}
+      {/* Salary Update Modal */}
       {showSalaryModal && selectedAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-gray-800">
-                Salary {salaryChangeType === 'increment' ? 'Increment' : 'Decrement'} - {selectedAdmin.name}
-              </h3>
-              <button 
-                onClick={() => {
-                  setShowSalaryModal(false);
-                  setSelectedAdmin(null);
-                  setSalaryChangeAmount('');
-                  setSalaryChangeType('increment');
-                }}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="space-y-6">
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Current Salary</p>
-                <p className="text-xl font-bold text-gray-900">
-                  Rs. {(selectedAdmin.salary || 30000).toLocaleString()}
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Change Type
-                </label>
-                <div className="flex space-x-4">
-                  <label className="inline-flex items-center">
-                    <input 
-                      type="radio" 
-                      className="form-radio" 
-                      name="salaryChangeType" 
-                      value="increment" 
-                      checked={salaryChangeType === 'increment'}
-                      onChange={() => setSalaryChangeType('increment')}
-                    />
-                    <span className="ml-2">Increment</span>
-                  </label>
-                  <label className="inline-flex items-center">
-                    <input 
-                      type="radio" 
-                      className="form-radio" 
-                      name="salaryChangeType" 
-                      value="decrement" 
-                      checked={salaryChangeType === 'decrement'}
-                      onChange={() => setSalaryChangeType('decrement')}
-                    />
-                    <span className="ml-2">Decrement</span>
-                  </label>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    Update Salary
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {selectedAdmin.name}
+                  </p>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Amount
-                </label>
-                <input
-                  type="number"
-                  value={salaryChangeAmount}
-                  onChange={(e) => setSalaryChangeAmount(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter amount"
-                />
+                <button 
+                  onClick={() => {
+                    setShowSalaryModal(false);
+                    setSelectedAdmin(null);
+                    setSalaryChangeAmount('');
+                    setSalaryChangeType('increment');
+                  }}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors duration-200"
+                >
+                  <X size={20} />
+                </button>
               </div>
               
-              <div className="flex justify-end space-x-3 pt-4">
+              <div className="space-y-6">
+                <div className="bg-gray-50 p-4 rounded-xl">
+                  <p className="text-sm font-medium text-gray-500 mb-1">Current Salary</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    Rs. {(selectedAdmin.salary || 30000).toLocaleString()}
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setSalaryChangeType('increment')}
+                    className={`p-3 rounded-xl border-2 transition-all duration-200 ${
+                      salaryChangeType === 'increment'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 hover:border-green-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <ArrowUp size={20} className={salaryChangeType === 'increment' ? 'text-green-500' : 'text-gray-400'} />
+                      <span className="font-medium">Increase</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => setSalaryChangeType('decrement')}
+                    className={`p-3 rounded-xl border-2 transition-all duration-200 ${
+                      salaryChangeType === 'decrement'
+                        ? 'border-red-500 bg-red-50 text-red-700'
+                        : 'border-gray-200 hover:border-red-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <ArrowDown size={20} className={salaryChangeType === 'decrement' ? 'text-red-500' : 'text-gray-400'} />
+                      <span className="font-medium">Decrease</span>
+                    </div>
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Amount
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">Rs.</span>
+                    <input
+                      type="number"
+                      value={salaryChangeAmount}
+                      onChange={(e) => setSalaryChangeAmount(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="Enter amount"
+                    />
+                  </div>
+                </div>
+
+                {salaryChangeAmount && (
+                  <div className="bg-blue-50 p-4 rounded-xl">
+                    <p className="text-sm font-medium text-blue-800 mb-1">New Salary</p>
+                    <p className="text-xl font-bold text-blue-900">
+                      Rs. {(
+                        (selectedAdmin.salary || 30000) + 
+                        (salaryChangeType === 'increment' ? Number(salaryChangeAmount) : -Number(salaryChangeAmount))
+                      ).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-100">
                 <button
                   onClick={() => {
                     setShowSalaryModal(false);
@@ -3853,13 +3892,18 @@ function PaymentDashboard() {
                     setSalaryChangeAmount('');
                     setSalaryChangeType('increment');
                   }}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                  className="px-4 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors duration-200 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSalaryUpdate}
-                  className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  disabled={!salaryChangeAmount}
+                  className={`px-4 py-2.5 text-white rounded-xl transition-all duration-200 font-medium ${
+                    salaryChangeType === 'increment'
+                      ? 'bg-green-500 hover:bg-green-600'
+                      : 'bg-red-500 hover:bg-red-600'
+                  } ${!salaryChangeAmount ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {salaryChangeType === 'increment' ? 'Increase' : 'Decrease'} Salary
                 </button>
@@ -3979,6 +4023,101 @@ const exportAgreementFeeData = () => {
 const showNotificationMessage = (type, message) => {
   // Simple alert implementation (you could replace with toast notifications)
   alert(`${type.toUpperCase()}: ${message}`);
+};
+
+const generateFinancialStatementPDF = (type, paymentStats) => {
+  try {
+    const doc = new jsPDF();
+    const currentDate = new Date().toLocaleDateString();
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.text(`${type === 'income' ? 'Income Statement' : 'Balance Sheet'}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${currentDate}`, 14, 22);
+    
+    // Add company information
+    doc.setFontSize(12);
+    doc.text('BuildMart', 14, 30);
+    doc.setFontSize(10);
+    doc.text('Financial Report', 14, 37);
+    
+    // Add a line separator
+    doc.setDrawColor(0);
+    doc.line(14, 42, 196, 42);
+    
+    // Add table data
+    const tableData = [];
+    const headers = [];
+    
+    if (type === 'income') {
+      headers.push(['Category', 'Amount (Rs.)']);
+      
+      // Add actual income data from paymentStats
+      const inventorySales = paymentStats?.inventorySalesTotal || 0;
+      const commissionIncome = paymentStats?.commissionIncome || 0;
+      const agreementFeeIncome = paymentStats?.agreementFeeIncome || 0;
+      const totalIncome = inventorySales + commissionIncome + agreementFeeIncome;
+      
+      tableData.push(['Inventory Sales', inventorySales.toLocaleString()]);
+      tableData.push(['Commission Income', commissionIncome.toLocaleString()]);
+      tableData.push(['Agreement Fee Income', agreementFeeIncome.toLocaleString()]);
+      tableData.push(['Total Income', totalIncome.toLocaleString()]);
+      
+      // Add expenses if available
+      if (paymentStats?.expenses) {
+        tableData.push(['', '']); // Empty row for separation
+        tableData.push(['Expenses', '']);
+        Object.entries(paymentStats.expenses).forEach(([category, amount]) => {
+          tableData.push([category, amount.toLocaleString()]);
+        });
+      }
+      
+      // Add net income
+      const totalExpenses = paymentStats?.expenses ? 
+        Object.values(paymentStats.expenses).reduce((sum, amount) => sum + amount, 0) : 0;
+      const netIncome = totalIncome - totalExpenses;
+      tableData.push(['', '']); // Empty row for separation
+      tableData.push(['Net Income', netIncome.toLocaleString()]);
+    } else {
+      headers.push(['Account', 'Amount (Rs.)']);
+      
+      // Add actual balance sheet data
+      const totalAssets = paymentStats?.inventorySalesTotal || 0;
+      const totalLiabilities = paymentStats?.expenses ? 
+        Object.values(paymentStats.expenses).reduce((sum, amount) => sum + amount, 0) : 0;
+      const equity = totalAssets - totalLiabilities;
+      
+      tableData.push(['Assets', '']);
+      tableData.push(['  Total Assets', totalAssets.toLocaleString()]);
+      tableData.push(['', '']);
+      tableData.push(['Liabilities', '']);
+      tableData.push(['  Total Liabilities', totalLiabilities.toLocaleString()]);
+      tableData.push(['', '']);
+      tableData.push(['Equity', equity.toLocaleString()]);
+    }
+    
+    // Add the table using autoTable
+    autoTable(doc, {
+      head: headers,
+      body: tableData,
+      startY: 50,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
+      styles: { fontSize: 10 },
+      columnStyles: {
+        1: { halign: 'right' } // Right-align the amount column
+      }
+    });
+    
+    // Save the PDF
+    doc.save(`${type === 'income' ? 'income_statement' : 'balance_sheet'}_${currentDate.replace(/\//g, '-')}.pdf`);
+    
+    showNotificationMessage('success', `${type === 'income' ? 'Income Statement' : 'Balance Sheet'} generated successfully`);
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    showNotificationMessage('error', 'Failed to generate PDF: ' + error.message);
+  }
 };
 
 export default PaymentDashboard;

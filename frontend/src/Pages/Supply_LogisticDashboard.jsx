@@ -340,22 +340,16 @@ function Supply_LogisticDashboard() {
   const [selectedOrderForShipment, setSelectedOrderForShipment] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
   const [selectedProduct, setSelectedProduct] = useState(null);
-  // Add state variable for supplier price
   const [supplierPrice, setSupplierPrice] = useState("");
   const [supplierValue, setSupplierValue] = useState("");
-  // Add a new state for order search
   const [orderSearchTerm, setOrderSearchTerm] = useState("");
-  // Add state for order details modal
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
-  // Add state for expanded order row
   const [expandedOrderId, setExpandedOrderId] = useState(null);
-  // Add state for wait time filter
-  const [waitTimeFilter, setWaitTimeFilter] = useState('all'); // Options: 'all', 'new', 'waiting6h', 'waiting12h', 'waiting24h'
-  const [shipmentStatusFilter, setShipmentStatusFilter] = useState("all"); // Added for shipment status filtering
-  const [supplierCategoryFilter, setSupplierCategoryFilter] = useState("all"); // Added for supplier category filtering
-  const [supplierSearchTerm, setSupplierSearchTerm] = useState(""); // Added for supplier search
-  const [restockSearchTerm, setRestockSearchTerm] = useState(""); // Added for restock management search
+  const [shipmentStatusFilter, setShipmentStatusFilter] = useState("all");
+  const [supplierCategoryFilter, setSupplierCategoryFilter] = useState("all");
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
+  const [restockSearchTerm, setRestockSearchTerm] = useState("");
 
   // Add the mapOrderStatus function here
 const mapOrderStatus = (status) => {
@@ -1741,7 +1735,7 @@ const handleUpdateSupplier = async () => {
     // Filter to only show pending orders
     const pendingOrders = orders.filter(order => order.status === 'Pending');
     
-    // Filter orders based on wait time
+    // Filter orders based on search term only
     const filteredPendingOrders = pendingOrders.filter(order => {
       if (orderSearchTerm) {
         const matchesSearch = 
@@ -1751,29 +1745,7 @@ const handleUpdateSupplier = async () => {
         
         if (!matchesSearch) return false;
       }
-      
-      // Apply wait time filter
-      if (waitTimeFilter === 'all') return true;
-
-      // Use the raw date from the database
-      const orderDateTime = parseDatabaseDate(order.rawDate);
-      if (!orderDateTime) return true;
-      
-      const now = getSriLankaTime();
-      const hoursDiff = (now - orderDateTime) / (1000 * 60 * 60); // Convert to hours
-      
-      switch (waitTimeFilter) {
-        case 'new':
-          return hoursDiff <= 6;
-        case 'waiting6h':
-          return hoursDiff > 6 && hoursDiff <= 12;
-        case 'waiting12h':
-          return hoursDiff > 12 && hoursDiff <= 24;
-        case 'waiting24h':
-          return hoursDiff > 24;
-        default:
-          return true;
-      }
+      return true;
     });
     
     // Sort by date (oldest first) to emphasize first-come-first-serve
@@ -1822,58 +1794,14 @@ const handleUpdateSupplier = async () => {
               <div className="flex rounded-lg overflow-hidden border border-gray-300 bg-white">
                 <button
                   onClick={() => setWaitTimeFilter('all')}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    waitTimeFilter === 'all' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className="px-3 py-2 text-sm font-medium bg-blue-600 text-white"
                 >
-                  All
+                  All Orders
                 </button>
-                <button
-                  onClick={() => setWaitTimeFilter('new')}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    waitTimeFilter === 'new' 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  New
-                </button>
-                <button
-                  onClick={() => setWaitTimeFilter('waiting6h')}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    waitTimeFilter === 'waiting6h' 
-                      ? 'bg-amber-500 text-white' 
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Waiting &gt;6h
-                </button>
-                <button
-                  onClick={() => setWaitTimeFilter('waiting12h')}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    waitTimeFilter === 'waiting12h' 
-                      ? 'bg-orange-500 text-white' 
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Waiting &gt;12h
-                </button>
-                <button
-                  onClick={() => setWaitTimeFilter('waiting24h')}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    waitTimeFilter === 'waiting24h' 
-                      ? 'bg-red-600 text-white' 
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Waiting &gt;24h
-                </button>
+              </div>
             </div>
           </div>
-                    </div>
-                    </div>
+        </div>
                     
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -1895,7 +1823,7 @@ const handleUpdateSupplier = async () => {
                   Value
                 </th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Waiting Time
+                  Order Date
                 </th>
                 <th scope="col" className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -1942,19 +1870,7 @@ const handleUpdateSupplier = async () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <span className={`text-sm font-medium flex items-center ${
-                          parseDatabaseDate(order.rawDate) && 
-                          getSriLankaTime().getTime() - parseDatabaseDate(order.rawDate).getTime() > (24 * 60 * 60 * 1000) 
-                            ? 'text-red-600' 
-                            : parseDatabaseDate(order.rawDate) && 
-                              getSriLankaTime().getTime() - parseDatabaseDate(order.rawDate).getTime() > (12 * 60 * 60 * 1000)
-                              ? 'text-orange-600'
-                              : 'text-gray-600'
-                        }`}>
-                          <Clock className="h-4 w-4 mr-1.5" />
-                          {getTimeElapsed(order)}
-                        </span>
-                        <span className="ml-2 text-xs text-gray-500">
+                        <span className="text-sm font-medium text-gray-600">
                           {order.rawDate ? getLocalTimeFromDatabase(order.rawDate) : 'No date'}
                         </span>
                       </div>
@@ -2141,28 +2057,9 @@ const handleUpdateSupplier = async () => {
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-700">
               <span className="font-medium">{sortedPendingOrders.length}</span> new orders in queue
-                  </div>
-                  
-            <div className="flex items-center space-x-5">
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-xs text-gray-600">New</span>
-                      </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                <span className="text-xs text-gray-600">Waiting {'>'}6h</span>
-                      </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                <span className="text-xs text-gray-600">Waiting {'>'}12h</span>
-                    </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span className="text-xs text-gray-600">Waiting {'>'}24h</span>
-                      </div>
-                      </div>
-                    </div>
-                      </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -2435,7 +2332,7 @@ const handleUpdateSupplier = async () => {
 
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <button
+                {/* <button
                   className="p-2 rounded-full hover:bg-gray-100 transition-colors relative"
                   onClick={() => setShowNotifications(!showNotifications)}
                 >
@@ -2443,7 +2340,7 @@ const handleUpdateSupplier = async () => {
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                     {notifications.length}
                   </span>
-                </button>
+                </button> */}
 
                 {showNotifications && (
                   <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-2 z-30">
