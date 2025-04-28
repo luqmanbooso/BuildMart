@@ -1,7 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { FaSearch, FaUser, FaTimes, FaDownload } from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaSearch, FaUser, FaTimes, FaDownload, FaChartBar, FaFilePdf } from 'react-icons/fa';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { Bar, Pie, Line } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement } from 'chart.js';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  PointElement,
+  LineElement
+);
 
 const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAllServiceProviders, isLoading }) => {
   const [activeTab, setActiveTab] = useState('clients');
@@ -21,6 +39,13 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     fields: ['username', 'email', 'role', 'createdAt']
   });
   const [reportData, setReportData] = useState(null);
+  const [showCharts, setShowCharts] = useState(false);
+  const chartRef = useRef(null);
+  const [chartData, setChartData] = useState({
+    userDistribution: null,
+    verificationStatus: null,
+    userGrowth: null
+  });
 
   // Available fields for reports
   const availableFields = {
@@ -374,6 +399,140 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
     }
   };
 
+  const generateCharts = () => {
+    // User Distribution Chart
+    const userDistributionData = {
+      labels: ['Clients', 'Service Providers'],
+      datasets: [{
+        label: 'User Distribution',
+        data: [allClients.length, allServiceProviders.length],
+        backgroundColor: ['rgba(54, 162, 235, 0.5)', 'rgba(255, 99, 132, 0.5)'],
+        borderColor: ['rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)'],
+        borderWidth: 1
+      }]
+    };
+
+    // Verification Status Chart
+    const verifiedProviders = allServiceProviders.filter(provider => 
+      provider.verified || contractorProfiles[provider._id]?.verified || contractorProfiles[provider.id]?.verified
+    ).length;
+    
+    const verificationData = {
+      labels: ['Verified', 'Unverified'],
+      datasets: [{
+        data: [verifiedProviders, allServiceProviders.length - verifiedProviders],
+        backgroundColor: ['rgba(75, 192, 192, 0.5)', 'rgba(255, 159, 64, 0.5)'],
+        borderColor: ['rgba(75, 192, 192, 1)', 'rgba(255, 159, 64, 1)'],
+        borderWidth: 1
+      }]
+    };
+
+    // User Growth Chart
+    const userGrowthData = {
+      labels: ['Clients', 'Service Providers'],
+      datasets: [{
+        label: 'New Users (Last 30 Days)',
+        data: [
+          allClients.filter(client => new Date(client.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length,
+          allServiceProviders.filter(provider => new Date(provider.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length
+        ],
+        backgroundColor: 'rgba(153, 102, 255, 0.5)',
+        borderColor: 'rgba(153, 102, 255, 1)',
+        borderWidth: 1
+      }]
+    };
+
+    setChartData({
+      userDistribution: userDistributionData,
+      verificationStatus: verificationData,
+      userGrowth: userGrowthData
+    });
+  };
+
+  const generatePDFReport = async () => {
+    try {
+      const doc = new jsPDF();
+      let yPos = 20;
+
+      // Add title
+      doc.setFontSize(20);
+      doc.text('User Management Report', 20, yPos);
+      yPos += 20;
+
+      // Add date
+      doc.setFontSize(12);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, yPos);
+      yPos += 20;
+
+      // Add summary statistics
+      doc.setFontSize(14);
+      doc.text('Summary Statistics', 20, yPos);
+      yPos += 10;
+      
+      doc.setFontSize(12);
+      doc.text(`Total Users: ${allClients.length + allServiceProviders.length}`, 20, yPos);
+      yPos += 10;
+      doc.text(`Clients: ${allClients.length}`, 20, yPos);
+      yPos += 10;
+      doc.text(`Service Providers: ${allServiceProviders.length}`, 20, yPos);
+      yPos += 20;
+
+      // Add charts
+      if (chartRef.current) {
+        const canvas = await html2canvas(chartRef.current);
+        const imgData = canvas.toDataURL('image/png');
+        doc.addImage(imgData, 'PNG', 20, yPos, 170, 100);
+        yPos += 120;
+      }
+
+      // Add user data table
+      const tableData = [];
+      const headers = ['Username', 'Email', 'Role', 'Status', 'Joined Date'];
+
+      if (reportCriteria.userType === 'all' || reportCriteria.userType === 'clients') {
+        allClients.forEach(client => {
+          tableData.push([
+            client.username,
+            client.email,
+            'Client',
+            'Active',
+            new Date(client.createdAt).toLocaleDateString()
+          ]);
+        });
+      }
+
+      if (reportCriteria.userType === 'all' || reportCriteria.userType === 'serviceProviders') {
+        allServiceProviders.forEach(provider => {
+          const isVerified = provider.verified || 
+                           contractorProfiles[provider._id]?.verified || 
+                           contractorProfiles[provider.id]?.verified;
+          tableData.push([
+            provider.username,
+            provider.email,
+            'Service Provider',
+            isVerified ? 'Verified' : 'Unverified',
+            new Date(provider.createdAt).toLocaleDateString()
+          ]);
+        });
+      }
+
+      // Use autoTable function directly
+      autoTable(doc, {
+        head: [headers],
+        body: tableData,
+        startY: yPos,
+        margin: { left: 20, right: 20 }
+      });
+
+      // Save the PDF
+      doc.save('user_management_report.pdf');
+      toast.success('PDF report generated successfully');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF report');
+    }
+  };
+
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
   
@@ -573,6 +732,19 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
         
         <div className="flex space-x-3">
           <button
+            onClick={() => {
+              setShowCharts(!showCharts);
+              if (!showCharts) {
+                generateCharts();
+              }
+            }}
+            className="flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-sm"
+          >
+            <FaChartBar className="mr-2" />
+            <span>{showCharts ? 'Hide Charts' : 'Show Charts'}</span>
+          </button>
+
+          <button
             onClick={() => setShowReportModal(true)}
             className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
           >
@@ -580,11 +752,11 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
           </button>
 
           <button
-            onClick={handleDownloadUsers}
-            className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm"
+            onClick={generatePDFReport}
+            className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-sm"
           >
-            <FaDownload className="mr-2" />
-            <span>Export {activeTab === 'clients' ? 'Clients' : 'Service Providers'}</span>
+            <FaFilePdf className="mr-2" />
+            <span>Export PDF</span>
           </button>
         </div>
       </div>
@@ -1283,6 +1455,61 @@ const UsersManagement = ({ allClients, allServiceProviders, setAllClients, setAl
                 Generate Report
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showCharts && (
+        <div ref={chartRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">User Distribution</h3>
+            {chartData.userDistribution && (
+              <Bar
+                data={chartData.userDistribution}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                    },
+                  },
+                }}
+              />
+            )}
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">Verification Status</h3>
+            {chartData.verificationStatus && (
+              <Pie
+                data={chartData.verificationStatus}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                    },
+                  },
+                }}
+              />
+            )}
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">Recent User Growth</h3>
+            {chartData.userGrowth && (
+              <Line
+                data={chartData.userGrowth}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                    },
+                  },
+                }}
+              />
+            )}
           </div>
         </div>
       )}
